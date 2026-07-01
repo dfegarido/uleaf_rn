@@ -29,6 +29,8 @@ import {
   getAdminLeafTrailFilters,
   getAdminLeafTrailPacking,
 } from '../../../../components/Api/getAdminLeafTrail';
+import PackingTrayCard from './PackingTrayCard';
+import PackingTraySummary from './PackingTraySummary';
 
 const compareTrays = (a, b) =>
   String(a.sortingTrayNumber || '').localeCompare(
@@ -140,6 +142,18 @@ const PackingScreen = ({ navigation }) => {
     return [...(packingData?.data || [])].sort(compareTrays);
   }, [packingData?.data]);
 
+  const hubTotals = useMemo(() => {
+    return trays.reduce(
+      (acc, tray) => ({
+        totalCount: acc.totalCount + (tray.totalCount ?? tray.sortedPlantsCount ?? 0),
+        packedCount: acc.packedCount + (tray.packedCount ?? 0),
+        boxAssignedCount: acc.boxAssignedCount + (tray.boxAssignedCount ?? 0),
+        sortedCount: acc.sortedCount + (tray.sortedCount ?? 0),
+      }),
+      { totalCount: 0, packedCount: 0, boxAssignedCount: 0, sortedCount: 0 },
+    );
+  }, [trays]);
+
   const adminFiltersWithFlights = useMemo(() => {
     const fromTrays = mergeFlightDatesIntoAdminFilters(adminFilters, trays);
     const responseIsos = packingData?.flightDateIsos || [];
@@ -205,6 +219,63 @@ const PackingScreen = ({ navigation }) => {
     fetchData(payload);
   };
 
+  const listHeader = (
+    <>
+      {hubSpecEnabled ? (
+        <LeafTrailHubToolbar
+          adminFilters={adminFiltersWithFlights}
+          onFilterChange={onFilterChange}
+          sellersLoading={sellersLoading}
+        />
+      ) : (
+        <FilterBar
+          adminFilters={adminFiltersWithFlights}
+          onFilterChange={onFilterChange}
+          sellersLoading={sellersLoading}
+        />
+      )}
+      {hubSpecEnabled && trays.length > 0 ? (
+        <PackingTraySummary metrics={hubTotals} variant="inline" />
+      ) : null}
+      {activeFilters?.search ? (
+        <Text style={styles.searchHint}>
+          Showing trays matching “{activeFilters.search}”
+        </Text>
+      ) : null}
+      <Text style={styles.countText}>
+        {packingData?.total ?? trays.length} box(es)
+      </Text>
+      {hubSpecEnabled && trays.length > 0 ? (
+        <Text style={styles.sectionTitle}>All receiver boxes</Text>
+      ) : null}
+    </>
+  );
+
+  const emptyComponent = !isLoading ? (
+    <View style={styles.emptyWrap}>
+      {fetchError ? (
+        <Text style={styles.emptyErrorText}>{fetchError}</Text>
+      ) : (
+        <>
+          <Text style={styles.emptyText}>No trays ready for packing.</Text>
+          <Text style={styles.emptyHint}>
+            Trays appear here after plants are scanned as sorted in Plant Sorting and
+            assigned a tray number on the receiver box (tray icon in the box header).
+          </Text>
+          {activeFilters &&
+          (activeFilters.search ||
+            activeFilters.flightDate ||
+            activeFilters.gardenOrCompanyName ||
+            activeFilters.sellerName) ? (
+            <Text style={styles.emptyHint}>
+              Active filters may be hiding trays — clear filters and try again.
+            </Text>
+          ) : null}
+        </>
+      )}
+    </View>
+  ) : null;
+
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -238,66 +309,37 @@ const PackingScreen = ({ navigation }) => {
         scarQr={hubSpecEnabled}
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.packing}
       />
-      <FlatList
-        data={trays}
-        keyExtractor={(item) => String(item.sortingTrayNumber || item.id)}
-        renderItem={({ item }) => (
-          <PackingListItem item={item} navigation={navigation} />
-        )}
-        ListHeaderComponent={
-          <>
-            {hubSpecEnabled ? (
-              <LeafTrailHubToolbar
-                adminFilters={adminFiltersWithFlights}
-                onFilterChange={onFilterChange}
-                sellersLoading={sellersLoading}
-              />
-            ) : (
-              <FilterBar
-                adminFilters={adminFiltersWithFlights}
-                onFilterChange={onFilterChange}
-                sellersLoading={sellersLoading}
-              />
-            )}
-            {activeFilters?.search ? (
-              <Text style={styles.searchHint}>
-                Showing trays matching “{activeFilters.search}”
-              </Text>
-            ) : null}
-            <Text style={styles.countText}>
-              {packingData?.total ?? trays.length} tray(es)
-            </Text>
-          </>
-        }
-        ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
-        ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.emptyWrap}>
-              {fetchError ? (
-                <Text style={styles.emptyErrorText}>{fetchError}</Text>
-              ) : (
-                <>
-                  <Text style={styles.emptyText}>No trays ready for packing.</Text>
-                  <Text style={styles.emptyHint}>
-                    Trays appear here after plants are scanned as sorted in Plant Sorting and
-                    assigned a tray number on the receiver box (tray icon in the box header).
-                  </Text>
-                  {activeFilters &&
-                  (activeFilters.search ||
-                    activeFilters.flightDate ||
-                    activeFilters.gardenOrCompanyName ||
-                    activeFilters.sellerName) ? (
-                    <Text style={styles.emptyHint}>
-                      Active filters may be hiding trays — clear filters and try again.
-                    </Text>
-                  ) : null}
-                </>
-              )}
-            </View>
-          ) : null
-        }
-        contentContainerStyle={styles.listContentContainer}
-      />
+      {hubSpecEnabled ? (
+        <FlatList
+          key="packing-tray-grid"
+          data={trays}
+          numColumns={2}
+          keyExtractor={(item) => String(item.sortingTrayNumber || item.id)}
+          columnWrapperStyle={styles.receiverBoxesRow}
+          renderItem={({ item }) => (
+            <PackingTrayCard
+              tray={item}
+              useBoxLabel
+              onPress={() => navigation.navigate('ViewPackingScreen', { item })}
+            />
+          )}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={emptyComponent}
+          contentContainerStyle={styles.hubListContentContainer}
+        />
+      ) : (
+        <FlatList
+          data={trays}
+          keyExtractor={(item) => String(item.sortingTrayNumber || item.id)}
+          renderItem={({ item }) => (
+            <PackingListItem item={item} navigation={navigation} />
+          )}
+          ListHeaderComponent={listHeader}
+          ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+          ListEmptyComponent={emptyComponent}
+          contentContainerStyle={styles.listContentContainer}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -323,6 +365,23 @@ const styles = StyleSheet.create({
   },
   listContentContainer: {
     paddingBottom: 40,
+  },
+  hubListContentContainer: {
+    paddingBottom: 34,
+    paddingHorizontal: 8,
+  },
+  receiverBoxesRow: {
+    gap: 10,
+    marginBottom: 10,
+    alignItems: 'stretch',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#202325',
+    paddingHorizontal: 15,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   searchHint: {
     paddingHorizontal: 15,

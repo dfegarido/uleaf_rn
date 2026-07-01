@@ -36,7 +36,7 @@ const OptionItem = ({ isCrossIcon, isBoxIcon, title, hasRightArrow = false, setT
   </TouchableOpacity>
 )};
 
-const TagAsOptions = ({ visible, onClose, setTagAs, hasBox=false }) => {
+const TagAsOptions = ({ visible, onClose, setTagAs, hasBox = false, boxActionTitle = 'Assign a box' }) => {
   return (
     <Modal
       animationType="slide"
@@ -59,7 +59,7 @@ const TagAsOptions = ({ visible, onClose, setTagAs, hasBox=false }) => {
                 <View>
                   <OptionItem
                     isBoxIcon={true}
-                    title="Assign a box"
+                    title={boxActionTitle}
                     hasRightArrow
                     setTagAs={setTagAs}
                     status="packing"

@@ -27,6 +27,7 @@ import {
   getAdminLeafTrailFilters,
   getAdminLeafTrailShipping,
 } from '../../../../components/Api/getAdminLeafTrail';
+import ShippingBoxCard from './ShippingBoxCard';
 
 const compareBoxes = (a, b) =>
   String(a.boxNumber || '').localeCompare(String(b.boxNumber || ''), undefined, {
@@ -136,6 +137,17 @@ const ShippingScreen = ({ navigation }) => {
     return [...(shippingData?.data || [])].sort(compareBoxes);
   }, [shippingData?.data]);
 
+  const hubTotals = useMemo(() => {
+    return boxes.reduce(
+      (acc, box) => ({
+        boxCount: acc.boxCount + 1,
+        plantCount: acc.plantCount + (box.packedPlantsCount || 0),
+        withTracking: acc.withTracking + (String(box.trackingNumber || '').trim() ? 1 : 0),
+      }),
+      { boxCount: 0, plantCount: 0, withTracking: 0 },
+    );
+  }, [boxes]);
+
   const {
     actionLoading,
     showLabelViewer,
@@ -177,6 +189,45 @@ const ShippingScreen = ({ navigation }) => {
     fetchData(payload);
   };
 
+  const listHeader = (
+    <>
+      {hubSpecEnabled ? (
+        <LeafTrailHubToolbar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+      ) : (
+        <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+      )}
+      {hubSpecEnabled && boxes.length > 0 ? (
+        <View style={styles.receivedSummaryRow}>
+          <View style={styles.receivedSummaryCell}>
+            <Text style={styles.receivedSummaryValue}>{hubTotals.plantCount}</Text>
+            <Text style={styles.receivedSummaryLabel}>plants in transit</Text>
+          </View>
+          <View style={styles.receivedSummarySep} />
+          <View style={styles.receivedSummaryCell}>
+            <Text style={[styles.receivedSummaryValue, styles.receivedSummaryValueGreen]}>
+              {hubTotals.withTracking}
+            </Text>
+            <Text style={styles.receivedSummaryLabel}>with tracking</Text>
+          </View>
+          <View style={styles.receivedSummarySep} />
+          <View style={styles.receivedSummaryCell}>
+            <Text style={styles.receivedSummaryValue}>
+              {Math.max(0, hubTotals.boxCount - hubTotals.withTracking)}
+            </Text>
+            <Text style={styles.receivedSummaryLabel}>need tracking</Text>
+          </View>
+        </View>
+      ) : null}
+      {activeFilters?.search ? (
+        <Text style={styles.searchHint}>Showing boxes matching “{activeFilters.search}”</Text>
+      ) : null}
+      <Text style={styles.countText}>{shippingData?.total ?? boxes.length} box(es)</Text>
+      {hubSpecEnabled && boxes.length > 0 ? (
+        <Text style={styles.sectionTitle}>All boxes in transit</Text>
+      ) : null}
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -208,26 +259,41 @@ const ShippingScreen = ({ navigation }) => {
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipping}
       />
       {hubSpecEnabled ? (
-        <LeafTrailHubToolbar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+        <FlatList
+          key="shipping-box-grid"
+          data={boxes}
+          numColumns={2}
+          keyExtractor={(item) => String(item.boxNumber || item.id)}
+          columnWrapperStyle={styles.receiverBoxesRow}
+          renderItem={({ item }) => (
+            <ShippingBoxCard
+              box={item}
+              onPress={() => navigation.navigate('ViewShippingScreen', { item })}
+            />
+          )}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            !isLoading ? (
+              <Text style={styles.emptyText}>No boxes in transit.</Text>
+            ) : null
+          }
+          contentContainerStyle={styles.hubListContentContainer}
+        />
       ) : (
-        <FilterBar adminFilters={adminFilters} onFilterChange={onFilterChange} />
+        <FlatList
+          data={boxes}
+          keyExtractor={(item) => String(item.boxNumber || item.id)}
+          renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
+          ListHeaderComponent={listHeader}
+          ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+          ListEmptyComponent={
+            !isLoading ? (
+              <Text style={styles.emptyText}>No boxes in transit.</Text>
+            ) : null
+          }
+          contentContainerStyle={styles.listContentContainer}
+        />
       )}
-      {activeFilters?.search ? (
-        <Text style={styles.searchHint}>Showing boxes matching “{activeFilters.search}”</Text>
-      ) : null}
-      <Text style={styles.countText}>{shippingData?.total ?? boxes.length} box(es)</Text>
-      <FlatList
-        data={boxes}
-        keyExtractor={(item) => String(item.boxNumber || item.id)}
-        renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
-        ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
-        ListEmptyComponent={
-          !isLoading ? (
-            <Text style={styles.emptyText}>No boxes in transit.</Text>
-          ) : null
-        }
-        contentContainerStyle={styles.listContentContainer}
-      />
     </SafeAreaView>
   );
 };
@@ -247,6 +313,58 @@ const styles = StyleSheet.create({
   },
   listContentContainer: {
     paddingBottom: 40,
+  },
+  hubListContentContainer: {
+    paddingBottom: 34,
+    paddingHorizontal: 8,
+  },
+  receivedSummaryRow: {
+    flexDirection: 'row',
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    backgroundColor: '#F4F7F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDE7E1',
+    paddingVertical: 10,
+  },
+  receivedSummaryCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  receivedSummarySep: {
+    width: 1,
+    backgroundColor: '#DDE7E1',
+    marginVertical: 4,
+  },
+  receivedSummaryValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#202325',
+  },
+  receivedSummaryValueGreen: {
+    color: '#2F8C4F',
+  },
+  receivedSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#647276',
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#202325',
+    paddingHorizontal: 15,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  receiverBoxesRow: {
+    gap: 10,
+    marginBottom: 10,
+    alignItems: 'stretch',
   },
   searchHint: {
     color: '#647276',

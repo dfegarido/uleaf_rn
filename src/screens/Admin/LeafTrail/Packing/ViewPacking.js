@@ -36,6 +36,7 @@ import PackingSelectionFooter from './PackingSelectionFooter';
 import PackingTraySummary from './PackingTraySummary';
 import TagAsOptions from './TagAs';
 import { computePackingTrayMetrics } from '../../../../utils/packingTrayMetrics';
+import { resolveCanonicalReceiverBoxNumber } from '../../../../utils/receiverBoxNumber';
 
 const isAssignableForBox = (plant) =>
   !String(plant?.packingData?.boxNumber || '').trim();
@@ -198,6 +199,14 @@ const ViewPackingScreen = ({ navigation, route }) => {
     [plantList],
   );
 
+  const canonicalReceiverBoxNumber = useMemo(
+    () =>
+      resolveCanonicalReceiverBoxNumber(item) ||
+      resolveCanonicalReceiverBoxNumber(plantList[0]) ||
+      String(item?.sortingTrayNumber || '').trim(),
+    [item, plantList],
+  );
+
   const assignablePlants = useMemo(
     () => plantList.filter(isAssignableForBox),
     [plantList],
@@ -274,7 +283,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
         await fetchData();
         setOrderId(null);
         setSelectedPlants([]);
-        Alert.alert('Success', `${boxDetails.boxNumber} assigned.`);
+        Alert.alert('Success', `Box #${boxDetails.boxNumber} assigned with dimensions and weight.`);
       } else {
         Alert.alert('Error', response?.message || 'Could not assign box.');
       }
@@ -363,7 +372,10 @@ const ViewPackingScreen = ({ navigation, route }) => {
           styles.scrollContent,
           selectedPlants.length > 0 && { paddingBottom: 200 + insets.bottom },
         ]}>
-        <TrayInfo trayNumber={packingDetails.sortingTrayNumber} label="Tray Number" />
+        <TrayInfo
+          trayNumber={canonicalReceiverBoxNumber || packingDetails.sortingTrayNumber}
+          label={hubSpecEnabled ? 'Receiver Box Number' : 'Tray Number'}
+        />
         <PackingTraySummary metrics={trayMetrics} />
 
         <View style={styles.deliveryDetailsSection}>
@@ -412,6 +424,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
       <TagAsOptions visible={isTagAsVisible}
         setTagAs={setTagAs}
         hasBox={hasBoxNumber}
+        boxActionTitle={hubSpecEnabled ? 'Box details' : 'Assign a box'}
         onClose={() => setTagAsVisible(false)}/>
 
       {isLoading && (
@@ -429,12 +442,17 @@ const ViewPackingScreen = ({ navigation, route }) => {
         onClear={() => setSelectedPlants([])}
         onAssignBox={openAssignSheet}
         onNeedsToStay={stay}
+        assignBoxLabel={hubSpecEnabled ? 'Box details' : 'Assign box #'}
       />
       <AssignBoxModal
         visible={isAssignBoxVisible}
         onClose={() => setIsAssignBoxVisible(false)}
         onSave={handleSaveBox}
         selectedCount={selectedPlants.length || (orderId ? 1 : 0)}
+        defaultBoxNumber={canonicalReceiverBoxNumber}
+        lockBoxNumber={hubSpecEnabled && Boolean(canonicalReceiverBoxNumber)}
+        title={hubSpecEnabled ? 'Box details' : 'Assign box #'}
+        saveLabel={hubSpecEnabled ? 'Save box details' : 'Save box assignment'}
       />
     </SafeAreaView>
   );

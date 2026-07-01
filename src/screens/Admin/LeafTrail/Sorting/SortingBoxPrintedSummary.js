@@ -80,12 +80,12 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
         <StatCell label="Sorted" value={`${sortedCount}/${denom}`} accent />
       </View>
 
-      <ProgressRow label="Received at hub" current={receivedCount} total={denom} color="#539461" />
+      <ProgressRow label="Received at the hub" current={receivedCount} total={denom} color="#539461" />
       <ProgressRow label="Sorted" current={sortedCount} total={denom} color="#2F8C4F" />
 
       {(needsToStayCount > 0 || othersCount > 0 || missingCount > 0 || damagedCount > 0) && (
         <View style={styles.excludedSection}>
-          <Text style={styles.excludedHeading}>Excluded from fulfill</Text>
+          <Text style={styles.excludedHeading}>Excluded from fulfillment</Text>
           <View style={styles.chipRow}>
             {needsToStayCount > 0 ? (
               <View style={[styles.chip, styles.chipStay]}>
@@ -112,7 +112,7 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
       )}
 
       <View style={styles.fulfillCard}>
-        <Text style={styles.fulfillTitle}>Total Plants to Fulfill</Text>
+        <Text style={styles.fulfillTitle}>Outstanding Plants</Text>
         <Text style={styles.fulfillCount}>{totalPlantsToFulfill}</Text>
         <Text style={styles.fulfillHint}>{fulfillHint} = {totalPlantsToFulfill}</Text>
       </View>

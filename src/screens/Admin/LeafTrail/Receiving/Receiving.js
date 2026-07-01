@@ -109,6 +109,7 @@ const TABS_WITH_PLANT_SELECTION = new Set(['forReceiving', 'inventoryForHub']);
 /** Tabs whose ⋯ menu includes Change leaf trail / Change plant status sheets. */
 const TABS_WITH_STATUS_ACTIONS = new Set([
     'forReceiving',
+    'received',
     'inventoryForHub',
     'missing',
     'damaged',
@@ -452,8 +453,15 @@ const ReceivedTab = ({
     onFilterChange,
     adminFilters,
     openTagAs,
+    onBoxDetailOpenChange,
+    plantActionOverlays,
 }) => {
     const [activeBox, setActiveBox] = useState(null);
+
+    const setBoxOpen = useCallback((box) => {
+        setActiveBox(box);
+        onBoxDetailOpenChange?.(Boolean(box));
+    }, [onBoxDetailOpenChange]);
 
     const receiverBoxPlantItems = React.useMemo(
         () => getReceiverBoxPlantsFromReceivingResponse(receivingData || {}),
@@ -488,6 +496,72 @@ const ReceivedTab = ({
         receiverBoxPlantItems.length ??
         receiverBoxes.reduce((sum, box) => sum + box.items.length, 0);
 
+    const boxGridHeader = (
+        <>
+            <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
+            <View style={styles.receivedSummaryRow}>
+                <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
+                <Text style={styles.countText}>{plantTotal} plant(s)</Text>
+            </View>
+        </>
+    );
+
+    const boxDetailModal = (
+        <Modal
+            visible={!!activeBox}
+            animationType="slide"
+            transparent={false}
+            presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+            onRequestClose={() => setBoxOpen(null)}>
+            <View style={styles.receiverBoxModalRoot}>
+                <SafeAreaView style={styles.receiverBoxModalContainer} edges={['top', 'bottom']}>
+                    <View style={styles.receiverBoxModalHeader}>
+                    <TouchableOpacity
+                        style={styles.receiverBoxModalBack}
+                        onPress={() => setBoxOpen(null)}>
+                        <BackIcon width={22} height={22} />
+                    </TouchableOpacity>
+                    <View style={styles.receiverBoxModalTitleWrap}>
+                        <Text style={styles.receiverBoxModalTitle} numberOfLines={1}>
+                            {activeBox?.boxNumber
+                                ? `Box ${activeBox.boxNumber} · ${activeBox.receiverName || 'Receiver'}`
+                                : activeBox?.receiverName || 'Receiver Box'}
+                        </Text>
+                        {activeBox?.receiverUsername ? (
+                            <Text style={styles.receiverBoxModalUsername} numberOfLines={1}>
+                                @{activeBox.receiverUsername}
+                            </Text>
+                        ) : null}
+                        <Text style={styles.receiverBoxModalMeta}>
+                            {(activeBox?.items || []).length} plant(s) · Scanned {activeBox?.scannedCount || 0} · Unscanned {activeBox?.unscannedCount || 0}
+                        </Text>
+                    </View>
+                </View>
+                <FlatList
+                    style={styles.receiverBoxModalList}
+                    data={activeBox?.items || []}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => {
+                        const statusPill = getReceiverBoxPlantStatusPill(item);
+                        return (
+                            <ForReceivingPlantCard
+                                item={item}
+                                openTagAs={openTagAs}
+                                compact={false}
+                                statusPillLabel={statusPill.label}
+                                statusPillVariant={statusPill.variant}
+                            />
+                        );
+                    }}
+                    ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+                    contentContainerStyle={styles.receiverBoxModalListContent}
+                />
+                </SafeAreaView>
+                {plantActionOverlays}
+            </View>
+        </Modal>
+    );
+
     if (!receiverBoxes.length) {
         return (
             <>
@@ -513,116 +587,62 @@ const ReceivedTab = ({
      }
 
     return (
-        <FlatList
-            key="received-box-grid"
-            data={receiverBoxes}
-            keyExtractor={(item) => `box-${item.boxNumber}-${item.receiverName}`}
-            numColumns={2}
-            columnWrapperStyle={styles.receiverBoxesRow}
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                    style={styles.receiverBoxCard}
-                    activeOpacity={0.85}
-                    onPress={() => setActiveBox(item)}>
-                    <View style={styles.receiverBoxTopAccent} />
-                    <View style={styles.receiverBoxNumberRow}>
-                        <View style={styles.receiverBoxNumberBadge}>
-                            <Text style={styles.receiverBoxNumberText}>{item.boxNumber}</Text>
+        <>
+            <FlatList
+                key="received-box-grid"
+                data={receiverBoxes}
+                keyExtractor={(item) => `box-${item.boxNumber}-${item.receiverName}`}
+                numColumns={2}
+                columnWrapperStyle={styles.receiverBoxesRow}
+                renderItem={({ item }) => (
+                    <TouchableOpacity
+                        style={styles.receiverBoxCard}
+                        activeOpacity={0.85}
+                        onPress={() => setBoxOpen(item)}>
+                        <View style={styles.receiverBoxTopAccent} />
+                        <View style={styles.receiverBoxNumberRow}>
+                            <View style={styles.receiverBoxNumberBadge}>
+                                <Text style={styles.receiverBoxNumberText}>{item.boxNumber}</Text>
+                            </View>
+                            <Text style={styles.receiverBoxSubtitle}>Receiver Box</Text>
                         </View>
-                        <Text style={styles.receiverBoxSubtitle}>Receiver Box</Text>
-                    </View>
-                    <Text style={styles.receiverBoxTitle} numberOfLines={2}>
-                        {item.receiverName}
-                    </Text>
-                    {item.receiverUsername ? (
-                        <Text style={styles.receiverBoxUsername} numberOfLines={1}>
-                            @{item.receiverUsername}
+                        <Text style={styles.receiverBoxTitle} numberOfLines={2}>
+                            {item.receiverName}
                         </Text>
-                    ) : null}
-
-                    <View style={styles.receiverBoxDivider} />
-
-                    <Text style={styles.receiverBoxCount}>{item.items.length} plant(s)</Text>
-                    <View style={styles.receiverBoxStatusRow}>
-                        <View style={[styles.receiverBoxStatusChip, styles.receiverBoxScannedChip]}>
-                            <Text style={[styles.receiverBoxStatusText, styles.receiverBoxScannedText]}>
-                                Scanned {item.scannedCount}
+                        {item.receiverUsername ? (
+                            <Text style={styles.receiverBoxUsername} numberOfLines={1}>
+                                @{item.receiverUsername}
                             </Text>
-                        </View>
-                        <View style={[styles.receiverBoxStatusChip, styles.receiverBoxUnscannedChip]}>
-                            <Text style={[styles.receiverBoxStatusText, styles.receiverBoxUnscannedText]}>
-                                Unscanned {item.unscannedCount}
-                            </Text>
-                        </View>
-                    </View>
+                        ) : null}
 
-                    <Text style={styles.receiverBoxJoinersLabel}>Joiners</Text>
-                    <Text style={styles.receiverBoxJoiners} numberOfLines={2}>
-                        {item.joiners.length ? item.joiners.join(', ') : 'No joiners'}
-                    </Text>
-                    <Text style={styles.receiverBoxHint}>Tap to open box</Text>
-                </TouchableOpacity>
-            )}
-            ListHeaderComponent={
-                <>
-                    <FilterBar showScan={true} onFilterChange={onFilterChange} adminFilters={sortedAdminFilters} />
-                    <View style={styles.receivedSummaryRow}>
-                        <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
-                        <Text style={styles.countText}>{plantTotal} plant(s)</Text>
-                    </View>
-                </>
-            }
-            contentContainerStyle={styles.listContentContainer}
-            ListFooterComponent={
-                <Modal
-                    visible={!!activeBox}
-                    animationType="slide"
-                    transparent={false}
-                    onRequestClose={() => setActiveBox(null)}>
-                    <SafeAreaView style={styles.receiverBoxModalContainer} edges={['top']}>
-                        <View style={styles.receiverBoxModalHeader}>
-                            <TouchableOpacity
-                                style={styles.receiverBoxModalBack}
-                                onPress={() => setActiveBox(null)}>
-                                <BackIcon width={22} height={22} />
-                            </TouchableOpacity>
-                            <View style={styles.receiverBoxModalTitleWrap}>
-                                <Text style={styles.receiverBoxModalTitle} numberOfLines={1}>
-                                    {activeBox?.boxNumber
-                                        ? `Box ${activeBox.boxNumber} · ${activeBox.receiverName || 'Receiver'}`
-                                        : activeBox?.receiverName || 'Receiver Box'}
+                        <View style={styles.receiverBoxDivider} />
+
+                        <Text style={styles.receiverBoxCount}>{item.items.length} plant(s)</Text>
+                        <View style={styles.receiverBoxStatusRow}>
+                            <View style={[styles.receiverBoxStatusChip, styles.receiverBoxScannedChip]}>
+                                <Text style={[styles.receiverBoxStatusText, styles.receiverBoxScannedText]}>
+                                    Scanned {item.scannedCount}
                                 </Text>
-                                {activeBox?.receiverUsername ? (
-                                    <Text style={styles.receiverBoxModalUsername} numberOfLines={1}>
-                                        @{activeBox.receiverUsername}
-                                    </Text>
-                                ) : null}
-                                <Text style={styles.receiverBoxModalMeta}>
-                                    {(activeBox?.items || []).length} plant(s) · Scanned {activeBox?.scannedCount || 0} · Unscanned {activeBox?.unscannedCount || 0}
+                            </View>
+                            <View style={[styles.receiverBoxStatusChip, styles.receiverBoxUnscannedChip]}>
+                                <Text style={[styles.receiverBoxStatusText, styles.receiverBoxUnscannedText]}>
+                                    Unscanned {item.unscannedCount}
                                 </Text>
                             </View>
                         </View>
-                        <FlatList
-                            data={activeBox?.items || []}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => {
-                                const statusPill = getReceiverBoxPlantStatusPill(item);
-                                return (
-                                <ForReceivingPlantCard
-                                    item={item}
-                                    openTagAs={openTagAs}
-                                    compact={false}
-                                    statusPillLabel={statusPill.label}
-                                    statusPillVariant={statusPill.variant}
-                                />
-                            )}}
-                            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-                            contentContainerStyle={styles.receiverBoxModalListContent}
-                        />
-                    </SafeAreaView>
-                </Modal>
-            }
-        />
+
+                        <Text style={styles.receiverBoxJoinersLabel}>Joiners</Text>
+                        <Text style={styles.receiverBoxJoiners} numberOfLines={2}>
+                            {item.joiners.length ? item.joiners.join(', ') : 'No joiners'}
+                        </Text>
+                        <Text style={styles.receiverBoxHint}>Tap to open box</Text>
+                    </TouchableOpacity>
+                )}
+                ListHeaderComponent={boxGridHeader}
+                contentContainerStyle={styles.listContentContainer}
+            />
+            {boxDetailModal}
+        </>
     );
 };
 
@@ -949,6 +969,7 @@ const ReceivingScreen = ({navigation, route}) => {
     const [loadingMessage, setLoadingMessage] = useState('Preparing For Receiving data...');
     const [error, setError] = useState(null);
     const [isTagAsVisible, setTagAsVisible] = useState(false);
+    const [receiverBoxDetailOpen, setReceiverBoxDetailOpen] = useState(false);
     const [orderId, setOrderId] = useState(null);
     const { store: selectionStore } = useReceivingSelection();
     const [leafSheetVisible, setLeafSheetVisible] = useState(false);
@@ -1048,6 +1069,15 @@ const ReceivingScreen = ({navigation, route}) => {
     const supportsStatusActions = TABS_WITH_STATUS_ACTIONS.has(activeTabKey);
     const showPlantCheckboxes = supportsPlantSelection;
 
+    const handleReceiverBoxDetailOpenChange = useCallback((open) => {
+        setReceiverBoxDetailOpen(open);
+        if (!open) {
+            setTagAsVisible(false);
+            setLeafSheetVisible(false);
+            setPlantSheetVisible(false);
+        }
+    }, []);
+
     const openLeafTrailScan = useCallback(() => {
         const baseParams = trail1IntakeMode
             ? LEAF_TRAIL_SCAN_PARAMS.receivingIntake
@@ -1138,88 +1168,6 @@ const ReceivingScreen = ({navigation, route}) => {
     const clearSelectedItems = useCallback(() => {
         selectionStore.clear();
     }, [selectionStore]);
-
-    const renderScene = useCallback(({ route }) => {
-        switch (route.key) {
-            case 'forReceiving':
-                return <ForReceivingTab 
-                    openTagAs={openTagAs} 
-                    onFilterChange={onFilterChange} 
-                    data={receivingData?.forReceiving || {}} 
-                    adminFilters={adminFiltersForActiveTab}
-                    showCheckbox={showPlantCheckboxes}
-                    selectionStore={selectionStore}
-                    trail1IntakeMode={trail1IntakeMode}
-                />;
-            case 'inventoryForHub':
-                return <InventoryForHubTab 
-                    openTagAs={openTagAs} 
-                    onFilterChange={onFilterChange} 
-                    data={receivingData?.inventoryForHub || {}} 
-                    adminFilters={adminFiltersForActiveTab}
-                    showCheckbox={showPlantCheckboxes}
-                    selectionStore={selectionStore}
-                />;
-            case 'received':
-                return (
-                    <ReceivedTab
-                        openTagAs={openTagAs}
-                        onFilterChange={onFilterChange}
-                        receivingData={receivingData}
-                        adminFilters={adminFiltersForActiveTab}
-                    />
-                );
-            case 'missing':
-                return (
-                    <MissingTab
-                        openTagAs={openTagAs}
-                        onFilterChange={onFilterChange}
-                        data={receivingData?.missing || {}}
-                        adminFilters={adminFiltersForActiveTab}
-                        hubSpecEnabled={hubSpecEnabled}
-                    />
-                );
-            case 'damaged':
-                return (
-                    <DamagedTab
-                        openTagAs={openTagAs}
-                        onFilterChange={onFilterChange}
-                        data={receivingData?.damaged || {}}
-                        adminFilters={adminFiltersForActiveTab}
-                        hubSpecEnabled={hubSpecEnabled}
-                    />
-                );
-            case 'needsToStay':
-                return (
-                    <NeedsToStayTab
-                        openTagAs={openTagAs}
-                        onFilterChange={onFilterChange}
-                        data={receivingData?.needsToStay || {}}
-                        adminFilters={adminFiltersForActiveTab}
-                    />
-                );
-            case 'others':
-                return (
-                    <OthersTab
-                        openTagAs={openTagAs}
-                        onFilterChange={onFilterChange}
-                        data={receivingData?.others || {}}
-                        adminFilters={adminFiltersForActiveTab}
-                    />
-                );
-            default:
-                return null;
-        }
-    }, [
-        openTagAs,
-        onFilterChange,
-        receivingData,
-        adminFiltersForActiveTab,
-        showPlantCheckboxes,
-        selectionStore,
-        trail1IntakeMode,
-        hubSpecEnabled,
-    ]);
 
     const renderTabBar = props => (
         <TabBar
@@ -1404,6 +1352,129 @@ const ReceivingScreen = ({navigation, route}) => {
             ],
         );
     };
+
+    const plantActionOverlays = useMemo(
+        () => (
+            <>
+                <OrderSummaryStatusSheet
+                    visible={leafSheetVisible}
+                    title="Change leaf trail status"
+                    options={LEAF_TRAIL_STATUS_OPTIONS}
+                    onClose={() => setLeafSheetVisible(false)}
+                    onSelect={onLeafTrailStatusSelect}
+                />
+                <OrderSummaryStatusSheet
+                    visible={plantSheetVisible}
+                    title="Change plant status"
+                    options={plantStatusSheetOptions}
+                    onClose={() => setPlantSheetVisible(false)}
+                    onSelect={onPlantStatusSelect}
+                />
+                <TagAsOptions
+                    visible={isTagAsVisible}
+                    showStatusActions={supportsStatusActions}
+                    onLeafTrailStatusPress={openLeafTrailSheetFromCardMenu}
+                    onPlantStatusPress={openPlantSheetFromCardMenu}
+                    onClose={() => setTagAsVisible(false)}
+                />
+            </>
+        ),
+        [
+            leafSheetVisible,
+            plantSheetVisible,
+            plantStatusSheetOptions,
+            isTagAsVisible,
+            supportsStatusActions,
+            onLeafTrailStatusSelect,
+            onPlantStatusSelect,
+        ],
+    );
+
+    const renderScene = useCallback(({ route }) => {
+        switch (route.key) {
+            case 'forReceiving':
+                return <ForReceivingTab 
+                    openTagAs={openTagAs} 
+                    onFilterChange={onFilterChange} 
+                    data={receivingData?.forReceiving || {}} 
+                    adminFilters={adminFiltersForActiveTab}
+                    showCheckbox={showPlantCheckboxes}
+                    selectionStore={selectionStore}
+                    trail1IntakeMode={trail1IntakeMode}
+                />;
+            case 'inventoryForHub':
+                return <InventoryForHubTab 
+                    openTagAs={openTagAs} 
+                    onFilterChange={onFilterChange} 
+                    data={receivingData?.inventoryForHub || {}} 
+                    adminFilters={adminFiltersForActiveTab}
+                    showCheckbox={showPlantCheckboxes}
+                    selectionStore={selectionStore}
+                />;
+            case 'received':
+                return (
+                    <ReceivedTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        receivingData={receivingData}
+                        adminFilters={adminFiltersForActiveTab}
+                        onBoxDetailOpenChange={handleReceiverBoxDetailOpenChange}
+                        plantActionOverlays={plantActionOverlays}
+                    />
+                );
+            case 'missing':
+                return (
+                    <MissingTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.missing || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                        hubSpecEnabled={hubSpecEnabled}
+                    />
+                );
+            case 'damaged':
+                return (
+                    <DamagedTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.damaged || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                        hubSpecEnabled={hubSpecEnabled}
+                    />
+                );
+            case 'needsToStay':
+                return (
+                    <NeedsToStayTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.needsToStay || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                    />
+                );
+            case 'others':
+                return (
+                    <OthersTab
+                        openTagAs={openTagAs}
+                        onFilterChange={onFilterChange}
+                        data={receivingData?.others || {}}
+                        adminFilters={adminFiltersForActiveTab}
+                    />
+                );
+            default:
+                return null;
+        }
+    }, [
+        openTagAs,
+        onFilterChange,
+        receivingData,
+        adminFiltersForActiveTab,
+        showPlantCheckboxes,
+        selectionStore,
+        trail1IntakeMode,
+        hubSpecEnabled,
+        handleReceiverBoxDetailOpenChange,
+        plantActionOverlays,
+    ]);
 
     const hubExportLines = getCurrentTabData()?.data || [];
     const activeLoadingContextLabel =
@@ -1602,28 +1673,7 @@ const ReceivingScreen = ({navigation, route}) => {
 
             </SafeAreaView>
 
-            <OrderSummaryStatusSheet
-                visible={leafSheetVisible}
-                title="Change leaf trail status"
-                options={LEAF_TRAIL_STATUS_OPTIONS}
-                onClose={() => setLeafSheetVisible(false)}
-                onSelect={onLeafTrailStatusSelect}
-            />
-            <OrderSummaryStatusSheet
-                visible={plantSheetVisible}
-                title="Change plant status"
-                options={plantStatusSheetOptions}
-                onClose={() => setPlantSheetVisible(false)}
-                onSelect={onPlantStatusSelect}
-            />
-
-            <TagAsOptions
-                visible={isTagAsVisible}
-                showStatusActions={supportsStatusActions}
-                onLeafTrailStatusPress={openLeafTrailSheetFromCardMenu}
-                onPlantStatusPress={openPlantSheetFromCardMenu}
-                onClose={() => setTagAsVisible(false)}
-            />
+            {!receiverBoxDetailOpen ? plantActionOverlays : null}
         </SafeAreaProvider>
     );
 }
@@ -1909,6 +1959,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#2F8C4F',
     },
+    receiverBoxModalRoot: {
+        flex: 1,
+        backgroundColor: '#F5F7F8',
+    },
     receiverBoxModalContainer: {
         flex: 1,
         backgroundColor: '#F5F7F8',
@@ -1946,6 +2000,9 @@ const styles = StyleSheet.create({
         marginTop: 2,
         fontSize: 12,
         color: '#5E6A62',
+    },
+    receiverBoxModalList: {
+        flex: 1,
     },
     receiverBoxModalListContent: {
         paddingHorizontal: 12,

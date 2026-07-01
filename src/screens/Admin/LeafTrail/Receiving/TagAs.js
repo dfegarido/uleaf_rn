@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -37,11 +38,12 @@ const TagAsOptions = ({
 
   return (
     <Modal
-      animationType="slide"
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
       transparent
       visible={visible}
       onRequestClose={onClose}
-      statusBarTranslucent>
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
       <View style={styles.root}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" />
         <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>

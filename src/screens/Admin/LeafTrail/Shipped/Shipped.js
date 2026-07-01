@@ -32,6 +32,7 @@ import {
   getAdminLeafTrailFilters,
   getAdminLeafTrailShipped,
 } from '../../../../components/Api/getAdminLeafTrail';
+import DeliveredShipmentCard from './DeliveredShipmentCard';
 
 const compareTracking = (a, b) =>
   String(a.trackingNumber || '').localeCompare(String(b.trackingNumber || ''), undefined, {
@@ -154,6 +155,19 @@ const ShippedScreen = ({ navigation }) => {
     return [...(shippedData?.data || [])].sort(compareTracking);
   }, [shippedData?.data]);
 
+  const hubTotals = useMemo(() => {
+    return trackingGroups.reduce(
+      (acc, group) => ({
+        shipmentCount: acc.shipmentCount + 1,
+        plantCount: acc.plantCount + (group.shippedPlantsCount || 0),
+        withTracking:
+          acc.withTracking +
+          (group.hasUpsTracking !== false && String(group.trackingNumber || '').trim() ? 1 : 0),
+      }),
+      { shipmentCount: 0, plantCount: 0, withTracking: 0 },
+    );
+  }, [trackingGroups]);
+
   const adminFiltersMerged = useMemo(() => {
     const fromList = mergeFlightDatesIntoAdminFilters(adminFilters, trackingGroups);
     const withFlights = mergeFlightDatesIntoAdminFilters(
@@ -213,6 +227,57 @@ const ShippedScreen = ({ navigation }) => {
     fetchData(payload);
   };
 
+  const listHeader = (
+    <>
+      {hubSpecEnabled ? (
+        <LeafTrailHubToolbar
+          adminFilters={adminFiltersMerged}
+          onFilterChange={onFilterChange}
+          sellersLoading={sellersLoading}
+          gardensLoading={gardensLoading}
+        />
+      ) : (
+        <FilterBar
+          adminFilters={adminFiltersMerged}
+          onFilterChange={onFilterChange}
+          sellersLoading={sellersLoading}
+          gardensLoading={gardensLoading}
+        />
+      )}
+      {hubSpecEnabled && trackingGroups.length > 0 ? (
+        <View style={styles.receivedSummaryRow}>
+          <View style={styles.receivedSummaryCell}>
+            <Text style={styles.receivedSummaryValue}>{hubTotals.plantCount}</Text>
+            <Text style={styles.receivedSummaryLabel}>plants delivered</Text>
+          </View>
+          <View style={styles.receivedSummarySep} />
+          <View style={styles.receivedSummaryCell}>
+            <Text style={[styles.receivedSummaryValue, styles.receivedSummaryValueGreen]}>
+              {hubTotals.withTracking}
+            </Text>
+            <Text style={styles.receivedSummaryLabel}>with tracking</Text>
+          </View>
+          <View style={styles.receivedSummarySep} />
+          <View style={styles.receivedSummaryCell}>
+            <Text style={styles.receivedSummaryValue}>{hubTotals.shipmentCount}</Text>
+            <Text style={styles.receivedSummaryLabel}>shipment(s)</Text>
+          </View>
+        </View>
+      ) : null}
+      {activeFilters?.search ? (
+        <Text style={styles.searchHint}>
+          Showing tracking numbers matching “{activeFilters.search}”
+        </Text>
+      ) : null}
+      <Text style={styles.countText}>
+        {shippedData?.total ?? trackingGroups.length} tracking number(s)
+      </Text>
+      {hubSpecEnabled && trackingGroups.length > 0 ? (
+        <Text style={styles.sectionTitle}>All delivered shipments</Text>
+      ) : null}
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -244,40 +309,41 @@ const ShippedScreen = ({ navigation }) => {
         scanQrParams={LEAF_TRAIL_SCAN_PARAMS.shipped}
       />
       {hubSpecEnabled ? (
-        <LeafTrailHubToolbar
-          adminFilters={adminFiltersMerged}
-          onFilterChange={onFilterChange}
-          sellersLoading={sellersLoading}
-          gardensLoading={gardensLoading}
+        <FlatList
+          key="delivered-shipment-grid"
+          data={trackingGroups}
+          numColumns={2}
+          keyExtractor={(item) => String(item.trackingNumber || item.id)}
+          columnWrapperStyle={styles.receiverBoxesRow}
+          renderItem={({ item }) => (
+            <DeliveredShipmentCard
+              shipment={item}
+              onPress={() => navigation.navigate('ViewShippedScreen', { item })}
+            />
+          )}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            !isLoading ? (
+              <Text style={styles.emptyText}>No delivered shipments yet.</Text>
+            ) : null
+          }
+          contentContainerStyle={styles.hubListContentContainer}
         />
       ) : (
-        <FilterBar
-          adminFilters={adminFiltersMerged}
-          onFilterChange={onFilterChange}
-          sellersLoading={sellersLoading}
-          gardensLoading={gardensLoading}
+        <FlatList
+          data={trackingGroups}
+          keyExtractor={(item) => String(item.trackingNumber || item.id)}
+          renderItem={({ item }) => <ShippedListItem item={item} navigation={navigation} />}
+          ListHeaderComponent={listHeader}
+          ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
+          ListEmptyComponent={
+            !isLoading ? (
+              <Text style={styles.emptyText}>No delivered shipments yet.</Text>
+            ) : null
+          }
+          contentContainerStyle={styles.listContentContainer}
         />
       )}
-      {activeFilters?.search ? (
-        <Text style={styles.searchHint}>
-          Showing tracking numbers matching “{activeFilters.search}”
-        </Text>
-      ) : null}
-      <Text style={styles.countText}>
-        {shippedData?.total ?? trackingGroups.length} tracking number(s)
-      </Text>
-      <FlatList
-        data={trackingGroups}
-        keyExtractor={(item) => String(item.trackingNumber || item.id)}
-        renderItem={({ item }) => <ShippedListItem item={item} navigation={navigation} />}
-        ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
-        ListEmptyComponent={
-          !isLoading ? (
-            <Text style={styles.emptyText}>No delivered shipments yet.</Text>
-          ) : null
-        }
-        contentContainerStyle={styles.listContentContainer}
-      />
     </SafeAreaView>
   );
 };
@@ -297,6 +363,58 @@ const styles = StyleSheet.create({
   },
   listContentContainer: {
     paddingBottom: 40,
+  },
+  hubListContentContainer: {
+    paddingBottom: 34,
+    paddingHorizontal: 8,
+  },
+  receivedSummaryRow: {
+    flexDirection: 'row',
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    backgroundColor: '#F4F7F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDE7E1',
+    paddingVertical: 10,
+  },
+  receivedSummaryCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  receivedSummarySep: {
+    width: 1,
+    backgroundColor: '#DDE7E1',
+    marginVertical: 4,
+  },
+  receivedSummaryValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#202325',
+  },
+  receivedSummaryValueGreen: {
+    color: '#2F8C4F',
+  },
+  receivedSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#647276',
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#202325',
+    paddingHorizontal: 15,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  receiverBoxesRow: {
+    gap: 10,
+    marginBottom: 10,
+    alignItems: 'stretch',
   },
   searchHint: {
     color: '#647276',

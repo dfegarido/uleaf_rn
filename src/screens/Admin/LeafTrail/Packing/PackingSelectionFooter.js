@@ -12,6 +12,7 @@ const PackingSelectionFooter = ({
   onClear,
   onAssignBox,
   onNeedsToStay,
+  assignBoxLabel = 'Assign box #',
 }) => {
   const insets = useSafeAreaInsets();
 
@@ -38,7 +39,7 @@ const PackingSelectionFooter = ({
       <View style={styles.actions}>
         <TouchableOpacity style={styles.primaryButton} onPress={onAssignBox} activeOpacity={0.85}>
           <BoxIcon width={20} height={20} />
-          <Text style={styles.primaryButtonText}>Assign box #</Text>
+          <Text style={styles.primaryButtonText}>{assignBoxLabel}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={onNeedsToStay} activeOpacity={0.85}>
           <Text style={styles.secondaryButtonText}>Needs to Stay</Text>

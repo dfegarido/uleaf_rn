@@ -24,16 +24,17 @@ const FormInput = ({
   onChangeText,
   keyboardType = 'default',
   uppercase = false,
+  editable = true,
 }) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>
       {label}
-      <Text style={globalStyles.textXSRed}>*</Text>
+      {editable ? <Text style={globalStyles.textXSRed}>*</Text> : null}
     </Text>
     <TextInput
       placeholder={placeholder}
       placeholderTextColor="#647276"
-      style={styles.input}
+      style={[styles.input, !editable && styles.inputLocked]}
       value={value}
       onChangeText={
         uppercase
@@ -43,12 +44,22 @@ const FormInput = ({
       keyboardType={keyboardType}
       autoCapitalize={uppercase ? 'characters' : 'sentences'}
       autoCorrect={false}
+      editable={editable}
     />
   </View>
 );
 
 /** Bottom sheet on the same screen — not a full-screen navigation. */
-const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
+const AssignBoxModal = ({
+  visible,
+  onClose,
+  onSave,
+  selectedCount = 0,
+  defaultBoxNumber = '',
+  lockBoxNumber = false,
+  title = 'Assign box #',
+  saveLabel = 'Save box assignment',
+}) => {
   const insets = useSafeAreaInsets();
   const [boxNumber, setBoxNumber] = useState('');
   const [length, setLength] = useState('');
@@ -64,8 +75,12 @@ const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
       setWidth('');
       setHeight('');
       setWeight('');
+      return;
     }
-  }, [visible]);
+    if (defaultBoxNumber) {
+      setBoxNumber(forceUppercaseHubLabel(String(defaultBoxNumber).trim()));
+    }
+  }, [visible, defaultBoxNumber]);
 
   const handleSave = () => {
     if (!boxNumber.trim()) {
@@ -96,11 +111,13 @@ const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Assign box #</Text>
+          <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>
-            {selectedCount > 0
-              ? `Applying to ${selectedCount} selected plant${selectedCount === 1 ? '' : 's'}.`
-              : 'Enter box details for the selected plants.'}
+            {lockBoxNumber && defaultBoxNumber
+              ? `Receiver box #${defaultBoxNumber} from Receiving — same through delivery. Enter dimensions and weight only.`
+              : selectedCount > 0
+                ? `Applying to ${selectedCount} selected plant${selectedCount === 1 ? '' : 's'}.`
+                : 'Enter box details for the selected plants.'}
           </Text>
 
           <ScrollView
@@ -113,7 +130,13 @@ const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
               value={boxNumber}
               onChangeText={setBoxNumber}
               uppercase
+              editable={!(lockBoxNumber && defaultBoxNumber)}
             />
+            {lockBoxNumber && defaultBoxNumber ? (
+              <Text style={styles.lockedHint}>
+                Box number is fixed from Receiving and cannot be changed here.
+              </Text>
+            ) : null}
             <View style={styles.dimRow}>
               <View style={styles.dimCell}>
                 <FormInput
@@ -153,7 +176,7 @@ const AssignBoxModal = ({ visible, onClose, onSave, selectedCount = 0 }) => {
           </ScrollView>
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
-            <Text style={styles.saveButtonText}>Save box assignment</Text>
+            <Text style={styles.saveButtonText}>{saveLabel}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -220,6 +243,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#202325',
     backgroundColor: '#FAFBFB',
+  },
+  inputLocked: {
+    backgroundColor: '#EEF1F2',
+    color: '#556065',
+  },
+  lockedHint: {
+    fontSize: 12,
+    color: '#647276',
+    marginTop: -4,
+    marginBottom: 8,
+    lineHeight: 17,
   },
   dimRow: {
     flexDirection: 'row',

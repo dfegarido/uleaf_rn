@@ -4,7 +4,7 @@ import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import PackingTraySummary from './PackingTraySummary';
 
-const PackingTrayCard = ({ tray, onPress, compact = false }) => {
+const PackingTrayCard = ({ tray, onPress, compact = false, useBoxLabel = false }) => {
   const metrics = {
     totalCount: tray.totalCount ?? tray.sortedPlantsCount ?? 0,
     packedCount: tray.packedCount ?? 0,
@@ -14,6 +14,8 @@ const PackingTrayCard = ({ tray, onPress, compact = false }) => {
   };
 
   const tint = tray.trayColor || (tray.isComplete ? '#DFF5E6' : '#FFF3E0');
+  const labelPrefix = useBoxLabel ? 'Box' : 'Tray';
+  const openHint = useBoxLabel ? 'Tap to open box' : 'Tap to open tray';
 
   if (compact) {
     return (
@@ -26,7 +28,7 @@ const PackingTrayCard = ({ tray, onPress, compact = false }) => {
             <TrayIcon width={22} height={22} />
           </View>
           <View style={styles.legacyMain}>
-            <Text style={styles.trayNumber}>Tray {tray.sortingTrayNumber}</Text>
+            <Text style={styles.trayNumber}>{labelPrefix} {tray.sortingTrayNumber}</Text>
             <Text style={styles.receiverName} numberOfLines={1}>
               {tray.name}
               {tray.username ? (
@@ -56,7 +58,7 @@ const PackingTrayCard = ({ tray, onPress, compact = false }) => {
         <TrayIcon width={26} height={26} />
       </View>
       <Text style={styles.trayTitle} numberOfLines={1}>
-        Tray {tray.sortingTrayNumber}
+        {labelPrefix} {tray.sortingTrayNumber}
       </Text>
       <View style={styles.receiverRow}>
         <Image source={{ uri: tray.avatar || '' }} style={styles.avatar} />
@@ -80,7 +82,7 @@ const PackingTrayCard = ({ tray, onPress, compact = false }) => {
         </Text>
       </View>
       <Text style={styles.hint}>
-        {tray.isComplete ? 'Ready for shipping' : 'Tap to open tray'}
+        {tray.isComplete ? 'Ready for shipping' : openHint}
       </Text>
     </TouchableOpacity>
   );

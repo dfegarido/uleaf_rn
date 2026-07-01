@@ -141,6 +141,17 @@ const getStoredReceiverBoxNumber = (item) => {
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 };
 
+const getLockedReceiverBoxNumberForGroup = (box) => {
+    const numbers = getBoxMemberItems(box)
+        .map((item) => getStoredReceiverBoxNumber(item))
+        .filter((n) => n != null);
+    if (!numbers.length) return null;
+    const counts = new Map();
+    numbers.forEach((n) => counts.set(n, (counts.get(n) || 0) + 1));
+    const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    return best ? best[0] : null;
+};
+
 const getBoxMemberItems = (box) => box?.items || box?.plants || [];
 
 const compareReceiverNames = (a, b) => {
@@ -165,16 +176,11 @@ export const assignStableReceiverBoxNumbers = (boxes = []) => {
         }))
         .filter((box) => box.groupKey);
 
-    const preferredByGroupKey = new Map();
+    const lockedByGroupKey = new Map();
     normalizedBoxes.forEach((box) => {
-        const counts = new Map();
-        getBoxMemberItems(box).forEach((item) => {
-            const n = getStoredReceiverBoxNumber(item);
-            if (n) counts.set(n, (counts.get(n) || 0) + 1);
-        });
-        if (counts.size) {
-            const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-            preferredByGroupKey.set(box.groupKey, best[0]);
+        const locked = getLockedReceiverBoxNumberForGroup(box);
+        if (locked != null) {
+            lockedByGroupKey.set(box.groupKey, locked);
         }
     });
 
@@ -194,14 +200,18 @@ export const assignStableReceiverBoxNumbers = (boxes = []) => {
         return candidate;
     };
 
+    // Persisted box # stays fixed for the active cycle; new receivers get the next free #.
     groupKeys.forEach((groupKey) => {
-        const preferred = preferredByGroupKey.get(groupKey);
-        const boxNumber =
-            preferred != null && !usedNumbers.has(preferred) ? preferred : takeNextFree();
-        if (preferred != null && boxNumber === preferred) {
-            usedNumbers.add(preferred);
+        const locked = lockedByGroupKey.get(groupKey);
+        if (locked != null && !usedNumbers.has(locked)) {
+            usedNumbers.add(locked);
+            assignedByGroupKey.set(groupKey, locked);
         }
-        assignedByGroupKey.set(groupKey, boxNumber);
+    });
+
+    groupKeys.forEach((groupKey) => {
+        if (assignedByGroupKey.has(groupKey)) return;
+        assignedByGroupKey.set(groupKey, takeNextFree());
     });
 
     return normalizedBoxes
