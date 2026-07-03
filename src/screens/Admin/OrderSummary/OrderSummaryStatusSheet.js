@@ -67,12 +67,68 @@ export const PLANT_STATUS_EDIT_OPTIONS = [
   ...PLANT_STATUS_OPTIONS,
 ];
 
+/** Whether UPS delivery proof exists (Plants are Home eligibility). */
+export const hasPlantsAreHomeDeliveryProof = ({
+  trackingNumber = '',
+  deliveryDate = '',
+  deliveryTime = '',
+  shippingData,
+  shippedData,
+} = {}) => {
+  const track = String(trackingNumber || shippingData?.trackingNumber || '').trim();
+  const dDate = String(deliveryDate || shippedData?.deliveryDate || '').trim();
+  const dTime = String(deliveryTime || shippedData?.deliveryTime || '').trim();
+  return Boolean(track && track !== '—' && dDate && dTime);
+};
+
+/**
+ * Leaf trail label for Admin Order Summary — uses stored status plus order/shipping proof.
+ */
+export const deriveOrderSummaryLeafTrailDisplay = ({
+  leafTrailStatus = '',
+  status = '',
+  deliveryStatus = '',
+  trackingNumber = '',
+  deliveryDate = '',
+  deliveryTime = '',
+  shippingData,
+  shippedData,
+  activeTab,
+} = {}) => {
+  const leafLower = String(leafTrailStatus || '').toLowerCase().trim();
+  const orderLower = String(status || '').toLowerCase().trim();
+  const deliveryLower = String(deliveryStatus || '').toLowerCase().trim();
+  const mishap = new Set(['missing', 'damaged', 'damage', 'cancelled', 'canceled', 'needstostay', 'dead', 'others']);
+  const hasProof = hasPlantsAreHomeDeliveryProof({
+    trackingNumber,
+    deliveryDate,
+    deliveryTime,
+    shippingData,
+    shippedData,
+  });
+
+  if (
+    !mishap.has(leafLower) &&
+    (leafLower === 'delivered' ||
+      orderLower === 'delivered' ||
+      deliveryLower === 'delivered' ||
+      (hasProof && (leafLower === 'shipped' || leafLower === 'shipping')))
+  ) {
+    return 'Delivered';
+  }
+
+  if (activeTab === 'readyToFly' && leafLower === 'shipping') return 'In-transit';
+  if (activeTab === 'completed' && leafLower === 'shipped') return 'Delivered';
+  return formatLeafTrailStatusDisplayLabel(leafTrailStatus);
+};
+
 /** Display labels for stored leafTrailStatus values. */
 export const formatLeafTrailStatusDisplayLabel = (rawStatus) => {
   const key = String(rawStatus || '').toLowerCase().trim();
   if (!key || key === '—') return '—';
   if (key === 'active' || key === 'forreceiving') return 'For receiving';
   if (key === 'shipping') return 'For Shipping';
+  if (key === 'delivered') return 'Delivered';
   if (key === 'shipped') return 'In-transit';
   const normalizedKey = key.replace(/[\s_-]+/g, '');
   if (REMOVED_FROM_FLIGHT_LEAF_STATUSES.has(normalizedKey)) return 'Removed from Flight';

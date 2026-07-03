@@ -19,6 +19,7 @@ import { updateLeafTrailStatus, updatePlantStatus } from '../../../components/Ap
 import Toast from '../../../components/Toast/Toast';
 import OrderSummaryDeliveredModal from './OrderSummaryDeliveredModal';
 import OrderSummaryStatusSheet, {
+  deriveOrderSummaryLeafTrailDisplay,
   deriveOrderSummaryPlantStatus,
   formatLeafTrailStatusDisplayLabel,
   LEAF_TRAIL_STATUS_OPTIONS,
@@ -136,7 +137,21 @@ const OrderSummaryDetail = ({ navigation, route }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
 
-  const leafTrailDisplay = formatLabel(rawLeafTrailStatus || '—');
+  const leafTrailDisplay = deriveOrderSummaryLeafTrailDisplay({
+    leafTrailStatus: rawLeafTrailStatus,
+    status: rawOrderStatus,
+    deliveryStatus: orderMeta.deliveryStatus,
+    trackingNumber: trackingDisplay,
+    deliveryDate: deliveryDateDisplay,
+    deliveryTime: deliveryTimeDisplay,
+    shippingData: {
+      trackingNumber: trackingDisplay,
+    },
+    shippedData: {
+      deliveryDate: deliveryDateDisplay,
+      deliveryTime: deliveryTimeDisplay,
+    },
+  });
   const plantStatusDisplay = deriveDisplayPlantStatus(
     rawPlantStatus,
     rawLeafTrailStatus,

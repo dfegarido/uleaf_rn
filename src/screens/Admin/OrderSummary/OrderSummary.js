@@ -38,7 +38,7 @@ import BuyerFilter from '../../../components/Admin/buyerFilter';
 import ReceiverFilter from '../../../components/Admin/receiverFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
-import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, deriveOrderSummaryPlantStatus, formatLeafTrailStatusDisplayLabel } from './OrderSummaryStatusSheet';
+import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, deriveOrderSummaryLeafTrailDisplay, deriveOrderSummaryPlantStatus } from './OrderSummaryStatusSheet';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
 import { filterSupersededPendingOrders, excludePendingPaymentFromAllTab } from '../../../utils/filterSupersededPendingOrders';
@@ -385,18 +385,18 @@ const dedupeOrderTableRows = (rows = []) => {
       order._hubDebugLogged = true; // Prevent multiple logs
     }
 
-    const formatCamelCase = (camelCaseString) => {
-      if (!camelCaseString) return '';
-      const raw = String(camelCaseString).trim();
-      const lower = raw.toLowerCase();
-
-      // Display-only mappings (do not change underlying leafTrailStatus values).
-      // Admin Order Summary needs different labels per tab.
-      if (activeTab === 'readyToFly' && lower === 'shipping') return 'In-transit';
-      if (activeTab === 'completed' && lower === 'shipped') return 'Delivered';
-
-      return formatLeafTrailStatusDisplayLabel(raw);
-    };
+    const formatCamelCase = () =>
+      deriveOrderSummaryLeafTrailDisplay({
+        leafTrailStatus: order.leafTrailStatus,
+        status: order.status,
+        deliveryStatus: order.deliveryStatus,
+        trackingNumber: order?.shippingData?.trackingNumber || order?.trackingNumber,
+        deliveryDate: order?.shippedData?.deliveryDate,
+        deliveryTime: order?.shippedData?.deliveryTime,
+        shippingData: order?.shippingData,
+        shippedData: order?.shippedData,
+        activeTab,
+      });
 
     let plantStatus;
     let rawPlantStatus = '';
@@ -412,7 +412,7 @@ const dedupeOrderTableRows = (rows = []) => {
 
     return {
       id: order.id,
-      leafTrailStatus: formatCamelCase(order.leafTrailStatus || '—'),
+      leafTrailStatus: formatCamelCase(),
       ...(plantStatus != null ? { plantStatus } : {}),
       trackingNumber: order?.shippingData?.trackingNumber || '—',
       rawTrackingNumber: (order?.shippingData?.trackingNumber || '').toString(),
