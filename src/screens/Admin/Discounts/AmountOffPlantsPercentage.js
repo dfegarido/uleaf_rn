@@ -46,6 +46,7 @@ const AmountOffPlantsPercentage = () => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const isFixed = route?.params?.mode === 'fixed';
+  const isPercentOffPlantCount = route?.params?.mode === 'percentOffPlantCount';
   const [code, setCode] = useState('');
   const SCREEN = Dimensions.get('window');
   
@@ -61,6 +62,7 @@ const AmountOffPlantsPercentage = () => {
   };
   
   const [discountPercent, setDiscountPercent] = useState('');
+  const [discountPlantCount, setDiscountPlantCount] = useState('');
   const [maxDiscount, setMaxDiscount] = useState('');
   const [appliesText, setAppliesText] = useState('Specific listing type');
   const [listingTypes, setListingTypes] = useState([]);
@@ -125,7 +127,9 @@ const AmountOffPlantsPercentage = () => {
   const [minRequirement, setMinRequirement] = useState('No minimum requirements');
   const [minPurchaseAmount, setMinPurchaseAmount] = useState('');
   const [minPurchaseQuantity, setMinPurchaseQuantity] = useState('');
-  const [discountType, setDiscountType] = useState(isFixed ? 'Fixed amount' : 'Percentage');
+  const [discountType, setDiscountType] = useState(
+    isPercentOffPlantCount ? '% off X plants' : isFixed ? 'Fixed amount' : 'Percentage',
+  );
   // Starts date controls
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('00:00 AM');
@@ -703,7 +707,9 @@ const AmountOffPlantsPercentage = () => {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Amount Off Plants</Text>
+        <Text style={styles.headerTitle}>
+          {isPercentOffPlantCount ? '% off X Plants' : 'Amount Off Plants'}
+        </Text>
       </View>
 
       <ScrollView style={{flex: 1}} contentContainerStyle={{paddingBottom: 24}} showsVerticalScrollIndicator={false}>
@@ -727,6 +733,7 @@ const AmountOffPlantsPercentage = () => {
         <View style={styles.dividerStrip} />
 
         {/* Type */}
+        {!isPercentOffPlantCount && (
         <View style={styles.sectionPad}>
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Discount type<Text style={styles.reqAsterisk}>*</Text></Text>
@@ -753,7 +760,8 @@ const AmountOffPlantsPercentage = () => {
             </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.dividerStrip} />
+        )}
+        {!isPercentOffPlantCount && <View style={styles.dividerStrip} />}
 
         {/* Discount percent */}
         <View style={styles.sectionPad}>
@@ -776,6 +784,24 @@ const AmountOffPlantsPercentage = () => {
             </View>
           </View>
         </View>
+        {isPercentOffPlantCount && (
+        <View style={styles.sectionPad}>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Number of plants<Text style={styles.reqAsterisk}>*</Text></Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 2"
+                placeholderTextColor="#647276"
+                keyboardType="number-pad"
+                value={discountPlantCount}
+                onChangeText={setDiscountPlantCount}
+              />
+            </View>
+            <Text style={styles.helper}>Discount applies to the highest-priced eligible plants</Text>
+          </View>
+        </View>
+        )}
         {!isFixed && (
         <View style={styles.sectionPad}>
           <View style={styles.fieldGroup}>
@@ -1413,6 +1439,14 @@ const AmountOffPlantsPercentage = () => {
                 Alert.alert('Error', 'Please enter a discount percentage');
                 return;
               }
+              if (isPercentOffPlantCount && !discountPlantCount) {
+                Alert.alert('Error', 'Please enter the number of plants');
+                return;
+              }
+              if (isPercentOffPlantCount && !maxDiscount) {
+                Alert.alert('Error', 'Please enter a maximum discount amount');
+                return;
+              }
               if (!startDate || !startTime) {
                 Alert.alert('Error', 'Please select a start date and time');
                 return;
@@ -1424,9 +1458,16 @@ const AmountOffPlantsPercentage = () => {
                 // Prepare discount data
                 const discountData = {
                   code: code.trim(),
-                  type: isFixed ? 'amountOffPlantsFixed' : 'amountOffPlantsPercentage',
-                  discountPercent: discountType === 'Percentage' ? parseFloat(discountPercent) : undefined,
-                  discountAmount: discountType === 'Fixed amount' ? parseFloat(discountPercent) : undefined,
+                  type: isPercentOffPlantCount
+                    ? 'percentOffPlantCount'
+                    : isFixed
+                      ? 'amountOffPlantsFixed'
+                      : 'amountOffPlantsPercentage',
+                  discountPercent: !isFixed ? parseFloat(discountPercent) : undefined,
+                  discountAmount: isFixed ? parseFloat(discountPercent) : undefined,
+                  discountPlantCount: isPercentOffPlantCount
+                    ? parseInt(discountPlantCount, 10)
+                    : undefined,
                   maxDiscount: maxDiscount ? parseFloat(maxDiscount) : undefined,
                   startDate,
                   startTime,

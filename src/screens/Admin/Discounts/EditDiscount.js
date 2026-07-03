@@ -135,6 +135,7 @@ const EditDiscount = () => {
   // AmountOffPlantsPercentage specific state
   const [discountType, setDiscountType] = useState(isFixed ? 'Fixed amount' : 'Percentage');
   const [discountPercent, setDiscountPercent] = useState('');
+  const [discountPlantCount, setDiscountPlantCount] = useState('');
   const [maxDiscount, setMaxDiscount] = useState('');
 
   // FreeShipping specific state
@@ -264,6 +265,17 @@ const EditDiscount = () => {
           }
           if (discountData.getQuantity !== null && discountData.getQuantity !== undefined) {
             setGetQuantity(discountData.getQuantity.toString());
+          }
+        } else if (discountData.type === 'percentOffPlantCount') {
+          setDiscountType('% off X plants');
+          if (discountData.discountPercent != null) {
+            setDiscountPercent(discountData.discountPercent.toString());
+          }
+          if (discountData.discountPlantCount != null) {
+            setDiscountPlantCount(discountData.discountPlantCount.toString());
+          }
+          if (discountData.maxDiscount != null) {
+            setMaxDiscount(discountData.maxDiscount.toString());
           }
         } else if (discountData.type === 'amountOffPlantsPercentage' || discountData.type === 'amountOffPlantsFixed') {
           console.log('📝 EditDiscount - Amount Off Plants:', { 
@@ -1114,6 +1126,66 @@ const EditDiscount = () => {
           </>
         )}
 
+        {discountTypeParam === 'percentOffPlantCount' && (
+          <>
+            <View style={styles.sectionPad}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Discount value<Text style={styles.reqAsterisk}>*</Text></Text>
+                <View style={{flexDirection: 'row'}}>
+                  <View style={[styles.inputRow, {flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0}]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="00"
+                      placeholderTextColor="#647276"
+                      keyboardType="numeric"
+                      value={discountPercent}
+                      onChangeText={setDiscountPercent}
+                    />
+                  </View>
+                  <View style={styles.suffixBox}>
+                    <Text style={styles.suffixText}>%OFF</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+            <View style={styles.sectionPad}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Number of plants<Text style={styles.reqAsterisk}>*</Text></Text>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. 2"
+                    placeholderTextColor="#647276"
+                    keyboardType="number-pad"
+                    value={discountPlantCount}
+                    onChangeText={setDiscountPlantCount}
+                  />
+                </View>
+                <Text style={styles.helper}>Applies to the highest-priced eligible plants</Text>
+              </View>
+            </View>
+            <View style={styles.sectionPad}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Maximum discount value<Text style={styles.reqAsterisk}>*</Text></Text>
+                <View style={{flexDirection: 'row'}}>
+                  <View style={styles.prefixBox}><Text style={styles.suffixText}>$</Text></View>
+                  <View style={[styles.inputRow, {flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0}]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="00"
+                      placeholderTextColor="#647276"
+                      keyboardType="numeric"
+                      value={maxDiscount}
+                      onChangeText={setMaxDiscount}
+                    />
+                  </View>
+                </View>
+              </View>
+            </View>
+            <View style={styles.dividerStrip} />
+          </>
+        )}
+
         {(discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'amountOffPlantsFixed' || discountTypeParam === 'eventGift' || discountTypeParam === 'eventGiftFixed') && (
           <>
             {/* Discount type */}
@@ -1798,6 +1870,19 @@ const EditDiscount = () => {
                   Alert.alert('Error', 'Please enter buy and get quantities');
                   return;
                 }
+              } else if (discountTypeParam === 'percentOffPlantCount') {
+                if (!discountPercent) {
+                  Alert.alert('Error', 'Please enter a discount percentage');
+                  return;
+                }
+                if (!discountPlantCount) {
+                  Alert.alert('Error', 'Please enter the number of plants');
+                  return;
+                }
+                if (!maxDiscount) {
+                  Alert.alert('Error', 'Please enter a maximum discount amount');
+                  return;
+                }
               } else if (discountTypeParam === 'amountOffPlantsPercentage' || discountTypeParam === 'amountOffPlantsFixed' || discountTypeParam === 'eventGift' || discountTypeParam === 'eventGiftFixed') {
                 if (!discountPercent) {
                   Alert.alert('Error', 'Please enter a discount percentage');
@@ -1888,6 +1973,35 @@ const EditDiscount = () => {
                     type: 'buyXGetY',
                     buyQuantity: parseInt(buyQuantity, 10),
                     getQuantity: parseInt(getQuantity, 10),
+                    startDate,
+                    startTime,
+                    endDate: endDateEnabled ? endDate : undefined,
+                    endTime: endDateEnabled ? endTime : undefined,
+                    appliesText,
+                    selectedListingTypes,
+                    selectedGenus,
+                    selectedSpecies,
+                    selectedCountries,
+                    selectedGardens,
+                    selectedListings: selectedListings.map(l => typeof l === 'object' ? l.id : l),
+                    eligibility,
+                    minRequirement: minRequirement === 'Minimum purchase amount ($)' && minPurchaseAmount 
+                      ? `Minimum purchase amount of $${minPurchaseAmount}` 
+                      : minRequirement === 'Minimum quantity of plants' && minPurchaseQuantity 
+                      ? `Minimum quantity of ${minPurchaseQuantity} plants` 
+                      : minRequirement,
+                    limitTotalEnabled,
+                    limitPerCustomerEnabled,
+                    maxUsesTotal: maxUsesTotal && limitTotalEnabled ? parseInt(maxUsesTotal, 10) : undefined,
+                    selectedBuyers: eligibility === 'Specific customers' ? (selectedBuyers?.map(b => typeof b === 'object' ? b.id : b) || []) : undefined,
+                  };
+                } else if (discountTypeParam === 'percentOffPlantCount') {
+                  discountData = {
+                    code: code.trim(),
+                    type: 'percentOffPlantCount',
+                    discountPercent: parseFloat(discountPercent),
+                    discountPlantCount: parseInt(discountPlantCount, 10),
+                    maxDiscount: parseFloat(maxDiscount),
                     startDate,
                     startTime,
                     endDate: endDateEnabled ? endDate : undefined,

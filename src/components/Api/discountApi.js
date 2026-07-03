@@ -45,6 +45,9 @@ export const createDiscountApi = async (discountData) => {
       ...(discountData.discountPercent !== undefined && { discountPercent: discountData.discountPercent }),
       ...(discountData.discountAmount !== undefined && { discountAmount: discountData.discountAmount }),
       ...(discountData.maxDiscount !== undefined && { maxDiscount: discountData.maxDiscount }),
+      ...(discountData.discountPlantCount !== undefined && {
+        discountPlantCount: discountData.discountPlantCount,
+      }),
       // Free Shipping specific fields
       ...(discountData.type === 'freeShipping' && {
         freeUpsShipping: Boolean(discountData.freeUpsShipping),
@@ -182,6 +185,9 @@ export const updateDiscountApi = async (discountId, discountData) => {
       ...(discountData.discountPercent !== undefined && { discountPercent: discountData.discountPercent }),
       ...(discountData.discountAmount !== undefined && { discountAmount: discountData.discountAmount }),
       ...(discountData.maxDiscount !== undefined && { maxDiscount: discountData.maxDiscount }),
+      ...(discountData.discountPlantCount !== undefined && {
+        discountPlantCount: discountData.discountPlantCount,
+      }),
       // Free Shipping specific fields
       ...(discountData.type === 'freeShipping' && {
         freeUpsShipping: Boolean(discountData.freeUpsShipping),

@@ -450,6 +450,17 @@ const AmountOffPlants = () => {
                 <Text style={styles.typeRowText}>Fixed amount</Text>
                   </TouchableOpacity>
                 </View>
+                <View style={styles.typeDivider} />
+                <View style={styles.typeRowWrapper}>
+              <TouchableOpacity style={styles.typeRowLeft} onPress={() => { setDiscountType('% off X plants'); setShowTypeSheet(false); navigation.navigate('AdminDiscountAmountOffPlantsPercentage', { mode: 'percentOffPlantCount' }); }}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path fillRule="evenodd" clipRule="evenodd" d="M9 8.25C8.58579 8.25 8.25 8.58579 8.25 9C8.25 9.41421 8.58579 9.75 9 9.75C9.41421 9.75 9.75 9.41421 9.75 9C9.75 8.58579 9.41421 8.25 9 8.25ZM6.75 9C6.75 7.75736 7.75736 6.75 9 6.75C10.2426 6.75 11.25 7.75736 11.25 9C11.25 10.2426 10.2426 11.25 9 11.25C7.75736 11.25 6.75 10.2426 6.75 9Z" fill="#556065"/>
+                  <Path fillRule="evenodd" clipRule="evenodd" d="M15 14.25C14.5858 14.25 14.25 14.5858 14.25 15C14.25 15.4142 14.5858 15.75 15 15.75C15.4142 15.75 15.75 15.4142 15.75 15C15.75 14.5858 15.4142 14.25 15 14.25ZM12.75 15C12.75 13.7574 13.7574 12.75 15 12.75C16.2426 12.75 17.25 13.7574 17.25 15C17.25 16.2426 16.2426 17.25 15 17.25C13.7574 17.25 12.75 16.2426 12.75 15Z" fill="#556065"/>
+                  <Path fillRule="evenodd" clipRule="evenodd" d="M16.2803 7.71967C16.5732 8.01256 16.5732 8.48744 16.2803 8.78033L8.78033 16.2803C8.48744 16.5732 8.01256 16.5732 7.71967 16.2803C7.42678 15.9874 7.42678 15.5126 7.71967 15.2197L15.2197 7.71967C15.5126 7.42678 15.9874 7.42678 16.2803 7.71967Z" fill="#556065"/>
+                </Svg>
+                <Text style={styles.typeRowText}>% off X plants</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableWithoutFeedback>
           </View>

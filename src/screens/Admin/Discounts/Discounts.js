@@ -510,6 +510,17 @@ const Discounts = () => {
                 <Text style={styles.optionSubtitle}>Discount specific plants or genus taxonomy.</Text>
               </View>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.optionCard} onPress={() => { setShowAddSheet(false); navigation.navigate('AdminDiscountAmountOffPlantsPercentage', { mode: 'percentOffPlantCount' }); }}>
+              <Svg width={48} height={48} viewBox="0 0 48 48" fill="none">
+                <Path d="M24 4C12.954 4 4 12.954 4 24C4 35.046 12.954 44 24 44C35.046 44 44 35.046 44 24C44 12.954 35.046 4 24 4Z" fill="#FFE27A"/>
+                <Path d="M16 18H32V20H16V18ZM16 24H28V26H16V24ZM16 30H24V32H16V30Z" fill="#FC502A"/>
+                <Path d="M30 28L36 34L34 36L28 30L30 28Z" fill="#539461"/>
+              </Svg>
+              <View style={styles.optionTextWrap}>
+                <Text style={styles.optionTitle}>% off X Plants</Text>
+                <Text style={styles.optionSubtitle}>Percent off the highest-priced plants with a max cap.</Text>
+              </View>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.optionCard} onPress={() => { setShowAddSheet(false); navigation.navigate('AdminDiscountBuyXGetY'); }}>
               <Svg width={48} height={48} viewBox="0 0 48 48" fill="none">
                 <Path d="M34.7372 42.0604L34.8952 8.81541C34.8952 8.54325 34.6746 8.32256 34.4024 8.32256L33.1728 7.92188H3.45159C3.17943 7.92188 2.95874 8.14256 2.95874 8.41472V42.0915C2.95874 42.2159 2.95668 42.3398 2.93652 42.4621L4.98805 43.7753H30.9316L34.7676 42.431C34.7475 42.3087 34.7372 42.1848 34.7372 42.0604Z" fill="#E9BB91"/>
