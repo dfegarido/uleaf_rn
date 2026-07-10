@@ -187,65 +187,6 @@ const PlantCard = ({ plant, openTagAs, isSelected, onSelect, forSorting=false}) 
     </View>
 )};
 
-const MishapPlantCard = ({ plant, openTagAs }) => {
-  
-  const setTags = () => {
-    let status = { isMissing: true, isDamaged: true, isNeedsToStay: true, isOthers: true };
-    const leaf = String(plant.leafTrailStatus || '').toLowerCase().replace(/\s+/g, '');
-    if (leaf === 'missing') {
-      status = { isDamaged: true, isNeedsToStay: true, isOthers: true, forShipping: true };
-    } else if (leaf === 'damaged') {
-      status = { isMissing: true, isNeedsToStay: true, isOthers: true, forShipping: true };
-    }
-    openTagAs(status, plant.id)
-  }
-  
-  return (
-    <View>
-        <Text style={styles.mishapStatus}>{plant.leafTrailStatus}</Text>
-      {plant?.isJoinerOrder && (
-        <View style={styles.joinerUserRow}>
-          <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
-          <View>
-            <View style={styles.joinerUserNameRow}>
-              <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
-              <Text style={styles.joinerUserHandle}>@{plant?.joinerInfo?.joinerUsername || ''}</Text>
-            </View>
-            <Text style={styles.joinerUserRole}>Joiner</Text>
-          </View>
-        </View>
-      )}
-      <View style={styles.card}>
-          <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
-          <View style={styles.details}>
-              <View>
-                  <View style={styles.cardRow}>
-                      <View style={styles.plantNameRow}>
-                        <Text style={styles.code}>{plant.plantCode}</Text>
-                        <QuestionMarkTooltip />
-                      </View>
-                      <View style={styles.countryContainer}>
-                          <Text style={styles.countryText}>{plant.country}</Text>
-                          <CountryFlagIcon code={'PH'} width={24} height={16} />
-                          <TouchableOpacity onPress={setTags}>
-                            <Options />
-                          </TouchableOpacity>
-                      </View>
-                  </View>
-                  <Text style={styles.plantName}>{plant.genus} {plant.species}</Text>
-                  <Text style={styles.subtext}>{plant.variegation} • {plant.size}</Text>
-              </View>
-              <View style={styles.cardRow}>
-                  <View style={plant?.listingType ? styles.typeChip : styles.typeChipNoBackground}>
-                      <Text style={styles.typeText}>{plant.listingType}</Text>
-                  </View>
-                  <Text style={styles.quantity}>{plant.quantity}X</Text>
-              </View>
-          </View>
-      </View>
-    </View>
-)};
-
 const CustomTabBar = ({ navigationState, jumpTo }) => (
     <ScrollView
         horizontal
@@ -299,60 +240,20 @@ const SortedPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSel
   />
 );
 
-const OthersPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSelectPlant}) => (
-  <FlatList
-    data={itemDetails}
-    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} isSelected={selectedPlants.includes(item.id)} onSelect={handleSelectPlant} forSorting={true} />}
-    keyExtractor={(item) => item.id}
-    ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-  />
-);
-
-const NeedToStayPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSelectPlant}) => (
-  <FlatList
-    data={itemDetails}
-    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} isSelected={selectedPlants.includes(item.id)} onSelect={handleSelectPlant} forSorting={true} />}
-    keyExtractor={item => item.hubReceiverId}
-    style={styles.listContainer}
-    contentContainerStyle={styles.listContent}
-    ItemSeparatorComponent={() => <View style={{height: 6}} />}
-  />
-);
-
-const MissingPlantsTab = ({itemDetails, openTagAs}) => (
-  <FlatList
-    data={itemDetails}
-    renderItem={({ item }) => <MishapPlantCard plant={item} openTagAs={openTagAs} />}
-    keyExtractor={item => item.hubReceiverId}
-    style={styles.listContainer}
-    contentContainerStyle={styles.listContent}
-    ItemSeparatorComponent={() => <View style={{height: 6}} />}
-  />
-);
-
 // --- Main Screen Component ---
 const SortingDetailsScreen = ({ navigation, route }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [index, setIndex] = useState(0);
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
-  const [journeyMishapCount, setJourneyMishapCount] = useState(itemDetails?.journeyMishapCount || 0);
   const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
-  const [needsToStayPlantsCount, setNeedsToStayPlantsCount] = useState(itemDetails?.needsToStayOrderCount || 0);
-  const [othersPlantsCount, setOthersPlantsCount] = useState(itemDetails?.othersOrderCount || 0);
   const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'For Sorting Plants', count: receivedPlantsCount },
-    { key: 'missing', title: 'Journey Mishap', count: journeyMishapCount },
     { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
-    { key: 'needsToStay', title: 'Need to Stay', count: needsToStayPlantsCount },
-    { key: 'others', title: 'Others', count: othersPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
   const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
-  const [missingPlantsData, setMissingPlantsData] = useState(itemDetails?.missingPlantsData || [])
-  const [needsToStayPlantsData, setNeedsToStayPlantsData] = useState(itemDetails?.needsToStayPlantsData || [])
-  const [othersPlantsData, setOthersPlantsData] = useState(itemDetails?.othersPlantsData || [])
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
   const [isDamaged, setIsDamaged] = useState(false);
@@ -368,11 +269,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
     () => [
       ...(receivedPlantsData || []),
       ...(sortedPlantsData || []),
-      ...(missingPlantsData || []),
-      ...(needsToStayPlantsData || []),
-      ...(othersPlantsData || []),
     ],
-    [receivedPlantsData, sortedPlantsData, missingPlantsData, needsToStayPlantsData, othersPlantsData],
+    [receivedPlantsData, sortedPlantsData],
   );
 
   const openTagAs = (status, id) => {
@@ -393,18 +291,12 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setItemDetails(response)
       setRoutes([
          { key: 'received', title: 'For Sorting Plants', count: response.receivedPlantsCount },
-         { key: 'missing', title: 'Journey Mishap', count: response.journeyMishapCount },
          { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
-         { key: 'needsToStay', title: 'Need to Stay', count: response.needsToStayOrderCount },
-         { key: 'others', title: 'Others', count: response.othersOrderCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
-      setMissingPlantsData(response?.missingPlantsData || []);
       setsortedPlantsData(response?.sortedPlantsData || []);
-      setNeedsToStayPlantsData(response?.needsToStayPlantsData || []);
-      setOthersPlantsData(response?.othersPlantsData || []);
-      setNeedsToStayPlantsCount(response?.needsToStayOrderCount || 0);
-      setOthersPlantsCount(response?.othersOrderCount || 0);
+      setReceivedPlantsCount(response?.receivedPlantsCount || 0);
+      setsortedPlantsCount(response?.sortedPlantsCount || 0);
       setIsLoading(false)
       Alert.alert('Success', 'Order status updated successfully!');
     } else {
@@ -433,14 +325,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
     switch (route.key) {
       case 'received':
         return <ReceivedPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
-      case 'missing':
-        return <MissingPlantsTab itemDetails={missingPlantsData || []} openTagAs={openTagAs} />;
       case 'sorted':
         return <SortedPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
-      case 'needsToStay':
-        return <NeedToStayPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={needsToStayPlantsData || []} openTagAs={openTagAs} />;
-      case 'others':
-        return <OthersPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={othersPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;
     }
@@ -470,21 +356,12 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   }
 
   const handleSelectAll = () => {
-    let currentOrders = [];
-    if (index === 0) {
-      currentOrders = receivedPlantsData;
-    } else if (index === 2) {
-      currentOrders = sortedPlantsData;
-    } else if (index === 3) {
-      currentOrders = needsToStayPlantsData;
-    }
+    const currentOrders = index === 0 ? receivedPlantsData : sortedPlantsData;
     if (selectedPlants.length === currentOrders.length) {
       setSelectedPlants([]);
     } else {
-      // Select all
       setSelectedPlants(currentOrders.map(p => p.id));
     }
-    
   }
 
   const sort = async () => {
@@ -584,7 +461,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         <SelectionModal
           visible={isSelectionMode}
           onClose={() => { setIsSelectionMode(false); setSelectedPlants([]); }}
-          plants={index === 0 ? receivedPlantsData : (index === 2 ? sortedPlantsData : needsToStayPlantsData)}
+          plants={index === 0 ? receivedPlantsData : sortedPlantsData}
           selectedPlants={selectedPlants}
           onSelectPlant={handleSelectPlant}
           onSelectAll={handleSelectAll}

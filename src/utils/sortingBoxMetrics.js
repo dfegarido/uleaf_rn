@@ -76,18 +76,14 @@ export function isSortedPlant(plant) {
   return normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'sorted';
 }
 
-/** Plants still waiting for a sort scan in this receiver box. */
+/**
+ * Plants still waiting for a sort scan in this receiver box.
+ * Missing / Damaged / Others / Needs to Stay are excluded from Sorting
+ * (managed on Receiving; already subtracted from Outstanding Plants).
+ */
 export function isAwaitingSortPlant(plant) {
   if (isSortedPlant(plant)) return false;
-  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
-  return (
-    status === 'received' ||
-    status === 'forreceiving' ||
-    status === 'needstostay' ||
-    status === 'others' ||
-    status === 'missing' ||
-    status === 'damaged'
-  );
+  return normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'received';
 }
 
 export function sortingPlantStatusLabel(plant) {
