@@ -360,6 +360,7 @@ const generateEndpoints = () => ({
   GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
   ADD_LEAF_TRAIL_TRACKING_NUMBER: `${getBaseUrl()}/addLeafTrailTrackingNumber`,
   ADD_LEAF_TRAIL_SHIPPING_DETAILS: `${getBaseUrl()}/addLeafTrailShippingDetails`,
+  SEND_RECEIVER_BOXES_TO_IN_TRANSIT: `${getBaseUrl()}/sendReceiverBoxesToInTransit`,
 
   // Delivery Export endpoint
   DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,

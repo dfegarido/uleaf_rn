@@ -2,9 +2,18 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
+import CheckBox from '../../../../components/CheckBox/CheckBox';
 import PackingTraySummary from './PackingTraySummary';
 
-const PackingTrayCard = ({ tray, onPress, compact = false, useBoxLabel = false }) => {
+const PackingTrayCard = ({
+  tray,
+  onPress,
+  compact = false,
+  useBoxLabel = false,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect,
+}) => {
   const metrics = {
     totalCount: tray.totalCount ?? tray.sortedPlantsCount ?? 0,
     packedCount: tray.packedCount ?? 0,
@@ -16,6 +25,10 @@ const PackingTrayCard = ({ tray, onPress, compact = false, useBoxLabel = false }
   const tint = tray.trayColor || (tray.isComplete ? '#DFF5E6' : '#FFF3E0');
   const labelPrefix = useBoxLabel ? 'Box' : 'Tray';
   const openHint = useBoxLabel ? 'Tap to open box' : 'Tap to open tray';
+
+  const handlePress = () => {
+    onPress?.();
+  };
 
   if (compact) {
     return (
@@ -51,9 +64,21 @@ const PackingTrayCard = ({ tray, onPress, compact = false, useBoxLabel = false }
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: tint }]}
+      style={[
+        styles.card,
+        { backgroundColor: tint },
+        isSelected && styles.cardSelected,
+      ]}
       activeOpacity={0.85}
-      onPress={onPress}>
+      onPress={handlePress}>
+      {selectable ? (
+        <TouchableOpacity
+          style={styles.checkboxWrap}
+          onPress={onToggleSelect}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <CheckBox isChecked={isSelected} onToggle={onToggleSelect} />
+        </TouchableOpacity>
+      ) : null}
       <View style={styles.trayIconWrap}>
         <TrayIcon width={26} height={26} />
       </View>
@@ -97,6 +122,16 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 210,
     overflow: 'hidden',
+  },
+  cardSelected: {
+    borderColor: '#539461',
+    borderWidth: 2,
+  },
+  checkboxWrap: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
   },
   trayIconWrap: {
     width: 44,

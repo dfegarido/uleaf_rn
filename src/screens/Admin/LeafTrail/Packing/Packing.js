@@ -29,9 +29,11 @@ import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../util
 import {
   getAdminLeafTrailFilters,
   getAdminLeafTrailPacking,
+  sendReceiverBoxesToInTransit,
 } from '../../../../components/Api/getAdminLeafTrail';
 import PackingTrayCard from './PackingTrayCard';
 import PackingTraySummary from './PackingTraySummary';
+import PackingBoxSelectionFooter from './PackingBoxSelectionFooter';
 
 const compareTrays = (a, b) =>
   String(a.sortingTrayNumber || '').localeCompare(
@@ -89,6 +91,8 @@ const PackingScreen = ({ navigation }) => {
   const [searchActive, setSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [activeFilters, setActiveFilters] = useState(null);
+  const [selectedTrayNumbers, setSelectedTrayNumbers] = useState([]);
+  const [sendingToInTransit, setSendingToInTransit] = useState(false);
   const activeFiltersRef = useRef(null);
   activeFiltersRef.current = activeFilters;
 
@@ -142,6 +146,75 @@ const PackingScreen = ({ navigation }) => {
   const trays = useMemo(() => {
     return [...(packingData?.data || [])].sort(compareTrays);
   }, [packingData?.data]);
+
+  const sendableTrays = useMemo(
+    () => trays.filter((tray) => tray.isReadyForShipping || tray.isComplete),
+    [trays],
+  );
+
+  const isAllSendableSelected =
+    sendableTrays.length > 0 &&
+    sendableTrays.every((tray) =>
+      selectedTrayNumbers.includes(String(tray.sortingTrayNumber || '').trim()),
+    );
+
+  const toggleTraySelection = (tray) => {
+    const trayNumber = String(tray?.sortingTrayNumber || '').trim();
+    if (!trayNumber) return;
+    if (!(tray.isReadyForShipping || tray.isComplete)) {
+      Alert.alert(
+        'Not ready',
+        'Finish packing and assign box numbers before sending to In Transit.',
+      );
+      return;
+    }
+    setSelectedTrayNumbers((prev) =>
+      prev.includes(trayNumber)
+        ? prev.filter((n) => n !== trayNumber)
+        : [...prev, trayNumber],
+    );
+  };
+
+  const handleSelectAllSendable = () => {
+    if (isAllSendableSelected) {
+      setSelectedTrayNumbers([]);
+      return;
+    }
+    setSelectedTrayNumbers(
+      sendableTrays.map((tray) => String(tray.sortingTrayNumber || '').trim()).filter(Boolean),
+    );
+  };
+
+  const handleSendToInTransit = async () => {
+    if (!selectedTrayNumbers.length) return;
+    setSendingToInTransit(true);
+    try {
+      const response = await sendReceiverBoxesToInTransit({
+        sortingTrayNumbers: selectedTrayNumbers,
+      });
+      if (response?.success) {
+        const warnings = [];
+        if (response.notReady?.length) {
+          warnings.push(`Not ready: ${response.notReady.join(', ')}`);
+        }
+        if (response.missing?.length) {
+          warnings.push(`Not found: ${response.missing.join(', ')}`);
+        }
+        Alert.alert(
+          'Sent to In Transit',
+          [response.message, ...warnings].filter(Boolean).join('\n'),
+        );
+        setSelectedTrayNumbers([]);
+        await fetchData(activeFiltersRef.current);
+      } else {
+        Alert.alert('Error', response?.message || 'Could not send boxes to In Transit.');
+      }
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Could not send boxes to In Transit.');
+    } finally {
+      setSendingToInTransit(false);
+    }
+  };
 
   const hubTotals = useMemo(() => {
     return trays.reduce(
@@ -249,6 +322,11 @@ const PackingScreen = ({ navigation }) => {
       {hubSpecEnabled && trays.length > 0 ? (
         <Text style={styles.sectionTitle}>All receiver boxes</Text>
       ) : null}
+      {hubSpecEnabled && sendableTrays.length > 0 ? (
+        <Text style={styles.selectionHint}>
+          Tap ready boxes to select, then send to In Transit.
+        </Text>
+      ) : null}
     </>
   );
 
@@ -323,16 +401,26 @@ const PackingScreen = ({ navigation }) => {
           numColumns={2}
           keyExtractor={(item) => String(item.sortingTrayNumber || item.id)}
           columnWrapperStyle={styles.receiverBoxesRow}
-          renderItem={({ item }) => (
-            <PackingTrayCard
-              tray={item}
-              useBoxLabel
-              onPress={() => navigation.navigate('ViewPackingScreen', { item })}
-            />
-          )}
+          renderItem={({ item }) => {
+            const trayNumber = String(item.sortingTrayNumber || '').trim();
+            const canSelect = item.isReadyForShipping || item.isComplete;
+            return (
+              <PackingTrayCard
+                tray={item}
+                useBoxLabel
+                selectable={canSelect}
+                isSelected={selectedTrayNumbers.includes(trayNumber)}
+                onToggleSelect={() => toggleTraySelection(item)}
+                onPress={() => navigation.navigate('ViewPackingScreen', { item })}
+              />
+            );
+          }}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={emptyComponent}
-          contentContainerStyle={styles.hubListContentContainer}
+          contentContainerStyle={[
+            styles.hubListContentContainer,
+            selectedTrayNumbers.length > 0 && styles.hubListContentWithFooter,
+          ]}
         />
       ) : (
         <FlatList
@@ -347,6 +435,17 @@ const PackingScreen = ({ navigation }) => {
           contentContainerStyle={styles.listContentContainer}
         />
       )}
+      {hubSpecEnabled ? (
+        <PackingBoxSelectionFooter
+          selectedCount={selectedTrayNumbers.length}
+          sendableCount={sendableTrays.length}
+          isAllSelected={isAllSendableSelected}
+          onSelectAll={handleSelectAllSendable}
+          onClear={() => setSelectedTrayNumbers([])}
+          onSendToInTransit={handleSendToInTransit}
+          sending={sendingToInTransit}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -376,6 +475,16 @@ const styles = StyleSheet.create({
   hubListContentContainer: {
     paddingBottom: 34,
     paddingHorizontal: 8,
+  },
+  hubListContentWithFooter: {
+    paddingBottom: 180,
+  },
+  selectionHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#647276',
+    paddingHorizontal: 15,
+    paddingBottom: 8,
   },
   receiverBoxesRow: {
     gap: 10,

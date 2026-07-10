@@ -820,3 +820,28 @@ export const addLeafTrailShippingDetails = async (data) => {
     throw error; // optionally rethrow for use in UI
   }
 };
+
+export const sendReceiverBoxesToInTransit = async (data) => {
+  try {
+    const token = await getStoredAuthToken();
+
+    const response = await fetch(API_ENDPOINTS.SEND_RECEIVER_BOXES_TO_IN_TRANSIT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('sendReceiverBoxesToInTransit error:', error.message);
+    throw error;
+  }
+};

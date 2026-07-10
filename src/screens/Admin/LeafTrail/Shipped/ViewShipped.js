@@ -282,7 +282,9 @@ const ViewShippedScreen = ({ navigation, route }) => {
         });
         if (response.success) {
             setShippedDetails(prev => ({...prev, deliveryDate, deliveryTime}));
-            Alert.alert("Success", "Delivery details updated successfully.");
+            Alert.alert('Success', 'Delivery details updated successfully.', [
+              { text: 'OK', onPress: () => navigation.goBack() },
+            ]);
         } else {
             throw new Error(response.error || "Failed to update delivery details.");
         }

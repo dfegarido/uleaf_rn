@@ -22,6 +22,7 @@ import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import {
   addLeafTrailBoxNumber,
   getOrdersBySortingTray,
+  sendReceiverBoxesToInTransit,
   updateLeafTrailStatus,
   updatePlantsToNeedsToStay,
 } from '../../../../components/Api/getAdminLeafTrail';
@@ -188,6 +189,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const [orderId, setOrderId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAssignBoxVisible, setIsAssignBoxVisible] = useState(false);
+  const [sendingToInTransit, setSendingToInTransit] = useState(false);
 
   const trayScanParams = useMemo(
     () => LEAF_TRAIL_SCAN_PARAMS.packingTray({ sortingTrayNumber: item?.sortingTrayNumber }),
@@ -318,6 +320,35 @@ const ViewPackingScreen = ({ navigation, route }) => {
     setIsAssignBoxVisible(true);
   };
 
+  const handleSendToInTransit = async () => {
+    const trayNumber = String(item?.sortingTrayNumber || canonicalReceiverBoxNumber || '').trim();
+    if (!trayNumber) return;
+    if (!trayMetrics.isReadyForShipping) {
+      Alert.alert(
+        'Not ready',
+        'Finish packing and assign box numbers before sending to In Transit.',
+      );
+      return;
+    }
+    setSendingToInTransit(true);
+    try {
+      const response = await sendReceiverBoxesToInTransit({
+        sortingTrayNumbers: [trayNumber],
+      });
+      if (response?.success) {
+        Alert.alert('Sent to In Transit', response.message || 'Box sent to In Transit.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert('Error', response?.message || 'Could not send box to In Transit.');
+      }
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Could not send box to In Transit.');
+    } finally {
+      setSendingToInTransit(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     if (!item?.sortingTrayNumber) return;
     setIsLoading(true);
@@ -377,6 +408,19 @@ const ViewPackingScreen = ({ navigation, route }) => {
           label={hubSpecEnabled ? 'Receiver Box Number' : 'Tray Number'}
         />
         <PackingTraySummary metrics={trayMetrics} />
+        {hubSpecEnabled && trayMetrics.isReadyForShipping ? (
+          <TouchableOpacity
+            style={styles.sendInTransitButton}
+            onPress={handleSendToInTransit}
+            disabled={sendingToInTransit}
+            activeOpacity={0.85}>
+            {sendingToInTransit ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.sendInTransitButtonText}>Send to In Transit</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
 
         <View style={styles.deliveryDetailsSection}>
           <Text style={styles.sectionTitle}>Delivery Details</Text>
@@ -474,6 +518,22 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  sendInTransitButton: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  sendInTransitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   headerContainer: {
     flexDirection: 'row',
