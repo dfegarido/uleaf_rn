@@ -6,6 +6,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -282,7 +283,13 @@ const ShippedScreen = ({ navigation }) => {
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {(isLoading || actionLoading) && !showLabelViewer && (
-        <Modal transparent animationType="fade">
+        <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => {}}
+          statusBarTranslucent={Platform.OS === 'android'}
+          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>

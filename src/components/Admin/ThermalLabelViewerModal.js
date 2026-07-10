@@ -30,7 +30,12 @@ const ThermalLabelViewerModal = ({
       : String(labels.length);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.backButton} hitSlop={12}>

@@ -401,17 +401,19 @@ const PlantFlightFilter = ({
 
   return (
     <Modal
-      animationType="slide"
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
       transparent={true}
       visible={isVisible}
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 0) }]}>
               <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={80}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
                 style={{flex: 1}}
               >
                 <View style={{flex: 1}}>

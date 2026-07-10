@@ -278,7 +278,12 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   );
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
       <SafeAreaView style={styles.screen} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -353,7 +358,9 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Embedded overlays — avoid nested RN Modals (Android). */}
         <SortingTrayAssignSheet
+          embedded
           visible={traySheetVisible}
           onClose={() => setTraySheetVisible(false)}
           plants={box?.plants || []}
@@ -361,8 +368,8 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           onAssigned={onRefresh}
         />
 
-        <Modal transparent visible={finishPromptVisible} animationType="fade">
-          <View style={styles.finishOverlay}>
+        {finishPromptVisible ? (
+          <View style={styles.finishOverlay} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.finishBackdrop}
               activeOpacity={1}
@@ -387,7 +394,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
               </TouchableOpacity>
             </View>
           </View>
-        </Modal>
+        ) : null}
       </SafeAreaView>
     </Modal>
   );
@@ -794,8 +801,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   finishOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
+    zIndex: 110,
+    elevation: 110,
   },
   finishBackdrop: {
     ...StyleSheet.absoluteFillObject,

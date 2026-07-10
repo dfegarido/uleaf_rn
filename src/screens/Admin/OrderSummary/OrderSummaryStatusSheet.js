@@ -292,8 +292,58 @@ const OrderSummaryStatusSheet = ({
   options,
   onClose,
   onSelect,
+  /** Absolute overlay instead of Modal — required when parent is already a Modal (Android). */
+  embedded = false,
 }) => {
   const insets = useSafeAreaInsets();
+
+  if (!visible) return null;
+
+  const sheetBody = (
+    <View style={styles.root}>
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      />
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={styles.indicatorContainer}>
+          <View style={styles.indicatorBar} />
+        </View>
+        <View style={styles.sheetHeader}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={onClose}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Close"
+            accessibilityRole="button">
+            <CloseIcon width={24} height={24} fill="#647276" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.content}>
+          {options.map((opt, index) => (
+            <View key={opt.value}>
+              <OptionRow
+                title={opt.label}
+                onPress={() => onSelect(opt.value)}
+              />
+              {index < options.length - 1 && (
+                <View style={styles.dividerContainer}>
+                  <View style={styles.divider} />
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedRoot}>{sheetBody}</View>;
+  }
 
   return (
     <Modal
@@ -303,50 +353,17 @@ const OrderSummaryStatusSheet = ({
       onRequestClose={onClose}
       presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       statusBarTranslucent={Platform.OS === 'android'}>
-      <View style={styles.root}>
-        <Pressable
-          style={styles.backdrop}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <View style={styles.indicatorContainer}>
-            <View style={styles.indicatorBar} />
-          </View>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{title}</Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityLabel="Close"
-              accessibilityRole="button">
-              <CloseIcon width={24} height={24} fill="#647276" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.content}>
-            {options.map((opt, index) => (
-              <View key={opt.value}>
-                <OptionRow
-                  title={opt.label}
-                  onPress={() => onSelect(opt.value)}
-                />
-                {index < options.length - 1 && (
-                  <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
+      {sheetBody}
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  embeddedRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 110,
+    elevation: 110,
+  },
   root: {
     flex: 1,
     justifyContent: 'flex-end',

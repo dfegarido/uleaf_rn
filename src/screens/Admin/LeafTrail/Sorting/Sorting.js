@@ -51,6 +51,12 @@ const ListItem = ({ item, navigation }) => (
               <Text style={styles.receivedNumber}>{item.sortedPlantsCount}</Text>
             </View>
           </View>
+          <View style={styles.quantityRow}>
+            <View style={styles.quantitySection}>
+              <Text style={styles.quantityLabel}>Need to Stay</Text>
+              <Text style={styles.receivedNumber}>{item.needsToStayOrderCount}</Text>
+            </View>
+          </View>
         </View>
       </View>
       <View style={styles.detailsRow}>
@@ -283,13 +289,19 @@ const SortingScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.screenContainer}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {((isLoading && !activeBox) || (printLoading && !showLabelViewer)) && (
-        <Modal transparent animationType="fade">
+      {((isLoading && !activeBox) || (printLoading && !showLabelViewer)) ? (
+        <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => {}}
+          statusBarTranslucent={Platform.OS === 'android'}
+          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>
         </Modal>
-      )}
+      ) : null}
       <LabelViewer />
       <ScreenHeader
         navigation={navigation}

@@ -396,7 +396,13 @@ const ViewShippedScreen = ({ navigation, route }) => {
         </View>
       </ScrollView>
       {(isLoading || isSaving || isSavingTracking) && (
-        <Modal transparent animationType="fade">
+        <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => {}}
+          statusBarTranslucent={Platform.OS === 'android'}
+          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#699E73" />
           </View>

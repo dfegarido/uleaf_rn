@@ -147,18 +147,20 @@ const ReceiverFilter = ({
 
   return (
     <Modal
-      animationType="slide"
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
       transparent
       visible={isVisible}
       onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.actionSheetContainer}>
               <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={80}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
                 style={{ flex: 1 }}
               >
                 <SafeAreaView style={{ flex: 1 }}>

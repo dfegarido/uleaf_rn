@@ -10,7 +10,8 @@ import { Image,
   View,
   Modal,
   Dimensions,
-  Alert} from 'react-native';
+  Alert,
+  Platform} from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
 import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import { Camera,
@@ -523,8 +524,11 @@ const ScanQRScreen = ({ navigation, route }) => {
 
               <Modal
                 visible={isImageModalVisible}
-                transparent={true}
+                transparent
+                animationType="fade"
                 onRequestClose={() => setImageModalVisible(false)}
+                presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+                statusBarTranslucent={Platform.OS === 'android'}
               >
                 <View style={styles.fullScreenImageContainer}>
                   <TouchableOpacity
@@ -561,11 +565,17 @@ const ScanQRScreen = ({ navigation, route }) => {
                 onClose={() => setTagAsVisible(false)}/>
 
               {isLoading && (
-                        <Modal transparent animationType="fade">
-                          <View style={styles.loadingOverlay}>
-                            <ActivityIndicator size="large" color="#699E73" />
-                          </View>
-                        </Modal>
+                        <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => {}}
+          statusBarTranslucent={Platform.OS === 'android'}
+          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
                       )}
 
               {/* Plant Card Section */}

@@ -78,12 +78,13 @@ export function isSortedPlant(plant) {
 
 /**
  * Plants still waiting for a sort scan in this receiver box.
- * Missing / Damaged / Others / Needs to Stay are excluded from Sorting
- * (managed on Receiving; already subtracted from Outstanding Plants).
+ * Missing / Damaged / Others are excluded from Sorting (managed on Receiving).
+ * Needs to Stay remains visible in Sorting.
  */
 export function isAwaitingSortPlant(plant) {
   if (isSortedPlant(plant)) return false;
-  return normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'received';
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  return status === 'received' || status === 'needstostay';
 }
 
 export function sortingPlantStatusLabel(plant) {
@@ -138,15 +139,21 @@ export function describeSortingScanPlantOutcome(plant) {
     };
   }
 
-  if (status === 'missing' || status === 'damaged' || status === 'needstostay' || status === 'others') {
+  if (status === 'needstostay') {
+    return {
+      tone: 'warning',
+      lines: [
+        'This plant is hanging in Sorting (Need to Stay).',
+        'It is excluded from Total Plants to Fulfill and from Packing.',
+        'When ready to ship, scan it here to mark as Sorted.',
+        `Current status: ${displayStatus}.`,
+      ],
+    };
+  }
+
+  if (status === 'missing' || status === 'damaged' || status === 'others') {
     const reason =
-      status === 'needstostay'
-        ? 'Need to stay'
-        : status === 'others'
-          ? 'Others'
-          : status === 'missing'
-            ? 'Missing'
-            : 'Damaged';
+      status === 'others' ? 'Others' : status === 'missing' ? 'Missing' : 'Damaged';
     return {
       tone: 'warning',
       lines: [

@@ -428,11 +428,17 @@ const ViewPackingScreen = ({ navigation, route }) => {
         onClose={() => setTagAsVisible(false)}/>
 
       {isLoading && (
-                <Modal transparent animationType="fade">
-                  <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color="#699E73" />
-                  </View>
-                </Modal>
+                <Modal
+          transparent
+          visible
+          animationType="fade"
+          onRequestClose={() => {}}
+          statusBarTranslucent={Platform.OS === 'android'}
+          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#699E73" />
+          </View>
+        </Modal>
               )}
       <PackingSelectionFooter
         selectedCount={selectedPlants.length}

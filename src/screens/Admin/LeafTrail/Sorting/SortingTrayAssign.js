@@ -134,6 +134,8 @@ export const SortingTrayAssignSheet = ({
   plants = [],
   defaultTrayNumber,
   onAssigned,
+  /** When true, render as absolute overlay (no nested Modal — required on Android). */
+  embedded = false,
 }) => {
   const insets = useSafeAreaInsets();
   const [keyboardOffset, setKeyboardOffset] = useState(0);
@@ -166,45 +168,64 @@ export const SortingTrayAssignSheet = ({
     onClose?.();
   };
 
+  if (!visible) {
+    return null;
+  }
+
+  const sheetBody = (
+    <View style={sheetStyles.root} pointerEvents="box-none">
+      <Pressable
+        style={sheetStyles.backdrop}
+        onPress={dismissSheet}
+        accessibilityRole="button"
+        accessibilityLabel="Close tray assignment"
+      />
+      <View
+        style={[
+          sheetStyles.panel,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            marginBottom: keyboardOffset,
+          },
+        ]}>
+        <View style={sheetStyles.handle} />
+        <SortingTrayAssign
+          plants={plants}
+          defaultTrayNumber={defaultTrayNumber}
+          variant="sheet"
+          onAssigned={() => {
+            onAssigned?.();
+            dismissSheet();
+          }}
+        />
+      </View>
+    </View>
+  );
+
+  // Embedded: overlay View avoids nested Modal bugs on Android.
+  if (embedded) {
+    return <View style={sheetStyles.embeddedRoot}>{sheetBody}</View>;
+  }
+
   return (
     <Modal
       transparent
       visible={visible}
-      animationType="slide"
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
       onRequestClose={dismissSheet}
-      statusBarTranslucent>
-      <View style={sheetStyles.root}>
-        <Pressable
-          style={sheetStyles.backdrop}
-          onPress={dismissSheet}
-          accessibilityRole="button"
-          accessibilityLabel="Close tray assignment"
-        />
-        <View
-          style={[
-            sheetStyles.panel,
-            {
-              paddingBottom: Math.max(insets.bottom, 16),
-              marginBottom: keyboardOffset,
-            },
-          ]}>
-          <View style={sheetStyles.handle} />
-          <SortingTrayAssign
-            plants={plants}
-            defaultTrayNumber={defaultTrayNumber}
-            variant="sheet"
-            onAssigned={() => {
-              onAssigned?.();
-              dismissSheet();
-            }}
-          />
-        </View>
-      </View>
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
+      {sheetBody}
     </Modal>
   );
 };
 
 const sheetStyles = StyleSheet.create({
+  embeddedRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    elevation: 100,
+  },
   root: {
     flex: 1,
     justifyContent: 'flex-end',

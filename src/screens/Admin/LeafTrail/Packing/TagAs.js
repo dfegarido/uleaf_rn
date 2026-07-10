@@ -1,121 +1,146 @@
 import React from 'react';
-import { Modal,
+import {
+  Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BoxIcon from '../../../../assets/admin-icons/box-black.svg';
 import CrossIcon from '../../../../assets/admin-icons/cross-icon.svg';
 import RightArrowIcon from '../../../../assets/admin-icons/rigth-arrow.svg';
 
-// Reusable component for each option in the list
-const OptionItem = ({ isCrossIcon, isBoxIcon, title, hasRightArrow = false, setTagAs, status }) =>{ 
-  
+const OptionItem = ({
+  isCrossIcon,
+  isBoxIcon,
+  title,
+  hasRightArrow = false,
+  setTagAs,
+  status,
+}) => {
   const setStatus = () => {
-    setTagAs(status)
-  }
+    setTagAs(status);
+  };
 
   return (
-  <TouchableOpacity style={styles.optionsRow} onPress={setStatus}>
-    <View style={styles.listLeft}>
-      <View style={styles.iconContainer}>
-        {isCrossIcon && <CrossIcon />}
-        {isBoxIcon && <BoxIcon />}
-      </View>
-      <Text style={styles.listTitle}>{title}</Text>
-    </View>
-    {hasRightArrow && (
-      <View style={styles.listRight}>
+    <TouchableOpacity style={styles.optionsRow} onPress={setStatus} activeOpacity={0.7}>
+      <View style={styles.listLeft}>
         <View style={styles.iconContainer}>
-          <RightArrowIcon />
+          {isCrossIcon && <CrossIcon />}
+          {isBoxIcon && <BoxIcon />}
         </View>
+        <Text style={styles.listTitle}>{title}</Text>
       </View>
-    )}
-  </TouchableOpacity>
-)};
+      {hasRightArrow && (
+        <View style={styles.listRight}>
+          <View style={styles.iconContainer}>
+            <RightArrowIcon />
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
 
-const TagAsOptions = ({ visible, onClose, setTagAs, hasBox = false, boxActionTitle = 'Assign a box' }) => {
+const TagAsOptions = ({
+  visible,
+  onClose,
+  setTagAs,
+  hasBox = false,
+  boxActionTitle = 'Assign a box',
+}) => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
-      animationType="slide"
-      transparent={true}
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
+      transparent
       visible={visible}
-      onRequestClose={onClose}>
-      {/* 2. This Pressable is the overlay that closes the modal */}
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        {/* 3. This Pressable stops clicks inside the sheet from closing it */}
-        <Pressable>
-          <View style={styles.actionSheetContainer}>
-            {/* Indicator */}
-            <View style={styles.indicatorContainer}>
-              <View style={styles.indicatorBar} />
-            </View>
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
+      <View style={styles.root}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+        />
+        <View
+          style={[
+            styles.actionSheetContainer,
+            { paddingBottom: Math.max(insets.bottom, 16) },
+          ]}>
+          <View style={styles.indicatorContainer}>
+            <View style={styles.indicatorBar} />
+          </View>
 
-            {/* Content */}
-            <View style={styles.content}>
-              {!hasBox && 
-                <View>
-                  <OptionItem
-                    isBoxIcon={true}
-                    title={boxActionTitle}
-                    hasRightArrow
-                    setTagAs={setTagAs}
-                    status="packing"
-                  />
-                  <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                  </View>
+          <View style={styles.content}>
+            {!hasBox && (
+              <View>
+                <OptionItem
+                  isBoxIcon
+                  title={boxActionTitle}
+                  hasRightArrow
+                  setTagAs={setTagAs}
+                  status="packing"
+                />
+                <View style={styles.dividerContainer}>
+                  <View style={styles.divider} />
                 </View>
-              }
-              <View>
-                  <OptionItem
-                    isCrossIcon={true}
-                    title="Tag as missing"
-                    hasRightArrow
-                    setTagAs={setTagAs}
-                    status="missing"
-                  />
-                  <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                  </View>
               </View>
-              <View>
-                  <OptionItem
-                    isCrossIcon={true}
-                    title="Tag as damaged"
-                    hasRightArrow
-                    setTagAs={setTagAs}
-                    status="damaged"
-                  />
-                  <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                  </View>
+            )}
+            <View>
+              <OptionItem
+                isCrossIcon
+                title="Tag as missing"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="missing"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+            <View>
+              <OptionItem
+                isCrossIcon
+                title="Tag as damaged"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="damaged"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
               </View>
             </View>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 };
 
 export default TagAsOptions;
 
-// --- Stylesheet ---
 const styles = StyleSheet.create({
-  modalOverlay: {
+  root: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dim the background
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   actionSheetContainer: {
     width: '100%',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 34, // Space for home indicator
+    overflow: 'hidden',
+    elevation: 8,
   },
   indicatorContainer: {
     width: '100%',
@@ -161,15 +186,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconPlaceholder: {
-    color: '#556065',
-    fontWeight: 'bold',
-  },
   listTitle: {
-    fontFamily: 'Inter', // NOTE: You must have this font linked in your project
+    fontFamily: 'Inter',
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 22.4, // 140% of 16px
+    lineHeight: 22.4,
     color: '#393D40',
   },
   dividerContainer: {
@@ -180,22 +201,5 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 1,
     backgroundColor: '#E4E7E9',
-  },
-  // --- Example Usage Styles ---
-  exampleContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  button: {
-    marginTop: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#539461',
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
   },
 });

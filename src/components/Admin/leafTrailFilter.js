@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,7 +73,9 @@ const LeafTrailFilter = ({ isVisible, onClose, onSelectStatus, onReset, currentS
       animationType="slide"
       transparent={true}
       visible={isVisible}
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>

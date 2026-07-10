@@ -33,8 +33,51 @@ const TagAsOptions = ({
   showStatusActions = false,
   onLeafTrailStatusPress,
   onPlantStatusPress,
+  /** Absolute overlay instead of Modal — required when parent is already a Modal (Android). */
+  embedded = false,
 }) => {
   const insets = useSafeAreaInsets();
+
+  if (!visible) return null;
+
+  const sheetBody = (
+    <View style={styles.root}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" />
+      <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={styles.indicatorContainer}>
+          <View style={styles.indicatorBar} />
+        </View>
+
+        <View style={styles.content}>
+          {showStatusActions ? (
+            <View>
+              <MenuActionItem
+                title="Change leaf trail status"
+                onPress={() => {
+                  onClose?.();
+                  onLeafTrailStatusPress?.();
+                }}
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+              <MenuActionItem
+                title="Change plant status"
+                onPress={() => {
+                  onClose?.();
+                  onPlantStatusPress?.();
+                }}
+              />
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedRoot}>{sheetBody}</View>;
+  }
 
   return (
     <Modal
@@ -44,38 +87,7 @@ const TagAsOptions = ({
       onRequestClose={onClose}
       presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       statusBarTranslucent={Platform.OS === 'android'}>
-      <View style={styles.root}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" />
-        <View style={[styles.actionSheetContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            <View style={styles.indicatorContainer}>
-              <View style={styles.indicatorBar} />
-            </View>
-
-            <View style={styles.content}>
-              {showStatusActions ? (
-                <View>
-                  <MenuActionItem
-                    title="Change leaf trail status"
-                    onPress={() => {
-                      onClose?.();
-                      onLeafTrailStatusPress?.();
-                    }}
-                  />
-                  <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                  </View>
-                  <MenuActionItem
-                    title="Change plant status"
-                    onPress={() => {
-                      onClose?.();
-                      onPlantStatusPress?.();
-                    }}
-                  />
-                </View>
-              ) : null}
-            </View>
-        </View>
-      </View>
+      {sheetBody}
     </Modal>
   );
 };
@@ -83,6 +95,11 @@ const TagAsOptions = ({
 export default TagAsOptions;
 
 const styles = StyleSheet.create({
+  embeddedRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    elevation: 100,
+  },
   root: {
     flex: 1,
     justifyContent: 'flex-end',

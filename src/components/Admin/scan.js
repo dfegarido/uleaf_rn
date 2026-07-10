@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 
 // A single radio button option
@@ -28,6 +29,7 @@ const ScanOption = ({ label, isSelected, onPress }) => (
 
 const ScanOptions = ({ isVisible, onClose, onApplyScan }) => {
   const [selectedOption, setSelectedOption] = useState(null);
+  const insets = useSafeAreaInsets();
 
   const options = ['Scanned', 'Unscanned'];
 
@@ -44,47 +46,52 @@ const ScanOptions = ({ isVisible, onClose, onApplyScan }) => {
 
   return (
     <Modal
-      animationType="slide"
-      transparent={true}
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
+      transparent
       visible={isVisible}
-      onRequestClose={onClose}>
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
-          <View style={styles.actionSheetContainer}>
-            <SafeAreaView>
-              {/* Header */}
-              <View style={styles.header}>
-                <Text style={styles.headerTitle}>Scan</Text>
-                <TouchableOpacity onPress={onClose}>
-                  <CloseIcon />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback>
+            <View
+              style={[
+                styles.actionSheetContainer,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}>
+              <SafeAreaView edges={['bottom']}>
+                <View style={styles.header}>
+                  <Text style={styles.headerTitle}>Scan</Text>
+                  <TouchableOpacity onPress={onClose}>
+                    <CloseIcon />
+                  </TouchableOpacity>
+                </View>
 
-              {/* Options */}
-              <View style={styles.content}>
-                {options.map(option => (
-                  <ScanOption
-                    key={option}
-                    label={option}
-                    isSelected={selectedOption === option}
-                    onPress={() => setSelectedOption(option)}
-                  />
-                ))}
-              </View>
+                <View style={styles.content}>
+                  {options.map(option => (
+                    <ScanOption
+                      key={option}
+                      label={option}
+                      isSelected={selectedOption === option}
+                      onPress={() => setSelectedOption(option)}
+                    />
+                  ))}
+                </View>
 
-              {/* Action Button */}
-              <View style={styles.actionContainer}>
+                <View style={styles.actionContainer}>
                   <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
                     <Text style={styles.clearButtonText}>Reset</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
                     <Text style={styles.applyButtonText}>View</Text>
                   </TouchableOpacity>
-              </View>
-            </SafeAreaView>
-          </View>
+                </View>
+              </SafeAreaView>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </TouchableWithoutFeedback>  
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
@@ -100,7 +107,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 20, // For home indicator area
   },
   header: {
     flexDirection: 'row',

@@ -3,12 +3,14 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import Options from '../../../../assets/admin-icons/options.svg';
 import CheckedBoxIcon from '../../../../assets/admin-icons/checked-box.svg';
@@ -24,6 +26,7 @@ const PlantImagePeek = ({ uri }) => {
   const [visible, setVisible] = useState(false);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
+  const insets = useSafeAreaInsets();
 
   const handlePressIn = () => {
     pressInTimeout.current = setTimeout(() => {
@@ -49,9 +52,17 @@ const PlantImagePeek = ({ uri }) => {
         activeOpacity={0.85}>
         <Image source={{ uri: uri || '' }} style={styles.plantImage} />
       </TouchableOpacity>
-      <Modal visible={visible} transparent onRequestClose={() => setVisible(false)}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVisible(false)}
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+        statusBarTranslucent={Platform.OS === 'android'}>
         <View style={styles.modalBackdrop}>
-          <TouchableOpacity style={styles.modalClose} onPress={() => setVisible(false)}>
+          <TouchableOpacity
+            style={[styles.modalClose, { top: Math.max(insets.top, 12) + 8 }]}
+            onPress={() => setVisible(false)}>
             <CloseIcon width={24} height={24} fill="#fff" />
           </TouchableOpacity>
           <ImageZoom
@@ -457,7 +468,6 @@ const styles = StyleSheet.create({
   },
   modalClose: {
     position: 'absolute',
-    top: 50,
     right: 20,
     zIndex: 10,
     padding: 10,

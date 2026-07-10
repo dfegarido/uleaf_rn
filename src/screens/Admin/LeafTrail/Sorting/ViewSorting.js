@@ -240,20 +240,34 @@ const SortedPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSel
   />
 );
 
+const NeedToStayPlantsTab = ({itemDetails, openTagAs, selectedPlants = [], handleSelectPlant}) => (
+  <FlatList
+    data={itemDetails}
+    renderItem={({ item }) => <PlantCard plant={item} openTagAs={openTagAs} isSelected={selectedPlants.includes(item.id)} onSelect={handleSelectPlant} forSorting={true} />}
+    keyExtractor={item => item.hubReceiverId}
+    style={styles.listContainer}
+    contentContainerStyle={styles.listContent}
+    ItemSeparatorComponent={() => <View style={{height: 6}} />}
+  />
+);
+
 // --- Main Screen Component ---
 const SortingDetailsScreen = ({ navigation, route }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
   const [index, setIndex] = useState(0);
   const [itemDetails, setItemDetails] = useState(route?.params?.item || {})
   const [receivedPlantsCount, setReceivedPlantsCount] = useState(itemDetails?.receivedPlantsCount || 0);
+  const [needsToStayPlantsCount, setNeedsToStayPlantsCount] = useState(itemDetails?.needsToStayOrderCount || 0);
   const [sortedPlantsCount, setsortedPlantsCount] = useState(itemDetails?.sortedPlantsCount || 0);
 
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'For Sorting Plants', count: receivedPlantsCount },
     { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
+    { key: 'needsToStay', title: 'Need to Stay', count: needsToStayPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
   const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
+  const [needsToStayPlantsData, setNeedsToStayPlantsData] = useState(itemDetails?.needsToStayPlantsData || [])
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [isMissing, setIsMissing] = useState(false);
   const [isDamaged, setIsDamaged] = useState(false);
@@ -269,17 +283,19 @@ const SortingDetailsScreen = ({ navigation, route }) => {
     () => [
       ...(receivedPlantsData || []),
       ...(sortedPlantsData || []),
+      ...(needsToStayPlantsData || []),
     ],
-    [receivedPlantsData, sortedPlantsData],
+    [receivedPlantsData, sortedPlantsData, needsToStayPlantsData],
   );
 
   const openTagAs = (status, id) => {
+    setIsSelectionMode(false);
     setIsMissing(status.isMissing);
     setIsDamaged(status.isDamaged);
     setIsNeedsToStay(status.isNeedsToStay);
     setIsOthers(status.isOthers);
     setForShipping(status.forShipping);
-    setTagAsVisible(!isTagAsVisible);
+    setTagAsVisible(true);
     setOrderId(id)
   }
 
@@ -292,11 +308,14 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setRoutes([
          { key: 'received', title: 'For Sorting Plants', count: response.receivedPlantsCount },
          { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
+         { key: 'needsToStay', title: 'Need to Stay', count: response.needsToStayOrderCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setsortedPlantsData(response?.sortedPlantsData || []);
+      setNeedsToStayPlantsData(response?.needsToStayPlantsData || []);
       setReceivedPlantsCount(response?.receivedPlantsCount || 0);
       setsortedPlantsCount(response?.sortedPlantsCount || 0);
+      setNeedsToStayPlantsCount(response?.needsToStayOrderCount || 0);
       setIsLoading(false)
       Alert.alert('Success', 'Order status updated successfully!');
     } else {
@@ -327,6 +346,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         return <ReceivedPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={receivedPlantsData || []} openTagAs={openTagAs} />;
       case 'sorted':
         return <SortedPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={sortedPlantsData || []} openTagAs={openTagAs} />;
+      case 'needsToStay':
+        return <NeedToStayPlantsTab selectedPlants={selectedPlants} handleSelectPlant={handleSelectPlant} itemDetails={needsToStayPlantsData || []} openTagAs={openTagAs} />;
       default:
         return null;
     }
@@ -356,7 +377,14 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   }
 
   const handleSelectAll = () => {
-    const currentOrders = index === 0 ? receivedPlantsData : sortedPlantsData;
+    let currentOrders = [];
+    if (index === 0) {
+      currentOrders = receivedPlantsData;
+    } else if (index === 1) {
+      currentOrders = sortedPlantsData;
+    } else if (index === 2) {
+      currentOrders = needsToStayPlantsData;
+    }
     if (selectedPlants.length === currentOrders.length) {
       setSelectedPlants([]);
     } else {
@@ -452,7 +480,13 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         onClose={() => setTagAsVisible(false)}/>
 
         {isLoading && (
-          <Modal transparent animationType="fade">
+          <Modal
+            transparent
+            visible
+            animationType="fade"
+            onRequestClose={() => {}}
+            statusBarTranslucent={Platform.OS === 'android'}
+            presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#699E73" />
             </View>
@@ -461,7 +495,13 @@ const SortingDetailsScreen = ({ navigation, route }) => {
         <SelectionModal
           visible={isSelectionMode}
           onClose={() => { setIsSelectionMode(false); setSelectedPlants([]); }}
-          plants={index === 0 ? receivedPlantsData : sortedPlantsData}
+          plants={
+            index === 0
+              ? receivedPlantsData
+              : index === 1
+                ? sortedPlantsData
+                : needsToStayPlantsData
+          }
           selectedPlants={selectedPlants}
           onSelectPlant={handleSelectPlant}
           onSelectAll={handleSelectAll}

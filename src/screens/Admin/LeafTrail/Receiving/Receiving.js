@@ -265,8 +265,11 @@ const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onTogg
 
         <Modal
             visible={isImageModalVisible}
-            transparent={true}
+            transparent
+            animationType="fade"
             onRequestClose={() => setImageModalVisible(false)}
+            presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+            statusBarTranslucent={Platform.OS === 'android'}
           >
             <View style={styles.fullScreenImageContainer}>
               <TouchableOpacity
@@ -454,7 +457,7 @@ const ReceivedTab = ({
     adminFilters,
     openTagAs,
     onBoxDetailOpenChange,
-    plantActionOverlays,
+    renderPlantActionOverlays,
 }) => {
     const [activeBox, setActiveBox] = useState(null);
 
@@ -512,6 +515,7 @@ const ReceivedTab = ({
             animationType="slide"
             transparent={false}
             presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+            statusBarTranslucent={Platform.OS === 'android'}
             onRequestClose={() => setBoxOpen(null)}>
             <View style={styles.receiverBoxModalRoot}>
                 <SafeAreaView style={styles.receiverBoxModalContainer} edges={['top', 'bottom']}>
@@ -557,7 +561,10 @@ const ReceivedTab = ({
                     contentContainerStyle={styles.receiverBoxModalListContent}
                 />
                 </SafeAreaView>
-                {plantActionOverlays}
+                {/* Embedded sheets — avoid nested RN Modals on Android */}
+                {typeof renderPlantActionOverlays === 'function'
+                    ? renderPlantActionOverlays(true)
+                    : null}
             </View>
         </Modal>
     );
@@ -1353,8 +1360,8 @@ const ReceivingScreen = ({navigation, route}) => {
         );
     };
 
-    const plantActionOverlays = useMemo(
-        () => (
+    const renderPlantActionOverlays = useCallback(
+        (embedded = false) => (
             <>
                 <OrderSummaryStatusSheet
                     visible={leafSheetVisible}
@@ -1362,6 +1369,7 @@ const ReceivingScreen = ({navigation, route}) => {
                     options={LEAF_TRAIL_STATUS_OPTIONS}
                     onClose={() => setLeafSheetVisible(false)}
                     onSelect={onLeafTrailStatusSelect}
+                    embedded={embedded}
                 />
                 <OrderSummaryStatusSheet
                     visible={plantSheetVisible}
@@ -1369,6 +1377,7 @@ const ReceivingScreen = ({navigation, route}) => {
                     options={plantStatusSheetOptions}
                     onClose={() => setPlantSheetVisible(false)}
                     onSelect={onPlantStatusSelect}
+                    embedded={embedded}
                 />
                 <TagAsOptions
                     visible={isTagAsVisible}
@@ -1376,6 +1385,7 @@ const ReceivingScreen = ({navigation, route}) => {
                     onLeafTrailStatusPress={openLeafTrailSheetFromCardMenu}
                     onPlantStatusPress={openPlantSheetFromCardMenu}
                     onClose={() => setTagAsVisible(false)}
+                    embedded={embedded}
                 />
             </>
         ),
@@ -1387,6 +1397,8 @@ const ReceivingScreen = ({navigation, route}) => {
             supportsStatusActions,
             onLeafTrailStatusSelect,
             onPlantStatusSelect,
+            openLeafTrailSheetFromCardMenu,
+            openPlantSheetFromCardMenu,
         ],
     );
 
@@ -1419,7 +1431,7 @@ const ReceivingScreen = ({navigation, route}) => {
                         receivingData={receivingData}
                         adminFilters={adminFiltersForActiveTab}
                         onBoxDetailOpenChange={handleReceiverBoxDetailOpenChange}
-                        plantActionOverlays={plantActionOverlays}
+                        renderPlantActionOverlays={renderPlantActionOverlays}
                     />
                 );
             case 'missing':
@@ -1473,7 +1485,7 @@ const ReceivingScreen = ({navigation, route}) => {
         trail1IntakeMode,
         hubSpecEnabled,
         handleReceiverBoxDetailOpenChange,
-        plantActionOverlays,
+        renderPlantActionOverlays,
     ]);
 
     const hubExportLines = getCurrentTabData()?.data || [];
@@ -1555,15 +1567,21 @@ const ReceivingScreen = ({navigation, route}) => {
         <SafeAreaProvider>
             <SafeAreaView style={styles.screenContainer} edges={['top']}>
                 <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-                {isLoading && !showLabelViewer && (
-                        <Modal transparent animationType="fade">
+                {(isLoading && !showLabelViewer) ? (
+                        <Modal
+                          transparent
+                          visible
+                          animationType="fade"
+                          onRequestClose={() => {}}
+                          statusBarTranslucent={Platform.OS === 'android'}
+                          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
                           <ReceivingLoadingOverlay
                               message={loadingMessage}
                               contextLabel={activeLoadingContextLabel}
                               title={activeLoadingTitle}
                           />
                         </Modal>
-                      )}
+                      ) : null}
                 
                 {/* Label Viewer Modal */}
                 <Modal
@@ -1673,7 +1691,7 @@ const ReceivingScreen = ({navigation, route}) => {
 
             </SafeAreaView>
 
-            {!receiverBoxDetailOpen ? plantActionOverlays : null}
+            {!receiverBoxDetailOpen ? renderPlantActionOverlays(false) : null}
         </SafeAreaProvider>
     );
 }

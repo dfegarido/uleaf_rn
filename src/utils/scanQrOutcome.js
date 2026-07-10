@@ -53,9 +53,9 @@ function mishapOutcome(status, displayStatus) {
   }
   if (status === 'needstostay') {
     return outcome('Plant Needs to Stay', 'warning', [
-      'This plant is marked Need to Stay at the hub.',
+      'This plant is hanging in Sorting (Need to Stay).',
+      'It is excluded from Packing until it is ready and scanned as Sorted.',
       `Current status: ${displayStatus}.`,
-      'Check the Need to Stay tab in Receiving.',
     ]);
   }
   if (status === 'others') {
@@ -111,7 +111,10 @@ export function describeScanQrOutcome(plant, context = {}) {
   const targetStatus = normalizeLeafTrailStatus(targetLeafTrailStatus);
 
   const mishap = mishapOutcome(status, displayStatus);
-  if (mishap && (statusUnchanged || !statusUpdatedKnown)) {
+  // Needs to Stay hangs in Sorting until ready — allow sort scan to mark it Sorted.
+  const allowNeedsToStaySortScan =
+    sortingBoxMode && status === 'needstostay' && targetStatus === 'sorted';
+  if (mishap && !allowNeedsToStaySortScan && (statusUnchanged || !statusUpdatedKnown)) {
     return mishap;
   }
 
@@ -166,6 +169,7 @@ export function describeScanQrOutcome(plant, context = {}) {
         'This plant was sorted into this receiver box.',
         ...updatedLines(displayStatus, previousStatus),
         'It counts toward Total Plants to Fulfill and appears under the Sorted tab.',
+        'It can now move to Packing.',
       ]);
     }
     if (statusUnchanged && status === 'sorted') {

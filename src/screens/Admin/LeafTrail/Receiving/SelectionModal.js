@@ -2,6 +2,7 @@ import React from 'react';
 import { FlatList,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -101,8 +102,10 @@ const SelectionModal = ({
       animationType="slide"
       transparent={false}
       visible={visible}
-      onRequestClose={onClose}>
-      <SafeAreaView style={styles.screen}>
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
+      <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
         <SelectionHeader
           onBack={onClose}
           selectedCount={selectedPlants.length}
