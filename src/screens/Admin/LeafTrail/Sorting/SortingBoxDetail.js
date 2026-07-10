@@ -287,43 +287,43 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
       <View style={styles.modalRoot}>
         <SafeAreaView style={styles.screen} edges={['top']}>
           <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerBack}
-            onPress={onClose}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <BackIcon width={22} height={22} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            Receiver box
-          </Text>
-          <View style={styles.headerActions}>
             <TouchableOpacity
-              style={[
-                styles.headerActionIcon,
-                sharedTrayNumber && styles.headerActionIconActive,
-              ]}
-              onPress={() => setTraySheetVisible(true)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={
-                sharedTrayNumber
-                  ? `Tray number ${sharedTrayNumber}. Tap to view.`
-                  : 'View tray number'
-              }>
-              <TrayIcon width={26} height={26} />
+              style={styles.headerBack}
+              onPress={onClose}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <BackIcon width={22} height={22} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerActionIcon}
-              onPress={openScan}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Scan to sort plants">
-              <ScanQrIcon width={32} height={32} />
-            </TouchableOpacity>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Receiver box
+            </Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={[
+                  styles.headerActionIcon,
+                  sharedTrayNumber && styles.headerActionIconActive,
+                ]}
+                onPress={() => setTraySheetVisible(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  sharedTrayNumber
+                    ? `Tray number ${sharedTrayNumber}. Tap to view.`
+                    : 'View tray number'
+                }>
+                <TrayIcon width={26} height={26} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerActionIcon}
+                onPress={openScan}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Scan to sort plants">
+                <ScanQrIcon width={32} height={32} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        <FlatList
+          <FlatList
           data={visiblePlants}
           keyExtractor={(item) => item.id}
           extraData={plantTab}
@@ -348,47 +348,46 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
               </Text>
             </View>
           }
-        />
+          />
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TouchableOpacity
-            style={styles.finishButton}
-            onPress={() => setFinishPromptVisible(true)}
-            activeOpacity={0.85}>
-            <Text style={styles.finishButtonText}>Finished scanning?</Text>
-          </TouchableOpacity>
-        </View>
-
-        {finishPromptVisible ? (
-          <View style={styles.finishOverlay} pointerEvents="box-none">
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <TouchableOpacity
-              style={styles.finishBackdrop}
-              activeOpacity={1}
-              onPress={() => setFinishPromptVisible(false)}
-            />
-            <View style={[styles.finishSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-              <View style={styles.finishHandle} />
-              <Text style={styles.finishTitle}>Finished scanning?</Text>
-              <Text style={styles.finishSubtitle}>
-                Review counts before leaving this box.
-              </Text>
-              <View style={styles.finishSummaryWrap}>
-                <SortingBoxPrintedSummary metrics={metrics} variant="card" />
-              </View>
-              <TouchableOpacity style={styles.finishYes} onPress={handleFinishYes}>
-                <Text style={styles.finishYesText}>Yes — exit box</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.finishNo}
-                onPress={() => setFinishPromptVisible(false)}>
-                <Text style={styles.finishNoText}>No — keep sorting</Text>
-              </TouchableOpacity>
-            </View>
+              style={styles.finishButton}
+              onPress={() => setFinishPromptVisible(true)}
+              activeOpacity={0.85}>
+              <Text style={styles.finishButtonText}>Finished scanning?</Text>
+            </TouchableOpacity>
           </View>
-        ) : null}
+
+          {finishPromptVisible ? (
+            <View style={styles.finishOverlay} pointerEvents="box-none">
+              <TouchableOpacity
+                style={styles.finishBackdrop}
+                activeOpacity={1}
+                onPress={() => setFinishPromptVisible(false)}
+              />
+              <View style={[styles.finishSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+                <View style={styles.finishHandle} />
+                <Text style={styles.finishTitle}>Finished scanning?</Text>
+                <Text style={styles.finishSubtitle}>
+                  Review counts before leaving this box.
+                </Text>
+                <View style={styles.finishSummaryWrap}>
+                  <SortingBoxPrintedSummary metrics={metrics} variant="card" />
+                </View>
+                <TouchableOpacity style={styles.finishYes} onPress={handleFinishYes}>
+                  <Text style={styles.finishYesText}>Yes — exit box</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.finishNo}
+                  onPress={() => setFinishPromptVisible(false)}>
+                  <Text style={styles.finishNoText}>No — keep sorting</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
         </SafeAreaView>
 
-        {/* Tray sheet: iOS uses its own Modal; Android uses embedded overlay. */}
         <SortingTrayAssignSheet
           embedded={Platform.OS === 'android'}
           readOnly
