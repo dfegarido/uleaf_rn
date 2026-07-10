@@ -448,25 +448,31 @@ const ListingsViewer = ({ navigation }) => {
   const handleToggleStatus = async (listing) => {
     if (!listing || !listing.plantCode) return;
     
-    const isInactive = listing.status && listing.status.toLowerCase() === 'inactive';
-    const action = isInactive ? 'activate' : 'deactivate';
-    const actionCapitalized = isInactive ? 'Activate' : 'Deactivate';
+    const statusLower = String(listing.status || '').toLowerCase();
+    const canActivate = statusLower === 'inactive' || statusLower === 'expired';
+    const action = canActivate ? 'activate' : 'deactivate';
+    const actionCapitalized = canActivate ? 'Activate' : 'Deactivate';
+    const confirmDetail = statusLower === 'expired'
+      ? 'The expired listing will be renewed and visible to buyers again.'
+      : canActivate
+        ? 'The listing will be visible to buyers again.'
+        : 'The listing will be hidden from buyers but can be reactivated later.';
 
     Alert.alert(
       `${actionCapitalized} listing`,
-      `Are you sure you want to ${action} ${listing.plantCode}? ${isInactive ? 'The listing will be visible to buyers again.' : 'The listing will be hidden from buyers but can be reactivated later.'}`,
+      `Are you sure you want to ${action} ${listing.plantCode}? ${confirmDetail}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: actionCapitalized,
-          style: isInactive ? 'default' : 'destructive',
+          style: canActivate ? 'default' : 'destructive',
           onPress: async () => {
             try {
               // mark this plantCode as processing so the row can disable its button
               setActivatingPlantCodes(prev => ({ ...prev, [listing.plantCode]: true }));
               setLoading(true);
               
-              const resp = isInactive 
+              const resp = canActivate 
                 ? await postListingActivateActionApi([listing.plantCode])
                 : await postListingDeactivateActionApi([listing.plantCode]);
               

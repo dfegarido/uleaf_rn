@@ -368,12 +368,14 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus 
                       <Text 
                         numberOfLines={1}
                         style={[
-                          listing.status && listing.status.toLowerCase() === 'inactive' 
+                          listing.status && ['inactive', 'expired'].includes(listing.status.toLowerCase())
                             ? styles.reactivateText 
                             : styles.deactivateText
                         ]}
                       >
-                        {listing.status && listing.status.toLowerCase() === 'inactive' ? 'Reactivate' : 'Deactivate'}
+                        {listing.status && ['inactive', 'expired'].includes(listing.status.toLowerCase())
+                          ? 'Activate'
+                          : 'Deactivate'}
                       </Text>
                     )}
                   </TouchableOpacity>

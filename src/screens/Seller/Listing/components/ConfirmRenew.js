@@ -11,8 +11,7 @@ const {width} = Dimensions.get('window');
 
 const ConfirmRenew = ({
   visible,
-  onPublishNow,
-  onPublishNurseryDrop,
+  onUpdatePictures,
   onCancel,
 }) => {
   return (
@@ -27,26 +26,13 @@ const ConfirmRenew = ({
             <Text style={styles.title}>Renew expired listing?</Text>
 
             <Text style={styles.message}>
-              Select if you want to publish, now or publish in nursery drop
+              To renew this listing, update the photos first. Fresh pictures help buyers trust the listing.
             </Text>
 
             <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                {
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#ddd',
-                  paddingVertical: 10,
-                },
-              ]}
-              onPress={onPublishNow}>
-              <Text style={styles.confirmText}>Publish now</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={styles.confirmButton}
-              onPress={onPublishNurseryDrop}>
-              <Text style={styles.confirmText}>Publish to nursery drop</Text>
+              onPress={onUpdatePictures}>
+              <Text style={styles.confirmText}>Update pictures & renew</Text>
             </TouchableOpacity>
           </View>
           <View style={[styles.contentContainer, {marginTop: 10}]}>
@@ -71,15 +57,6 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: width * 0.85,
-    // backgroundColor: '#fff',
-    // borderRadius: 16,
-    // paddingVertical: 24,
-    // paddingHorizontal: 20,
-    // alignItems: 'center',
-    // shadowColor: '#000',
-    // shadowOpacity: 0.1,
-    // shadowRadius: 10,
-    // elevation: 5,
   },
   contentContainer: {
     backgroundColor: '#fff',
@@ -92,16 +69,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     color: '#000',
+    paddingTop: 8,
   },
   message: {
     fontSize: 15,
     color: '#555',
     textAlign: 'center',
-    paddingVertical: 10,
-
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   confirmButton: {
     paddingVertical: 12,

@@ -1077,8 +1077,31 @@ const ScreenListingDetail = ({navigation, route}) => {
 
       <ConfirmRenew
         visible={renewModalVisible}
-        onPublishNow={onPressPublishNow}
-        onPublishNurseryDrop={onPressPublishNursery}
+        onUpdatePictures={() => {
+          setRenewModalVisible(false);
+          if (listingData?.listingType == 'Single Plant') {
+            navigation.navigate('ScreenSingleSell', {
+              plantCode: listingData?.plantCode,
+              availableQty: listingData?.availableQty,
+              status: listingData?.status,
+              publishType: listingData?.publishType,
+              renewAfterUpdate: true,
+              onGoBack: handleEditCallback,
+            });
+          } else if (listingData?.listingType == 'Wholesale') {
+            navigation.navigate('ScreenWholesaleSell', {
+              plantCode: listingData?.plantCode,
+              renewAfterUpdate: true,
+              onGoBack: handleEditCallback,
+            });
+          } else if (listingData?.listingType == "Grower's Choice") {
+            navigation.navigate('ScreenGrowersSell', {
+              plantCode: listingData?.plantCode,
+              renewAfterUpdate: true,
+              onGoBack: handleEditCallback,
+            });
+          }
+        }}
         onCancel={() => setRenewModalVisible(false)}
       />
 

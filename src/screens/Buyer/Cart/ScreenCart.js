@@ -168,6 +168,7 @@ const ScreenCart = () => {
         console.log({transformedItems})
         // Check if listing is no longer available
         const isListingUnavailable = item.listingDetails?.title === "Listing no longer available";
+        const isListingExpired = Boolean(item.listingDetails?.isExpired);
         
         // Check if item has 0 quantity - mark as unavailable
         // Handle both number and string types, ensure we get 0 if null/undefined
@@ -183,8 +184,8 @@ const ScreenCart = () => {
           availableQty = 0;
         }
         
-        const isOutOfStock = availableQty === 0;
-        const isItemUnavailable = isListingUnavailable || isOutOfStock;
+        const isOutOfStock = availableQty === 0 && !isListingExpired;
+        const isItemUnavailable = isListingUnavailable || isOutOfStock || isListingExpired;
         
         // Debug image mapping
         console.log('🖼️ Image mapping for item:', item.plantCode);
@@ -404,6 +405,8 @@ const ScreenCart = () => {
           image: itemImage,
           name: isListingUnavailable 
             ? `${item.plantCode} (No longer available)` 
+            : isListingExpired
+            ? `${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() || item.listingDetails?.title || 'Unknown Plant'
             : (`${item.listingDetails?.genus || ''} ${item.listingDetails?.species || ''}`.trim() 
                || item.listingDetails?.title || 'Unknown Plant'),
           subtitle: `${item.listingDetails?.variegation || 'Standard'} • ${item.potSize || '2"'}`,
@@ -411,10 +414,15 @@ const ScreenCart = () => {
           originalPrice: originalPrice,
           quantity: item.quantity || 1,
           flightInfo: `Plant Flight ${plantData.plantFlightDate}`,
-          shippingInfo: isItemUnavailable ? 'Item no longer available' : `${shippingCost.displayText}${shippingCost.mainPrice}${shippingCost.addOnText}${shippingCost.addOnPrice}`,
+          shippingInfo: isListingExpired
+            ? 'The listing has expired.'
+            : isItemUnavailable
+              ? 'Item no longer available'
+              : `${shippingCost.displayText}${shippingCost.mainPrice}${shippingCost.addOnText}${shippingCost.addOnPrice}`,
           flagIcon: getCountryFlag(item.listingDetails?.country || 'TH'),
           availableQuantity: availableQty, // Use the parsed available quantity
           isUnavailable: isItemUnavailable, // Mark as unavailable if listing is gone OR quantity is 0
+          isExpired: isListingExpired,
           listingType: item.listingDetails?.listingType || 'Single Plant', // Add the listing type
           plantSourceCountry: item.listingDetails?.country || 'TH', // Add plantSourceCountry for backend
           potSize: item.selectedVariation?.potSize || item.potSize,
@@ -604,8 +612,10 @@ const ScreenCart = () => {
       });
       // Show alert to user
       Alert.alert(
-        'Item Unavailable',
-        'This item is out of stock and cannot be selected for checkout.',
+        item?.isExpired ? 'Listing Expired' : 'Item Unavailable',
+        item?.isExpired
+          ? 'The listing has expired.'
+          : 'This item is out of stock and cannot be selected for checkout.',
         [{ text: 'OK' }]
       );
       return;
@@ -863,6 +873,7 @@ const ScreenCart = () => {
               onQuantityChange={(newQuantity) => updateItemQuantity(item.id, newQuantity)}
               availableQuantity={item.availableQuantity}
               isUnavailable={item.isUnavailable}
+              isExpired={item.isExpired}
               listingType={item.listingType}
             />
           ))

@@ -30,6 +30,7 @@ const CartItemCard = ({
   onQuantityChange,
   availableQuantity,
   isUnavailable,
+  isExpired = false,
   listingType,
 }) => {
   return (
@@ -119,7 +120,9 @@ const CartItemCard = ({
               <Text style={styles.cartSubtitle}>{subtitle}</Text>
 
               <View style={[styles.listingTypeBadge, isUnavailable && styles.unavailableBadge]}>
-                <Text style={styles.listingTypeText}>{isUnavailable ? 'Unavailable' : (listingType || 'Single Plant')}</Text>
+                <Text style={styles.listingTypeText}>
+                  {isExpired ? 'Expired' : isUnavailable ? 'Unavailable' : (listingType || 'Single Plant')}
+                </Text>
               </View>
 
               <View style={styles.priceQuantityRow}>
@@ -178,7 +181,9 @@ const CartItemCard = ({
               </View>
             </View>
             <Text style={styles.warningText}>
-              {availableQuantity === 0
+              {isExpired
+                ? 'The listing has expired.'
+                : availableQuantity === 0
                 ? 'Snap, This plant has been sold.'
                 : 'This item is no longer available and cannot be selected for checkout.'}
             </Text>

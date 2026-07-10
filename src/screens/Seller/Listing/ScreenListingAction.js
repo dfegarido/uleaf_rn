@@ -653,8 +653,13 @@ const ScreenListingAction = ({navigation, route}) => {
 
           <ConfirmRenew
             visible={renewModalVisible}
-            onPublishNow={onPressPublishNow}
-            onPublishNurseryDrop={onPressPublishNurseryDrop}
+            onUpdatePictures={() => {
+              setRenewModalVisible(false);
+              Alert.alert(
+                'Update pictures required',
+                'Open each expired listing and tap Activate to update pictures before renewing. Bulk renew is not available without new photos.',
+              );
+            }}
             onCancel={() => setRenewModalVisible(false)}
           />
         </View>

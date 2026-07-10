@@ -32,6 +32,7 @@ import { // getGenusApi,
   getListingDetails,
   postSellUpdateApi,
   uploadMultipleImagesToBackend,
+  postListingPublishNowActionApi,
 } from '../../../components/Api';
 import {getCachedResponse, setCachedResponse} from '../../../utils/apiResponseCache';
 import NetInfo from '@react-native-community/netinfo';
@@ -517,7 +518,10 @@ const ScreenSingleSell = ({navigation, route}) => {
     status,
     publishType,
     isGroupChatListing = false,
+    renewAfterUpdate = false,
   } = route?.params ?? {};
+
+  const originalImagesRef = useRef([]);
 
   useEffect(() => {
     if (!plantCode) return; // Skip if plantCode is not set
@@ -561,7 +565,9 @@ const ScreenSingleSell = ({navigation, route}) => {
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
-      setImages(res.data.imageCollection || []);
+      const loadedImages = res.data.imageCollection || [];
+      setImages(loadedImages);
+      originalImagesRef.current = [...loadedImages];
     }
     // In edit mode, preload dependent dropdown options so species/variegation
     // are available immediately when the user opens the picker.
@@ -594,6 +600,22 @@ const ScreenSingleSell = ({navigation, route}) => {
       Alert.alert('Validation', errors.join('\n'));
       return;
     }
+
+    if (renewAfterUpdate) {
+      const original = originalImagesRef.current || [];
+      const current = images || [];
+      const imagesChanged =
+        current.length !== original.length ||
+        current.some((uri, idx) => uri !== original[idx]);
+      if (!imagesChanged) {
+        Alert.alert(
+          'Update pictures required',
+          'Please update the listing photos before renewing.',
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       let netState = await NetInfo.fetch();
@@ -640,6 +662,21 @@ const ScreenSingleSell = ({navigation, route}) => {
         throw new Error(response?.message || 'Update listing failed.');
       }
 
+      if (renewAfterUpdate) {
+        const renewResponse = await postListingPublishNowActionApi([plantCode]);
+        if (!renewResponse?.success) {
+          throw new Error(
+            renewResponse?.message || 'Photos updated but renew failed.',
+          );
+        }
+        isManuallyNavigating.current = true;
+        showAlertSuccess(
+          'Listing Renewed',
+          'Photos updated and listing renewed successfully!',
+        );
+        return;
+      }
+
       // console.log('✅ Submitting listing:', JSON.stringify(data, null, 2));
 
       // TODO: Replace this with your actual API call
@@ -649,7 +686,7 @@ const ScreenSingleSell = ({navigation, route}) => {
       showAlertSuccess('Update Listing', 'Listing updated successfully!');
     } catch (error) {
       console.error('Upload or submission failed:', error);
-      Alert.alert('Update Listing', error.message);
+      Alert.alert(renewAfterUpdate ? 'Renew Listing' : 'Update Listing', error.message);
     } finally {
       setLoading(false);
     }
@@ -955,7 +992,9 @@ const ScreenSingleSell = ({navigation, route}) => {
                   style={globalStyles.primaryButton}
                   onPress={() => onPressUpdate('')}>
                   <Text style={globalStyles.primaryButtonText}>
-                    Update Listing
+                    {renewAfterUpdate
+                      ? 'Update pictures & renew'
+                      : 'Update Listing'}
                   </Text>
                 </TouchableOpacity>
               )}
