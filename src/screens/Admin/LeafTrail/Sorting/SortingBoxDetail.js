@@ -284,8 +284,9 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
       onRequestClose={onClose}
       presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
       statusBarTranslucent={Platform.OS === 'android'}>
-      <SafeAreaView style={styles.screen} edges={['top']}>
-        <View style={styles.header}>
+      <View style={styles.modalRoot}>
+        <SafeAreaView style={styles.screen} edges={['top']}>
+          <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerBack}
             onPress={onClose}
@@ -306,8 +307,8 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
               accessibilityRole="button"
               accessibilityLabel={
                 sharedTrayNumber
-                  ? `Tray number ${sharedTrayNumber}. Tap to edit.`
-                  : 'Assign tray number'
+                  ? `Tray number ${sharedTrayNumber}. Tap to view.`
+                  : 'View tray number'
               }>
               <TrayIcon width={26} height={26} />
             </TouchableOpacity>
@@ -358,16 +359,6 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Embedded overlays — avoid nested RN Modals (Android). */}
-        <SortingTrayAssignSheet
-          embedded
-          visible={traySheetVisible}
-          onClose={() => setTraySheetVisible(false)}
-          plants={box?.plants || []}
-          defaultTrayNumber={box?.boxNumber}
-          onAssigned={onRefresh}
-        />
-
         {finishPromptVisible ? (
           <View style={styles.finishOverlay} pointerEvents="box-none">
             <TouchableOpacity
@@ -395,12 +386,27 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
             </View>
           </View>
         ) : null}
-      </SafeAreaView>
+        </SafeAreaView>
+
+        {/* Tray sheet: iOS uses its own Modal; Android uses embedded overlay. */}
+        <SortingTrayAssignSheet
+          embedded={Platform.OS === 'android'}
+          readOnly
+          visible={traySheetVisible}
+          onClose={() => setTraySheetVisible(false)}
+          plants={box?.plants || []}
+          defaultTrayNumber={box?.boxNumber}
+          onAssigned={onRefresh}
+        />
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+  },
   screen: {
     flex: 1,
     backgroundColor: '#F4F6F7',

@@ -32,7 +32,14 @@ export function getSharedSortingTrayNumber(plants = []) {
 /**
  * Assign one tray # to all sorted plants in the open receiver box (Packing uses tray next).
  */
-const SortingTrayAssign = ({ plants = [], defaultTrayNumber, onAssigned, variant = 'inline' }) => {
+const SortingTrayAssign = ({
+  plants = [],
+  defaultTrayNumber,
+  onAssigned,
+  onClose,
+  variant = 'inline',
+  readOnly = false,
+}) => {
   const sortedPlants = useMemo(
     () => (plants || []).filter(isSortedPlant),
     [plants],
@@ -85,43 +92,65 @@ const SortingTrayAssign = ({ plants = [], defaultTrayNumber, onAssigned, variant
 
   const isSheet = variant === 'sheet';
 
+  const displayTray = trayNumber || '—';
+
   return (
     <View style={[styles.wrap, isSheet && styles.wrapSheet]}>
       <Text style={styles.title}>Tray number</Text>
       <Text style={styles.subtitle}>
-        {sortedPlants.length > 0
-          ? `Assign to ${sortedPlants.length} sorted plant(s) in this box.`
-          : 'Sort plants first (scan QR), then enter tray # here.'}
+        {readOnly
+          ? 'Tray number for this receiver box.'
+          : sortedPlants.length > 0
+            ? `Assign to ${sortedPlants.length} sorted plant(s) in this box.`
+            : 'Sort plants first (scan QR), then enter tray # here.'}
       </Text>
-      <View style={styles.row}>
-        <View style={styles.inputWrap}>
-          <TrayIcon />
-          <TextInput
-            placeholder="Tray number"
-            placeholderTextColor="#647276"
-            style={styles.input}
-            value={trayNumber}
-            onChangeText={(text) => setTrayNumber(forceUppercaseHubLabel(text))}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            returnKeyType="done"
-            blurOnSubmit
-            editable={!saving}
-          />
+      {readOnly ? (
+        <View style={styles.readOnlyField}>
+          <TrayIcon width={24} height={24} />
+          <Text style={styles.readOnlyValue} numberOfLines={1}>
+            {displayTray}
+          </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.button, saving && styles.buttonDisabled]}
-          onPress={saveTray}
-          disabled={saving}>
-          {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.buttonText}>{existingTray ? 'Update' : 'Assign'}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-      {existingTray && !sortedPlants.every((p) => p.sortingTrayNumber === existingTray) ? (
+      ) : (
+        <View style={styles.row}>
+          <View style={styles.inputWrap}>
+            <TrayIcon />
+            <TextInput
+              placeholder="Tray number"
+              placeholderTextColor="#647276"
+              style={styles.input}
+              value={trayNumber}
+              onChangeText={(text) => setTrayNumber(forceUppercaseHubLabel(text))}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="done"
+              blurOnSubmit
+              editable={!saving}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.button, saving && styles.buttonDisabled]}
+            onPress={saveTray}
+            disabled={saving}>
+            {saving ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.buttonText}>{existingTray ? 'Update' : 'Assign'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+      {!readOnly && existingTray && !sortedPlants.every((p) => p.sortingTrayNumber === existingTray) ? (
         <Text style={styles.hint}>Sorted plants have mixed tray numbers — saving sets one tray for all.</Text>
+      ) : null}
+      {readOnly ? (
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close tray number">
+          <Text style={styles.closeButtonText}>Close</Text>
+        </TouchableOpacity>
       ) : null}
     </View>
   );
@@ -134,6 +163,7 @@ export const SortingTrayAssignSheet = ({
   plants = [],
   defaultTrayNumber,
   onAssigned,
+  readOnly = false,
   /** When true, render as absolute overlay (no nested Modal — required on Android). */
   embedded = false,
 }) => {
@@ -172,50 +202,67 @@ export const SortingTrayAssignSheet = ({
     return null;
   }
 
-  const sheetBody = (
-    <View style={sheetStyles.root} pointerEvents="box-none">
-      <Pressable
-        style={sheetStyles.backdrop}
-        onPress={dismissSheet}
-        accessibilityRole="button"
-        accessibilityLabel="Close tray assignment"
-      />
-      <View
-        style={[
-          sheetStyles.panel,
-          {
-            paddingBottom: Math.max(insets.bottom, 16),
-            marginBottom: keyboardOffset,
-          },
-        ]}>
-        <View style={sheetStyles.handle} />
-        <SortingTrayAssign
-          plants={plants}
-          defaultTrayNumber={defaultTrayNumber}
-          variant="sheet"
-          onAssigned={() => {
-            onAssigned?.();
-            dismissSheet();
-          }}
-        />
-      </View>
-    </View>
+  const panelBottomPadding = Math.max(insets.bottom, 20);
+  const panelStyle = [
+    sheetStyles.panel,
+    {
+      paddingBottom: panelBottomPadding,
+      marginBottom: readOnly ? 0 : keyboardOffset,
+    },
+  ];
+
+  const trayContent = (
+    <SortingTrayAssign
+      plants={plants}
+      defaultTrayNumber={defaultTrayNumber}
+      variant="sheet"
+      readOnly={readOnly}
+      onClose={dismissSheet}
+      onAssigned={() => {
+        onAssigned?.();
+        dismissSheet();
+      }}
+    />
   );
 
-  // Embedded: overlay View avoids nested Modal bugs on Android.
+  // Android: embedded overlay avoids nested Modal bugs inside parent Modal.
   if (embedded) {
-    return <View style={sheetStyles.embeddedRoot}>{sheetBody}</View>;
+    return (
+      <View style={sheetStyles.embeddedRoot}>
+        <Pressable
+          style={sheetStyles.backdrop}
+          onPress={dismissSheet}
+          accessibilityRole="button"
+          accessibilityLabel="Close tray assignment"
+        />
+        <View style={panelStyle}>
+          <View style={sheetStyles.handle} />
+          {trayContent}
+        </View>
+      </View>
+    );
   }
 
   return (
     <Modal
       transparent
       visible={visible}
-      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
+      animationType={Platform.OS === 'ios' ? 'slide' : 'fade'}
       onRequestClose={dismissSheet}
       presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       statusBarTranslucent={Platform.OS === 'android'}>
-      {sheetBody}
+      <View style={sheetStyles.modalRoot}>
+        <Pressable
+          style={sheetStyles.backdrop}
+          onPress={dismissSheet}
+          accessibilityRole="button"
+          accessibilityLabel="Close tray assignment"
+        />
+        <View style={panelStyle}>
+          <View style={sheetStyles.handle} />
+          {trayContent}
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -223,10 +270,11 @@ export const SortingTrayAssignSheet = ({
 const sheetStyles = StyleSheet.create({
   embeddedRoot: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 100,
-    elevation: 100,
+    justifyContent: 'flex-end',
+    zIndex: 110,
+    elevation: 110,
   },
-  root: {
+  modalRoot: {
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -240,8 +288,16 @@ const sheetStyles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
-    paddingTop: 8,
-    overflow: 'hidden',
+    paddingTop: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+      },
+      android: { elevation: 16 },
+    }),
   },
   handle: {
     alignSelf: 'center',
@@ -263,6 +319,7 @@ const styles = StyleSheet.create({
   wrapSheet: {
     marginTop: 0,
     paddingTop: 0,
+    paddingBottom: 8,
     borderTopWidth: 0,
   },
   title: {
@@ -298,6 +355,38 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#202325',
+  },
+  readOnlyField: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 48,
+    backgroundColor: '#F4F6F7',
+    gap: 10,
+  },
+  readOnlyValue: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  closeButton: {
+    marginTop: 16,
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   button: {
     backgroundColor: '#539461',
