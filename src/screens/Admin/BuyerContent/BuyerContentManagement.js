@@ -441,9 +441,18 @@ export default function BuyerContentManagement({ navigation, route }) {
                 {photo?.uri ? (
                   <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
                 ) : (
-                  <Text style={styles.photoPickerText}>Tap to select photo</Text>
+                  <View style={styles.photoSizeGuide}>
+                    <View style={styles.photoSizeGuideFrame}>
+                      <Text style={styles.photoSizeGuideDims}>780 × 360 px</Text>
+                      <Text style={styles.photoSizeGuideRatio}>Landscape · 13:6</Text>
+                    </View>
+                    <Text style={styles.photoPickerText}>Tap to select photo</Text>
+                  </View>
                 )}
               </TouchableOpacity>
+              <Text style={styles.helperText}>
+                Recommended size: 780 × 360 px (wide landscape). Images are shown as a wide banner on the buyer Shop carousel.
+              </Text>
 
               <Text style={[styles.label, { marginTop: 16 }]}>
                 Description <Text style={styles.required}>*</Text>
@@ -759,6 +768,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderWidth: 1,
     borderColor: '#D7E6D9',
+    borderStyle: 'dashed',
     backgroundColor: '#F2F7F3',
     borderRadius: 12,
     alignItems: 'center',
@@ -770,8 +780,35 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  photoSizeGuide: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  photoSizeGuideFrame: {
+    width: 168,
+    height: 56,
+    borderWidth: 1.5,
+    borderColor: '#A8C4AB',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: '#E8F2E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoSizeGuideDims: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3F6B48',
+  },
+  photoSizeGuideRatio: {
+    fontSize: 11,
+    color: '#6B777B',
+    marginTop: 2,
+  },
   photoPickerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B777B',
   },
   modalFooter: {

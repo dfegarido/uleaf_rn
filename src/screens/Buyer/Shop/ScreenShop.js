@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react'; // keep hook imports
 import { ActivityIndicator,
   Alert,
   Image,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -171,6 +172,7 @@ const ScreenShop = ({navigation}) => {
   // Buyer content image cache state
   const [contentImageCache, setContentImageCache] = useState({});
   const [contentImageLoading, setContentImageLoading] = useState({});
+  const [selectedBuyerContent, setSelectedBuyerContent] = useState(null);
   
   // Chat Shops data state
   const [chatShops, setChatShops] = useState([]);
@@ -770,7 +772,15 @@ const ScreenShop = ({navigation}) => {
                   : null;
 
               return (
-                <View key={item.id || idx} style={{ width: 275, position: 'relative' }}>
+                <TouchableOpacity
+                  key={item.id || idx}
+                  style={{ width: 275, position: 'relative' }}
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedBuyerContent({
+                    ...item,
+                    sectionTitle,
+                    displayImage,
+                  })}>
                   {displayImage ? (
                     <Image
                       source={displayImage}
@@ -843,7 +853,7 @@ const ScreenShop = ({navigation}) => {
                       {item.description}
                     </Text>
                   ) : null}
-                </View>
+                </TouchableOpacity>
               );
             })
           )}
@@ -1821,6 +1831,53 @@ const ScreenShop = ({navigation}) => {
         handleSearchSubmit={handleFilterView}
         clearFilters={handleModalReset}
       />
+
+      {/* Deals / Rewards / News full description */}
+      <Modal
+        visible={!!selectedBuyerContent}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedBuyerContent(null)}>
+        <View style={styles.buyerContentModalOverlay}>
+          <TouchableOpacity
+            style={styles.buyerContentModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedBuyerContent(null)}
+          />
+          <View style={styles.buyerContentModalSheet}>
+            <View style={styles.buyerContentModalHandle} />
+            <View style={styles.buyerContentModalHeader}>
+              <Text style={styles.buyerContentModalSection}>
+                {selectedBuyerContent?.sectionTitle || ''}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setSelectedBuyerContent(null)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Text style={styles.buyerContentModalClose}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.buyerContentModalScroll}>
+              {selectedBuyerContent?.displayImage ? (
+                <Image
+                  source={selectedBuyerContent.displayImage}
+                  style={styles.buyerContentModalImage}
+                  resizeMode="cover"
+                />
+              ) : null}
+              <Text style={styles.buyerContentModalTitle}>
+                {selectedBuyerContent?.title || ''}
+              </Text>
+              {selectedBuyerContent?.description ? (
+                <Text style={styles.buyerContentModalDescription}>
+                  {selectedBuyerContent.description}
+                </Text>
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -2032,6 +2089,71 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#539461',
     marginRight: 8,
+  },
+  buyerContentModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  buyerContentModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  buyerContentModalSheet: {
+    maxHeight: '85%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 24,
+  },
+  buyerContentModalHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D0D5D8',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  buyerContentModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  buyerContentModalSection: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#539461',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  buyerContentModalClose: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B777B',
+  },
+  buyerContentModalScroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+  },
+  buyerContentModalImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  buyerContentModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#393D40',
+    marginBottom: 10,
+  },
+  buyerContentModalDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#556065',
   },
 });
 export default ScreenShop;
