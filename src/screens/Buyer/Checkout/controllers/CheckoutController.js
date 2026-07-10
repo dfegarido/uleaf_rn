@@ -2711,7 +2711,9 @@ export const useCheckoutController = (props) => {
           ]);
         }
       } else {
-        Alert.alert('Error', result.error || 'Checkout failed');
+        const errMsg = result.error || 'Checkout failed';
+        const isExpired = /listing has expired/i.test(errMsg);
+        Alert.alert(isExpired ? 'Listing Expired' : 'Checkout Failed', errMsg);
       }
     } catch (error) {
       console.error('Checkout error:', error);

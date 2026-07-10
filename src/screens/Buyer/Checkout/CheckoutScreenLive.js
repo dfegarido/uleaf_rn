@@ -1722,11 +1722,11 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
         // Stop loading before showing error
         setLoading(false);
         
-        Alert.alert(
-          'Checkout Failed',
+        const errMsg =
           result.error ||
-            'An error occurred during checkout. Please try again.',
-        );
+          'An error occurred during checkout. Please try again.';
+        const isExpired = /listing has expired/i.test(errMsg);
+        Alert.alert(isExpired ? 'Listing Expired' : 'Checkout Failed', errMsg);
       }
     } catch (error) {
       Alert.alert(

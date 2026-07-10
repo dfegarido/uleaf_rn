@@ -339,8 +339,9 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
         } else if (error.message) {
           errorMessage = error.message;
         }
-        
-        Alert.alert('Error', errorMessage);
+
+        const isExpired = /listing has expired/i.test(errorMessage);
+        Alert.alert(isExpired ? 'Listing Expired' : 'Error', errorMessage);
       }
     }
   };
