@@ -110,7 +110,7 @@ const ScreenNeedsToStay = ({ plantOwnerFilter = null, onBuyersLoaded = null }) =
       }
 
     } catch (err) {
-      console.error('Error loading Need to Stay orders:', err);
+      console.error('Error loading Needs to Stay orders:', err);
       setError(err.message);
       Alert.alert('Error', err.message);
     } finally {
@@ -318,7 +318,7 @@ const ScreenNeedsToStay = ({ plantOwnerFilter = null, onBuyersLoaded = null }) =
                       quantity={item.quantity}
                       plantCode={item.plantCode}
                       fullOrderData={item.fullOrderData}
-                      activeTab="Need to Stay"
+                      activeTab="Needs to Stay"
                       joinerInfo={item.joinerInfo}
                     />
                   </View>
@@ -332,7 +332,7 @@ const ScreenNeedsToStay = ({ plantOwnerFilter = null, onBuyersLoaded = null }) =
                       <Text style={styles.heldBadgeText}>Held at hub since {heldDate}</Text>
                     </View>
                   )}
-                  <OrderItemCard {...item} activeTab="Need to Stay" />
+                  <OrderItemCard {...item} activeTab="Needs to Stay" />
                 </View>
               );
             })

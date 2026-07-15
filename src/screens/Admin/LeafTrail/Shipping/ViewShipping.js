@@ -30,6 +30,10 @@ import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailH
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import {
+  formatReceiverBoxNumberLabel,
+  resolveCanonicalReceiverBoxNumber,
+} from '../../../../utils/receiverBoxNumber';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
 const Header = ({ title, navigation }) => (
@@ -199,11 +203,24 @@ const ViewShippingScreen = ({ navigation, route }) => {
     setIsLoading(true);
     try {
       const response = await getOrdersByBoxNumber(item.boxNumber);
-      const plants = (response.data || []).filter(
-        (p) => p?.packingData?.boxNumber === item.boxNumber,
-      );
+      // API already matches by canonical receiver box # (receiving / tray / packing).
+      // Do not re-filter on packingData.boxNumber alone — that field is often unset.
+      const plants = response.data || [];
       setPlantList(plants);
       const sample = plants[0];
+      const canonicalBox =
+        resolveCanonicalReceiverBoxNumber(sample) ||
+        resolveCanonicalReceiverBoxNumber(item) ||
+        String(item?.boxNumber || '').trim();
+      if (canonicalBox) {
+        setShippingDetails((prev) => ({
+          ...prev,
+          boxNumber: canonicalBox,
+          packingData: sample?.packingData || prev?.packingData,
+          receivingBoxData: sample?.receivingBoxData || prev?.receivingBoxData,
+          sortingData: sample?.sortingData || prev?.sortingData,
+        }));
+      }
       if (sample?.shippingData?.trackingNumber) {
         setTrackingNumber(forceUppercaseHubLabel(sample.shippingData.trackingNumber));
       }
@@ -329,7 +346,10 @@ const ViewShippingScreen = ({ navigation, route }) => {
         <Header title="Box Details" navigation={navigation} />
       )}
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <BoxInfo boxNumber={shippingDetails.boxNumber} label="Box Number" />
+        <BoxInfo
+          boxNumber={formatReceiverBoxNumberLabel(shippingDetails) || shippingDetails.boxNumber || '—'}
+          label="Box Number"
+        />
 
         <TrackingInput
           trackingNumber={trackingNumber}

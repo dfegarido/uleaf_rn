@@ -16,8 +16,6 @@ import { ActivityIndicator,
     PermissionsAndroid,
     Platform
 } from 'react-native';
-import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { TabBar, TabView } from 'react-native-tab-view';
@@ -80,6 +78,10 @@ import {
     LEAF_TRAIL_SCAN_PARAMS,
 } from '../../../../utils/leafTrailScanNav';
 import {
+    saveThermalLabelsToGallery,
+    shareThermalLabels,
+} from '../../../../utils/thermalLabelExport';
+import {
     buildReceiverBoxAssignments,
     filterReceiverBoxAssignmentsNeedingPersist,
     groupItemsIntoSortedReceiverBoxes,
@@ -141,7 +143,7 @@ const getReceivingListStatusPill = (type, item) => {
         return { label: 'Damaged', variant: 'damaged' };
     }
     if (type === 'needsToStay') {
-        return { label: 'Need to Stay', variant: 'needsToStay' };
+        return { label: 'Needs to Stay', variant: 'needsToStay' };
     }
     if (type === 'others') {
         return { label: 'Others', variant: 'others' };
@@ -149,7 +151,7 @@ const getReceivingListStatusPill = (type, item) => {
     if (type === 'forInventoryHub') {
         const status = normalizeReceivingLeafTrailStatus(item?.leafTrailStatus);
         if (status === 'needstostay') {
-            return { label: 'Need to Stay', variant: 'needsToStay' };
+            return { label: 'Needs to Stay', variant: 'needsToStay' };
         }
         return { label: 'At Hub', variant: 'inventoryReceived' };
     }
@@ -222,7 +224,7 @@ const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onTogg
         )}
         {type === 'needsToStay' && (
              <View style={styles.missingStatusContainer}>
-                <Text style={styles.needsToStayStatusText}>Need to Stay</Text>
+                <Text style={styles.needsToStayStatusText}>Needs to Stay</Text>
             </View>
         )}
         {type === 'others' && (
@@ -905,7 +907,7 @@ const NeedsToStayTab = ({ data, onFilterChange, adminFilters, openTagAs }) => {
                 contentContainerStyle={styles.forReceivingListContent}
                 ListFooterComponent={
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 16, color: '#647276' }}>No Need to Stay plants found.</Text>
+                        <Text style={{ fontSize: 16, color: '#647276' }}>No Needs to Stay plants found.</Text>
                     </View>
                 }
             />
@@ -938,7 +940,7 @@ const DEFAULT_RECEIVING_ROUTES = [
     { key: 'received', title: 'Received' },
     { key: 'missing', title: 'Missing' },
     { key: 'damaged', title: 'Damaged' },
-    { key: 'needsToStay', title: 'Need to Stay' },
+    { key: 'needsToStay', title: 'Needs to Stay' },
     { key: 'others', title: 'Others' },
 ];
 const TRAIL1_RECEIVING_ROUTES = DEFAULT_RECEIVING_ROUTES;
@@ -1511,29 +1513,26 @@ const ReceivingScreen = ({navigation, route}) => {
         try {
             setLoadingMessage('Preparing your labels for download, please wait...');
             setIsLoading(true);
-            const timestamp = Date.now();
-            const tempDir = `${RNFS.CachesDirectoryPath}/qr-labels-${timestamp}`;
-            await RNFS.mkdir(tempDir);
-
-            const filePaths = [];
-            for (const label of generatedLabels) {
-                const filename = `label-${label.plantCode}.png`;
-                const filepath = `${tempDir}/${filename}`;
-                await RNFS.writeFile(filepath, label.base64, 'base64');
-                filePaths.push(`file://${filepath}`);
+            const result = await shareThermalLabels(generatedLabels);
+            if (result?.ok) {
+                Alert.alert('Success', 'Labels shared. Save them to your preferred location.', [{ text: 'OK' }]);
             }
-
-            await Share.open({
-                urls: filePaths,
-                title: 'QR Labels',
-                message: `${generatedLabels.length} QR label(s) - save to Files, Photos, or Downloads`,
-            });
-            Alert.alert('Success', 'Labels shared. Save them to your preferred location.', [{ text: 'OK' }]);
         } catch (error) {
-            if (error?.message !== 'User did not share') {
-                console.error('Download error:', error);
-                Alert.alert('Error', 'Failed to save labels. ' + (error?.message || ''));
-            }
+            console.error('Download error:', error);
+            Alert.alert('Error', 'Failed to save labels. ' + (error?.message || ''));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const saveLabelsToGallery = async () => {
+        try {
+            setLoadingMessage('Saving labels to your gallery, please wait...');
+            setIsLoading(true);
+            await saveThermalLabelsToGallery(generatedLabels);
+        } catch (error) {
+            console.error('Gallery save error:', error);
+            Alert.alert('Error', error.message || 'Failed to save labels to gallery.');
         } finally {
             setIsLoading(false);
         }
@@ -1605,6 +1604,18 @@ const ReceivingScreen = ({navigation, route}) => {
                         
                         <View style={styles.printerControls}>
                             <TouchableOpacity 
+                                style={[styles.galleryButton, isLoading && styles.buttonDisabled]}
+                                onPress={saveLabelsToGallery}
+                                disabled={isLoading}
+                            >
+                                <View style={styles.buttonContent}>
+                                    <Text style={styles.buttonText}>
+                                        Save to Gallery
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
                                 style={[styles.downloadButton, isLoading && styles.buttonDisabled]}
                                 onPress={downloadAllLabels}
                                 disabled={isLoading}
@@ -1612,7 +1623,7 @@ const ReceivingScreen = ({navigation, route}) => {
                                 <View style={styles.buttonContent}>
                                     <DownloadIcon width={20} height={20} />
                                     <Text style={styles.buttonText}>
-                                        Download All
+                                        Share
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -2236,14 +2247,25 @@ const styles = StyleSheet.create({
     },
     printerControls: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         padding: 12,
         gap: 10,
         backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
         borderBottomColor: '#E5E9EB',
     },
+    galleryButton: {
+        flexGrow: 1,
+        flexBasis: '30%',
+        backgroundColor: '#539461',
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     downloadButton: {
-        flex: 1,
+        flexGrow: 1,
+        flexBasis: '30%',
         backgroundColor: '#4A90E2',
         padding: 12,
         borderRadius: 8,
@@ -2251,7 +2273,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     emailButton: {
-        flex: 1,
+        flexGrow: 1,
+        flexBasis: '30%',
         backgroundColor: '#23C16B',
         padding: 12,
         borderRadius: 8,

@@ -82,7 +82,7 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
   const tabFilters = [
     {filterKey: 'Pay to Board'},
     {filterKey: 'Ready to Fly'},
-    {filterKey: 'Need to Stay'},
+    {filterKey: 'Needs to Stay'},
     {filterKey: 'Plants are Home'},
     {filterKey: 'Journey Mishap'},
   ];
@@ -330,7 +330,7 @@ const ScreenOrders = () => {
         return <ScreenReadyToFly {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Pay to Board':
         return <ScreenPayToBoard {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
-      case 'Need to Stay':
+      case 'Needs to Stay':
         return <ScreenNeedsToStay {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
       case 'Plants are Home':
         return <ScreenPlantsAreHome {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;

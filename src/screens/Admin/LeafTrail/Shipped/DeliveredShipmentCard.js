@@ -19,7 +19,13 @@ const DeliveredShipmentCard = ({ shipment, onPress }) => {
   const plantCount = shipment?.shippedPlantsCount ?? 0;
   const receiverInitial = String(shipment?.name || '?').trim().charAt(0).toUpperCase();
   const hasUpsTracking = shipment?.hasUpsTracking !== false && Boolean(String(shipment?.trackingNumber || '').trim());
-  const boxNumber = String(shipment?.packingData?.boxNumber || '').trim();
+  const boxNumber = String(
+    shipment?.boxNumber ||
+      shipment?.packingData?.boxNumber ||
+      shipment?.receivingBoxData?.boxNumber ||
+      (!hasUpsTracking ? shipment?.trackingNumber : '') ||
+      '',
+  ).trim();
   const tint = hasUpsTracking ? '#EDE8FF' : '#F4F0FF';
 
   return (
@@ -52,12 +58,18 @@ const DeliveredShipmentCard = ({ shipment, onPress }) => {
           <BarcodeIcon width={16} height={16} />
         </View>
         <View style={styles.trackingTextWrap}>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {hasUpsTracking ? shipment.trackingNumber : 'No UPS tracking'}
-          </Text>
-          {!hasUpsTracking && boxNumber ? (
-            <Text style={styles.trackingHint} numberOfLines={1}>
+          {hasUpsTracking ? (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {shipment.trackingNumber}
+            </Text>
+          ) : null}
+          {boxNumber ? (
+            <Text style={hasUpsTracking ? styles.trackingHint : styles.subtitle} numberOfLines={1}>
               Box {boxNumber}
+            </Text>
+          ) : !hasUpsTracking ? (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              No UPS tracking
             </Text>
           ) : null}
         </View>

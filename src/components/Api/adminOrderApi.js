@@ -67,6 +67,14 @@ export const getAdminOrdersApi = async (filters = {}) => {
     if (filters.leafTrailStatus && Array.isArray(filters.leafTrailStatus) && filters.leafTrailStatus.length > 0) {
       queryParams.append('leafTrailStatus', filters.leafTrailStatus.join(','));
     }
+    if (filters.plantStatus) {
+      const plantStatusValue = Array.isArray(filters.plantStatus)
+        ? filters.plantStatus.join(',')
+        : String(filters.plantStatus);
+      if (plantStatusValue.trim()) {
+        queryParams.append('plantStatus', plantStatusValue);
+      }
+    }
     
     // Handle single value filters
     if (filters.garden) queryParams.append('garden', filters.garden);

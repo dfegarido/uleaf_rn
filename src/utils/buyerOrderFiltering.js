@@ -180,7 +180,7 @@ export const isReadyToFly = (order) => {
 };
 
 /**
- * Determines if an order should appear in the "Need to Stay" tab.
+ * Determines if an order should appear in the "Needs to Stay" tab.
  * These are Ready to Fly orders held at the hub for a later flight.
  */
 export const isNeedsToStay = (order) => {

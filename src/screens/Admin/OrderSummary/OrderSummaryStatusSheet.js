@@ -51,14 +51,20 @@ export const ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS = [
   { label: 'In-transit', value: 'shipped' },
   { label: 'Missing', value: 'missing' },
   { label: 'Damaged', value: 'damaged' },
-  { label: 'Needs to stay', value: 'needsToStay' },
+  { label: 'Needs to Stay', value: 'needsToStay' },
 ];
 
 export const PLANT_STATUS_OPTIONS = [
   { label: 'Missing', value: 'missing' },
   { label: 'Damaged', value: 'damaged' },
-  { label: 'Need to Stay', value: 'needsToStay' },
+  { label: 'Needs to Stay', value: 'needsToStay' },
   { label: 'Others', value: 'others' },
+];
+
+/** Multi-select filter options for Admin Order Summary Plant Status chip. */
+export const ORDER_SUMMARY_PLANT_STATUS_FILTER_OPTIONS = [
+  { label: 'Active', value: 'active' },
+  ...PLANT_STATUS_OPTIONS,
 ];
 
 /** Detail screen only — includes Active (maps to forReceiving) */
@@ -143,7 +149,7 @@ export const formatPlantStatusDisplayLabel = (rawStatus) => {
   if (key === 'active' || key === 'forreceiving') return 'Active';
   if (key === 'missing' || key === 'wildgone') return 'Missing';
   if (key === 'damaged' || key === 'damage') return 'Damaged';
-  if (key === 'needstostay') return 'Need to Stay';
+  if (key === 'needstostay') return 'Needs to Stay';
   if (key === 'others' || key === 'cancelled' || key === 'canceled') return 'Others';
   const spaced = key.replace(/([A-Z])/g, ' $1');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
@@ -218,7 +224,7 @@ export function buildReceivingPlantStatusOptions(tagFlags = {}) {
       mishapOptions.push({ label: 'Tag as Missing', value: 'missing' });
     }
     if (tagFlags.isDamaged) {
-      mishapOptions.push({ label: 'Tag as Damage', value: 'damaged' });
+      mishapOptions.push({ label: 'Tag as Damaged', value: 'damaged' });
     }
     const activeIdx = options.findIndex((o) => o.value === 'forReceiving');
     if (activeIdx >= 0) {

@@ -13,7 +13,7 @@ export function normalizeLeafTrailStatus(status) {
  * Trail #3 metrics — aligned with UI mockup + handwritten note.
  *
  * Card (mockup): For Receiving N · Received X of N · Sorted Y of N
- * Detail (note): Total Plants to Fulfill = Received − Missing − Damaged − Need to Stay − Others
+ * Detail (note): Total Plants to Fulfill = Received − Missing − Damaged − Needs to Stay − Others
  *
  * Box complete (pink → light green) when every plant is received and sorted vs For Receiving total.
  */
@@ -92,7 +92,7 @@ export function sortingPlantStatusLabel(plant) {
   const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
   if (status === 'received') return 'Awaiting sort';
   if (status === 'forreceiving') return 'For receiving';
-  if (status === 'needstostay') return 'Needs to stay';
+  if (status === 'needstostay') return 'Needs to Stay';
   if (status === 'others') return 'Others';
   if (status === 'missing') return 'Missing';
   if (status === 'damaged') return 'Damaged';
@@ -143,7 +143,7 @@ export function describeSortingScanPlantOutcome(plant) {
     return {
       tone: 'warning',
       lines: [
-        'This plant is hanging in Sorting (Need to Stay).',
+        'This plant is hanging in Sorting (Needs to Stay).',
         'It is excluded from Total Plants to Fulfill and from Packing.',
         'When ready to ship, scan it here to mark as Sorted.',
         `Current status: ${displayStatus}.`,

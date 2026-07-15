@@ -17,7 +17,7 @@ export function formatLeafTrailStatusLabel(status) {
     packed: 'Packed',
     missing: 'Missing',
     damaged: 'Damaged',
-    needstostay: 'Need to Stay',
+    needstostay: 'Needs to Stay',
     others: 'Others',
     shipping: 'Shipping',
     shipped: 'Shipped',
@@ -53,7 +53,7 @@ function mishapOutcome(status, displayStatus) {
   }
   if (status === 'needstostay') {
     return outcome('Plant Needs to Stay', 'warning', [
-      'This plant is hanging in Sorting (Need to Stay).',
+      'This plant is hanging in Sorting (Needs to Stay).',
       'It is excluded from Packing until it is ready and scanned as Sorted.',
       `Current status: ${displayStatus}.`,
     ]);

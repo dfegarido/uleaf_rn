@@ -53,7 +53,7 @@ const ListItem = ({ item, navigation }) => (
           </View>
           <View style={styles.quantityRow}>
             <View style={styles.quantitySection}>
-              <Text style={styles.quantityLabel}>Need to Stay</Text>
+              <Text style={styles.quantityLabel}>Needs to Stay</Text>
               <Text style={styles.receivedNumber}>{item.needsToStayOrderCount}</Text>
             </View>
           </View>

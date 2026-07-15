@@ -42,6 +42,9 @@ const ReusableActionSheet = ({
   leafTrailStatusOptions,
   leafTrailStatusValue,
   leafTrailStatusChange,
+  plantStatusOptions,
+  plantStatusValue,
+  plantStatusChange,
   countryValue,
   countryChange,
   shippingIndexValue,
@@ -61,7 +64,12 @@ const ReusableActionSheet = ({
   const resetSelection = () => variegationChange([]);
   const resetGenusSelection = () => genusChange([]);
   const resetListingTypeSelection = () => listingTypeChange([]);
-  const resetLeafTrailStatusSelection = () => leafTrailStatusChange([]);
+  const resetLeafTrailStatusSelection = () => {
+    if (typeof leafTrailStatusChange === 'function') leafTrailStatusChange([]);
+  };
+  const resetPlantStatusSelection = () => {
+    if (typeof plantStatusChange === 'function') plantStatusChange([]);
+  };
   const resetCountrySelection = () => countryChange([]);
   const resetShippingIndexSelection = () => shippingIndexChange([]);
   const resetAcclimationIndexSelection = () => acclimationIndexChange([]);
@@ -556,6 +564,59 @@ const ReusableActionSheet = ({
             <View style={styles.genusActionBar}>
               <TouchableOpacity
                 onPress={() => onResetPress(resetLeafTrailStatusSelection)}
+                style={styles.genusActionButton}>
+                <View style={[globalStyles.lightGreenButton, styles.genusResetButton]}>
+                  <Text style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>Reset</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.genusActionButton} onPress={onViewPress}>
+                <View style={[globalStyles.primaryButton, styles.genusViewButton]}>
+                  <Text style={[globalStyles.textMDWhite, {textAlign: 'center'}]}>View</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ActionSheet>
+        );
+      case 'PLANTSTATUS':
+        return (
+          <ActionSheet
+            visible={visible}
+            onClose={onClose}
+            heightPercent={'50%'}>
+            <View style={styles.sheetTitleContainerFigma}>
+              <Text style={styles.sheetTitleFigma}>Plant Status</Text>
+              <TouchableOpacity onPress={() => onClose(true)} style={styles.closeButton}>
+                <IconEx width={24} height={24} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.genusScroll}
+              contentContainerStyle={{paddingBottom: 100}}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}>
+              {(!plantStatusOptions || plantStatusOptions.length === 0) ? (
+                <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
+              ) : (
+                <CheckBoxGroup
+                  options={plantStatusOptions}
+                  selectedValues={plantStatusValue}
+                  onChange={plantStatusChange}
+                  checkboxPosition="right"
+                  optionStyle={{
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 20,
+                    paddingBottom: 10,
+                  }}
+                  labelStyle={{textAlign: 'left'}}
+                />
+              )}
+            </ScrollView>
+
+            <View style={styles.genusActionBar}>
+              <TouchableOpacity
+                onPress={() => onResetPress(resetPlantStatusSelection)}
                 style={styles.genusActionButton}>
                 <View style={[globalStyles.lightGreenButton, styles.genusResetButton]}>
                   <Text style={[globalStyles.textMDAccent, {textAlign: 'center'}]}>Reset</Text>

@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
@@ -14,7 +15,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import BackIcon from '../../../../assets/admin-icons/back.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
+import PrintIcon from '../../../../assets/icons/greylight/printer.svg';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import {
   SORTING_BOX_COLOR_COMPLETE,
@@ -88,6 +91,12 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   const [finishPromptVisible, setFinishPromptVisible] = useState(false);
   const [traySheetVisible, setTraySheetVisible] = useState(false);
   const [plantTab, setPlantTab] = useState(BOX_PLANT_TABS.awaiting);
+  const {
+    printOrderIds,
+    actionLoading: printLoading,
+    showLabelViewer,
+    LabelViewer,
+  } = useLeafTrailThermalPrint('Receiver box labels');
 
   const metrics = useMemo(
     () => computeSortingBoxMetrics(box?.plants || []),
@@ -111,6 +120,17 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
 
   const visiblePlants =
     plantTab === BOX_PLANT_TABS.sorted ? sortedPlantsList : awaitingPlants;
+
+  const handlePrintVisiblePlants = useCallback(() => {
+    const tabLabel =
+      plantTab === BOX_PLANT_TABS.sorted ? 'sorted' : 'awaiting sort';
+    printOrderIds(
+      visiblePlants.map((p) => p.id).filter(Boolean),
+      {
+        emptyMessage: `No ${tabLabel} plants in this box to print.`,
+      },
+    );
+  }, [plantTab, printOrderIds, visiblePlants]);
 
   const prevSortedCountRef = React.useRef(0);
 
@@ -285,6 +305,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
       presentationStyle={Platform.OS === 'ios' ? 'fullScreen' : undefined}
       statusBarTranslucent={Platform.OS === 'android'}>
       <View style={styles.modalRoot}>
+        <LabelViewer />
         <SafeAreaView style={styles.screen} edges={['top']}>
           <View style={styles.header}>
             <TouchableOpacity
@@ -297,6 +318,19 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
               Receiver box
             </Text>
             <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerActionIcon}
+                onPress={handlePrintVisiblePlants}
+                disabled={printLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  plantTab === BOX_PLANT_TABS.sorted
+                    ? 'Reprint QR labels for sorted plants'
+                    : 'Reprint QR labels for awaiting sort plants'
+                }>
+                <PrintIcon width={22} height={22} />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[
                   styles.headerActionIcon,
@@ -384,6 +418,13 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
                   <Text style={styles.finishNoText}>No — keep sorting</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          ) : null}
+
+          {printLoading && !showLabelViewer ? (
+            <View style={styles.printLoadingOverlay} pointerEvents="auto">
+              <ActivityIndicator size="large" color="#699E73" />
+              <Text style={styles.printLoadingText}>Generating labels…</Text>
             </View>
           ) : null}
         </SafeAreaView>
@@ -810,6 +851,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     zIndex: 110,
     elevation: 110,
+  },
+  printLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 120,
+    elevation: 120,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  printLoadingText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   finishBackdrop: {
     ...StyleSheet.absoluteFillObject,

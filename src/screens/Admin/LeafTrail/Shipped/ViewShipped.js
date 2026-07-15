@@ -28,6 +28,10 @@ import LeafTrailTrackingInput from '../../../../components/Admin/LeafTrailTracki
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import {
+  formatReceiverBoxNumberLabel,
+  resolveCanonicalReceiverBoxNumber,
+} from '../../../../utils/receiverBoxNumber';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import DeliveryDateTimeInput from '../Shipping/DeliveryDateTimeInput';
 
@@ -182,17 +186,26 @@ const ViewShippedScreen = ({ navigation, route }) => {
     setIsLoading(true);
     try {
       const response = await getOrdersByTrackingNumber(item.trackingNumber);
+      const lookup = String(item.trackingNumber || '').trim().toUpperCase();
       const plants = (response.data || []).filter((p) => {
         if (item?.hasUpsTracking === false) {
-          return String(p?.leafTrailStatus || '').toLowerCase() === 'shipped';
+          // Delivery groups without UPS use the canonical box # as the lookup key.
+          const status = String(p?.leafTrailStatus || '').toLowerCase();
+          if (status !== 'shipped' && status !== 'delivered') return false;
+          const plantBox = resolveCanonicalReceiverBoxNumber(p).toUpperCase();
+          return !lookup || plantBox === lookup;
         }
         return (
-          String(p?.shippingData?.trackingNumber || '').toUpperCase() ===
-          String(item.trackingNumber || '').toUpperCase()
+          String(p?.shippingData?.trackingNumber || '').toUpperCase() === lookup
         );
       });
       setPlantList(plants);
       const sample = plants[0];
+      const canonicalBox =
+        resolveCanonicalReceiverBoxNumber(sample) ||
+        resolveCanonicalReceiverBoxNumber(item) ||
+        (item?.hasUpsTracking === false ? String(item?.trackingNumber || '').trim() : '') ||
+        String(item?.packingData?.boxNumber || '').trim();
       if (sample?.shippingData?.trackingNumber) {
         setTrackingNumber(forceUppercaseHubLabel(sample.shippingData.trackingNumber));
       }
@@ -205,10 +218,13 @@ const ViewShippedScreen = ({ navigation, route }) => {
       if (sample?.shippedData?.isDelayedUPSDelivery != null) {
         setIsDelayed(sample.shippedData.isDelayedUPSDelivery);
       }
-      if (sample?.packingData?.boxNumber) {
+      if (sample || canonicalBox) {
         setShippedDetails((prev) => ({
           ...prev,
-          packingData: sample.packingData,
+          packingData: sample?.packingData || prev?.packingData,
+          receivingBoxData: sample?.receivingBoxData || prev?.receivingBoxData,
+          sortingData: sample?.sortingData || prev?.sortingData,
+          boxNumber: canonicalBox || prev?.boxNumber,
         }));
       }
     } catch (e) {
@@ -372,7 +388,12 @@ const ViewShippedScreen = ({ navigation, route }) => {
         </View>
 
         <BoxSpecs 
-            boxNumber={shippedDetails.packingData?.boxNumber || ''}
+            boxNumber={
+              formatReceiverBoxNumberLabel(shippedDetails) ||
+              shippedDetails.boxNumber ||
+              shippedDetails.packingData?.boxNumber ||
+              '—'
+            }
             dimensions={dimensions ? `${dimensions.length}x${dimensions.width}x${dimensions.height} in` : 'N/A'}
             weight={weight ? `${weight.value} ${weight.unit}` : 'N/A'}
         />

@@ -89,7 +89,7 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
           <View style={styles.chipRow}>
             {needsToStayCount > 0 ? (
               <View style={[styles.chip, styles.chipStay]}>
-                <Text style={styles.chipText}>Need to Stay · {needsToStayCount}</Text>
+                <Text style={styles.chipText}>Needs to Stay · {needsToStayCount}</Text>
               </View>
             ) : null}
             {othersCount > 0 ? (

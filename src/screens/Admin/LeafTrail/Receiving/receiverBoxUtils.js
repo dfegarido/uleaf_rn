@@ -131,7 +131,7 @@ export const getReceiverBoxPlantStatusPill = (item) => {
         return { label: 'Sorted', variant: 'sorted' };
     }
     if (status === 'needstostay') {
-        return { label: 'Need to Stay', variant: 'needsToStay' };
+        return { label: 'Needs to Stay', variant: 'needsToStay' };
     }
     return { label: 'Scanned', variant: 'scanned' };
 };

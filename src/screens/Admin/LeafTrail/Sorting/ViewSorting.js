@@ -263,7 +263,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   const [routes, setRoutes] = useState([
     { key: 'received', title: 'For Sorting Plants', count: receivedPlantsCount },
     { key: 'sorted', title: 'Sorted Plants', count: sortedPlantsCount },
-    { key: 'needsToStay', title: 'Need to Stay', count: needsToStayPlantsCount },
+    { key: 'needsToStay', title: 'Needs to Stay', count: needsToStayPlantsCount },
   ]);
   const [receivedPlantsData, setReceivedPlantsData] = useState(itemDetails?.receivedPlantsData || [])
   const [sortedPlantsData, setsortedPlantsData] = useState(itemDetails?.sortedPlantsData || [])
@@ -308,7 +308,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setRoutes([
          { key: 'received', title: 'For Sorting Plants', count: response.receivedPlantsCount },
          { key: 'sorted', title: 'Sorted Plants', count: response.sortedPlantsCount },
-         { key: 'needsToStay', title: 'Need to Stay', count: response.needsToStayOrderCount },
+         { key: 'needsToStay', title: 'Needs to Stay', count: response.needsToStayOrderCount },
        ])
       setReceivedPlantsData(response?.receivedPlantsData || []);
       setsortedPlantsData(response?.sortedPlantsData || []);

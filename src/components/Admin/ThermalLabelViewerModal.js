@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,6 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/iconnav/caret-left-bold.svg';
+import DownloadIcon from '../../assets/icons/accent/download.svg';
+import {
+  saveThermalLabelsToGallery,
+  shareThermalLabels,
+} from '../../utils/thermalLabelExport';
 
 /**
  * Shows thermal label previews after generateThermalLabels succeeds.
@@ -23,11 +28,40 @@ const ThermalLabelViewerModal = ({
   title = 'Generated Labels',
   loadingMore = false,
   expectedTotal = 0,
+  onEmailPress,
+  emailDisabled = false,
 }) => {
+  const [actionBusy, setActionBusy] = useState(false);
+
   const countLabel =
     expectedTotal > labels.length
       ? `${labels.length} of ${expectedTotal}`
       : String(labels.length);
+
+  const runAction = useCallback(async (action) => {
+    if (actionBusy || !labels.length) return;
+    setActionBusy(true);
+    try {
+      await action();
+    } finally {
+      setActionBusy(false);
+    }
+  }, [actionBusy, labels.length]);
+
+  const handleShare = useCallback(
+    () => runAction(() => shareThermalLabels(labels)),
+    [labels, runAction],
+  );
+
+  const handleSaveToGallery = useCallback(
+    () => runAction(() => saveThermalLabelsToGallery(labels)),
+    [labels, runAction],
+  );
+
+  const handleEmail = useCallback(() => {
+    if (actionBusy || emailDisabled || typeof onEmailPress !== 'function') return;
+    onEmailPress();
+  }, [actionBusy, emailDisabled, onEmailPress]);
 
   return (
     <Modal
@@ -46,6 +80,33 @@ const ThermalLabelViewerModal = ({
           </Text>
           <View style={styles.headerSpacer} />
         </View>
+
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.galleryButton, actionBusy && styles.actionDisabled]}
+            onPress={handleSaveToGallery}
+            disabled={actionBusy || !labels.length}>
+            <Text style={styles.actionButtonText}>Save to Gallery</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.shareButton, actionBusy && styles.actionDisabled]}
+            onPress={handleShare}
+            disabled={actionBusy || !labels.length}>
+            <View style={styles.actionContent}>
+              <DownloadIcon width={18} height={18} />
+              <Text style={styles.actionButtonText}>Share</Text>
+            </View>
+          </TouchableOpacity>
+          {typeof onEmailPress === 'function' ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.emailButton, (actionBusy || emailDisabled) && styles.actionDisabled]}
+              onPress={handleEmail}
+              disabled={actionBusy || emailDisabled}>
+              <Text style={styles.emailButtonText}>Email</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
         {loadingMore ? (
           <View style={styles.loadingMoreBar}>
             <ActivityIndicator size="small" color="#539461" />
@@ -55,6 +116,14 @@ const ThermalLabelViewerModal = ({
             </Text>
           </View>
         ) : null}
+
+        {actionBusy ? (
+          <View style={styles.actionBusyBar}>
+            <ActivityIndicator size="small" color="#539461" />
+            <Text style={styles.actionBusyText}>Saving labels…</Text>
+          </View>
+        ) : null}
+
         <FlatList
           data={labels}
           keyExtractor={(item, index) => String(item.orderId || item.plantCode || index)}
@@ -124,6 +193,68 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E9EB',
+  },
+  actionButton: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minHeight: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  actionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  galleryButton: {
+    backgroundColor: '#539461',
+  },
+  shareButton: {
+    backgroundColor: '#4A90E2',
+  },
+  emailButton: {
+    backgroundColor: '#23C16B',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionDisabled: {
+    opacity: 0.6,
+  },
+  actionBusyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    backgroundColor: '#F0F7F1',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E9EB',
+  },
+  actionBusyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#539461',
   },
   loadingMoreBar: {
     flexDirection: 'row',

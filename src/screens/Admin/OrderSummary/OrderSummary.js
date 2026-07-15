@@ -38,7 +38,7 @@ import BuyerFilter from '../../../components/Admin/buyerFilter';
 import ReceiverFilter from '../../../components/Admin/receiverFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
-import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, deriveOrderSummaryLeafTrailDisplay, deriveOrderSummaryPlantStatus } from './OrderSummaryStatusSheet';
+import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, ORDER_SUMMARY_PLANT_STATUS_FILTER_OPTIONS, deriveOrderSummaryLeafTrailDisplay, deriveOrderSummaryPlantStatus } from './OrderSummaryStatusSheet';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
 import { filterSupersededPendingOrders, excludePendingPaymentFromAllTab } from '../../../utils/filterSupersededPendingOrders';
@@ -93,6 +93,7 @@ const filterTabs = [
   { label: 'Receiver', rightIcon: DownIcon },
   { label: 'Joiner', rightIcon: DownIcon },
   { label: 'Plant Flight', rightIcon: DownIcon },
+  { label: 'Plant Status', rightIcon: DownIcon },
   { label: 'Date Range', rightIcon: DownIcon },
   { label: 'Leaf Trail', rightIcon: DownIcon },
 ];
@@ -144,6 +145,7 @@ const OrderSummary = ({navigation}) => {
     joiner: null,
     dateRange: null,
     plantFlight: [],
+    plantStatus: null,
     leafTrailStatus: null,
   });
   
@@ -185,6 +187,9 @@ const OrderSummary = ({navigation}) => {
 
   const [leafTrailModalVisible, setLeafTrailModalVisible] = useState(false);
   const [leafTrailDraft, setLeafTrailDraft] = useState([]);
+
+  const [plantStatusModalVisible, setPlantStatusModalVisible] = useState(false);
+  const [plantStatusDraft, setPlantStatusDraft] = useState([]);
 
   const TABS = [
     {id: 'all', label: 'All', active: true, tabWidth: 56, contentWidth: 56, indicatorWidth: 56},
@@ -545,6 +550,9 @@ const dedupeOrderTableRows = (rows = []) => {
         plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0
           ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
           : undefined,
+        plantStatus: selectedFilters.plantStatus && selectedFilters.plantStatus.length > 0
+          ? selectedFilters.plantStatus.join(',')
+          : undefined,
         leafTrailStatus: selectedFilters.leafTrailStatus && selectedFilters.leafTrailStatus.length > 0
           ? selectedFilters.leafTrailStatus.join(',')
           : undefined,
@@ -621,6 +629,9 @@ const dedupeOrderTableRows = (rows = []) => {
         dateRange: selectedFilters.dateRange || undefined,
         plantFlight: selectedFilters.plantFlight && selectedFilters.plantFlight.length > 0 
           ? (Array.isArray(selectedFilters.plantFlight) ? selectedFilters.plantFlight.join(',') : selectedFilters.plantFlight)
+          : undefined,
+        plantStatus: selectedFilters.plantStatus && selectedFilters.plantStatus.length > 0
+          ? selectedFilters.plantStatus
           : undefined,
         leafTrailStatus: selectedFilters.leafTrailStatus && selectedFilters.leafTrailStatus.length > 0
           ? selectedFilters.leafTrailStatus
@@ -1142,6 +1153,8 @@ const dedupeOrderTableRows = (rows = []) => {
       setDateRangeModalVisible(true);
     } else if (filterLabel === 'Plant Flight') {
       setFlightModalVisible(true);
+    } else if (filterLabel === 'Plant Status') {
+      setPlantStatusModalVisible(true);
     } else if (filterLabel === 'Leaf Trail') {
       setLeafTrailModalVisible(true);
     }
@@ -1183,6 +1196,10 @@ const dedupeOrderTableRows = (rows = []) => {
         break;
       case 'Plant Flight':
         setSelectedFilters((prev) => ({ ...prev, plantFlight: [] }));
+        break;
+      case 'Plant Status':
+        setSelectedFilters((prev) => ({ ...prev, plantStatus: null }));
+        setPlantStatusDraft([]);
         break;
       case 'Leaf Trail':
         setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
@@ -1314,6 +1331,23 @@ const dedupeOrderTableRows = (rows = []) => {
     setCurrentPage(1);
   };
 
+  const handlePlantStatusChange = (values) => {
+    const arr = Array.isArray(values) ? values : [];
+    if (plantStatusModalVisible) {
+      setPlantStatusDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, plantStatus: arr }));
+    }
+  };
+  const handlePlantStatusView = () => {
+    setSelectedFilters((prev) => ({
+      ...prev,
+      plantStatus: Array.isArray(plantStatusDraft) ? plantStatusDraft : [],
+    }));
+    setPlantStatusModalVisible(false);
+    setCurrentPage(1);
+  };
+
   // Initialize drafts when modals open
   useEffect(() => {
     if (genusModalVisible) {
@@ -1342,6 +1376,16 @@ const dedupeOrderTableRows = (rows = []) => {
       );
     }
   }, [leafTrailModalVisible]);
+
+  useEffect(() => {
+    if (plantStatusModalVisible) {
+      setPlantStatusDraft(
+        Array.isArray(selectedFilters.plantStatus)
+          ? selectedFilters.plantStatus.slice()
+          : [],
+      );
+    }
+  }, [plantStatusModalVisible]);
 
   // Genus modal opened - data should already be pre-loaded
   useEffect(() => {
@@ -1432,6 +1476,8 @@ const dedupeOrderTableRows = (rows = []) => {
         return selectedFilters.dateRange !== null;
       case 'Plant Flight':
         return selectedFilters.plantFlight !== null && selectedFilters.plantFlight.length > 0;
+      case 'Plant Status':
+        return selectedFilters.plantStatus !== null && selectedFilters.plantStatus.length > 0;
       case 'Leaf Trail':
         return selectedFilters.leafTrailStatus !== null && selectedFilters.leafTrailStatus.length > 0;
       default:
@@ -1625,6 +1671,23 @@ const dedupeOrderTableRows = (rows = []) => {
             setLeafTrailDraft([]);
             setSelectedFilters((prev) => ({ ...prev, leafTrailStatus: null }));
             setLeafTrailModalVisible(false);
+            setCurrentPage(1);
+          }}
+        />
+
+        {/* Plant Status Modal */}
+        <ReusableActionSheet
+          code="PLANTSTATUS"
+          visible={plantStatusModalVisible}
+          onClose={() => setPlantStatusModalVisible(false)}
+          plantStatusOptions={ORDER_SUMMARY_PLANT_STATUS_FILTER_OPTIONS}
+          plantStatusValue={plantStatusModalVisible ? plantStatusDraft : (selectedFilters.plantStatus || [])}
+          plantStatusChange={handlePlantStatusChange}
+          handleSearchSubmit={handlePlantStatusView}
+          clearFilters={() => {
+            setPlantStatusDraft([]);
+            setSelectedFilters((prev) => ({ ...prev, plantStatus: null }));
+            setPlantStatusModalVisible(false);
             setCurrentPage(1);
           }}
         />
