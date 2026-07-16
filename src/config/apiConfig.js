@@ -293,6 +293,9 @@ const generateEndpoints = () => ({
   UPDATE_JOURNEY_MISHAP_STATUS: `${getBaseUrl()}/updateJourneyMishapStatus`,
   EXPORT_BUYER_ORDERS: `${getBaseUrl()}/exportBuyerOrders`,
   CLEAR_CREDITS: `${getBaseUrl()}/clearCredits`,
+  GET_PLANT_CREDIT_LEDGER: `${getBaseUrl()}/getPlantCreditLedger`,
+  GET_BUYER_CREDIT_STATEMENT: `${getBaseUrl()}/getBuyerCreditStatement`,
+  MANUAL_ADJUST_CREDITS: `${getBaseUrl()}/manualAdjustCredits`,
   
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,

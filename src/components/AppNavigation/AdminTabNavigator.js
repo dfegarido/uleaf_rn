@@ -75,7 +75,9 @@ import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
 import BuyerContentManagement from '../../screens/Admin/BuyerContent/BuyerContentManagement';
 import LeafPointsManagement from '../../screens/Admin/LeafPoints/LeafPointsManagement';
 import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCreditsManagement';
-import AdminClearCreditsScreen from '../../screens/Admin/PlantCredits/AdminClearCreditsScreen';
+import ClearCreditsScreen from '../../screens/Admin/PlantCredits/ClearCreditsScreen';
+import AdminCreditsScreen from '../../screens/Admin/PlantCredits/AdminCreditsScreen';
+import ManualAdjustmentScreen from '../../screens/Admin/PlantCredits/ManualAdjustmentScreen';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 
 const Tab = createBottomTabNavigator();
@@ -271,10 +273,9 @@ function AdminTabs() {
       
       {/* Plant Credits Management */}
       <Stack.Screen name="PlantCreditsManagement" options={{headerShown: false}} component={PlantCreditsManagement} />
-      <Stack.Screen name="AdminClearCreditsScreen" options={{headerShown: false}} component={AdminClearCreditsScreen} />
-
-      {/* Live Setup Management */}
-      <Stack.Screen name="LiveSetupScreen" options={{headerShown: false}} component={LiveSetup} />
+      <Stack.Screen name="AdminCreditsScreen" options={{headerShown: false}} component={AdminCreditsScreen} />
+      <Stack.Screen name="ClearCreditsScreen" options={{headerShown: false}} component={ClearCreditsScreen} />
+      <Stack.Screen name="ManualAdjustmentScreen" options={{headerShown: false}} component={ManualAdjustmentScreen} />
       
       {/* Plant Detail (shared with buyer) */}
       <Stack.Screen name="ScreenPlantDetail" options={{headerShown: false}} component={ScreenPlantDetail} />

@@ -17,6 +17,7 @@ import CloseIcon from '../../assets/admin-icons/x.svg';
 
 const ScreenHeader = ({
     navigation,
+    onBackPress,
     scarQr,
     search,
     title,
@@ -41,6 +42,14 @@ const ScreenHeader = ({
     onScanPress,
     scanQrParams,
 }) => {
+    const handleBackPress = () => {
+        if (typeof onBackPress === 'function') {
+            onBackPress();
+            return;
+        }
+        navigation.goBack();
+    };
+
     const handlePrintPress = () => {
         if (typeof onPrint === 'function') {
             onPrint();
@@ -61,7 +70,7 @@ const ScreenHeader = ({
         <View style={styles.header}>
             <TouchableOpacity
                 style={styles.backButton}
-                onPress={selectionMode ? onCancelSelection : () => navigation.goBack()}>
+                onPress={selectionMode ? onCancelSelection : handleBackPress}>
                 {selectionMode ? <CloseIcon /> : <BackSolidIcon />}
             </TouchableOpacity>
 

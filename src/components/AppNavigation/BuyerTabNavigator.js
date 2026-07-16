@@ -31,7 +31,7 @@ import ReportAProblemScreen from '../../screens/Buyer/Profile/ReportAProblemScre
 import RequestChangePlantFlightScreen from '../../screens/Buyer/Profile/RequestChangePlantFlightScreen';
 import MyShippingBuddiesRouter from '../../screens/Buyer/Profile/ShippingBuddies/MyShippingBuddiesRouter';
 import NotificationSettingsScreen from '../../screens/Buyer/Profile/NotificationSettingsScreen';
-import BuyerPlantCreditsScreen from '../../screens/Buyer/Profile/BuyerPlantCreditsScreen';
+import BuyerCreditsScreen from '../../screens/Buyer/Profile/BuyerCreditsScreen';
 import ShoppingPoliciesScreen from '../../screens/Buyer/Profile/ShoppingPoliciesScreen';
 import TermsOfUseScreen from '../../screens/Buyer/Profile/TermsOfUseScreen';
 import UpdateAddressScreen from '../../screens/Buyer/Profile/UpdateAddressScreen';
@@ -284,8 +284,8 @@ function BuyerTabNavigator() {
       />
 
       <Stack.Screen
-        name="BuyerPlantCreditsScreen"
-        component={BuyerPlantCreditsScreen}
+        name="BuyerCreditsScreen"
+        component={BuyerCreditsScreen}
         options={{headerShown: false}}
       />
 

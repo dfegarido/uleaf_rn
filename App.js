@@ -8,6 +8,7 @@
 import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Ensure Firebase is initialized before providers mount
 import './firebase';
 import { AuthProvider, useAuth } from './src/auth/AuthProvider';
@@ -19,6 +20,17 @@ import { CACHE_KEYS, clearSpecificDropdownCache, preloadAllDropdownData } from '
 import { clearExpiredImageCache } from './src/utils/imageCache';
 import NotificationService from './src/services/notifications/NotificationService';
 import { addTokenToBuyer, removeTokenFromBuyer } from './src/services/notifications/buyerFcmTokens';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => {
   // Warm key caches at startup for faster first paint on buyer screens
@@ -37,19 +49,21 @@ const App = () => {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{flex: 1}}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <NotificationBootstrapper>
-            <FilterProvider>
-              <LovedListingsProvider>
-                <AppNavigation />
-              </LovedListingsProvider>
-            </FilterProvider>
-          </NotificationBootstrapper>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{flex: 1}}>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <NotificationBootstrapper>
+              <FilterProvider>
+                <LovedListingsProvider>
+                  <AppNavigation />
+                </LovedListingsProvider>
+              </FilterProvider>
+            </NotificationBootstrapper>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 };
 

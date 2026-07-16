@@ -367,8 +367,8 @@ const BuyerProfileScreen = (props) => {
       const buyerLeafPoints = profileData?.leafPoints ?? profileData?.referralPointsBalance ?? 0;
       let leafPoints = Math.max(Number(buyerLeafPoints) || 0, referralLeafPoints);
 
-      const plantCredits = profileData?.plantCredits || 0;
-      const shippingCredits = profileData?.shippingCredits || 0;
+      const plantCredits = Math.max(0, Number(profileData?.plantCredits) || 0);
+      const shippingCredits = Math.max(0, Number(profileData?.shippingCredits) || 0);
 
       setProfileStats({
         leafPoints: leafPoints,
@@ -562,7 +562,7 @@ const BuyerProfileScreen = (props) => {
               color="#6B4EFF"
               icon={<PlantCreditsIcon width={24} height={24} fill="#FFFFFF" />}
               isPlantCredits={true}
-              onPress={() => navigation.navigate('BuyerPlantCreditsScreen')}
+              onPress={() => navigation.navigate('BuyerCreditsScreen')}
             />
             <CreditCard
               title="My Shipping Credits"

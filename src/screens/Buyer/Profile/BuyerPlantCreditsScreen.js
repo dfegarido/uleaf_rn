@@ -181,7 +181,7 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
         getDoc(doc(db, 'buyer', buyerUid)),
       ]);
       setTransactions(list);
-      const balance = buyerDoc.exists() ? (buyerDoc.data().plantCredits ?? 0) : (list[0]?.balanceAfter ?? 0);
+      const balance = buyerDoc.exists() ? Math.max(0, Number(buyerDoc.data().plantCredits) || 0) : Math.max(0, Number(list[0]?.balanceAfter) || 0);
       setPlantCredits(balance);
     } catch (err) {
       console.error('Error loading plant credits:', err);
