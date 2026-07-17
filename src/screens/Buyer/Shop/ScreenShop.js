@@ -68,6 +68,10 @@ import { getAcclimationIndexApi,
 import { InfoCard } from '../../../components/InfoCards';
 import LiveSellerStrip from '../../../components/LiveSellerStrip/LiveSellerStrip';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
+import NotificationPermissionPrompt from '../../../components/NotificationPermissionPrompt';
+import NotificationService from '../../../services/notifications/NotificationService';
+import { addTokenToBuyer, removeTokenFromBuyer } from '../../../services/notifications/buyerFcmTokens';
+import { useNotificationPermission } from '../../../hooks/useNotificationPermission';
 import { CACHE_KEYS,
   getCacheData,
   setCacheData,
@@ -184,6 +188,14 @@ const ScreenShop = ({navigation}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
 
+  // Notification permission prompt state
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const notificationPromptTimerRef = useRef(null);
+  const { disabled, setDisabled } = useNotificationPermission();
+
+  const NOTIFICATION_PROMPT_DELAY_MS = 2500;
+  const NOTIFICATION_PROMPT_SUPPRESS_KEY = 'notificationPermissionPrompt.suppressedUntil';
+
   // Animated search placeholder
   const PLACEHOLDER_PLANTS = [
     'Monstera Deliciosa',
@@ -261,6 +273,66 @@ const ScreenShop = ({navigation}) => {
     };
     fetchData();
   }, []);
+
+  // Notification permission prompt effect
+  useEffect(() => {
+    const checkAndSchedulePrompt = async () => {
+      // Only prompt when notifications are disabled. The hook initializes
+      // `disabled` to false, so this also naturally waits for hydration.
+      if (!disabled) return;
+
+      // Honor the "Not Now" 7-day suppression window.
+      const suppressedUntil = await AsyncStorage.getItem(NOTIFICATION_PROMPT_SUPPRESS_KEY);
+      if (suppressedUntil && Number(suppressedUntil) > Date.now()) return;
+
+      // Wait 2-3 seconds after the screen has fully loaded before showing.
+      notificationPromptTimerRef.current = setTimeout(() => {
+        setShowNotificationPrompt(true);
+      }, NOTIFICATION_PROMPT_DELAY_MS);
+    };
+
+    checkAndSchedulePrompt();
+
+    return () => {
+      if (notificationPromptTimerRef.current) {
+        clearTimeout(notificationPromptTimerRef.current);
+      }
+    };
+  }, [disabled]);
+
+  const handleEnableNotifications = async () => {
+    const uid = user?.uid || user?.user?.uid;
+    setShowNotificationPrompt(false);
+
+    try {
+      // Reuse the existing notification enable flow.
+      await setDisabled(false);
+      if (uid) {
+        const result = await NotificationService.requestPermissionAndRegister(
+          uid,
+          { writeToken: addTokenToBuyer, removeToken: removeTokenFromBuyer },
+        );
+        if (result?.status === 'denied') {
+          await setDisabled(true);
+        }
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[ScreenShop] enable notifications failed', e);
+    }
+  };
+
+  const handleDismissNotificationPrompt = async () => {
+    setShowNotificationPrompt(false);
+    // Suppress the prompt for 7 days.
+    const suppressedUntil = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    try {
+      await AsyncStorage.setItem(NOTIFICATION_PROMPT_SUPPRESS_KEY, String(suppressedUntil));
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[ScreenShop] failed to suppress notification prompt', e);
+    }
+  };
 
   // Load genus data only if not already loaded
   useFocusEffect(
@@ -1878,6 +1950,12 @@ const ScreenShop = ({navigation}) => {
           </View>
         </View>
       </Modal>
+
+      <NotificationPermissionPrompt
+        visible={showNotificationPrompt}
+        onEnable={handleEnableNotifications}
+        onDismiss={handleDismissNotificationPrompt}
+      />
     </SafeAreaView>
   );
 };
