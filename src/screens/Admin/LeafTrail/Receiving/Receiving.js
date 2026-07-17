@@ -17,7 +17,7 @@ import { ActivityIndicator,
     Platform
 } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { TabBar, TabView } from 'react-native-tab-view';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import Options from '../../../../assets/admin-icons/options.svg';
@@ -38,6 +38,7 @@ import {
     generateThermalLabels,
     emailThermalLabels,
     assignReceiverBoxes,
+    generateReceiverBoxLabels,
 } from '../../../../components/Api/getAdminLeafTrail';
 import OrderSummaryStatusSheet, {
     LEAF_TRAIL_STATUS_OPTIONS,
@@ -85,6 +86,7 @@ import {
 } from '../../../../utils/thermalLabelExport';
 import {
     buildReceiverBoxAssignments,
+    buildReceiverBoxLabelsPayload,
     filterReceiverBoxAssignmentsNeedingPersist,
     groupItemsIntoSortedReceiverBoxes,
     getReceiverBoxPlantStatusPill,
@@ -463,6 +465,8 @@ const ReceivedTab = ({
     onBoxDetailOpenChange,
     renderPlantActionOverlays,
     onPrintBoxPlants,
+    onPrintBoxLabels,
+    boxActionsLoading = false,
     printBusy = false,
 }) => {
     const [activeBox, setActiveBox] = useState(null);
@@ -511,6 +515,17 @@ const ReceivedTab = ({
             <View style={styles.receivedSummaryRow}>
                 <Text style={styles.receivedSummaryPill}>{receiverBoxes.length} box(es)</Text>
                 <Text style={styles.countText}>{plantTotal} plant(s)</Text>
+            </View>
+            <View style={styles.receivedActionsRow}>
+                <TouchableOpacity
+                    style={[
+                        styles.receivedActionButton,
+                        boxActionsLoading && styles.buttonDisabled,
+                    ]}
+                    onPress={() => onPrintBoxLabels?.(receiverBoxes)}
+                    disabled={boxActionsLoading || !receiverBoxes.length}>
+                    <Text style={styles.receivedActionButtonText}>Print Box Labels</Text>
+                </TouchableOpacity>
             </View>
         </>
     );
@@ -1006,6 +1021,8 @@ const ReceivingScreen = ({navigation, route}) => {
     const [exportBusy, setExportBusy] = useState(false);
     const [generatedLabels, setGeneratedLabels] = useState([]);
     const [showLabelViewer, setShowLabelViewer] = useState(false);
+    const [labelContext, setLabelContext] = useState('thermal');
+    const [boxActionsLoading, setBoxActionsLoading] = useState(false);
     const lastReceivingFiltersRef = useRef(undefined);
     const tabStatusesRef = useRef(ADMIN_FILTER_STATUSES_BY_TAB.forReceiving);
     const lastAssignedSignatureRef = useRef('');
@@ -1240,6 +1257,7 @@ const ReceivingScreen = ({navigation, route}) => {
             return;
         }
         try {
+            setLabelContext('thermal');
             setLoadingMessage('Generating your labels, please wait...');
             setIsLoading(true);
             const response = await generateThermalLabels(ids);
@@ -1255,6 +1273,35 @@ const ReceivingScreen = ({navigation, route}) => {
             Alert.alert('Error', error.message || 'Failed to generate thermal labels');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handlePrintReceiverBoxLabels = async (receiverBoxes) => {
+        try {
+            const boxesPayload = buildReceiverBoxLabelsPayload(receiverBoxes);
+            if (!boxesPayload.length) {
+                Alert.alert('Print Box Labels', 'No receiver boxes available.');
+                return;
+            }
+            setLabelContext('receiverBoxes');
+            setLoadingMessage('Generating receiver box labels, please wait...');
+            setIsLoading(true);
+            setBoxActionsLoading(true);
+            const response = await generateReceiverBoxLabels(boxesPayload);
+            if (response?.success && response?.labels?.length) {
+                setGeneratedLabels(response.labels);
+                setShowLabelViewer(true);
+            } else {
+                Alert.alert(
+                    'Print Box Labels',
+                    response?.message || 'Failed to generate receiver box labels.',
+                );
+            }
+        } catch (e) {
+            Alert.alert('Print Box Labels', e?.message || 'Failed to generate receiver box labels.');
+        } finally {
+            setIsLoading(false);
+            setBoxActionsLoading(false);
         }
     };
 
@@ -1469,6 +1516,8 @@ const ReceivingScreen = ({navigation, route}) => {
                         onBoxDetailOpenChange={handleReceiverBoxDetailOpenChange}
                         renderPlantActionOverlays={renderPlantActionOverlays}
                         onPrintBoxPlants={handlePrintReceivedBox}
+                        onPrintBoxLabels={handlePrintReceiverBoxLabels}
+                        boxActionsLoading={boxActionsLoading}
                         printBusy={isLoading}
                     />
                 );
@@ -1580,6 +1629,13 @@ const ReceivingScreen = ({navigation, route}) => {
 
     const sendViaEmail = async () => {
         try {
+            if (labelContext === 'receiverBoxes') {
+                Alert.alert(
+                    'Send via Email',
+                    'Email delivery is currently available only for thermal plant labels.',
+                );
+                return;
+            }
             setLoadingMessage('Sending your labels via email, please wait...');
             setIsLoading(true);
             // Get the order IDs from the generated labels
@@ -1603,12 +1659,12 @@ const ReceivingScreen = ({navigation, route}) => {
     };
 
     const isLabelPrintLoading =
-        isLoading &&
+        (isLoading || boxActionsLoading) &&
         !showLabelViewer &&
         /generating.*label|label.*generating/i.test(String(loadingMessage || ''));
 
     return (
-        <SafeAreaProvider>
+        <>
             <SafeAreaView style={styles.screenContainer} edges={['left', 'right', 'bottom']}>
                 <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
                 {isLabelPrintLoading ? (
@@ -1647,7 +1703,10 @@ const ReceivingScreen = ({navigation, route}) => {
                                 <BackIcon width={24} height={24} />
                             </TouchableOpacity>
                             <Text style={styles.labelViewerTitle}>
-                                Generated Labels ({generatedLabels.length})
+                                {labelContext === 'receiverBoxes'
+                                    ? 'Receiver Box Labels'
+                                    : 'Generated Labels'}{' '}
+                                ({generatedLabels.length})
                             </Text>
                             <View style={styles.headerSpacer} />
                         </View>
@@ -1679,9 +1738,9 @@ const ReceivingScreen = ({navigation, route}) => {
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
-                                style={[styles.emailButton, isLoading && styles.buttonDisabled]}
+                                style={[styles.emailButton, (isLoading || labelContext === 'receiverBoxes') && styles.buttonDisabled]}
                                 onPress={sendViaEmail}
-                                disabled={isLoading}
+                                disabled={isLoading || labelContext === 'receiverBoxes'}
                             >
                                 <View style={styles.buttonContent}>
                                     <Text style={styles.emailButtonText}>
@@ -1699,7 +1758,9 @@ const ReceivingScreen = ({navigation, route}) => {
                             renderItem={({ item, index }) => (
                                 <View style={styles.labelPreview}>
                                     <Text style={styles.labelInfo}>
-                                        {item.plantCode || `Label ${index + 1}`}
+                                        {item.labelTitle ||
+                                            item.plantCode ||
+                                            `Label ${index + 1}`}
                                     </Text>
                                     <Image
                                         source={{ uri: `data:image/png;base64,${item.base64}` }}
@@ -1756,7 +1817,7 @@ const ReceivingScreen = ({navigation, route}) => {
             </SafeAreaView>
 
             {!receiverBoxDetailOpen ? renderPlantActionOverlays(false) : null}
-        </SafeAreaProvider>
+        </>
     );
 }
 
@@ -1917,6 +1978,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderRadius: 999,
+    },
+    receivedActionsRow: {
+        flexDirection: 'row',
+        gap: 8,
+        paddingHorizontal: 15,
+        paddingBottom: 8,
+        marginTop: 8,
+    },
+    receivedActionButton: {
+        flex: 1,
+        backgroundColor: '#2F8C4F',
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    receivedActionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '700',
     },
     receiverBoxesRow: {
         gap: 10,

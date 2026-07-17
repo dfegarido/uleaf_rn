@@ -7,6 +7,7 @@ import { ScrollView,
     View} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { useAuth } from '../../../auth/AuthProvider';
+import { getAdminHeaderTopPadding } from '../../../utils/adminHeaderInsets';
 
 // Import icons
 import AvatarIcon from '../../../assets/admin-icons/avatar.svg';
@@ -16,7 +17,7 @@ const HEADER_HEIGHT = 80;
 
 const LeafTrailHeader = ({insets, navigation, userInfo}) => {
   const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
-  const headerTopPadding = Math.max(insets.top, 12);
+  const headerTopPadding = getAdminHeaderTopPadding(insets);
   
   return (
     <View style={[styles.stickyHeader, {paddingTop: headerTopPadding}]}>
@@ -62,7 +63,7 @@ const LeafTrail = () => {
       
       <ScrollView
         ref={mainScrollRef}
-        style={[styles.body, {paddingTop: HEADER_HEIGHT + insets.top}]}
+        style={[styles.body, {paddingTop: HEADER_HEIGHT + getAdminHeaderTopPadding(insets)}]}
         contentContainerStyle={{paddingBottom: safeBottomPadding}}
         showsVerticalScrollIndicator={false}>
         

@@ -32,6 +32,7 @@ import {
   sortPlantsForSortingBoxList,
   sortingPlantStatusLabel,
 } from '../../../../utils/sortingBoxMetrics';
+import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
 import TagAsOptions from './TagAs';
 import {
@@ -142,7 +143,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
     showLabelViewer,
     LabelViewer,
     LabelGeneratingOverlay,
-  } = useLeafTrailThermalPrint('Receiver box labels', { embeddedOverlay: true });
+  } = useLeafTrailThermalPrint('Plant QR labels', { embeddedOverlay: true });
 
   const boxPlants = useMemo(
     () => (box?.plants || []).filter(isIncludedInSortingPlantList),
@@ -396,7 +397,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
         <LabelViewer />
         <LabelGeneratingOverlay />
         <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
-          <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+          <View style={[styles.header, { paddingTop: getAdminHeaderTopPadding(insets) }]}>
             <TouchableOpacity
               style={styles.headerBack}
               onPress={onClose}

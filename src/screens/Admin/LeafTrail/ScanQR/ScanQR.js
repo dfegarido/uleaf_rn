@@ -13,7 +13,8 @@ import { Image,
   Alert,
   Platform} from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
-import {SafeAreaView, SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 import { Camera,
   useCameraDevice,
   useCameraPermission,
@@ -301,7 +302,6 @@ const ScanQRScreen = ({ navigation, route }) => {
   }
   
   return (
-    <SafeAreaProvider>
       <SafeAreaView style={styles.screenContainer} edges={['left', 'right', 'bottom']}>
         {/* The overlay is dark, so a light-content status bar is appropriate */}
         <StatusBar barStyle="light-content" />
@@ -317,7 +317,7 @@ const ScanQRScreen = ({ navigation, route }) => {
         />
       
           {/* Top Navigation Header */}
-          <View style={[styles.header, { top: insets.top + 8 }]}>
+          <View style={[styles.header, { top: getAdminHeaderTopPadding(insets) + 8 }]}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={handleScanBack}
@@ -644,7 +644,6 @@ const ScanQRScreen = ({ navigation, route }) => {
             </View>
           </ScrollView>
       </SafeAreaView>
-    </SafeAreaProvider>
   );
 };
 

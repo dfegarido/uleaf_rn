@@ -32,16 +32,18 @@ import {
   formatReceiverBoxNumberLabel,
   resolveCanonicalReceiverBoxNumber,
 } from '../../../../utils/receiverBoxNumber';
+import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import DeliveryDateTimeInput from '../Shipping/DeliveryDateTimeInput';
 
 const Header = ({ title, navigation }) => {
   const insets = useSafeAreaInsets();
+  const headerTop = getAdminHeaderTopPadding(insets);
   return (
     <View
       style={[
         styles.headerContainer,
-        { paddingTop: insets.top + 12, minHeight: insets.top + 56 },
+        { paddingTop: headerTop + 12, minHeight: headerTop + 56 },
       ]}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <BackSolidIcon />

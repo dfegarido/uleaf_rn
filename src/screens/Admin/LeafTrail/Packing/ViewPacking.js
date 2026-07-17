@@ -38,17 +38,19 @@ import PackingTraySummary from './PackingTraySummary';
 import TagAsOptions from './TagAs';
 import { computePackingTrayMetrics } from '../../../../utils/packingTrayMetrics';
 import { resolveCanonicalReceiverBoxNumber } from '../../../../utils/receiverBoxNumber';
+import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 
 const isAssignableForBox = (plant) =>
   !String(plant?.packingData?.boxNumber || '').trim();
 
 const Header = ({ title, navigation, scanQrParams }) => {
   const insets = useSafeAreaInsets();
+  const headerTop = getAdminHeaderTopPadding(insets);
   return (
     <View
       style={[
         styles.headerContainer,
-        { paddingTop: insets.top + 12, minHeight: insets.top + 56 },
+        { paddingTop: headerTop + 12, minHeight: headerTop + 56 },
       ]}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <BackSolidIcon />

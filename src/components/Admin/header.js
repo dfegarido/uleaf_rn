@@ -9,6 +9,7 @@ import { ActivityIndicator,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAdminHeaderTopPadding } from '../../utils/adminHeaderInsets';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import DownloadIcon from '../../assets/icons/accent/download.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -45,7 +46,7 @@ const ScreenHeader = ({
     scanQrParams,
 }) => {
     const insets = useSafeAreaInsets();
-    const headerTopPadding = Platform.OS === 'ios' ? Math.max(insets.top, 12) : 10;
+    const headerTopPadding = getAdminHeaderTopPadding(insets);
 
     const handleBackPress = () => {
         if (typeof onBackPress === 'function') {

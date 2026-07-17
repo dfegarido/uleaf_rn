@@ -127,7 +127,7 @@ const ThermalLabelViewerModal = ({
             renderItem={({ item, index }) => (
               <View style={styles.preview}>
                 <Text style={styles.previewLabel} numberOfLines={1}>
-                  {item.plantCode || `Label ${index + 1}`}
+                  {item.labelTitle || item.plantCode || `Label ${index + 1}`}
                 </Text>
                 <Image
                   source={{ uri: `data:image/png;base64,${item.base64}` }}

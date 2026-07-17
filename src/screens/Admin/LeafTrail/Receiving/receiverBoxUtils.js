@@ -359,3 +359,15 @@ export const getReceiverBoxPlantsFromReceivingResponse = (response) => {
     });
     return [...deduped.values()];
 };
+
+/** Payload for generateReceiverBoxLabels — one row per receiver box card. */
+export const buildReceiverBoxLabelsPayload = (boxes = []) =>
+    (boxes || [])
+        .filter((box) => Number(box?.boxNumber) > 0)
+        .map((box) => ({
+            boxNumber: box.boxNumber,
+            boxKey: box.groupKey || box.boxKey || `BOX-${box.boxNumber}`,
+            receiverName: box.receiverName || 'Unassigned Receiver',
+            joiners: Array.isArray(box.joiners) ? box.joiners : [],
+            plantCount: (box.items || box.plants || []).length,
+        }));

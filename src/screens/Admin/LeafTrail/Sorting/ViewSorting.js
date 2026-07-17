@@ -33,14 +33,16 @@ import SelectionModal from './SelectionModal';
 import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailHeader';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
+import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 
 const Header = ({ title, navigation }) => {
   const insets = useSafeAreaInsets();
+  const headerTop = getAdminHeaderTopPadding(insets);
   return (
     <View
       style={[
         styles.headerContainer,
-        { paddingTop: insets.top + 12, minHeight: insets.top + 56 },
+        { paddingTop: headerTop + 12, minHeight: headerTop + 56 },
       ]}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <BackSolidIcon />
