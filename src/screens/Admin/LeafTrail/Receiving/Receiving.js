@@ -25,7 +25,9 @@ import QuestionMarkIcon from '../../../../assets/admin-icons/question-mark.svg';
 import ReceivedIcon from '../../../../assets/admin-icons/received.svg';
 import CheckedBoxIcon from '../../../../assets/admin-icons/checked-box.svg';
 import DownloadIcon from '../../../../assets/admin-icons/download.svg';
+import PrintIcon from '../../../../assets/icons/greylight/printer.svg';
 import FilterBar from '../../../../components/Admin/filter';
+import LeafTrailLabelGeneratingOverlay from '../../../../components/Admin/LeafTrailLabelGeneratingOverlay';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled, isTrail1ForReceivingEnabled } from '../../../../config/featureFlags';
 import {
@@ -460,6 +462,8 @@ const ReceivedTab = ({
     openTagAs,
     onBoxDetailOpenChange,
     renderPlantActionOverlays,
+    onPrintBoxPlants,
+    printBusy = false,
 }) => {
     const [activeBox, setActiveBox] = useState(null);
 
@@ -542,6 +546,19 @@ const ReceivedTab = ({
                             {(activeBox?.items || []).length} plant(s) · Scanned {activeBox?.scannedCount || 0} · Unscanned {activeBox?.unscannedCount || 0}
                         </Text>
                     </View>
+                    <TouchableOpacity
+                        style={styles.receiverBoxModalPrint}
+                        onPress={() => {
+                            const ids = (activeBox?.items || []).map((p) => p.id).filter(Boolean);
+                            setBoxOpen(null);
+                            onPrintBoxPlants?.(ids);
+                        }}
+                        disabled={printBusy || !(activeBox?.items || []).length}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Reprint QR labels for plants in this box">
+                        <PrintIcon width={22} height={22} />
+                    </TouchableOpacity>
                 </View>
                 <FlatList
                     style={styles.receiverBoxModalList}
@@ -1246,6 +1263,23 @@ const ReceivingScreen = ({navigation, route}) => {
             await runThermalPrint(selectionStore.toArray());
             return;
         }
+        if (activeTabKey === 'received') {
+            const plants = getReceiverBoxPlantsFromReceivingResponse(receivingData || {});
+            const ids = plants.map((p) => p.id).filter(Boolean);
+            if (!ids.length) {
+                Alert.alert('Nothing to print', 'No received plants to print labels for.');
+                return;
+            }
+            await runThermalPrint(ids);
+        }
+    };
+
+    const handlePrintReceivedBox = async (ids) => {
+        if (!ids?.length) {
+            Alert.alert('Nothing to print', 'No plants in this box to print labels for.');
+            return;
+        }
+        await runThermalPrint(ids);
     };
 
     const handleExportSelected = async () => {
@@ -1434,6 +1468,8 @@ const ReceivingScreen = ({navigation, route}) => {
                         adminFilters={adminFiltersForActiveTab}
                         onBoxDetailOpenChange={handleReceiverBoxDetailOpenChange}
                         renderPlantActionOverlays={renderPlantActionOverlays}
+                        onPrintBoxPlants={handlePrintReceivedBox}
+                        printBusy={isLoading}
                     />
                 );
             case 'missing':
@@ -1488,6 +1524,8 @@ const ReceivingScreen = ({navigation, route}) => {
         hubSpecEnabled,
         handleReceiverBoxDetailOpenChange,
         renderPlantActionOverlays,
+        handlePrintReceivedBox,
+        isLoading,
     ]);
 
     const hubExportLines = getCurrentTabData()?.data || [];
@@ -1497,7 +1535,9 @@ const ReceivingScreen = ({navigation, route}) => {
         activeTabKey === 'received' ? 'Preparing receiver boxes' : 'Fetching incoming plants';
     const hubPrintOnHeader =
         hubSpecEnabled &&
-        (trail1IntakeMode ? index === 0 : index === 0 || index === 1);
+        (activeTabKey === 'forReceiving' ||
+            activeTabKey === 'received' ||
+            (!trail1IntakeMode && activeTabKey === 'inventoryForHub'));
     const hubHeaderActions = useLeafTrailHubActions({
         exportLines: hubSpecEnabled ? hubExportLines : [],
         exportStageLabel: activeTabKey,
@@ -1505,7 +1545,7 @@ const ReceivingScreen = ({navigation, route}) => {
         printDisabled: !hubPrintOnHeader,
         exportDisabled: !hubSpecEnabled,
         emptyPrintMessage:
-            'Print is available on For Receiving and Inventory for Hub tabs.',
+            'Print is available on For Receiving, Inventory for Hub, and Received tabs.',
         emptyExportMessage: 'No plants to export on this tab. Try another tab or adjust filters.',
     });
 
@@ -1562,11 +1602,21 @@ const ReceivingScreen = ({navigation, route}) => {
         }
     };
 
+    const isLabelPrintLoading =
+        isLoading &&
+        !showLabelViewer &&
+        /generating.*label|label.*generating/i.test(String(loadingMessage || ''));
+
     return (
         <SafeAreaProvider>
-            <SafeAreaView style={styles.screenContainer} edges={['top']}>
+            <SafeAreaView style={styles.screenContainer} edges={['left', 'right', 'bottom']}>
                 <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-                {(isLoading && !showLabelViewer) ? (
+                {isLabelPrintLoading ? (
+                    <LeafTrailLabelGeneratingOverlay
+                        visible
+                        message={loadingMessage}
+                    />
+                ) : (isLoading && !showLabelViewer) ? (
                         <Modal
                           transparent
                           visible
@@ -1675,7 +1725,10 @@ const ReceivingScreen = ({navigation, route}) => {
                     printButton={
                         hubSpecEnabled
                             ? true
-                            : !trail1IntakeMode && (index === 0 || index === 1)
+                            : !trail1IntakeMode &&
+                              (activeTabKey === 'forReceiving' ||
+                                  activeTabKey === 'inventoryForHub' ||
+                                  activeTabKey === 'received')
                     }
                     onPrint={hubSpecEnabled ? hubHeaderActions.onPrint : handlePrint}
                     downloadCsv={!!hubSpecEnabled}
@@ -2029,6 +2082,17 @@ const styles = StyleSheet.create({
         marginTop: 2,
         fontSize: 12,
         color: '#5E6A62',
+    },
+    receiverBoxModalPrint: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: '#F5F6F6',
+        borderWidth: 1,
+        borderColor: '#E3E7E8',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 6,
     },
     receiverBoxModalList: {
         flex: 1,

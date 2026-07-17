@@ -87,6 +87,15 @@ export function isAwaitingSortPlant(plant) {
   return status === 'received' || status === 'needstostay';
 }
 
+/**
+ * Plants that belong in Sorting UI lists / print / box metrics.
+ * Missing and damaged are managed on Receiving and must not appear here.
+ */
+export function isIncludedInSortingPlantList(plant) {
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  return status !== 'missing' && status !== 'damaged';
+}
+
 export function sortingPlantStatusLabel(plant) {
   if (isSortedPlant(plant)) return 'Sorted';
   const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
@@ -241,14 +250,17 @@ export function mergeSortingReceiverBoxesByReceiver(boxes = []) {
   });
 
   return [...merged.values()].map((box) => {
-    const metrics = computeSortingBoxMetrics(box.plants);
+    const plants = sortPlantsForSortingBoxList(
+      (box.plants || []).filter(isIncludedInSortingPlantList),
+    );
+    const metrics = computeSortingBoxMetrics(plants);
     const boxNumber = Number(box.boxNumber) || 0;
     return {
       ...box,
       ...metrics,
       boxNumber: boxNumber || undefined,
       sortingTrayNumber: box.sortingTrayNumber || (boxNumber ? String(boxNumber) : ''),
-      plants: sortPlantsForSortingBoxList(box.plants),
+      plants,
       joiners: [...(box.joiners || [])].sort((a, b) => a.localeCompare(b)),
     };
   });

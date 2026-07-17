@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import DownloadIcon from '../../assets/icons/accent/download.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -19,6 +20,8 @@ const LeafTrailDetailHeader = ({
   printDisabled = false,
   exportDisabled = false,
 }) => {
+  const insets = useSafeAreaInsets();
+  const headerTopPadding = Platform.OS === 'ios' ? Math.max(insets.top, 12) : 10;
   const { onPrint, onExport, exportLoading } = useLeafTrailHubActions({
     exportLines,
     exportStageLabel,
@@ -29,7 +32,7 @@ const LeafTrailDetailHeader = ({
   });
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { paddingTop: headerTopPadding }]}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <BackSolidIcon />
       </TouchableOpacity>
@@ -73,7 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E3E7E8',

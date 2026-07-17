@@ -13,7 +13,7 @@ import { Image,
   Alert,
   Platform} from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
-import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
+import {SafeAreaView, SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { Camera,
   useCameraDevice,
   useCameraPermission,
@@ -57,6 +57,7 @@ const UserCard = ({ user }) => (
 );
 
 const ScanQRScreen = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('back');
@@ -301,7 +302,7 @@ const ScanQRScreen = ({ navigation, route }) => {
   
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.screenContainer} edges={['top']}>
+      <SafeAreaView style={styles.screenContainer} edges={['left', 'right', 'bottom']}>
         {/* The overlay is dark, so a light-content status bar is appropriate */}
         <StatusBar barStyle="light-content" />
         
@@ -316,7 +317,7 @@ const ScanQRScreen = ({ navigation, route }) => {
         />
       
           {/* Top Navigation Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { top: insets.top + 8 }]}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={handleScanBack}
@@ -703,10 +704,8 @@ const styles = StyleSheet.create({
   // --- Header Navigation ---
   header: {
     position: 'absolute',
-    top: 50,
     left: 0,
     right: 0,
-    paddingTop: 10, // Adjust for status bar height if not using SafeAreaView
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

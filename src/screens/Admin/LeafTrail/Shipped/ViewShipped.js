@@ -12,7 +12,7 @@ import { ActivityIndicator,
   TouchableOpacity,
   View,
   Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BarcodeIcon from '../../../../assets/admin-icons/big-tracking.svg';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import MapPinIcon from '../../../../assets/admin-icons/map-pin.svg';
@@ -35,15 +35,22 @@ import {
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import DeliveryDateTimeInput from '../Shipping/DeliveryDateTimeInput';
 
-const Header = ({ title, navigation }) => (
-  <View style={styles.headerContainer}>
-    <TouchableOpacity onPress={() => navigation.goBack()}>
-      <BackSolidIcon />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
-    <View style={{ width: 24 }} />
-  </View>
-);
+const Header = ({ title, navigation }) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.headerContainer,
+        { paddingTop: insets.top + 12, minHeight: insets.top + 56 },
+      ]}>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <BackSolidIcon />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>{title}</Text>
+      <View style={{ width: 24 }} />
+    </View>
+  );
+};
 
 const TrackingInfo = ({ trackingNumber, label }) => (
   <View style={Platform.OS === 'android' ? styles.trackingInfoContainer : styles.trackingInfoContainerIos}>
@@ -321,7 +328,8 @@ const ViewShippedScreen = ({ navigation, route }) => {
   const dimensions = shippedDetails?.packingData?.dimensions;
   const weight = shippedDetails?.packingData?.weight;
 
-  const { printOrderIds, LabelViewer } = useLeafTrailThermalPrint('Delivered labels');
+  const { printOrderIds, LabelViewer, LabelGeneratingOverlay } =
+    useLeafTrailThermalPrint('Delivered labels');
 
   const handlePrintBarcodes = () => {
     printOrderIds(plantList.map((p) => p.id).filter(Boolean), {
@@ -330,8 +338,9 @@ const ViewShippedScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
       <LabelViewer />
+      <LabelGeneratingOverlay />
       {hubSpecEnabled ? (
         <LeafTrailDetailHeader
           title="Shipping Details"
@@ -438,7 +447,7 @@ const ViewShippedScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   loadingOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.25)', justifyContent: 'center', alignItems: 'center' },
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFFFFF', height: 106, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
+  headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFFFFF', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   headerTitle: { fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325' },
   scrollContent: { paddingTop: 40, paddingBottom: 34 },
   trackingInfoContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12, marginTop: 60 },

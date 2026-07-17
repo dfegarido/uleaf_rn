@@ -1,12 +1,14 @@
 import React from 'react';
 import { ActivityIndicator,
     Alert,
+    Platform,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScanQrIcon from '../../assets/admin-icons/qr.svg';
 import DownloadIcon from '../../assets/icons/accent/download.svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -42,6 +44,9 @@ const ScreenHeader = ({
     onScanPress,
     scanQrParams,
 }) => {
+    const insets = useSafeAreaInsets();
+    const headerTopPadding = Platform.OS === 'ios' ? Math.max(insets.top, 12) : 10;
+
     const handleBackPress = () => {
         if (typeof onBackPress === 'function') {
             onBackPress();
@@ -67,7 +72,7 @@ const ScreenHeader = ({
     };
 
     return (
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: headerTopPadding }]}>
             <TouchableOpacity
                 style={styles.backButton}
                 onPress={selectionMode ? onCancelSelection : handleBackPress}>
@@ -185,7 +190,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 10,
+        paddingBottom: 10,
         backgroundColor: '#FFFFFF',
         minHeight: 58,
     },

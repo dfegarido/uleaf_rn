@@ -1,12 +1,16 @@
 import React, { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
+import LeafTrailLabelGeneratingOverlay from '../components/Admin/LeafTrailLabelGeneratingOverlay';
 import ThermalLabelViewerModal from '../components/Admin/ThermalLabelViewerModal';
 import { printThermalLabelsForIds } from '../utils/leafTrailPrintExport';
 
 /**
  * Shared thermal print + label preview modal for Leaf Trail admin screens.
+ * @param {string} labelTitle
+ * @param {{ embeddedOverlay?: boolean }} [options]
  */
-export function useLeafTrailThermalPrint(labelTitle = 'Generated Labels') {
+export function useLeafTrailThermalPrint(labelTitle = 'Generated Labels', options = {}) {
+  const { embeddedOverlay = false } = options;
   const [actionLoading, setActionLoading] = useState(false);
   const [generatedLabels, setGeneratedLabels] = useState([]);
   const [showLabelViewer, setShowLabelViewer] = useState(false);
@@ -56,6 +60,17 @@ export function useLeafTrailThermalPrint(labelTitle = 'Generated Labels') {
     [actionLoading],
   );
 
+  const LabelGeneratingOverlay = useCallback(
+    () => (
+      <LeafTrailLabelGeneratingOverlay
+        visible={actionLoading && !showLabelViewer}
+        message={printStatusMessage || 'Generating labels, please wait…'}
+        embedded={embeddedOverlay}
+      />
+    ),
+    [actionLoading, showLabelViewer, printStatusMessage, embeddedOverlay],
+  );
+
   const LabelViewer = useCallback(
     () => (
       <ThermalLabelViewerModal
@@ -76,5 +91,6 @@ export function useLeafTrailThermalPrint(labelTitle = 'Generated Labels') {
     printStatusMessage,
     printOrderIds,
     LabelViewer,
+    LabelGeneratingOverlay,
   };
 }

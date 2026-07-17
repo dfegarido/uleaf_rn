@@ -107,16 +107,6 @@ const ThermalLabelViewerModal = ({
           ) : null}
         </View>
 
-        {loadingMore ? (
-          <View style={styles.loadingMoreBar}>
-            <ActivityIndicator size="small" color="#539461" />
-            <Text style={styles.loadingMoreText}>
-              Loading more labels ({labels.length}
-              {expectedTotal ? ` of ${expectedTotal}` : ''})…
-            </Text>
-          </View>
-        ) : null}
-
         {actionBusy ? (
           <View style={styles.actionBusyBar}>
             <ActivityIndicator size="small" color="#539461" />
@@ -124,38 +114,52 @@ const ThermalLabelViewerModal = ({
           </View>
         ) : null}
 
-        <FlatList
-          data={labels}
-          keyExtractor={(item, index) => String(item.orderId || item.plantCode || index)}
-          numColumns={2}
-          contentContainerStyle={styles.grid}
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          windowSize={5}
-          removeClippedSubviews
-          renderItem={({ item, index }) => (
-            <View style={styles.preview}>
-              <Text style={styles.previewLabel} numberOfLines={1}>
-                {item.plantCode || `Label ${index + 1}`}
-              </Text>
-              <Image
-                source={{ uri: `data:image/png;base64,${item.base64}` }}
-                style={styles.previewImage}
-                resizeMode="contain"
-              />
-            </View>
-          )}
-          ListEmptyComponent={
-            loadingMore ? (
-              <View style={styles.emptyLoading}>
-                <ActivityIndicator size="large" color="#539461" />
-                <Text style={styles.empty}>Preparing label previews…</Text>
+        <View style={styles.listWrap}>
+          <FlatList
+            data={labels}
+            keyExtractor={(item, index) => String(item.orderId || item.plantCode || index)}
+            numColumns={2}
+            contentContainerStyle={styles.grid}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={5}
+            removeClippedSubviews
+            renderItem={({ item, index }) => (
+              <View style={styles.preview}>
+                <Text style={styles.previewLabel} numberOfLines={1}>
+                  {item.plantCode || `Label ${index + 1}`}
+                </Text>
+                <Image
+                  source={{ uri: `data:image/png;base64,${item.base64}` }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
               </View>
-            ) : (
-              <Text style={styles.empty}>No label images to display.</Text>
-            )
-          }
-        />
+            )}
+            ListEmptyComponent={
+              loadingMore ? (
+                <View style={styles.emptyLoading}>
+                  <ActivityIndicator size="large" color="#539461" />
+                  <Text style={styles.empty}>Preparing label previews…</Text>
+                </View>
+              ) : (
+                <Text style={styles.empty}>No label images to display.</Text>
+              )
+            }
+          />
+
+          {loadingMore ? (
+            <View style={styles.loadingMoreOverlay} pointerEvents="none">
+              <View style={styles.loadingMoreBar}>
+                <ActivityIndicator size="small" color="#2F8C4F" />
+                <Text style={styles.loadingMoreText}>
+                  Loading more labels ({labels.length}
+                  {expectedTotal ? ` of ${expectedTotal}` : ''})…
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
       </SafeAreaView>
     </Modal>
   );
@@ -256,21 +260,41 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#539461',
   },
+  listWrap: {
+    flex: 1,
+    position: 'relative',
+  },
+  loadingMoreOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    elevation: 20,
+    backgroundColor: 'rgba(17, 24, 20, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
   loadingMoreBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#F0F7F1',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E9EB',
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DDEDE2',
+    minWidth: 260,
+    shadowColor: '#0F1D15',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   loadingMoreText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#539461',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#202325',
   },
   grid: {
     padding: 12,

@@ -54,8 +54,108 @@ const TagAsOptions = ({
   isNeedsToStay = false,
   isOthers = false,
   forShipping = false,
+  /** Absolute overlay instead of Modal — required when parent is already a Modal (Android). */
+  embedded = false,
 }) => {
   const insets = useSafeAreaInsets();
+
+  if (!visible) return null;
+
+  const sheetBody = (
+    <View style={styles.root}>
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+      />
+      <View
+        style={[
+          styles.actionSheetContainer,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+        ]}>
+        <View style={styles.indicatorContainer}>
+          <View style={styles.indicatorBar} />
+        </View>
+
+        <View style={styles.content}>
+          {forShipping && (
+            <View>
+              <OptionItem
+                isCheckIcon
+                title="For shipping"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="received"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+          )}
+          {isMissing && (
+            <View>
+              <OptionItem
+                isCrossIcon
+                title="Tag as missing"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="missing"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+          )}
+          {isDamaged && (
+            <View>
+              <OptionItem
+                isCrossIcon
+                title="Tag as damaged"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="damaged"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+          )}
+          {isNeedsToStay && (
+            <View>
+              <OptionItem
+                isCheckIcon
+                title="Tag as needs to stay"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="needsToStay"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+          )}
+          {isOthers && (
+            <View>
+              <OptionItem
+                isCheckIcon
+                title="Tag as Others"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="others"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+
+  if (embedded) {
+    return <View style={styles.embeddedRoot}>{sheetBody}</View>;
+  }
 
   return (
     <Modal
@@ -65,95 +165,7 @@ const TagAsOptions = ({
       onRequestClose={onClose}
       presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       statusBarTranslucent={Platform.OS === 'android'}>
-      <View style={styles.root}>
-        <Pressable
-          style={styles.backdrop}
-          onPress={onClose}
-          accessibilityRole="button"
-        />
-        <View
-          style={[
-            styles.actionSheetContainer,
-            { paddingBottom: Math.max(insets.bottom, 16) },
-          ]}>
-          <View style={styles.indicatorContainer}>
-            <View style={styles.indicatorBar} />
-          </View>
-
-          <View style={styles.content}>
-            {forShipping && (
-              <View>
-                <OptionItem
-                  isCheckIcon
-                  title="For shipping"
-                  hasRightArrow
-                  setTagAs={setTagAs}
-                  status="received"
-                />
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                </View>
-              </View>
-            )}
-            {isMissing && (
-              <View>
-                <OptionItem
-                  isCrossIcon
-                  title="Tag as missing"
-                  hasRightArrow
-                  setTagAs={setTagAs}
-                  status="missing"
-                />
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                </View>
-              </View>
-            )}
-            {isDamaged && (
-              <View>
-                <OptionItem
-                  isCrossIcon
-                  title="Tag as damaged"
-                  hasRightArrow
-                  setTagAs={setTagAs}
-                  status="damaged"
-                />
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                </View>
-              </View>
-            )}
-            {isNeedsToStay && (
-              <View>
-                <OptionItem
-                  isCheckIcon
-                  title="Tag as needs to stay"
-                  hasRightArrow
-                  setTagAs={setTagAs}
-                  status="needsToStay"
-                />
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                </View>
-              </View>
-            )}
-            {isOthers && (
-              <View>
-                <OptionItem
-                  isCheckIcon
-                  title="Tag as Others"
-                  hasRightArrow
-                  setTagAs={setTagAs}
-                  status="others"
-                />
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
+      {sheetBody}
     </Modal>
   );
 };
@@ -161,6 +173,11 @@ const TagAsOptions = ({
 export default TagAsOptions;
 
 const styles = StyleSheet.create({
+  embeddedRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 130,
+    elevation: 130,
+  },
   root: {
     flex: 1,
     justifyContent: 'flex-end',

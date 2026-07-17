@@ -22,6 +22,7 @@ import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolbar';
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
+import LeafTrailLabelGeneratingOverlay from '../../../../components/Admin/LeafTrailLabelGeneratingOverlay';
 import { useLeafTrailListPrintExport } from '../../../../hooks/useLeafTrailListPrintExport';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import {
@@ -153,6 +154,7 @@ const ShippingScreen = ({ navigation }) => {
     actionLoading,
     showLabelViewer,
     LabelViewer,
+    LabelGeneratingOverlay,
     handlePrint: handlePrintList,
     handleExport: handleExportList,
     exportLoading,
@@ -230,21 +232,16 @@ const ShippingScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.screenContainer} edges={['top']}>
+    <SafeAreaView style={styles.screenContainer} edges={['left', 'right', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {(isLoading || actionLoading) && !showLabelViewer && (
-        <Modal
-          transparent
+      {isLoading && !showLabelViewer ? (
+        <LeafTrailLabelGeneratingOverlay
           visible
-          animationType="fade"
-          onRequestClose={() => {}}
-          statusBarTranslucent={Platform.OS === 'android'}
-          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
+          title="Loading in-transit boxes"
+          message="Fetching shipping data, please wait…"
+        />
+      ) : null}
+      <LabelGeneratingOverlay />
       <LabelViewer />
       <ScreenHeader
         onSearchChange={(text) => setSearchValue(forceUppercaseHubLabel(text))}

@@ -16,9 +16,10 @@ const HEADER_HEIGHT = 80;
 
 const LeafTrailHeader = ({insets, navigation, userInfo}) => {
   const firstName = userInfo?.user?.firstName || userInfo?.firstName || 'Admin';
+  const headerTopPadding = Math.max(insets.top, 12);
   
   return (
-    <View style={[styles.stickyHeader, {paddingTop: insets.top + 12}]}>
+    <View style={[styles.stickyHeader, {paddingTop: headerTopPadding}]}>
       <View style={styles.header}>
         {/* Back Button */}
         <TouchableOpacity 
@@ -52,7 +53,7 @@ const LeafTrail = () => {
   const mainScrollRef = useRef(null);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <LeafTrailHeader 
         insets={insets} 
         navigation={navigation} 

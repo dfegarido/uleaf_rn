@@ -38,8 +38,6 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
     sortedCount = 0,
     needsToStayCount = 0,
     othersCount = 0,
-    missingCount = 0,
-    damagedCount = 0,
     totalPlantsToFulfill = 0,
   } = metrics || {};
 
@@ -68,7 +66,13 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
     );
   }
 
-  const fulfillHint = `${receivedCount} − ${missingCount} − ${damagedCount} − ${needsToStayCount} − ${othersCount}`;
+  const fulfillParts = [`${receivedCount}`];
+  if (needsToStayCount > 0) fulfillParts.push(String(needsToStayCount));
+  if (othersCount > 0) fulfillParts.push(String(othersCount));
+  const fulfillHint =
+    fulfillParts.length > 1
+      ? `${fulfillParts.join(' − ')}`
+      : String(receivedCount);
 
   return (
     <View style={styles.wrapDetail}>
@@ -83,7 +87,7 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
       <ProgressRow label="Received at the hub" current={receivedCount} total={denom} color="#539461" />
       <ProgressRow label="Sorted" current={sortedCount} total={denom} color="#2F8C4F" />
 
-      {(needsToStayCount > 0 || othersCount > 0 || missingCount > 0 || damagedCount > 0) && (
+      {(needsToStayCount > 0 || othersCount > 0) && (
         <View style={styles.excludedSection}>
           <Text style={styles.excludedHeading}>Excluded from fulfillment</Text>
           <View style={styles.chipRow}>
@@ -95,16 +99,6 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
             {othersCount > 0 ? (
               <View style={[styles.chip, styles.chipOthers]}>
                 <Text style={styles.chipText}>Others · {othersCount}</Text>
-              </View>
-            ) : null}
-            {missingCount > 0 ? (
-              <View style={[styles.chip, styles.chipMissing]}>
-                <Text style={styles.chipText}>Missing · {missingCount}</Text>
-              </View>
-            ) : null}
-            {damagedCount > 0 ? (
-              <View style={[styles.chip, styles.chipDamaged]}>
-                <Text style={styles.chipText}>Damaged · {damagedCount}</Text>
               </View>
             ) : null}
           </View>

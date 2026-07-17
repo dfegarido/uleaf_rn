@@ -18,6 +18,7 @@ import LeafTrailHubToolbar from '../../../../components/Admin/LeafTrailHubToolba
 import ScreenHeader from '../../../../components/Admin/header';
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { useLeafTrailHubActions } from '../../../../hooks/useLeafTrailHubActions';
+import LeafTrailLabelGeneratingOverlay from '../../../../components/Admin/LeafTrailLabelGeneratingOverlay';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import {
@@ -143,7 +144,7 @@ const SortingScreen = ({ navigation }) => {
 
   const getFilters = async () => {
     const adminFilter = await getAdminLeafTrailFilters(
-      '["received", "damaged", "missing", "sorted", "needsToStay", "others"]',
+      '["received", "sorted", "needsToStay", "others"]',
     );
     setAdminFilters(adminFilter);
   };
@@ -157,10 +158,11 @@ const SortingScreen = ({ navigation }) => {
       setSortingData(response);
       const openBoxKey = activeBoxRef.current?.boxKey;
       if (openBoxKey) {
-        const refreshed = (response?.receiverBoxes || []).find(
-          (b) => b.boxKey === openBoxKey,
+        const merged = mergeSortingReceiverBoxesByReceiver(
+          response?.receiverBoxes || [],
         );
-        if (refreshed) setActiveBox(refreshed);
+        const refreshed = merged.find((b) => b.boxKey === openBoxKey);
+        setActiveBox(refreshed || null);
       }
     } catch (e) {
       console.error('Failed to fetch plant data:', e);
@@ -223,6 +225,7 @@ const SortingScreen = ({ navigation }) => {
     actionLoading: printLoading,
     showLabelViewer,
     LabelViewer,
+    LabelGeneratingOverlay,
   } = useLeafTrailThermalPrint('Plant Sorting labels');
 
   const handlePrintAllBoxes = useCallback(() => {
@@ -287,21 +290,16 @@ const SortingScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.screenContainer}>
+    <SafeAreaView style={styles.screenContainer} edges={['left', 'right', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      {((isLoading && !activeBox) || (printLoading && !showLabelViewer)) ? (
-        <Modal
-          transparent
+      {isLoading && !activeBox ? (
+        <LeafTrailLabelGeneratingOverlay
           visible
-          animationType="fade"
-          onRequestClose={() => {}}
-          statusBarTranslucent={Platform.OS === 'android'}
-          presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}>
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
+          title="Loading receiver boxes"
+          message="Fetching sorting data, please wait…"
+        />
       ) : null}
+      <LabelGeneratingOverlay />
       <LabelViewer />
       <ScreenHeader
         navigation={navigation}

@@ -12,7 +12,7 @@ import { ActivityIndicator,
   TouchableOpacity,
   View,
   Platform} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabView } from 'react-native-tab-view';
 import Options from '../../../../assets/admin-icons/options.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
@@ -34,17 +34,28 @@ import LeafTrailDetailHeader from '../../../../components/Admin/LeafTrailDetailH
 import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import { forceUppercaseHubLabel, LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 
-const Header = ({ title, navigation }) => (
-  <View style={styles.headerContainer}>
-    <TouchableOpacity onPress={() => navigation.goBack()}>
-      <BackSolidIcon />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
-    <TouchableOpacity style={styles.headerAction} onPress={() => navigation.navigate('LeafTrailScanQRAdminScreen', {leafTrailStatus: 'sorted'})}>
-         <ScanQrIcon />
-    </TouchableOpacity>
-  </View>
-);
+const Header = ({ title, navigation }) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.headerContainer,
+        { paddingTop: insets.top + 12, minHeight: insets.top + 56 },
+      ]}>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <BackSolidIcon />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>{title}</Text>
+      <TouchableOpacity
+        style={styles.headerAction}
+        onPress={() =>
+          navigation.navigate('LeafTrailScanQRAdminScreen', { leafTrailStatus: 'sorted' })
+        }>
+        <ScanQrIcon />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const UserProfile = ({ user }) => (
   <View style={Platform.OS === 'android' ? styles.userContainer : styles.userContainerIos}>
@@ -424,7 +435,8 @@ const SortingDetailsScreen = ({ navigation, route }) => {
 
   }
 
-  const { printOrderIds, LabelViewer } = useLeafTrailThermalPrint('Receiver labels');
+  const { printOrderIds, LabelViewer, LabelGeneratingOverlay } =
+    useLeafTrailThermalPrint('Receiver labels');
 
   const handlePrintBarcodes = () => {
     const ids =
@@ -435,8 +447,9 @@ const SortingDetailsScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
       <LabelViewer />
+      <LabelGeneratingOverlay />
       {hubSpecEnabled ? (
         <LeafTrailDetailHeader
           title="Receiver's Details"
@@ -545,7 +558,7 @@ const styles = StyleSheet.create({
   // Header
   headerContainer: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    backgroundColor: '#FFFFFF', height: 106, paddingTop: 48,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', zIndex: 10,
   },
   backIcon: { fontSize: 32, color: '#393D40' },

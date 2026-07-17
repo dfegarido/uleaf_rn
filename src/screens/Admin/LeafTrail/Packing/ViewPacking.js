@@ -42,21 +42,28 @@ import { resolveCanonicalReceiverBoxNumber } from '../../../../utils/receiverBox
 const isAssignableForBox = (plant) =>
   !String(plant?.packingData?.boxNumber || '').trim();
 
-const Header = ({ title, navigation, scanQrParams }) => (
-  <View style={styles.headerContainer}>
-    <TouchableOpacity onPress={() => navigation.goBack()}>
-      <BackSolidIcon />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>{title}</Text>
-    <TouchableOpacity
-      style={styles.headerAction}
-      onPress={() =>
-        navigation.navigate('LeafTrailScanQRAdminScreen', scanQrParams || { leafTrailStatus: 'packed' })
-      }>
-             <ScanQrIcon />
-    </TouchableOpacity>
-  </View>
-);
+const Header = ({ title, navigation, scanQrParams }) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={[
+        styles.headerContainer,
+        { paddingTop: insets.top + 12, minHeight: insets.top + 56 },
+      ]}>
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <BackSolidIcon />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>{title}</Text>
+      <TouchableOpacity
+        style={styles.headerAction}
+        onPress={() =>
+          navigation.navigate('LeafTrailScanQRAdminScreen', scanQrParams || { leafTrailStatus: 'packed' })
+        }>
+        <ScanQrIcon />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const TrayInfo = ({ trayNumber, label }) => (
   <View style={Platform.OS === 'android' ? styles.trayInfoContainer : styles.trayInfoContainerIos}>
@@ -373,7 +380,8 @@ const ViewPackingScreen = ({ navigation, route }) => {
     plants: item.sortedPlantsData || [],
   };
 
-  const { printOrderIds, LabelViewer } = useLeafTrailThermalPrint('Tray labels');
+  const { printOrderIds, LabelViewer, LabelGeneratingOverlay } =
+    useLeafTrailThermalPrint('Tray labels');
 
   const handlePrintBarcodes = () => {
     const ids =
@@ -384,8 +392,9 @@ const ViewPackingScreen = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
       <LabelViewer />
+      <LabelGeneratingOverlay />
       {hubSpecEnabled ? (
         <LeafTrailDetailHeader
           title="Tray Details"
@@ -539,11 +548,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 48,
     paddingBottom: 12,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    height: 106,
     position: 'absolute',
     top: 0,
     left: 0,

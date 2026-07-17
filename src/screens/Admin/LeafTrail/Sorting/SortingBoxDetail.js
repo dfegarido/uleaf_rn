@@ -2,6 +2,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -13,9 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../../../assets/admin-icons/back.svg';
+import OptionsIcon from '../../../../assets/admin-icons/options.svg';
 import ScanQrIcon from '../../../../assets/admin-icons/qr.svg';
 import TrayIcon from '../../../../assets/admin-icons/tray-icon.svg';
 import PrintIcon from '../../../../assets/icons/greylight/printer.svg';
+import { updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
@@ -24,17 +27,41 @@ import {
   SORTING_BOX_COLOR_INCOMPLETE,
   computeSortingBoxMetrics,
   isAwaitingSortPlant as plantAwaitingSort,
+  isIncludedInSortingPlantList,
   isSortedPlant as plantIsSorted,
   sortPlantsForSortingBoxList,
   sortingPlantStatusLabel,
 } from '../../../../utils/sortingBoxMetrics';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
+import TagAsOptions from './TagAs';
 import {
   SortingTrayAssignSheet,
   getSharedSortingTrayNumber,
 } from './SortingTrayAssign';
 
-const SortingPlantRow = ({ plant, index }) => {
+const buildTagAsFlagsForPlant = (plant) => {
+  let status = {
+    isMissing: true,
+    isDamaged: true,
+    isNeedsToStay: true,
+    isOthers: true,
+  };
+  const leaf = String(plant?.leafTrailStatus || '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
+  if (leaf === 'missing') {
+    status = { isDamaged: true, isNeedsToStay: true, isOthers: true, forShipping: true };
+  } else if (leaf === 'damaged') {
+    status = { isMissing: true, isNeedsToStay: true, isOthers: true, forShipping: true };
+  } else if (leaf === 'needstostay') {
+    status = { isMissing: true, isDamaged: true, isOthers: true, forShipping: true };
+  } else if (leaf === 'others') {
+    status = { isMissing: true, isDamaged: true, isNeedsToStay: true, forShipping: true };
+  }
+  return status;
+};
+
+const SortingPlantRow = ({ plant, index, onOpenTagAs }) => {
   const sorted = plantIsSorted(plant);
   const statusLabel = sortingPlantStatusLabel(plant);
   return (
@@ -62,7 +89,16 @@ const SortingPlantRow = ({ plant, index }) => {
         ) : null}
       </View>
       <View style={styles.plantRight}>
-        <CountryFlagIcon code={plant.countryCode} width={28} height={18} />
+        <View style={styles.plantRightTop}>
+          <CountryFlagIcon code={plant.countryCode} width={28} height={18} />
+          <TouchableOpacity
+            onPress={() => onOpenTagAs?.(plant)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Tag plant status">
+            <OptionsIcon width={22} height={22} />
+          </TouchableOpacity>
+        </View>
         <View
           style={[
             styles.statusPill,
@@ -91,21 +127,36 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   const [finishPromptVisible, setFinishPromptVisible] = useState(false);
   const [traySheetVisible, setTraySheetVisible] = useState(false);
   const [plantTab, setPlantTab] = useState(BOX_PLANT_TABS.awaiting);
+  const [isTagAsVisible, setTagAsVisible] = useState(false);
+  const [tagOrderId, setTagOrderId] = useState(null);
+  const [tagFlags, setTagFlags] = useState({
+    isMissing: false,
+    isDamaged: false,
+    isNeedsToStay: false,
+    isOthers: false,
+    forShipping: false,
+  });
   const {
     printOrderIds,
     actionLoading: printLoading,
     showLabelViewer,
     LabelViewer,
-  } = useLeafTrailThermalPrint('Receiver box labels');
+    LabelGeneratingOverlay,
+  } = useLeafTrailThermalPrint('Receiver box labels', { embeddedOverlay: true });
 
-  const metrics = useMemo(
-    () => computeSortingBoxMetrics(box?.plants || []),
+  const boxPlants = useMemo(
+    () => (box?.plants || []).filter(isIncludedInSortingPlantList),
     [box?.plants],
   );
 
+  const metrics = useMemo(
+    () => computeSortingBoxMetrics(boxPlants),
+    [boxPlants],
+  );
+
   const alphabeticalPlants = useMemo(
-    () => sortPlantsForSortingBoxList(box?.plants || []),
-    [box?.plants],
+    () => sortPlantsForSortingBoxList(boxPlants),
+    [boxPlants],
   );
 
   const awaitingPlants = useMemo(
@@ -132,18 +183,55 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
     );
   }, [plantTab, printOrderIds, visiblePlants]);
 
+  const openTagAs = useCallback((plant) => {
+    if (!plant?.id) return;
+    setTagFlags(buildTagAsFlagsForPlant(plant));
+    setTagOrderId(plant.id);
+    setTagAsVisible(true);
+  }, []);
+
+  const closeTagAs = useCallback(() => {
+    setTagAsVisible(false);
+    setTagOrderId(null);
+  }, []);
+
+  const setTagAs = useCallback(
+    async (status) => {
+      if (!tagOrderId) return;
+      closeTagAs();
+      try {
+        const response = await updateLeafTrailStatus(tagOrderId, status, {
+          refreshSortingView: true,
+        });
+        if (response?.success === false) {
+          Alert.alert('Error', response?.message || 'Failed to update plant status.');
+          return;
+        }
+        onRefresh?.();
+      } catch (error) {
+        console.error('Sorting tag status error:', error);
+        Alert.alert('Error', error?.message || 'Failed to update plant status.');
+      }
+    },
+    [tagOrderId, closeTagAs, onRefresh],
+  );
+
   const prevSortedCountRef = React.useRef(0);
 
   React.useEffect(() => {
     if (visible && box?.boxKey) {
       setPlantTab(BOX_PLANT_TABS.awaiting);
       setTraySheetVisible(false);
-      prevSortedCountRef.current = (box?.plants || []).filter(plantIsSorted).length;
+      closeTagAs();
+      prevSortedCountRef.current = (box?.plants || [])
+        .filter(isIncludedInSortingPlantList)
+        .filter(plantIsSorted).length;
     }
     if (!visible) {
       setTraySheetVisible(false);
+      closeTagAs();
     }
-  }, [visible, box?.boxKey]);
+  }, [visible, box?.boxKey, closeTagAs]);
 
   useFocusEffect(
     useCallback(() => {
@@ -168,10 +256,10 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
 
   const sharedTrayNumber = useMemo(
     () =>
-      getSharedSortingTrayNumber(box?.plants || []) ||
+      getSharedSortingTrayNumber(boxPlants) ||
       (box?.boxNumber ? String(box.boxNumber) : '') ||
       (box?.sortingTrayNumber ? String(box.sortingTrayNumber) : ''),
-    [box?.plants, box?.boxNumber, box?.sortingTrayNumber],
+    [boxPlants, box?.boxNumber, box?.sortingTrayNumber],
   );
 
   const openScan = useCallback(() => {
@@ -306,8 +394,9 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
       statusBarTranslucent={Platform.OS === 'android'}>
       <View style={styles.modalRoot}>
         <LabelViewer />
-        <SafeAreaView style={styles.screen} edges={['top']}>
-          <View style={styles.header}>
+        <LabelGeneratingOverlay />
+        <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
             <TouchableOpacity
               style={styles.headerBack}
               onPress={onClose}
@@ -363,7 +452,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           extraData={plantTab}
           ListHeaderComponent={listHeader}
           renderItem={({ item, index }) => (
-            <SortingPlantRow plant={item} index={index} />
+            <SortingPlantRow plant={item} index={index} onOpenTagAs={openTagAs} />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
@@ -420,13 +509,6 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
               </View>
             </View>
           ) : null}
-
-          {printLoading && !showLabelViewer ? (
-            <View style={styles.printLoadingOverlay} pointerEvents="auto">
-              <ActivityIndicator size="large" color="#699E73" />
-              <Text style={styles.printLoadingText}>Generating labels…</Text>
-            </View>
-          ) : null}
         </SafeAreaView>
 
         <SortingTrayAssignSheet
@@ -434,9 +516,20 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           readOnly
           visible={traySheetVisible}
           onClose={() => setTraySheetVisible(false)}
-          plants={box?.plants || []}
+          plants={boxPlants}
           defaultTrayNumber={box?.boxNumber}
           onAssigned={onRefresh}
+        />
+        <TagAsOptions
+          embedded={Platform.OS === 'android'}
+          visible={isTagAsVisible}
+          setTagAs={setTagAs}
+          isMissing={tagFlags.isMissing}
+          isDamaged={tagFlags.isDamaged}
+          isNeedsToStay={tagFlags.isNeedsToStay}
+          isOthers={tagFlags.isOthers}
+          forShipping={tagFlags.forShipping}
+          onClose={closeTagAs}
         />
       </View>
     </Modal>
@@ -455,7 +548,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#DDE3E5',
@@ -795,6 +888,11 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: 2,
   },
+  plantRightTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   statusPill: {
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -851,20 +949,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     zIndex: 110,
     elevation: 110,
-  },
-  printLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 120,
-    elevation: 120,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  printLoadingText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   finishBackdrop: {
     ...StyleSheet.absoluteFillObject,

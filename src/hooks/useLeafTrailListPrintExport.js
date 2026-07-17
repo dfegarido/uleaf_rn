@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
+import LeafTrailLabelGeneratingOverlay from '../components/Admin/LeafTrailLabelGeneratingOverlay';
 import {
   confirmLargeLabelPrint,
   exportPlantsWithFeedback,
@@ -27,6 +28,7 @@ export function useLeafTrailListPrintExport({
     printStatusMessage,
     printOrderIds,
     LabelViewer,
+    LabelGeneratingOverlay: ThermalLabelGeneratingOverlay,
   } = useLeafTrailThermalPrint(labelTitle);
   const [exportLoading, setExportLoading] = useState(false);
   const [listPrintBusy, setListPrintBusy] = useState(false);
@@ -111,12 +113,26 @@ export function useLeafTrailListPrintExport({
     noPlantsMessage,
   ]);
 
+  const LabelGeneratingOverlay = useCallback(
+    () => (
+      <>
+        <ThermalLabelGeneratingOverlay />
+        <LeafTrailLabelGeneratingOverlay
+          visible={listPrintBusy && !showLabelViewer}
+          message={listPrintMessage || 'Preparing labels…'}
+        />
+      </>
+    ),
+    [ThermalLabelGeneratingOverlay, listPrintBusy, showLabelViewer, listPrintMessage],
+  );
+
   return {
     actionLoading: printLoading || exportLoading || listPrintBusy,
     exportLoading,
     showLabelViewer,
     printStatusMessage: listPrintMessage || printStatusMessage,
     LabelViewer,
+    LabelGeneratingOverlay,
     handlePrint,
     handleExport,
   };
