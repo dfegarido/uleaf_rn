@@ -248,7 +248,7 @@ const LeafTrailGreenhouse = ({navigation}) => {
           {isFullAdmin && (
             <IconTile
               title="Live Setup"
-              onPress={() => navigation.navigate('LiveSetupScreen')}
+              onPress={() => navigation.navigate('Live Setup')}
               badgeCount={pendingLiveRequestsCount}
             >
               <LiveSetupIcon width={48} height={48} />

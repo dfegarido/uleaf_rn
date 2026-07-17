@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useContext} from 'react';
+import React, {useState, useEffect, useContext, useCallback} from 'react';
 import {View, Text, TouchableOpacity, Modal, Alert, StyleSheet, Dimensions} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
@@ -51,21 +51,69 @@ const ScreenLoginOtp = ({navigation}) => {
   const lastAutoSubmittedPinRef = React.useRef(null);
   const countdownIntervalRef = React.useRef(null);
 
-  const postData = async token => {
-    // Try seller PIN validation first (might work for both)
-    try {
-      const response = await postSellerPinCodeApi(token, pin);
-      if (!response.success) {
-        throw new Error(response.error || 'Verification failed.');
-      }
-      console.log('PIN validation successful:', response);
-      return response;
-    } catch (error) {
-      console.log('Seller PIN validation failed:', error.message);
-      // For now, still throw the error since we don't have buyer-specific PIN validation
-      throw error;
+  const handlePressLogin = useCallback(async () => {
+    const isTestUser = currentUser?.email === 'testuser@example.com';
+    const skipOtp = isTestUser || isSellerAccount;
+
+    if (!skipOtp && pin.length !== 4) {
+      Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
+      return;
     }
-  };
+
+    try {
+      setLoading(true);
+
+      // Always use a fresh token from Firebase; do not rely on cached idToken state.
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('No authenticated user found. Please sign in again.');
+      }
+      const freshIdToken = await user.getIdToken(true);
+      if (!freshIdToken) {
+        throw new Error('Unable to retrieve authentication token. Please sign in again.');
+      }
+
+      if (!skipOtp) {
+        const response = await postSellerPinCodeApi(freshIdToken, pin);
+        if (!response.success) {
+          throw new Error(response.error || 'Verification failed.');
+        }
+        console.log('PIN validation successful:', response);
+      } else {
+        console.log(
+          'Skipping OTP verification for',
+          isSellerAccount ? 'seller account' : 'test user',
+          currentUser?.email,
+        );
+      }
+
+      const profileData = await completeLoginSession({
+        idToken: freshIdToken,
+        setIsLoggedIn,
+        setUserInfo,
+        deferLoggedIn: true,
+      });
+
+      setLoading(false);
+      setShowSuccess(true);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setShowSuccess(false);
+
+      if (!profileData) {
+        console.warn('⚠️ No profile data available, but proceeding with login');
+      }
+
+      setIsLoggedIn(true);
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      setLoading(false);
+      if (!skipOtp) {
+        setErrorModalVisible(true);
+      } else {
+        Alert.alert('Sign In Failed', error?.message || 'Unable to sign in. Please try again.');
+      }
+    }
+  }, [pin, currentUser?.email, isSellerAccount, setIsLoggedIn, setUserInfo]);
 
   const postRequestPinData = async token => {
     // Resend flow must call signInSupplier to generate/send a fresh OTP PIN.
@@ -152,7 +200,7 @@ const ScreenLoginOtp = ({navigation}) => {
         }
       }, 100);
     }
-  }, [pin, loading, currentUser?.email, isSellerAccount]);
+  }, [pin, loading, currentUser?.email, isSellerAccount, handlePressLogin]);
 
   // const handlePressLogin = async () => {
   //   if (pin.length !== 4) {
@@ -165,7 +213,7 @@ const ScreenLoginOtp = ({navigation}) => {
   //         await postData(idToken); // Pass token directly here
   //         console.log('User logged in with ID Token:', idToken);
   //         // TODO: Use this token with your backend API or save session
-
+  //
   //         await AsyncStorage.setItem('authToken', idToken);
   //         setIsLoggedIn(true);
   //       }
@@ -176,56 +224,6 @@ const ScreenLoginOtp = ({navigation}) => {
   //     }
   //   }
   // };
-
-  const handlePressLogin = async () => {
-    const isTestUser = currentUser?.email === 'testuser@example.com';
-    const skipOtp = isTestUser || isSellerAccount;
-
-    if (!skipOtp && pin.length !== 4) {
-      Alert.alert('Invalid Code', 'Please enter the 4-digit code.');
-      return;
-    }
-
-    try {
-      if (idToken !== '') {
-        setLoading(true);
-
-        if (!skipOtp) {
-          await postData(idToken);
-        } else {
-          console.log(
-            'Skipping OTP verification for',
-            isSellerAccount ? 'seller account' : 'test user',
-            currentUser?.email,
-          );
-        }
-
-        const profileData = await completeLoginSession({
-          idToken,
-          setIsLoggedIn,
-          setUserInfo,
-          deferLoggedIn: true,
-        });
-
-        setLoading(false);
-        setShowSuccess(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setShowSuccess(false);
-
-        if (!profileData) {
-          console.warn('⚠️ No profile data available, but proceeding with login');
-        }
-
-        setIsLoggedIn(true);
-      }
-    } catch (error) {
-      console.error('OTP verification error:', error);
-      setLoading(false);
-      if (!skipOtp) {
-        setErrorModalVisible(true);
-      }
-    }
-  };
 
   const startResendCountdown = () => {
     setResendDisabled(true);
