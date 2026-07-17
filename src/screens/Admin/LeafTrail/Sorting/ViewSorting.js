@@ -27,6 +27,7 @@ import {
 } from '../../../../components/Api/getAdminLeafTrail';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import TagAsOptions from './TagAs';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import SelectionModal from './SelectionModal';
@@ -330,10 +331,13 @@ const SortingDetailsScreen = ({ navigation, route }) => {
       setsortedPlantsCount(response?.sortedPlantsCount || 0);
       setNeedsToStayPlantsCount(response?.needsToStayOrderCount || 0);
       setIsLoading(false)
-      Alert.alert('Success', 'Order status updated successfully!');
+      Alert.alert(
+        'Success',
+        `Plant tagged as ${formatPlantStatusDisplayLabel(status)}.`,
+      );
     } else {
       setIsLoading(false)
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', response?.message || 'Failed to update plant status.');
     }
   }
 
@@ -416,7 +420,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
           navigation.goBack();
         } else {
           setIsLoading(false);
-          Alert.alert('Error', error.message);
+          Alert.alert('Error', response?.message || 'Failed to update plants to sorted.');
         }
 
   }
@@ -432,7 +436,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
           navigation.goBack();
         } else {
           setIsLoading(false);
-          Alert.alert('Error', error.message);
+          Alert.alert('Error', response?.message || 'Failed to update plants to needs to stay.');
         }
 
   }

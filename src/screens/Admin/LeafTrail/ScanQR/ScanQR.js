@@ -33,6 +33,7 @@ import {
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import CloseIcon from '../../../../assets/icons/white/x-regular.svg';
 import OptionsIcon from '../../../../assets/admin-icons/options.svg';
+import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import TagAsOptions from './TagAs';
 
 const DetailRow = ({ label, value, valueBold = false }) => (
@@ -286,10 +287,13 @@ const ScanQRScreen = ({ navigation, route }) => {
         setLatestScannedData(null)
         setButtomData('scan')
         setIsLoading(false)
-        Alert.alert('Success', 'Order status updated successfully!');
+        Alert.alert(
+          'Success',
+          `Plant tagged as ${formatPlantStatusDisplayLabel(status)}.`,
+        );
       } else {
         setIsLoading(false)
-        Alert.alert('Error', error.message);
+        Alert.alert('Error', response?.message || 'Failed to update plant status.');
       }
     }
 

@@ -21,6 +21,7 @@ import PrintIcon from '../../../../assets/icons/greylight/printer.svg';
 import { updateLeafTrailStatus } from '../../../../components/Api/getAdminLeafTrail';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalPrint';
+import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import {
   SORTING_BOX_COLOR_COMPLETE,
@@ -209,6 +210,10 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           return;
         }
         onRefresh?.();
+        Alert.alert(
+          'Success',
+          `Plant tagged as ${formatPlantStatusDisplayLabel(status)}.`,
+        );
       } catch (error) {
         console.error('Sorting tag status error:', error);
         Alert.alert('Error', error?.message || 'Failed to update plant status.');

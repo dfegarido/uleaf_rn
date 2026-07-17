@@ -38,6 +38,7 @@ import PackingTraySummary from './PackingTraySummary';
 import TagAsOptions from './TagAs';
 import { computePackingTrayMetrics } from '../../../../utils/packingTrayMetrics';
 import { resolveCanonicalReceiverBoxNumber } from '../../../../utils/receiverBoxNumber';
+import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 
 const isAssignableForBox = (plant) =>
@@ -245,10 +246,13 @@ const ViewPackingScreen = ({ navigation, route }) => {
       if (response.success) {
         await fetchData();
         setIsLoading(false)
-        Alert.alert('Success', 'Order status updated successfully!');
+        Alert.alert(
+          'Success',
+          `Plant tagged as ${formatPlantStatusDisplayLabel(status)}.`,
+        );
       } else {
         setIsLoading(false)
-        Alert.alert('Error', error.message);
+        Alert.alert('Error', response?.message || 'Failed to update plant status.');
       }  
     }
   }
