@@ -261,7 +261,7 @@ export default function PlantCreditsManagement() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {Platform.OS === 'android' && <StatusBar barStyle="dark-content" backgroundColor={CREDIT_COLORS.surface} />}
 
       <ScreenHeader navigation={navigation} title="Credit Management" />

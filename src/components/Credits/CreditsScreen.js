@@ -10,7 +10,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
   getBuyerCreditStatementApi,
@@ -48,7 +48,6 @@ export default function CreditsScreen({
   isAdmin = false,
   headerProps = {},
 }) {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const flatListRef = useRef(null);
   const queryClient = useQueryClient();
@@ -187,7 +186,7 @@ export default function CreditsScreen({
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.screen, { paddingTop: insets.top }]} edges={['bottom']}>
+      <SafeAreaView style={styles.screen} edges={['bottom']}>
         <ScreenHeader title={title} {...headerProps} />
         <CreditLedgerSkeletonList count={6} hasHeader />
       </SafeAreaView>
@@ -195,7 +194,7 @@ export default function CreditsScreen({
   }
 
   return (
-    <SafeAreaView style={[styles.screen, { paddingTop: insets.top }]} edges={['bottom']}>
+    <SafeAreaView style={styles.screen} edges={['bottom']}>
       <ScreenHeader title={title} {...headerProps} />
 
       <FlatList
