@@ -1,16 +1,17 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getVariegationApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://getvariegationdropdown-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.GET_VARIEGATION_DROPDOWN,
       {
-        method: 'GET', // or 'POST' if your function expects a body
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // Pass token in Authorization header
+          Authorization: `Bearer ${token}`,
         },
       },
     );
@@ -23,7 +24,6 @@ export const getVariegationApi = async () => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.log('getVariegationApi error:', error.message);
-    throw error; // optionally rethrow for use in UI
+    throw error;
   }
 };

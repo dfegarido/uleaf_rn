@@ -1,5 +1,6 @@
 // API Configuration for local and production environments
 import { LOCAL_BASE_URL as ENV_LOCAL_BASE_URL } from '@env';
+import { LOCAL_SUPABASE_URL as ENV_LOCAL_SUPABASE_URL } from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
 // This prevents accidentally using local API in production builds
@@ -30,6 +31,11 @@ const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-
 if (__DEV__ && !ENV_LOCAL_BASE_URL) {
   console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
 }
+
+// Supabase Edge Functions base URL
+const LOCAL_SUPABASE_BASE_URL = ENV_LOCAL_SUPABASE_URL || 'http://localhost:8000/functions/v1';
+const PROD_SUPABASE_BASE_URL = 'https://pjcquavlxknhmuszjmyh.supabase.co/functions/v1';
+const getSupabaseBaseUrl = () => (USE_LOCAL_API ? LOCAL_SUPABASE_BASE_URL : PROD_SUPABASE_BASE_URL);
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -176,7 +182,7 @@ const generateEndpoints = () => ({
   GET_ADMIN_LISTINGS: `${getBaseUrl()}/getAdminListings`,
   GET_ADMIN_LISTING_DETAIL: `${getBaseUrl()}/getAdminListingDetail`,
   GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`, // Admin taxonomy management (genus collection with metadata)
-  GET_GENUS_DROPDOWN: `${getBaseUrl()}/getGenusFromPlantCatalogDropdown`, // Seller dropdown (genus collection, simple list)
+  GET_GENUS_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-genus`, // Seller dropdown (genus collection, simple list)
   // Taxonomy Management APIs
   ADD_PLANT_TAXONOMY: `${getBaseUrl()}/addPlantTaxonomy`,
   UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,
@@ -209,20 +215,21 @@ const generateEndpoints = () => ({
   GET_SORT: `${getBaseUrl()}/getSort`,
   GET_GENUS: `${getBaseUrl()}/getGenus`,
   GET_VARIEGATION: `${getBaseUrl()}/getVariegation`,
-  GET_COUNTRY: `${getBaseUrl()}/getCountryDropdown`,
-  GET_LISTING_TYPE: `${getBaseUrl()}/getListingTypeDropdown`,
-  GET_SHIPPING_INDEX: `${getBaseUrl()}/getShippingIndexDropdown`,
-  GET_ACCLIMATION_INDEX: `${getBaseUrl()}/getAcclimationIndexDropdown`,
+  GET_VARIEGATION_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-variegation`,
+  GET_COUNTRY: `${getSupabaseBaseUrl()}/dropdown-country`,
+  GET_LISTING_TYPE: `${getSupabaseBaseUrl()}/dropdown-listing-type`,
+  GET_SHIPPING_INDEX: `${getSupabaseBaseUrl()}/dropdown-shipping-index`,
+  GET_ACCLIMATION_INDEX: `${getSupabaseBaseUrl()}/dropdown-acclimation-index`,
   BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
   BROWSE_PLANTS_BY_GENUS: `${getBaseUrl()}/browsePlantsByGenus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
   SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
   SEARCH_PLANTS: `${getBaseUrl()}/searchPlants`,
-  GET_BUYER_LISTINGS: `${getBaseUrl()}/getBuyerListings`,
+  GET_BUYER_LISTINGS: `${getSupabaseBaseUrl()}/buyer-listings`,
   GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
   GET_BUYER_LISTING_LIVE: `${getBaseUrl()}/getBuyerListingLive`, // Single plant detail
   GET_PRICE_DROP_BADGE_LISTINGS: `${getBaseUrl()}/getPriceDropBadgeListings`, // Price Drop badge
-  GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
+  GET_PLANT_RECOMMENDATIONS: `${getSupabaseBaseUrl()}/plant-recommendations`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   
   // Listing Management APIs
