@@ -53,6 +53,10 @@ import { collection,
   where,
 } from 'firebase/firestore';
 import { db } from '../../../../firebase';
+import { getBuyerContentApi,
+  getChatDetailApi,
+  getChatShopsApi,
+} from '../../../components/Api/shopContentApi';
 import { addToCartApi,
   getBuyerListingsApi,
   getGenusApi,
@@ -75,6 +79,7 @@ import { useNotificationPermission } from '../../../hooks/useNotificationPermiss
 import { CACHE_KEYS,
   getCacheData,
   setCacheData,
+  clearSpecificDropdownCache,
 } from '../../../utils/dropdownCache';
 import { CACHE_CONFIGS,
   getCachedImageUri,
@@ -408,10 +413,16 @@ const ScreenShop = ({navigation}) => {
   const loadGenusData = async () => {
     try {
       // Try to get from cache first
+      // NOTE: treat an empty cached array as a cache miss ([] is truthy in JS but
+      // means the dropdown would render "No options available" with no refetch).
       const cachedData = await getCacheData(CACHE_KEYS.GENUS);
-      if (cachedData) {
+      if (cachedData && Array.isArray(cachedData) && cachedData.length > 0) {
         setGenusOptions(cachedData);
         return;
+      }
+      // If cache holds an empty array, clear it so a later refetch is not short-circuited.
+      if (cachedData && Array.isArray(cachedData) && cachedData.length === 0) {
+        await clearSpecificDropdownCache([CACHE_KEYS.GENUS]);
       }
 
       let netState = await NetInfo.fetch();
@@ -449,10 +460,16 @@ const ScreenShop = ({navigation}) => {
   const loadVariegationData = async () => {
     try {
       // Try to get from cache first
+      // NOTE: treat an empty cached array as a cache miss ([] is truthy in JS but
+      // means the dropdown would render "No options available" with no refetch).
       const cachedData = await getCacheData(CACHE_KEYS.VARIEGATION);
-      if (cachedData) {
+      if (cachedData && Array.isArray(cachedData) && cachedData.length > 0) {
         setVariegationOptions(cachedData);
         return;
+      }
+      // If cache holds an empty array, clear it so a later refetch is not short-circuited.
+      if (cachedData && Array.isArray(cachedData) && cachedData.length === 0) {
+        await clearSpecificDropdownCache([CACHE_KEYS.VARIEGATION]);
       }
 
       let netState = await NetInfo.fetch();
@@ -703,9 +720,12 @@ const ScreenShop = ({navigation}) => {
     try {
       setLoadingBuyerContent(true);
 
-      const snapshot = await getDocs(collection(db, 'buyerContent'));
-      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const res = await retryAsync(() => getBuyerContentApi(), 3, 1000);
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load buyer content');
+      }
 
+      const items = res.data || [];
       const grouped = {
         deals: sortBuyerContentItems(items.filter((item) => item.section === 'deals')),
         rewards: sortBuyerContentItems(items.filter((item) => item.section === 'rewards')),
@@ -934,38 +954,34 @@ const ScreenShop = ({navigation}) => {
     );
   };
 
-  // Load chat shops from Firestore
+  // Load chat shops from Supabase
   const loadChatShops = async () => {
     try {
       setLoadingChatShops(true);
-      
-      // Fetch chat shops for buyers only
-      const q = query(
-        collection(db, 'chatShops'),
-        where('userType', '==', 'buyer')
-      );
-      const snapshot = await getDocs(q);
-      const shops = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      
+
+      const res = await retryAsync(() => getChatShopsApi(), 3, 1000);
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load chat shops');
+      }
+
+      const shops = res.data || [];
+
       // Sort in-memory by priority (ascending), then by createdAt
       // Shops without priority go to the bottom
       const sortedShops = shops.sort((a, b) => {
         const aPriority = a.priority ?? 999; // No priority = 999 (bottom)
         const bPriority = b.priority ?? 999;
-        
+
         if (aPriority !== bPriority) {
           return aPriority - bPriority; // Lower priority number = higher position
         }
-        
+
         // If same priority, sort by createdAt
-        const aTime = a.createdAt?.toDate?.() || new Date(0);
-        const bTime = b.createdAt?.toDate?.() || new Date(0);
+        const aTime = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const bTime = b.createdAt ? new Date(b.createdAt) : new Date(0);
         return aTime - bTime;
       });
-      
+
       console.log(`📱 Loaded ${sortedShops.length} chat shops for buyer (sorted by priority)`);
       setChatShops(sortedShops);
     } catch (error) {
@@ -987,17 +1003,19 @@ const ScreenShop = ({navigation}) => {
 
       console.log('📱 Opening group chat from shop:', shop.groupChatId);
 
-      // Fetch the group chat data from Firestore
-      const chatDocRef = doc(db, 'chats', shop.groupChatId);
-      const chatDoc = await getDoc(chatDocRef);
+      // Fetch the group chat data from Supabase
+      const res = await retryAsync(() => getChatDetailApi(shop.groupChatId), 3, 1000);
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load chat detail');
+      }
 
-      if (!chatDoc.exists()) {
+      const chatData = res.data;
+
+      if (!chatData) {
         Alert.alert('Error', 'Group chat not found. It may have been deleted.');
         return;
       }
 
-      const chatData = chatDoc.data();
-      
       // Navigate to ChatScreen with the full chat data
       navigation.navigate('ChatScreen', {
         id: shop.groupChatId,

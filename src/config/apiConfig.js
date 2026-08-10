@@ -206,7 +206,7 @@ const generateEndpoints = () => ({
   GENERATE_RECEIVER_BOX_LABELS: `${getBaseUrl()}/generateReceiverBoxLabels`,
   
   // Cart APIs
-  ADD_TO_CART: `${getBaseUrl()}/addToCart`,
+  ADD_TO_CART: `${getSupabaseBaseUrl()}/add-to-cart`,
   GET_CART_ITEMS: `${getBaseUrl()}/getCartItems`,
   UPDATE_CART_ITEM: `${getBaseUrl()}/updateCartItem`,
   REMOVE_FROM_CART: `${getBaseUrl()}/removeFromCart`,
@@ -221,15 +221,18 @@ const generateEndpoints = () => ({
   GET_SHIPPING_INDEX: `${getSupabaseBaseUrl()}/dropdown-shipping-index`,
   GET_ACCLIMATION_INDEX: `${getSupabaseBaseUrl()}/dropdown-acclimation-index`,
   BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
-  BROWSE_PLANTS_BY_GENUS: `${getBaseUrl()}/browsePlantsByGenus`,
+  BROWSE_PLANTS_BY_GENUS: `${getSupabaseBaseUrl()}/browse-plants-by-genus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
   SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
-  SEARCH_PLANTS: `${getBaseUrl()}/searchPlants`,
+  SEARCH_PLANTS: `${getSupabaseBaseUrl()}/plant-search`,
   GET_BUYER_LISTINGS: `${getSupabaseBaseUrl()}/buyer-listings`,
-  GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
+  GET_BUYER_LISTING: `${getSupabaseBaseUrl()}/listing-detail`, // Single plant detail
   GET_BUYER_LISTING_LIVE: `${getBaseUrl()}/getBuyerListingLive`, // Single plant detail
-  GET_PRICE_DROP_BADGE_LISTINGS: `${getBaseUrl()}/getPriceDropBadgeListings`, // Price Drop badge
+  GET_PRICE_DROP_BADGE_LISTINGS: `${getSupabaseBaseUrl()}/price-drop-badge`, // Price Drop badge
   GET_PLANT_RECOMMENDATIONS: `${getSupabaseBaseUrl()}/plant-recommendations`,
+  GET_BUYER_CONTENT: `${getSupabaseBaseUrl()}/buyer-content`,
+  GET_CHAT_SHOPS: `${getSupabaseBaseUrl()}/chat-shops`,
+  GET_CHAT_DETAIL: `${getSupabaseBaseUrl()}/chat-detail`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   
   // Listing Management APIs
