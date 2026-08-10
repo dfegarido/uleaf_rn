@@ -207,9 +207,9 @@ const generateEndpoints = () => ({
   
   // Cart APIs
   ADD_TO_CART: `${getSupabaseBaseUrl()}/add-to-cart`,
-  GET_CART_ITEMS: `${getBaseUrl()}/getCartItems`,
-  UPDATE_CART_ITEM: `${getBaseUrl()}/updateCartItem`,
-  REMOVE_FROM_CART: `${getBaseUrl()}/removeFromCart`,
+  GET_CART_ITEMS: `${getSupabaseBaseUrl()}/cart-items`,
+  UPDATE_CART_ITEM: `${getSupabaseBaseUrl()}/cart-update`,
+  REMOVE_FROM_CART: `${getSupabaseBaseUrl()}/cart-remove`,
   
   // Shop APIs
   GET_SORT: `${getBaseUrl()}/getSort`,
