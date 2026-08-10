@@ -275,11 +275,11 @@ const generateEndpoints = () => ({
   // Order APIs
   GET_ORDERS: `${getBaseUrl()}/getOrders`,
   GET_ORDER_FOR_RECEIVING: `${getBaseUrl()}/getOrderForReceiving`,
-  GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
-  GET_BUYER_ORDERS_GROUPED: `${getBaseUrl()}/getBuyerOrdersGrouped`,
+  GET_BUYER_ORDERS: `${getSupabaseBaseUrl()}/buyer-orders`,
+  GET_BUYER_ORDERS_GROUPED: `${getSupabaseBaseUrl()}/buyer-orders-grouped`,
   GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
-  GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
-  GENERATE_INVOICE: `${getBaseUrl()}/generateInvoice`,
+  GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
+  GENERATE_INVOICE: `${getSupabaseBaseUrl()}/generate-invoice`,
   
   // Seller Order APIs
   UPDATE_ORDER_SELLER_SCANNED: `${getBaseUrl()}/updateOrderSellerScanned`,
@@ -298,10 +298,10 @@ const generateEndpoints = () => ({
   GET_CREDIT_REQUEST_DETAIL: `${getBaseUrl()}/getCreditRequestDetail`,
   GET_JOURNEY_MISHAP_ORDERS: `${getBaseUrl()}/getJourneyMishapOrders`,
   GET_PLANTS_WITH_CREDIT_REQUESTS: `${getBaseUrl()}/getPlantsWithCreditRequests`,
-  GET_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getJourneyMishapData`,
+  GET_JOURNEY_MISHAP_DATA: `${getSupabaseBaseUrl()}/journey-mishap-data`,
   GET_ADMIN_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getAdminJourneyMishapData`,
   UPDATE_JOURNEY_MISHAP_STATUS: `${getBaseUrl()}/updateJourneyMishapStatus`,
-  EXPORT_BUYER_ORDERS: `${getBaseUrl()}/exportBuyerOrders`,
+  EXPORT_BUYER_ORDERS: `${getSupabaseBaseUrl()}/export-buyer-orders`,
   CLEAR_CREDITS: `${getBaseUrl()}/clearCredits`,
   GET_PLANT_CREDIT_LEDGER: `${getBaseUrl()}/getPlantCreditLedger`,
   GET_BUYER_CREDIT_STATEMENT: `${getBaseUrl()}/getBuyerCreditStatement`,
