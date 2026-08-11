@@ -31,6 +31,7 @@ import { getBuyerListingsApi,
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import PromoBadgeList from '../../../components/PromoBadgeList';
+import { isListingPastExpiration } from '../../../utils/listingExpirationUtils';
 
 const isNetworkAvailable = (state) => {
   if (!state) return false;
@@ -142,9 +143,22 @@ const ScreenGenusPlants = ({navigation, route}) => {
     if (!plant || typeof plant.plantCode !== 'string' || plant.plantCode.trim() === '') {
       return false;
     }
+    if (isListingPastExpiration(plant)) {
+      return false;
+    }
     return (
       (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
       (typeof plant.plantName === 'string' && plant.plantName.trim() !== '')
+    );
+  };
+
+  const isDisplayableBuyerPlantWithDetails = (plant) => {
+    if (!isDisplayableBuyerPlant(plant)) {
+      return false;
+    }
+    return (
+      (typeof plant.species === 'string' && plant.species.trim() !== '') ||
+      (typeof plant.variegation === 'string' && plant.variegation.trim() !== '')
     );
   };
   // Offset only for Price Drop badge (getPriceDropBadgeListingsApi still uses offset)
@@ -689,23 +703,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-
-        }
-        
-        return isValid;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       
       setPlants(newPlants);
@@ -768,28 +766,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         })));
       }
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-
-        if (!isValid) {
-          console.log('🦄 Filtered out invalid plant:', {
-            plantCode: plant?.plantCode,
-            hasPlantCode,
-            hasTitle,
-            hasSubtitle
-          });
-        }
-
-        return isValid;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       console.log('🦄 Filtered to', newPlants.length, 'valid plants');
       setPlants(newPlants);
@@ -842,22 +819,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-        }
-        
-        return isValid;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       
       setPlants(newPlants);
@@ -907,22 +869,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-        }
-        
-        return isValid;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       setPlants(newPlants);
       setNextPageToken(res.data?.nextPageToken || null);
@@ -972,22 +919,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-        }
-        
-        return isValid;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       
       setPlants(newPlants);
@@ -1047,30 +979,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         });
       }
       
-      // Filter out plants with invalid data (same logic as other loading functions)
-      const newPlants = rawPlants.filter(plant => {
-        // Ensure plant has required fields and they are strings
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        
-        const isValid = hasPlantCode && hasTitle && hasSubtitle;
-        
-        if (!isValid) {
-          console.log('❌ Filtered out plant:', {
-            plantCode: plant.plantCode,
-            hasPlantCode,
-            hasTitle,
-            hasSubtitle,
-            species: plant.species,
-            variegation: plant.variegation
-          });
-        }
-        
-        return isValid;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       console.log('✅ Price Drop newPlants after filter:', newPlants.length);
       
@@ -1470,7 +1379,9 @@ const ScreenGenusPlants = ({navigation, route}) => {
       Alert.alert('Success', 'Plant added to cart successfully!');
     } catch (error) {
       console.error('Error adding to cart:', error);
-      Alert.alert('Error', error.message);
+      const errorMessage = error?.message || 'Failed to add to cart';
+      const isExpired = /listing has expired/i.test(errorMessage);
+      Alert.alert(isExpired ? 'Listing Expired' : 'Error', errorMessage);
     }
   };
 
@@ -1510,15 +1421,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      // Filter out plants with invalid data
-      const newPlants = rawPlants.filter(plant => {
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        return hasPlantCode && hasTitle && hasSubtitle;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       // Append to existing plants
       setPlants(prev => [...prev, ...newPlants]);
@@ -1564,15 +1467,7 @@ const ScreenGenusPlants = ({navigation, route}) => {
         imageCollectionWebp: p.imageCollectionWebp || p.imageCollectionWebp || p.imageCollection,
       }));
       
-      // Filter out plants with invalid data
-      const newPlants = rawPlants.filter(plant => {
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') || 
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') || 
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        return hasPlantCode && hasTitle && hasSubtitle;
-      });
+      const newPlants = rawPlants.filter(isDisplayableBuyerPlantWithDetails);
       
       // Append to existing plants, filtering out duplicates
       setPlants(prev => {
