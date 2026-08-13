@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getAddressBookEntriesApi = async () => {
   try {
@@ -13,16 +14,13 @@ export const getAddressBookEntriesApi = async () => {
       };
     }
 
-    const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/getAddressBookEntries',
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+    const response = await fetch(API_ENDPOINTS.GET_ADDRESS_BOOK_ENTRIES, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-    );
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

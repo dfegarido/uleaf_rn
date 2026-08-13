@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const updateAddressBookEntryApi = async (addressId, addressData) => {
   try {
@@ -12,7 +13,7 @@ export const updateAddressBookEntryApi = async (addressId, addressData) => {
     console.log('Updating address with ID:', addressId, 'Data:', addressData);
 
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/updateAddressBookEntry?id=${addressId}`,
+      `${API_ENDPOINTS.UPDATE_ADDRESS_BOOK_ENTRY}?id=${addressId}`,
       {
         method: 'PUT',
         headers: {

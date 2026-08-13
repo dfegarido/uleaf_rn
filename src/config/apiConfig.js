@@ -259,13 +259,13 @@ const generateEndpoints = () => ({
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,
   CHECKOUT_JOINER: `${getBaseUrl()}/checkoutJoiner`,
-  CALCULATE_CHECKOUT_SHIPPING: `${getBaseUrl()}/calculateCheckoutShipping`,
+  CALCULATE_CHECKOUT_SHIPPING: `${getSupabaseBaseUrl()}/checkout-shipping`,
   CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
 
   // Discount Code APIs
-  VALIDATE_DISCOUNT_CODE: `${getBaseUrl()}/validateDiscountCode`,
+  VALIDATE_DISCOUNT_CODE: `${getSupabaseBaseUrl()}/validate-discount`,
   CREATE_DISCOUNT: `${getBaseUrl()}/createDiscount`,
   UPDATE_DISCOUNT: `${getBaseUrl()}/updateDiscount`,
   DELETE_DISCOUNT: `${getBaseUrl()}/deleteDiscount`,
@@ -277,6 +277,7 @@ const generateEndpoints = () => ({
   GET_ORDER_FOR_RECEIVING: `${getBaseUrl()}/getOrderForReceiving`,
   GET_BUYER_ORDERS: `${getSupabaseBaseUrl()}/buyer-orders`,
   GET_BUYER_ORDERS_GROUPED: `${getSupabaseBaseUrl()}/buyer-orders-grouped`,
+  GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
   GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
   GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
   GENERATE_INVOICE: `${getSupabaseBaseUrl()}/generate-invoice`,
@@ -339,6 +340,13 @@ const generateEndpoints = () => ({
   APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
   GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
   CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
+
+  // Address Book APIs
+  GET_ADDRESS_BOOK_ENTRIES: `${getSupabaseBaseUrl()}/address-book`,
+  GET_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+  CREATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+  UPDATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+  DELETE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
   
   // Flight Change Request endpoints
   SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
@@ -350,7 +358,7 @@ const generateEndpoints = () => ({
   GET_FLIGHT_SCHEDULE: `${getBaseUrl()}/getFlightSchedule`,
   UPDATE_FLIGHT_DATE_STATUS: `${getBaseUrl()}/updateFlightDateStatus`,
   UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getBaseUrl()}/updateFlightDateForSchedule`,
-  GET_ACTIVE_FLIGHT_DATES: `${getBaseUrl()}/getActiveFlightDates`,
+  GET_ACTIVE_FLIGHT_DATES: `${getSupabaseBaseUrl()}/active-flight-dates`,
 
   // Leaf Trail endpoints
   UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
