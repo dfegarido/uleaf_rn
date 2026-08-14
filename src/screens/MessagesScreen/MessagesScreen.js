@@ -5,7 +5,6 @@ import { addDoc,
   getDoc,
   getDocs,
   limit,
-  onSnapshot,
   orderBy,
   query,
   updateDoc,
@@ -31,6 +30,8 @@ import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
+import { getChatsApi } from '../../components/Api/chatApi';
+import { getChatShopsApi, getChatDetailApi } from '../../components/Api/shopContentApi';
 import { CACHE_CONFIGS, getCachedImageUri, setCachedImageUri } from '../../utils/imageCache';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
 
@@ -312,86 +313,31 @@ const MessagesScreen = ({navigation}) => {
       return;
     }
 
+    let cancelled = false;
+
     if (!hasLoadedChatsRef.current) {
       setLoading(true);
     }
 
-    const unsubscribers = [];
-
-    try {
-      const memberChatsQuery = query(
-        collection(db, 'chats'),
-        where('participantIds', 'array-contains', currentUserUid),
-        orderBy('timestamp', 'desc'),
-      );
-
-      unsubscribers.push(
-        onSnapshot(
-          memberChatsQuery,
-          (snapshot) => {
-            const chats = snapshot.docs.map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }));
-            setMemberChats(chats);
-          },
-          () => setMemberChats([]),
-        )
-      );
-
-      if (isAdmin) {
-        const adminGroupsQuery = query(
-          collection(db, 'chats'),
-          where('type', '==', 'group'),
-          orderBy('timestamp', 'desc'),
-        );
-        unsubscribers.push(
-          onSnapshot(
-            adminGroupsQuery,
-            (snapshot) => {
-              const chats = snapshot.docs.map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }));
-              setAdminGroupChats(chats);
-            },
-            () => setAdminGroupChats([]),
-          )
-        );
-      } else {
-        setAdminGroupChats([]);
+    const loadChats = async () => {
+      try {
+        const res = await getChatsApi();
+        if (cancelled || !res.success) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        setMemberChats(res.memberChats || []);
+        setAdminGroupChats(res.adminGroupChats || []);
+        setPublicGroupChats(res.publicGroupChats || []);
+      } catch (error) {
+        if (!cancelled) setLoading(false);
       }
+    };
 
-      if (isBuyer || isSeller) {
-        const publicGroupsQuery = query(
-          collection(db, 'chats'),
-          where('type', '==', 'group'),
-          where('isPublic', '==', true),
-          orderBy('timestamp', 'desc'),
-        );
-        unsubscribers.push(
-          onSnapshot(
-            publicGroupsQuery,
-            (snapshot) => {
-              const chats = snapshot.docs
-                .map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }))
-                .filter(chat => {
-                  const participantIds = Array.isArray(chat.participantIds) ? chat.participantIds : [];
-                  const invitedUsers = Array.isArray(chat.invitedUsers) ? chat.invitedUsers : [];
-                  if (participantIds.includes(currentUserUid)) return false;
-                  if (isSeller && !invitedUsers.includes(currentUserUid)) return false;
-                  return true;
-                });
-              setPublicGroupChats(chats);
-            },
-            () => setPublicGroupChats([]),
-          )
-        );
-      } else {
-        setPublicGroupChats([]);
-      }
-    } catch (error) {
-      setLoading(false);
-    }
+    loadChats();
 
     return () => {
-      unsubscribers.forEach(unsub => {
-        try { unsub(); } catch (_) { /* noop */ }
-      });
+      cancelled = true;
     };
   }, [currentUserUid, isBuyer, isSeller, isAdmin]);
 
@@ -428,30 +374,15 @@ const MessagesScreen = ({navigation}) => {
     setLoading(false);
   }, [memberChats, adminGroupChats, publicGroupChats, fetchAvatarsForChats]);
 
-  // Fetch chat shops from Firestore
+  // Fetch chat shops from Supabase
   useEffect(() => {
     const loadChatShops = async () => {
       try {
         setLoadingChatShops(true);
-        const q = query(
-          collection(db, 'chatShops'),
-          where('userType', '==', 'buyer'),
-        );
-        const snapshot = await getDocs(q);
-        const shops = snapshot.docs.map(docSnap => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
-        // Sort by priority asc, then createdAt asc
-        const sorted = shops.sort((a, b) => {
-          const aP = a.priority ?? 999;
-          const bP = b.priority ?? 999;
-          if (aP !== bP) return aP - bP;
-          const aT = a.createdAt?.toDate?.() || new Date(0);
-          const bT = b.createdAt?.toDate?.() || new Date(0);
-          return aT - bT;
-        });
-        setChatShops(sorted);
+        const result = await getChatShopsApi();
+        // getChatShopsApi returns { success, data: [shops], error } — data is already
+        // sorted by priority asc, then createdAt asc by the Edge Function.
+        setChatShops(result.data || []);
       } catch (error) {
         console.error('Error loading chat shops:', error);
         setChatShops([]);
@@ -580,13 +511,12 @@ const MessagesScreen = ({navigation}) => {
         Alert.alert('Error', 'No group chat linked to this shop.');
         return;
       }
-      const chatDocRef = doc(db, 'chats', shop.groupChatId);
-      const chatDoc = await getDoc(chatDocRef);
-      if (!chatDoc.exists()) {
+      const result = await getChatDetailApi(shop.groupChatId);
+      if (!result.success || !result.data) {
         Alert.alert('Error', 'Group chat not found. It may have been deleted.');
         return;
       }
-      const chatData = chatDoc.data();
+      const chatData = result.data;
       navigation.navigate('ChatScreen', {
         id: shop.groupChatId,
         ...chatData,

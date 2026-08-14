@@ -1,0 +1,249 @@
+import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
+
+const authHeaders = async (extra = {}) => {
+  const token = await getStoredAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    ...extra,
+  };
+};
+
+/** Parse JSON body safely; fall back to {}. */
+const parseJson = (res) => res.json().catch(() => ({}));
+
+/** Normalize an Edge Function response envelope into { success, data, error }. */
+const normalize = (body) => {
+  if (body && body.success === true) {
+    return { success: true, data: body, error: null };
+  }
+  return {
+    success: false,
+    data: null,
+    error: body?.error || body?.message || 'Request failed',
+  };
+};
+
+/**
+ * Get paginated messages for a chat.
+ * @param {string} chatId
+ * @param {Object} opts { limit, before, after, around }
+ */
+export const getChatMessagesApi = async (chatId, opts = {}) => {
+  try {
+    const params = new URLSearchParams({ chatId });
+    if (opts.limit) params.append('limit', opts.limit);
+    if (opts.before) params.append('before', opts.before);
+    if (opts.after) params.append('after', opts.after);
+    if (opts.around) params.append('around', opts.around);
+    const res = await fetch(`${API_ENDPOINTS.GET_CHAT_MESSAGES}?${params.toString()}`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await parseJson(res);
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const body = await parseJson(res);
+    return {
+      success: true,
+      messages: body.messages || [],
+      hasOlder: body.hasOlder || false,
+      hasNewer: body.hasNewer || false,
+      data: body,
+    };
+  } catch (error) {
+    console.error('getChatMessagesApi error:', error.message);
+    return { success: false, messages: [], hasOlder: false, hasNewer: false, error: error.message };
+  }
+};
+
+/**
+ * Send a new message.
+ * @param {Object} msg { chatId, text, imageUrl, imageUrls, videoUrl, clientId, mentions, replyTo, isListing, listingId }
+ */
+export const sendChatMessageApi = async (msg) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.POST_CHAT_MESSAGE, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify(msg),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('sendChatMessageApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Update a message (edit text/history or add reactions).
+ * @param {Object} msg { id, text?, reactions?, editHistory? }
+ */
+export const updateChatMessageApi = async (msg) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.PUT_CHAT_MESSAGE, {
+      method: 'PUT',
+      headers: await authHeaders(),
+      body: JSON.stringify(msg),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('updateChatMessageApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Soft-delete a message. */
+export const deleteChatMessageApi = async (messageId) => {
+  try {
+    const res = await fetch(`${API_ENDPOINTS.DELETE_CHAT_MESSAGE}?id=${encodeURIComponent(messageId)}`, {
+      method: 'DELETE',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('deleteChatMessageApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get membership metadata for a chat.
+ * @returns {Promise<{success, isPublic, isMember, hasPendingRequest, hasRejectedRequest, participants}>}
+ */
+export const getChatMembershipApi = async (chatId) => {
+  try {
+    const res = await fetch(`${API_ENDPOINTS.GET_CHAT_MEMBERSHIP}?chatId=${encodeURIComponent(chatId)}`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return {
+      success: true,
+      isPublic: body.isPublic,
+      isMember: body.isMember,
+      hasPendingRequest: body.hasPendingRequest,
+      hasRejectedRequest: body.hasRejectedRequest,
+      participants: body.participants || [],
+      data: body,
+    };
+  } catch (error) {
+    console.error('getChatMembershipApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Submit a join request for a public group chat. */
+export const submitChatJoinRequestApi = async ({ chatId, userName, userAvatar }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.POST_CHAT_JOIN_REQUEST, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ chatId, userName, userAvatar }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('submitChatJoinRequestApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Resolve participant names/avatars for a chat.
+ * @returns {Promise<{success, participants: {uid:{name,avatarUrl}}}}>
+ */
+export const getChatParticipantsApi = async (chatId) => {
+  try {
+    const res = await fetch(`${API_ENDPOINTS.GET_CHAT_PARTICIPANTS}?chatId=${encodeURIComponent(chatId)}`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, participants: body.participants || {}, data: body };
+  } catch (error) {
+    console.error('getChatParticipantsApi error:', error.message);
+    return { success: false, participants: {}, error: error.message };
+  }
+};
+
+/**
+ * Normalize a chat row from the Edge Function into the Firestore-compatible shape
+ * the MessagesScreen already consumes (Firestore Timestamp-like objects with
+ * .seconds / .toDate()). The Edge returns `timestamp` as an ISO string; the screen
+ * calls `chat.timestamp?.toDate?.()` / `.seconds` everywhere, so we wrap it.
+ */
+const toFirestoreTimestamp = (value) => {
+  if (value === null || value === undefined) return null;
+  if (value && typeof value.toDate === 'function') return value; // already a Timestamp
+  if (value && typeof value === 'object' && value.seconds !== undefined) return value; // already Timestamp-like
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return {
+    seconds: Math.floor(d.getTime() / 1000),
+    nanoseconds: (d.getTime() % 1000) * 1e6,
+    toDate: () => new Date(d.getTime()),
+  };
+};
+
+const normalizeChatRow = (chat) => {
+  if (!chat) return chat;
+  return {
+    ...chat,
+    timestamp: toFirestoreTimestamp(chat.timestamp),
+    createdAt: toFirestoreTimestamp(chat.createdAt),
+    updatedAt: toFirestoreTimestamp(chat.updatedAt),
+  };
+};
+
+/**
+ * Get the chat list for the current user.
+ * @returns {Promise<{success, memberChats, adminGroupChats, publicGroupChats}>}
+ */
+export const getChatsApi = async () => {
+  try {
+    const res = await fetch(API_ENDPOINTS.GET_CHATS, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return {
+      success: true,
+      memberChats: (body.memberChats || []).map(normalizeChatRow),
+      adminGroupChats: (body.adminGroupChats || []).map(normalizeChatRow),
+      publicGroupChats: (body.publicGroupChats || []).map(normalizeChatRow),
+      data: body,
+    };
+  } catch (error) {
+    console.error('getChatsApi error:', error.message);
+    return { success: false, memberChats: [], adminGroupChats: [], publicGroupChats: [], error: error.message };
+  }
+};
+
+/** Get a short-lived Supabase Realtime JWT from the Firebase token. */
+export const getChatRealtimeTokenApi = async () => {
+  try {
+    const res = await fetch(API_ENDPOINTS.GET_CHAT_REALTIME_TOKEN, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, token: body.token, expiresAt: body.expiresAt, data: body };
+  } catch (error) {
+    console.error('getChatRealtimeTokenApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};

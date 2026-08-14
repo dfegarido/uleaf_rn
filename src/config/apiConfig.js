@@ -233,6 +233,15 @@ const generateEndpoints = () => ({
   GET_BUYER_CONTENT: `${getSupabaseBaseUrl()}/buyer-content`,
   GET_CHAT_SHOPS: `${getSupabaseBaseUrl()}/chat-shops`,
   GET_CHAT_DETAIL: `${getSupabaseBaseUrl()}/chat-detail`,
+  GET_CHAT_MESSAGES: `${getSupabaseBaseUrl()}/chat-messages`,
+  POST_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
+  PUT_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
+  DELETE_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
+  GET_CHAT_MEMBERSHIP: `${getSupabaseBaseUrl()}/chat-membership`,
+  POST_CHAT_JOIN_REQUEST: `${getSupabaseBaseUrl()}/chat-join-request`,
+  GET_CHAT_PARTICIPANTS: `${getSupabaseBaseUrl()}/chat-participants`,
+  GET_CHATS: `${getSupabaseBaseUrl()}/chats`,
+  GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   
   // Listing Management APIs

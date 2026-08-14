@@ -1,19 +1,12 @@
 import { useFocusEffect } from '@react-navigation/native';
-import { addDoc,
-  arrayUnion,
+import {
   collection,
-  deleteDoc,
   doc,
   documentId,
   getDoc,
-  getDocs,
-  limit,
   onSnapshot,
-  orderBy,
   query,
-  startAfter,
   Timestamp,
-  updateDoc,
   where
 } from 'firebase/firestore';
 import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
@@ -25,6 +18,15 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
 import { sendEveryoneMentionNotificationApi } from '../../components/Api/sendEveryoneMentionNotificationApi';
+import {
+  getChatMessagesApi,
+  sendChatMessageApi,
+  updateChatMessageApi,
+  deleteChatMessageApi,
+  getChatMembershipApi,
+  submitChatJoinRequestApi,
+} from '../../components/Api/chatApi';
+import { subscribeToChatMessages } from '../../utils/realtimeChat';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
 import MessageInput from '../../components/MessageInput/MessageInput';
@@ -113,6 +115,65 @@ const insertDateSeparators = (messages) => {
 const INITIAL_MESSAGES_LIMIT = 20;
 const PAGINATION_LIMIT = 20;
 const REALTIME_WINDOW_LIMIT = 80;
+
+// Normalize a message from the Edge Function (camelCase, ISO timestamps) into the
+// Firestore-Timestamp-like shape ChatScreen already consumes (.toDate/.toMillis).
+const toFirestoreTimestamp = (value) => {
+  if (value === null || value === undefined) return null;
+  if (value && typeof value.toDate === 'function') return value; // already a Timestamp
+  if (value && typeof value === 'object' && value.seconds !== undefined) return value; // already Timestamp-like
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return {
+    seconds: Math.floor(d.getTime() / 1000),
+    nanoseconds: (d.getTime() % 1000) * 1e6,
+    toDate: () => new Date(d.getTime()),
+    toMillis: () => d.getTime(),
+  };
+};
+
+const normalizeMessage = (msg) => {
+  if (!msg) return msg;
+  return {
+    ...msg,
+    timestamp: toFirestoreTimestamp(msg.timestamp),
+    createdAt: toFirestoreTimestamp(msg.createdAt),
+    updatedAt: toFirestoreTimestamp(msg.updatedAt),
+    lastEditedAt: toFirestoreTimestamp(msg.lastEditedAt),
+    // The backend is expected to send real booleans, but coerce defensively here too —
+    // a truthy "false" string makes ChatBubble hide every message's text (isListing gate).
+    isListing: msg.isListing === true || msg.isListing === 'true',
+  };
+};
+
+// Convert a snake_case Realtime payload row into the same normalized camelCase shape.
+const normalizeRealtimeMessage = (row) => {
+  if (!row) return row;
+  const out = {};
+  const specials = {
+    chatid: 'chatId', senderid: 'senderId', islisting: 'isListing', listingid: 'listingId',
+    imageurl: 'imageUrl', imageurls: 'imageUrls', replyto: 'replyTo', createdat: 'createdAt',
+    updatedat: 'updatedAt', clientid: 'clientId', videourl: 'videoUrl', thumbnailurl: 'thumbnailUrl',
+    videoduration: 'videoDuration', videosize: 'videoSize', videoformat: 'videoFormat',
+    deletedat: 'deletedAt', deletedby: 'deletedBy', edithistory: 'editHistory',
+    lasteditedat: 'lastEditedAt', is_edited: 'isEdited',
+  };
+  for (const [key, value] of Object.entries(row)) {
+    const camelKey = specials[key] || key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+    if (['imageUrls', 'replyTo', 'mentions', 'reactions', 'editHistory'].includes(camelKey)) {
+      let parsed = value;
+      if (typeof value === 'string') {
+        try { parsed = JSON.parse(value); } catch (_) { parsed = value; }
+      }
+      out[camelKey] = parsed || (camelKey === 'reactions' ? {} : null);
+    } else if (camelKey === 'isEdited' || camelKey === 'deleted' || camelKey === 'isListing') {
+      out[camelKey] = value === true || value === 'true';
+    } else {
+      out[camelKey] = value;
+    }
+  }
+  return normalizeMessage(out);
+};
 const REPLY_CONTEXT_NEWER_LIMIT = 15;
 const REPLY_CONTEXT_OLDER_LIMIT = 10;
 const PROFILE_CACHE_DAYS = CACHE_CONFIGS.PROFILE_IMAGES.expiryDays;
@@ -267,6 +328,13 @@ const ChatScreen = ({navigation, route}) => {
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Set when a message fetch (initial/older/newer) fails, so the UI can show a
+  // real error + retry instead of silently rendering an empty list.
+  const [messagesError, setMessagesError] = useState(null);
+  // Set when a *pagination* fetch (older/newer, list already has content) fails,
+  // so the loading footer/header can turn into a visible retry instead of just
+  // disappearing with nothing to show for it.
+  const [paginationError, setPaginationError] = useState(null); // { direction: 'older' | 'newer', message }
   // Map of uid -> { name, avatarUrl } for participants (fetched from Firestore)
   const [participantDataMap, setParticipantDataMap] = useState({});
   // Map of uid -> avatar URL for participants (for backward compatibility)
@@ -410,32 +478,27 @@ const ChatScreen = ({navigation, route}) => {
                         userInfo?.user?.profilePhotoUrl || 
                         '';
       
-      // Check if request already exists
-      const joinRequestsRef = collection(db, 'chats', id, 'joinRequests');
-      const existingRequestQuery = query(
-        joinRequestsRef,
-        where('userId', '==', currentUserUid),
-        where('status', '==', 'pending')
-      );
-      const existingSnapshot = await getDocs(existingRequestQuery);
-      
-      if (!existingSnapshot.empty) {
+      const res = await submitChatJoinRequestApi({
+        chatId: id,
+        userName,
+        userAvatar,
+      });
+
+      if (!res.success) {
+        Alert.alert('Error', res.error || 'Failed to submit join request. Please try again.');
+        setRequestingJoin(false);
+        return;
+      }
+
+      // The Edge Function is idempotent: a duplicate pending request returns
+      // success with alreadyExists=true rather than an error.
+      if (res.data?.alreadyExists) {
         Alert.alert('Info', 'You already have a pending join request for this group.');
         setHasPendingRequest(true);
         setRequestingJoin(false);
         return;
       }
-      
-      // Create join request
-      const joinRequest = {
-        userId: currentUserUid,
-        userName: userName,
-        userAvatar: userAvatar,
-        status: 'pending',
-        requestedAt: Timestamp.now(),
-      };
-      
-      await addDoc(joinRequestsRef, joinRequest);
+
       setHasPendingRequest(true);
       Alert.alert('Success', 'Your join request has been submitted. An admin will review it.');
     } catch (error) {
@@ -827,9 +890,11 @@ const ChatScreen = ({navigation, route}) => {
 
       closeTooltip();
 
-      // Update Firestore in the background
-      const messageRef = doc(db, 'messages', messageId);
-      await updateDoc(messageRef, { reactions: updatedReactions });
+      // Update via the Edge Function in the background
+      const res = await updateChatMessageApi({ id: messageId, reactions: updatedReactions });
+      if (!res.success) {
+        throw new Error(res.error || 'Reaction update failed');
+      }
     } catch (error) {
       console.error('Error adding emoji reaction:', error);
       
@@ -934,12 +999,10 @@ const ChatScreen = ({navigation, route}) => {
       setMessages(updatedMessages);
       cancelEdit();
 
-      // Update Firestore
-      const messageRef = doc(db, 'messages', editingMessage.id);
-      await updateDoc(messageRef, {
+      // Update via the Edge Function (it sets isEdited/lastEditedAt server-side).
+      const res = await updateChatMessageApi({
+        id: editingMessage.id,
         text: trimmedText,
-        isEdited: true,
-        lastEditedAt: editedAt,
         editHistory: [
           ...(editingMessage.editHistory || []),
           {
@@ -947,8 +1010,11 @@ const ChatScreen = ({navigation, route}) => {
             editedAt: editedAt,
             editedBy: currentUserUid,
           }
-        ]
+        ],
       });
+      if (!res.success) {
+        throw new Error(res.error || 'Edit failed');
+      }
     } catch (error) {
       console.error('Error editing message:', error);
       // Revert optimistic update
@@ -1063,12 +1129,15 @@ const ChatScreen = ({navigation, route}) => {
           await postListingDeleteApi(toDelete.plantCode);
         }
         if (toDelete.id) {
-          await deleteDoc(doc(db, 'messages', toDelete.id));
+          // Soft-delete via the Edge Function (the Realtime UPDATE event won't
+          // re-add it because the message was already removed optimistically).
+          const res = await deleteChatMessageApi(toDelete.id);
+          if (!res.success) throw new Error(res.error || 'Delete failed');
         }
       } else {
-        // Regular message: delete from Firestore
-        const messageRef = doc(db, 'messages', toDelete.id);
-        await deleteDoc(messageRef);
+        // Regular message: soft-delete via the Edge Function.
+        const res = await deleteChatMessageApi(toDelete.id);
+        if (!res.success) throw new Error(res.error || 'Delete failed');
       }
     } catch (error) {
       console.error('❌ Error deleting message:', error);
@@ -1176,6 +1245,7 @@ const ChatScreen = ({navigation, route}) => {
     } : null;
 
     const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+    const clientId = `client-${Date.now()}-${Math.random()}`;
     const newMsg = {
       id: optimisticId,
       chatId: id,
@@ -1188,6 +1258,7 @@ const ChatScreen = ({navigation, route}) => {
       imageUrls: imageUrls || null,
       replyTo: sanitizedReplyTo, // Add reply information
       mentions: mentions || null, // Add mention information
+      clientId, // Used to reconcile the Realtime echo with this optimistic message
       optimistic: true, // Flag for optimistic message
     };
 
@@ -1195,63 +1266,44 @@ const ChatScreen = ({navigation, route}) => {
     setMessages(prev => [newMsg, ...prev]);
 
     try {
-      // Add message to messages collection in background
-      const docRef = await addDoc(collection(db, 'messages'), {
+      // Send via the Edge Function (it also updates chat lastMessage/unreadBy).
+      const res = await sendChatMessageApi({
         chatId: id,
-        senderId: currentUserUid || null,
         text: text?.trim() || '',
-        timestamp: Timestamp.now(),
         isListing,
         listingId,
         imageUrl: imageUrl || null,
         imageUrls: imageUrls || null,
-        replyTo: sanitizedReplyTo, // Add reply information
-        mentions: mentions || null, // Add mentions information
+        replyTo: sanitizedReplyTo,
+        mentions: mentions || null,
+        clientId,
       });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Send failed');
+      }
 
       // Clear reply state after sending
       if (replyTo) {
         setReplyingTo(null);
       }
 
-      // Replace optimistic message with real one
-      // Check if real-time listener already added it
+      // Replace optimistic message with real one (if the Realtime echo hasn't already).
+      const realId = res.data?.message?.id;
       setMessages(prev => {
-        // Check if message with real ID already exists (from real-time listener)
-        const realMsgExists = prev.some(msg => msg.id === docRef.id);
+        // Check if message with real ID already exists (from Realtime echo)
+        const realMsgExists = realId && prev.some(msg => msg.id === realId);
         if (realMsgExists) {
           // Remove optimistic message if real one already exists
           return prev.filter(msg => msg.id !== optimisticId);
         }
         // Replace optimistic message with real one
-        return prev.map(msg => 
-          msg.id === optimisticId 
-            ? { ...msg, id: docRef.id, optimistic: false }
+        return prev.map(msg =>
+          msg.id === optimisticId
+            ? { ...msg, id: realId || msg.id, optimistic: false }
             : msg
         );
       });
-
-      // Mark chat lastMessage and update timestamp, mark unread for other participants
-      const otherParticipantIds = Array.isArray(participantIds)
-        ? participantIds.filter(pid => pid && pid !== currentUserUid)
-        : [];
-
-      // Update lastMessage - use text if available, otherwise indicate image(s)
-      const hasImages = imageUrl || (imageUrls && imageUrls.length > 0);
-      const imageCount = imageUrls && imageUrls.length > 1 ? imageUrls.length : 1;
-      const lastMessageText = text?.trim() || (hasImages 
-        ? (imageUrls && imageUrls.length > 1 ? `📷 ${imageCount} Images` : '📷 Image')
-        : '');
-
-      try {
-        await updateDoc(doc(db, 'chats', id), {
-          lastMessage: lastMessageText,
-          timestamp: Timestamp.now(),
-          unreadBy: arrayUnion(...otherParticipantIds),
-        });
-      } catch (err) {
-        // ignore update failures
-      }
 
       notifyEveryoneMention(text, mentions);
     } catch (error) {
@@ -1293,6 +1345,7 @@ const ChatScreen = ({navigation, route}) => {
       
       // Create optimistic message with local image URIs and text immediately
       const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+      const clientId = `client-${Date.now()}-${Math.random()}`;
       const optimisticMsg = {
         id: optimisticId,
         chatId: id,
@@ -1304,6 +1357,7 @@ const ChatScreen = ({navigation, route}) => {
         imageUrl: null,
         imageUrls: urisArray, // Use local URIs for immediate display
         replyTo: sanitizedReplyTo, // Add reply information
+        clientId, // Used to reconcile the Realtime echo with this optimistic message
         optimistic: true,
       };
 
@@ -1324,29 +1378,32 @@ const ChatScreen = ({navigation, route}) => {
           : msg
       ));
       
-      // Send message with uploaded image URLs and text to Firestore
-      const docRef = await addDoc(collection(db, 'messages'), {
+      // Send message with uploaded image URLs and text via the Edge Function
+      const res = await sendChatMessageApi({
         chatId: id,
-        senderId: currentUserUid || null,
         text: textToSend,
-        timestamp: Timestamp.now(),
         isListing: false,
         listingId: null,
         imageUrl: null,
         imageUrls: imageUrls,
-        replyTo: sanitizedReplyTo, // Add reply information
+        replyTo: sanitizedReplyTo,
+        clientId,
       });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Send failed');
+      }
 
       // Clear reply state after sending
       if (replyTo) {
         setReplyingTo(null);
       }
 
-      // Replace optimistic message with real one
-      // Check if real-time listener already added it
+      // Replace optimistic message with real one (if the Realtime echo hasn't already).
+      const realId = res.data?.message?.id;
       setMessages(prev => {
-        // Check if message with real ID already exists (from real-time listener)
-        const realMsgExists = prev.some(msg => msg.id === docRef.id);
+        // Check if message with real ID already exists (from Realtime echo)
+        const realMsgExists = realId && prev.some(msg => msg.id === realId);
         if (realMsgExists) {
           // Remove optimistic message if real one already exists
           return prev.filter(msg => msg.id !== optimisticId);
@@ -1354,28 +1411,10 @@ const ChatScreen = ({navigation, route}) => {
         // Replace optimistic message with real one
         return prev.map(msg => 
           msg.id === optimisticId 
-            ? { ...msg, id: docRef.id, optimistic: false }
+            ? { ...msg, id: realId || msg.id, optimistic: false }
             : msg
         );
       });
-
-      // Update chat document
-      const otherParticipantIds = Array.isArray(participantIds)
-        ? participantIds.filter(pid => pid && pid !== currentUserUid)
-        : [];
-
-      const imageCount = imageUrls.length;
-      const lastMessageText = textToSend || (imageUrls.length > 1 ? `📷 ${imageCount} Images` : '📷 Image');
-
-      try {
-        await updateDoc(doc(db, 'chats', id), {
-          lastMessage: lastMessageText,
-          timestamp: Timestamp.now(),
-          unreadBy: arrayUnion(...otherParticipantIds),
-        });
-      } catch (err) {
-        // ignore update failures
-      }
     } catch (error) {
       console.error('Error sending image:', error);
       // Silently fail - keep the message visible with local URIs
@@ -1412,6 +1451,7 @@ const ChatScreen = ({navigation, route}) => {
 
     // Create optimistic message ID
     const optimisticId = `temp-video-${Date.now()}-${Math.random()}`;
+    const clientId = `client-${Date.now()}-${Math.random()}`;
 
     // Create optimistic message with LOCAL video URI for immediate playback
     const optimisticMsg = {
@@ -1430,6 +1470,7 @@ const ChatScreen = ({navigation, route}) => {
       videoSize: videoData.fileSize || 0,
       videoFormat: 'mp4',
       replyTo: sanitizedReplyTo,
+      clientId, // Used to reconcile the Realtime echo with this optimistic message
       optimistic: true,
       uploadProgress: 0, // Track upload progress
       localVideoUri: videoData.uri, // Keep local URI for reference
@@ -1475,28 +1516,32 @@ const ChatScreen = ({navigation, route}) => {
         
         updateProgress(100); // 100% after upload complete
         
-        // Step 3: Send message to Firestore
-      const docRef = await addDoc(collection(db, 'messages'), {
-        chatId: id,
-        senderId: currentUserUid || null,
-        text: textToSend,
-        timestamp: Timestamp.now(),
-        isListing: false,
-        listingId: null,
-        imageUrl: null,
-        imageUrls: null,
-        videoUrl: videoUrl,
-        thumbnailUrl: thumbnailUrl,
-        videoDuration: videoData.duration || 0,
-        videoSize: videoData.fileSize || 0,
-        videoFormat: 'mp4',
-        replyTo: sanitizedReplyTo,
-      });
+        // Step 3: Send message via the Edge Function
+        const res = await sendChatMessageApi({
+          chatId: id,
+          text: textToSend,
+          isListing: false,
+          listingId: null,
+          imageUrl: null,
+          imageUrls: null,
+          videoUrl: videoUrl,
+          thumbnailUrl: thumbnailUrl,
+          videoDuration: videoData.duration || 0,
+          videoSize: videoData.fileSize || 0,
+          videoFormat: 'mp4',
+          replyTo: sanitizedReplyTo,
+          clientId,
+        });
+
+        if (!res.success) {
+          throw new Error(res.error || 'Send failed');
+        }
 
         // Replace optimistic message with real one (with server URLs and thumbnail)
+        const realId = res.data?.message?.id;
         setMessages(prev => {
-          // Check if real-time listener already added it
-          const realMsgExists = prev.some(msg => msg.id === docRef.id);
+          // Check if Realtime echo already added it
+          const realMsgExists = realId && prev.some(msg => msg.id === realId);
           if (realMsgExists) {
             // Remove optimistic message if real one already exists
             return prev.filter(msg => msg.id !== optimisticId);
@@ -1506,7 +1551,7 @@ const ChatScreen = ({navigation, route}) => {
             msg.id === optimisticId 
               ? {
                   ...msg,
-                  id: docRef.id,
+                  id: realId || msg.id,
                   videoUrl: videoUrl, // Server URL (uploaded)
                   thumbnailUrl: thumbnailUrl, // Server-generated thumbnail
                   localVideoUri: undefined, // Clear local URI
@@ -1520,23 +1565,6 @@ const ChatScreen = ({navigation, route}) => {
         // Clear reply state after sending
         if (replyTo) {
           setReplyingTo(null);
-        }
-
-        // Update chat document
-        const otherParticipantIds = Array.isArray(participantIds)
-          ? participantIds.filter(pid => pid && pid !== currentUserUid)
-          : [];
-
-        try {
-          await updateDoc(doc(db, 'chats', id), {
-            lastMessage: textToSend || '📹 Video',
-            lastTimestamp: Timestamp.now(),
-            lastSenderId: currentUserUid || null,
-            unreadBy: otherParticipantIds.length > 0 ? otherParticipantIds : [],
-          });
-        } catch (updateError) {
-          console.warn('Failed to update chat metadata:', updateError);
-          // ignore update failures
         }
       } catch (error) {
         console.error('❌ Error sending video:', error);
@@ -1601,73 +1629,47 @@ const ChatScreen = ({navigation, route}) => {
       }
 
       try {
-        const chatDocRef = doc(db, 'chats', id);
-        const chatDocSnap = await getDoc(chatDocRef);
-        
-        if (chatDocSnap.exists()) {
-          const chatData = chatDocSnap.data();
-          const isPublic = chatData.isPublic === true;
-          setIsPublicGroup(isPublic);
-          
-          // Update participants with latest data from Firestore
-          const latestParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-          setParticipants(latestParticipants);
-          
-          // Check if current user is a member
-          const memberIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
-          const userIsMember = memberIds.includes(currentUserUid);
-          setIsMember(userIsMember);
-          
-          // If buyer is not a member of a public group, redirect to settings
-          if (!userIsMember && isPublic && isBuyer) {
-            // Redirect to settings screen where they can request to join
-            navigation.replace('ChatSettingsScreen', { 
-              chatId: id, 
-              participants: Array.isArray(chatData.participants) ? chatData.participants : [],
+        const res = await getChatMembershipApi(id);
+        if (!res.success) {
+          setIsMember(true);
+          return;
+        }
+
+        const isPublic = !!res.isPublic;
+        const userIsMember = !!res.isMember;
+        setIsPublicGroup(isPublic);
+        setIsMember(userIsMember);
+        setHasPendingRequest(!!res.hasPendingRequest);
+        setHasRejectedRequest(!!res.hasRejectedRequest);
+
+        // Update participants with latest data from the Edge Function
+        if (Array.isArray(res.participants) && res.participants.length > 0) {
+          setParticipants(res.participants);
+        }
+
+        // If buyer is not a member of a public group, redirect to settings
+        if (!userIsMember && isPublic && isBuyer) {
+          navigation.replace('ChatSettingsScreen', {
+            chatId: id,
+            participants: Array.isArray(res.participants) ? res.participants : [],
+            type: chatType,
+            name: name
+          });
+          return;
+        }
+
+        if (!userIsMember && isPublic && isSeller) {
+          // NOTE: chat-membership Edge does not return invitedUsers; guard so this
+          // branch is a no-op rather than throwing when the field is absent.
+          const invitedUsers = Array.isArray(res.invitedUsers) ? res.invitedUsers : [];
+          if (invitedUsers.includes(currentUserUid)) {
+            navigation.replace('ChatSettingsScreen', {
+              chatId: id,
+              participants: Array.isArray(res.participants) ? res.participants : [],
               type: chatType,
               name: name
             });
             return;
-          }
-          
-          if (!userIsMember && isPublic && isSeller) {
-            const invitedUsers = Array.isArray(chatData.invitedUsers) ? chatData.invitedUsers : [];
-            if (invitedUsers.includes(currentUserUid)) {
-              // Redirect to settings screen where they can accept/decline invitation
-              navigation.replace('ChatSettingsScreen', { 
-                chatId: id, 
-                participants: Array.isArray(chatData.participants) ? chatData.participants : [],
-                type: chatType,
-                name: name
-              });
-              return;
-            }
-          }
-          
-          // Check if user has pending or rejected request (for non-buyers or members)
-          if (!userIsMember && isPublic) {
-            const joinRequestsRef = collection(db, 'chats', id, 'joinRequests');
-            
-            // Check for pending request
-            const pendingQuery = query(
-              joinRequestsRef,
-              where('userId', '==', currentUserUid),
-              where('status', '==', 'pending')
-            );
-            const pendingSnapshot = await getDocs(pendingQuery);
-            setHasPendingRequest(!pendingSnapshot.empty);
-            
-            // Check for rejected request
-            const rejectedQuery = query(
-              joinRequestsRef,
-              where('userId', '==', currentUserUid),
-              where('status', '==', 'rejected')
-            );
-            const rejectedSnapshot = await getDocs(rejectedQuery);
-            setHasRejectedRequest(!rejectedSnapshot.empty);
-          } else {
-            setHasPendingRequest(false);
-            setHasRejectedRequest(false);
           }
         }
       } catch (error) {
@@ -1685,6 +1687,7 @@ const ChatScreen = ({navigation, route}) => {
 
     try {
       setLoading(true);
+      setMessagesError(null);
       setMessages([]);
       setHasOlderMessages(true);
       setHasNewerMessages(false);
@@ -1692,28 +1695,22 @@ const ChatScreen = ({navigation, route}) => {
       firstMessageRef.current = null;
       isJumpedToMessage.current = false;
 
-      const messagesRef = collection(db, 'messages');
-      const initialQuery = query(
-        messagesRef,
-        where('chatId', '==', id),
-        orderBy('timestamp', 'desc'),
-        limit(INITIAL_MESSAGES_LIMIT)
-      );
+      // Initial fetch from the Edge Function (most recent N, newest first).
+      const res = await getChatMessagesApi(id, { limit: INITIAL_MESSAGES_LIMIT });
+      if (!res.success) {
+        console.error('❌ Error loading initial messages:', res.error);
+        setMessages([]);
+        setMessagesError(res.error || 'Failed to load messages');
+        setLoading(false);
+        return;
+      }
+      const fetched = (res.messages || []).map(normalizeMessage);
 
-      const snapshot = await getDocs(initialQuery);
-      const messagesFirestore = snapshot.docs.map(doc => ({
-        id: doc.id,
-        chatId: id,
-        reactions: doc.data().reactions || {},
-        ...doc.data(),
-      }));
-
-      // Store the first and last documents for bidirectional pagination
-      if (snapshot.docs.length > 0) {
-        firstMessageRef.current = snapshot.docs[0]; // Most recent message
-        lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1]; // Oldest message
-        // If we got less than page size, there are no more older messages
-        setHasOlderMessages(snapshot.docs.length === INITIAL_MESSAGES_LIMIT);
+      // Store the first and last messages for bidirectional pagination.
+      if (fetched.length > 0) {
+        firstMessageRef.current = fetched[0]; // Most recent message
+        lastMessageRef.current = fetched[fetched.length - 1]; // Oldest message
+        setHasOlderMessages(!!res.hasOlder);
         setHasNewerMessages(false); // No newer messages on initial load (these are the latest)
       } else {
         setHasOlderMessages(false);
@@ -1721,126 +1718,96 @@ const ChatScreen = ({navigation, route}) => {
       }
 
       // Remove duplicates based on message ID
-      const uniqueMessages = messagesFirestore.filter((msg, index, self) =>
+      const uniqueMessages = fetched.filter((msg, index, self) =>
         index === self.findIndex(m => m.id === msg.id)
       );
 
-      // Insert date separators every 10 messages
+      // Insert date separators
       const messagesWithSeparators = insertDateSeparators(uniqueMessages);
 
       setMessages(messagesWithSeparators);
       setLoading(false);
 
-      // Set up real-time listener for a bounded recent window (reactions, edits, new messages)
-      const allMessagesQuery = query(
-        messagesRef,
-        where('chatId', '==', id),
-        orderBy('timestamp', 'desc'),
-        limit(REALTIME_WINDOW_LIMIT)
-      );
-
-      // Reset flag for initial snapshot
+      // Set up Supabase Realtime subscription for new/changed/deleted messages.
+      // This is intentionally in its OWN try/catch: a realtime failure must NOT
+      // wipe the already-loaded message history (the outer catch clears messages).
       isInitialListenerSnapshot.current = true;
 
-      const unsubscribe = onSnapshot(
-        allMessagesQuery,
-        { includeMetadataChanges: false },
-        (snapshot) => {
-          if (!snapshot.empty) {
-            // Skip adding messages on the initial snapshot to avoid loading all 200 messages
-            // Only process modifications and new messages after the first snapshot
-            const isInitial = isInitialListenerSnapshot.current;
-            if (isInitial) {
-              isInitialListenerSnapshot.current = false;
-            }
-            
-            // Process all updated documents
-            snapshot.docChanges().forEach((change) => {
-              const doc = change.doc;
-              const updatedMessage = {
-                id: doc.id,
-                chatId: id,
-                ...doc.data(),
-              };
+      try {
+        const unsubscribe = await subscribeToChatMessages(id, {
+          onInsert: (payload) => {
+            const newMessage = normalizeRealtimeMessage(payload.new);
+            if (!newMessage || !newMessage.id) return;
 
-              if (change.type === 'modified') {
-                // Message was modified (reaction added/removed, edited, etc.)
-                setMessages(prev => {
-                  const existingIndex = prev.findIndex(msg => msg.id === updatedMessage.id);
-                  if (existingIndex !== -1) {
-                    // Update existing message with new data (reactions, edits, etc.)
-                    const updated = [...prev];
-                    updated[existingIndex] = {
-                      ...updated[existingIndex],
-                      ...updatedMessage,
-                      reactions: updatedMessage.reactions || {},
-                    };
-                    // Reapply date separators after modification
-                    return insertDateSeparators(updated.filter(m => m.type !== 'date'));
-                  }
-                  return prev;
-                });
-              } else if (change.type === 'added') {
-                // Skip added messages on initial snapshot to avoid loading all 200 messages
-                if (isInitial) {
-                  return;
-                }
-                
-                // New message added
-                const newMessage = updatedMessage;
-                setMessages(prev => {
-                  const existingIndex = prev.findIndex(msg => msg.id === newMessage.id);
-                  if (existingIndex !== -1) {
-                    // Message already exists (might be from initial load), update it
-                    const updated = [...prev];
-                    updated[existingIndex] = {
+            // Skip the sender's own echo if it was already reconciled via client_id.
+            setMessages(prev => {
+              const existingIndex = prev.findIndex(msg => msg.id === newMessage.id);
+              if (existingIndex !== -1) {
+                // Message already exists (from initial load or optimistic), update it.
+                const updated = [...prev];
+                updated[existingIndex] = {
                   ...newMessage,
                   reactions: newMessage.reactions || updated[existingIndex].reactions || {},
                 };
                 return insertDateSeparators(updated.filter(m => m.type !== 'date'));
               }
-              
-              // Check if there's an optimistic message with matching content that should be replaced
-              const optimisticIndex = prev.findIndex(msg => 
-                msg.optimistic && 
-                msg.senderId === newMessage.senderId &&
-                msg.text === newMessage.text &&
-                // Check images match (handle both local URIs and uploaded URLs)
-                ((!msg.imageUrls && !newMessage.imageUrls) ||
-                 (msg.imageUrls && newMessage.imageUrls && 
-                  msg.imageUrls.length === newMessage.imageUrls.length))
-              );
-              
-              if (optimisticIndex !== -1) {
-                // Replace optimistic message with real one
+
+              // Reconcile by client_id: replace the optimistic message with the real one.
+              if (newMessage.clientId) {
+                const optimisticIndex = prev.findIndex(msg =>
+                  msg.optimistic && msg.clientId === newMessage.clientId
+                );
+                if (optimisticIndex !== -1) {
+                  const updated = [...prev];
+                  updated[optimisticIndex] = {
+                    ...newMessage,
+                    reactions: newMessage.reactions || {},
+                  };
+                  return insertDateSeparators(updated.filter(m => m.type !== 'date'));
+                }
+              }
+
+              // Add to beginning since we're using inverted list (newest first).
+              const combined = [{
+                ...newMessage,
+                reactions: newMessage.reactions || {},
+              }, ...prev.filter(m => m.type !== 'date')];
+              return insertDateSeparators(combined);
+            });
+          },
+          onUpdate: (payload) => {
+            const updatedMessage = normalizeRealtimeMessage(payload.new);
+            if (!updatedMessage || !updatedMessage.id) return;
+            setMessages(prev => {
+              const existingIndex = prev.findIndex(msg => msg.id === updatedMessage.id);
+              if (existingIndex !== -1) {
                 const updated = [...prev];
-                updated[optimisticIndex] = {
-                  ...newMessage,
-                  reactions: newMessage.reactions || {},
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  ...updatedMessage,
+                  reactions: updatedMessage.reactions || {},
                 };
                 return insertDateSeparators(updated.filter(m => m.type !== 'date'));
               }
-              
-              // Add to beginning since we're using inverted list (newest first)
-                  const combined = [{
-                    ...newMessage,
-                    reactions: newMessage.reactions || {},
-                  }, ...prev.filter(m => m.type !== 'date')];
-                  return insertDateSeparators(combined);
-                });
-              }
+              return prev;
             });
-          }
-        },
-        (error) => {
-          console.error('Error in real-time listener:', error);
-        }
-      );
+          },
+          onDelete: (payload) => {
+            const deletedId = payload.old?.id;
+            if (!deletedId) return;
+            setMessages(prev => prev.filter(msg => msg.id !== deletedId));
+          },
+        });
 
-      messagesUnsubscribeRef.current = unsubscribe;
+        messagesUnsubscribeRef.current = unsubscribe;
+      } catch (realtimeError) {
+        // Log but do NOT clear messages — history is already rendered.
+        console.error('Error setting up realtime subscription:', realtimeError);
+      }
     } catch (error) {
       console.error('Error loading initial messages:', error);
       setMessages([]);
+      setMessagesError(error?.message || 'Failed to load messages');
       setLoading(false);
       setHasMoreMessages(false);
     }
@@ -1853,39 +1820,51 @@ const ChatScreen = ({navigation, route}) => {
     try {
       setLoadingMore(true);
 
-      const messagesRef = collection(db, 'messages');
-      const moreQuery = query(
-        messagesRef,
-        where('chatId', '==', id),
-        orderBy('timestamp', 'desc'),
-        startAfter(lastMessageRef.current),
-        limit(PAGINATION_LIMIT)
-      );
+      // Build an ISO cursor from the oldest loaded message's timestamp.
+      const ts = lastMessageRef.current?.timestamp;
+      let cursor;
+      if (ts instanceof Date && !isNaN(ts.getTime())) {
+        cursor = ts.toISOString();
+      } else if (typeof ts === 'string') {
+        cursor = ts;
+      } else if (ts && typeof ts.toDate === 'function') {
+        const d = ts.toDate();
+        cursor = isNaN(d.getTime()) ? null : d.toISOString();
+      } else {
+        setLoadingMore(false);
+        return; // skip pagination if no valid cursor
+      }
 
-      const snapshot = await getDocs(moreQuery);
-      const newMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        chatId: id,
-        ...doc.data(),
-      }));
+      const res = await getChatMessagesApi(id, { limit: PAGINATION_LIMIT, before: cursor });
+      if (!res.success) {
+        console.error('❌ Error loading more messages:', res.error);
+        // Don't flip hasOlderMessages to false on a failed request — that would
+        // permanently hide the "load more" trigger for what might just be a
+        // transient network/backend error. Surface it instead so the user can retry.
+        setPaginationError({ direction: 'older', message: res.error || 'Failed to load older messages' });
+        setLoadingMore(false);
+        return;
+      }
+      setPaginationError(prev => (prev?.direction === 'older' ? null : prev));
+      const newMessages = (res.messages || []).map(normalizeMessage);
 
-      if (snapshot.docs.length > 0) {
-        lastMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
-        setHasOlderMessages(snapshot.docs.length === PAGINATION_LIMIT);
-        
+      if (newMessages.length > 0) {
+        lastMessageRef.current = newMessages[newMessages.length - 1];
+        setHasOlderMessages(!!res.hasOlder);
+
         // Append to end of messages (older messages), removing duplicates
         setMessages(prev => {
           const existingIds = new Set(prev.filter(m => m.type !== 'date').map(m => m.id));
           const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id));
           const combined = [...prev.filter(m => m.type !== 'date'), ...uniqueNewMessages];
-          
+
           console.log(`📅 [loadMoreMessages] Loading ${uniqueNewMessages.length} older messages, total: ${combined.length}`);
-          
+
           const withSeparators = insertDateSeparators(combined);
           const separatorCount = withSeparators.filter(m => m.type === 'date').length;
-          
+
           console.log(`📅 [loadMoreMessages] Added ${separatorCount} date separators`);
-          
+
           return withSeparators;
         });
       } else {
@@ -1895,6 +1874,7 @@ const ChatScreen = ({navigation, route}) => {
       setLoadingMore(false);
     } catch (error) {
       console.error('❌ Error loading more messages:', error);
+      setPaginationError({ direction: 'older', message: error?.message || 'Failed to load older messages' });
       setLoadingMore(false);
     }
   };
@@ -1906,26 +1886,36 @@ const ChatScreen = ({navigation, route}) => {
     try {
       setLoadingMore(true);
 
-      const messagesRef = collection(db, 'messages');
-      const newerQuery = query(
-        messagesRef,
-        where('chatId', '==', id),
-        orderBy('timestamp', 'asc'), // Reverse order to get newer messages
-        startAfter(firstMessageRef.current),
-        limit(PAGINATION_LIMIT)
-      );
+      // Build an ISO cursor from the newest loaded message's timestamp.
+      const ts = firstMessageRef.current?.timestamp;
+      let cursor;
+      if (ts instanceof Date && !isNaN(ts.getTime())) {
+        cursor = ts.toISOString();
+      } else if (typeof ts === 'string') {
+        cursor = ts;
+      } else if (ts && typeof ts.toDate === 'function') {
+        const d = ts.toDate();
+        cursor = isNaN(d.getTime()) ? null : d.toISOString();
+      } else {
+        setLoadingMore(false);
+        return; // skip pagination if no valid cursor
+      }
 
-      const snapshot = await getDocs(newerQuery);
-      const newMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        chatId: id,
-        ...doc.data(),
-      })).reverse(); // Reverse to maintain desc order
+      const res = await getChatMessagesApi(id, { limit: PAGINATION_LIMIT, after: cursor });
+      if (!res.success) {
+        console.error('❌ Error loading newer messages:', res.error);
+        setPaginationError({ direction: 'newer', message: res.error || 'Failed to load newer messages' });
+        setLoadingMore(false);
+        return;
+      }
+      setPaginationError(prev => (prev?.direction === 'newer' ? null : prev));
+      // Edge returns newer messages in asc order; reverse to maintain desc order.
+      const newMessages = (res.messages || []).map(normalizeMessage).reverse();
 
-      if (snapshot.docs.length > 0) {
-        firstMessageRef.current = snapshot.docs[snapshot.docs.length - 1];
-        setHasNewerMessages(snapshot.docs.length === PAGINATION_LIMIT);
-        
+      if (newMessages.length > 0) {
+        firstMessageRef.current = newMessages[0];
+        setHasNewerMessages(!!res.hasNewer);
+
         // Prepend to beginning of messages (newer messages), removing duplicates
         setMessages(prev => {
           const existingIds = new Set(prev.filter(m => m.type !== 'date').map(m => m.id));
@@ -1940,6 +1930,7 @@ const ChatScreen = ({navigation, route}) => {
       setLoadingMore(false);
     } catch (error) {
       console.error('❌ Error loading newer messages:', error);
+      setPaginationError({ direction: 'newer', message: error?.message || 'Failed to load newer messages' });
       setLoadingMore(false);
     }
   };
@@ -1953,61 +1944,21 @@ const ChatScreen = ({navigation, route}) => {
 
     try {
       setLoading(true);
-      
-      // 1. Fetch the target message directly
-      const targetMessageRef = doc(db, 'messages', targetMessageId);
-      const targetDoc = await getDoc(targetMessageRef);
-      
-      if (!targetDoc.exists()) {
-        console.error('❌ Target message not found');
+
+      // Fetch context around the target message from the Edge Function.
+      const res = await getChatMessagesApi(id, { around: targetMessageId });
+      if (!res.success) {
+        console.error('❌ Error loading messages around target:', res.error);
+        setLoading(false);
         return false;
       }
+      const allMessages = (res.messages || []).map(normalizeMessage);
 
-      const targetMessage = {
-        id: targetDoc.id,
-        chatId: id,
-        ...targetDoc.data(),
-      };
-
-      // 2. Fetch newer messages around target for context
-      const messagesCollection = collection(db, 'messages');
-      const newerQuery = query(
-        messagesCollection,
-        where('chatId', '==', id),
-        where('timestamp', '>', targetMessage.timestamp),
-        orderBy('timestamp', 'asc'),
-        limit(REPLY_CONTEXT_NEWER_LIMIT)
-      );
-
-      const newerSnapshot = await getDocs(newerQuery);
-      const newerMessages = newerSnapshot.docs.map(doc => ({
-        id: doc.id,
-        chatId: id,
-        ...doc.data(),
-      }));
-
-      // 3. Fetch older messages before target for context
-      const olderQuery = query(
-        messagesCollection,
-        where('chatId', '==', id),
-        where('timestamp', '<', targetMessage.timestamp),
-        orderBy('timestamp', 'desc'),
-        limit(REPLY_CONTEXT_OLDER_LIMIT)
-      );
-
-      const olderSnapshot = await getDocs(olderQuery);
-      const olderMessages = olderSnapshot.docs.map(doc => ({
-        id: doc.id,
-        chatId: id,
-        ...doc.data(),
-      }));
-
-      // 4. Combine all messages: newer (reversed) + target + older
-      const allMessages = [
-        ...newerMessages.reverse(), // Newest first
-        targetMessage,
-        ...olderMessages, // Already in desc order
-      ];
+      if (allMessages.length === 0) {
+        console.error('❌ Target message not found');
+        setLoading(false);
+        return false;
+      }
 
       // Remove duplicates
       const uniqueMessages = allMessages.filter((msg, index, self) =>
@@ -2016,15 +1967,15 @@ const ChatScreen = ({navigation, route}) => {
 
       // 5. Set references for pagination
       if (uniqueMessages.length > 0) {
-        firstMessageRef.current = await getDoc(doc(db, 'messages', uniqueMessages[0].id));
-        lastMessageRef.current = await getDoc(doc(db, 'messages', uniqueMessages[uniqueMessages.length - 1].id));
+        firstMessageRef.current = uniqueMessages[0];
+        lastMessageRef.current = uniqueMessages[uniqueMessages.length - 1];
       }
 
       // 6. Update states
       const messagesWithSeparators = insertDateSeparators(uniqueMessages);
       setMessages(messagesWithSeparators);
-      setHasNewerMessages(newerMessages.length === REPLY_CONTEXT_NEWER_LIMIT);
-      setHasOlderMessages(olderMessages.length === REPLY_CONTEXT_OLDER_LIMIT);
+      setHasNewerMessages(!!res.hasNewer);
+      setHasOlderMessages(!!res.hasOlder);
       isJumpedToMessage.current = true;
 
       setLoading(false);
@@ -2320,11 +2271,28 @@ const ChatScreen = ({navigation, route}) => {
             You cannot view messages in this group. Your join request was rejected.
           </Text>
         </View>
+      ) : messagesError ? (
+        <View style={styles.restrictedContainer}>
+          <Text style={styles.restrictedText}>
+            Couldn't load messages.{'\n'}{messagesError}
+          </Text>
+          <TouchableOpacity
+            style={[styles.addListingButton, {marginLeft: 0, marginTop: 16}]}
+            onPress={loadInitialMessages}
+          >
+            <Text style={styles.addListingButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           inverted
           ref={flatListRef}
           data={messages}
+          ListEmptyComponent={
+            <View style={styles.restrictedContainer}>
+              <Text style={styles.restrictedText}>No messages yet — say hi 👋</Text>
+            </View>
+          }
           keyExtractor={(item, index) => {
             // Ensure unique key - use ID if available, otherwise use index with timestamp
             if (item.id) {
@@ -2356,14 +2324,28 @@ const ChatScreen = ({navigation, route}) => {
             minIndexForVisible: 0,
           }}
           ListHeaderComponent={
-            loadingMore && hasNewerMessages ? (
+            paginationError?.direction === 'newer' ? (
+              <TouchableOpacity
+                style={{ padding: 20, alignItems: 'center' }}
+                onPress={loadNewerMessages}
+              >
+                <Text style={{ color: '#c0392b' }}>Couldn't load newer messages. Tap to retry.</Text>
+              </TouchableOpacity>
+            ) : loadingMore && hasNewerMessages ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
                 <Text style={{ color: '#666' }}>Loading newer messages...</Text>
               </View>
             ) : null
           }
           ListFooterComponent={
-            loadingMore && hasOlderMessages ? (
+            paginationError?.direction === 'older' ? (
+              <TouchableOpacity
+                style={{ padding: 20, alignItems: 'center' }}
+                onPress={loadMoreMessages}
+              >
+                <Text style={{ color: '#c0392b' }}>Couldn't load older messages. Tap to retry.</Text>
+              </TouchableOpacity>
+            ) : loadingMore && hasOlderMessages ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
                 <Text style={{ color: '#666' }}>Loading older messages...</Text>
               </View>
@@ -2493,7 +2475,7 @@ const ChatScreen = ({navigation, route}) => {
               />
             );
           }}
-          contentContainerStyle={{ paddingVertical: 10, paddingBottom: totalBottomPadding + 16 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingVertical: 10, paddingBottom: totalBottomPadding + 16 }}
           style={{ flex: 1 }}
           // onContentSizeChange={() => {
           //   setTimeout(() => {
