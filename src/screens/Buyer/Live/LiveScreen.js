@@ -1,12 +1,3 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore';
 import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -23,7 +14,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
 import CalendarBlankIcon from '../../../assets/icons/greylight/calendar-blank-regular.svg';
@@ -32,6 +22,8 @@ import Avatar from '../../../components/Avatar/Avatar';
 import SearchHeader from '../../../components/Header/SearchHeader';
 import { resolveSellerDisplayName } from '../../../utils/resolveSellerAlias';
 import { useNavigation } from '@react-navigation/native';
+import { getLiveStreamsApi, getLiveSellersApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const getScreenDimensions = () => {
   const { width: screenWidth } = Dimensions.get('window');
@@ -79,6 +71,22 @@ const formatViewers = (count) => {
     return `${(count / 1000).toFixed(1)}k`;
   }
   return count.toString();
+};
+
+// Sort: live first, then waiting, then draft (draft sorted by scheduledAt ascending).
+const sortStreams = (list) => {
+  const statusOrder = { live: 0, waiting: 1, draft: 2 };
+  return [...list].sort((a, b) => {
+    if (statusOrder[a.status] !== statusOrder[b.status]) {
+      return statusOrder[a.status] - statusOrder[b.status];
+    }
+    if (a.status === 'draft' && b.status === 'draft') {
+      const aTime = a.scheduledAt?.seconds || 0;
+      const bTime = b.scheduledAt?.seconds || 0;
+      return aTime - bTime;
+    }
+    return 0;
+  });
 };
 
 const ShimmerSkeleton = ({ cardWidth, index }) => {
@@ -254,7 +262,6 @@ const LiveFeedCard = ({ stream, cardWidth, index, sellerMap, onPress }) => {
         </View>
 
         <View style={styles.sellerRow}>
-          <Avatar size={28} imageUri={seller.profileImage || seller.profilePhotoUrl} rounded />
           <View style={styles.sellerTextColumn}>
             <Text style={styles.sellerName} numberOfLines={1}>
               {sellerName}
@@ -335,53 +342,62 @@ const LiveScreen = () => {
   }, []);
 
   useEffect(() => {
-    const liveCollectionRef = collection(db, 'live');
-    const q = query(
-      liveCollectionRef,
-      where('status', 'in', ['live', 'waiting', 'draft']),
-      orderBy('createdAt', 'desc'),
-    );
+    let active = true;
+    let unsubscribeRealtime = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedStreams = [];
-      querySnapshot.forEach((document) => {
-        const data = document.data();
-        fetchedStreams.push({
-          id: document.id,
-          title: data.title || 'Untitled Stream',
-          coverPhotoUrl: data.coverPhotoUrl,
-          sessionId: data.sessionId || '',
-          status: data.status,
-          totalViewers: data.totalViewers || 0,
-          createdBy: data.createdBy || '',
-          liveType: data.liveType || 'live',
-          scheduledAt: data.scheduledAt || null,
-          createdAt: data.createdAt || null,
-        });
-      });
-
-      // Sort: live first, then waiting, then draft (draft sorted by scheduledAt ascending)
-      fetchedStreams.sort((a, b) => {
-        const statusOrder = { live: 0, waiting: 1, draft: 2 };
-        if (statusOrder[a.status] !== statusOrder[b.status]) {
-          return statusOrder[a.status] - statusOrder[b.status];
-        }
-        if (a.status === 'draft' && b.status === 'draft') {
-          const aTime = a.scheduledAt?.seconds || 0;
-          const bTime = b.scheduledAt?.seconds || 0;
-          return aTime - bTime;
-        }
-        return 0;
-      });
-
-      setStreams(fetchedStreams);
+    const loadStreams = async () => {
+      const res = await getLiveStreamsApi();
+      if (!active) return;
+      if (res.success) {
+        setStreams(sortStreams(res.streams));
+      } else {
+        console.error('LiveScreen loadStreams error:', res.error);
+      }
       setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    loadStreams();
+
+    // Realtime bridge: subscribe to live-table changes and merge them in.
+    subscribeToLiveStreams({
+      onInsert: (payload) => {
+        if (!active || !payload?.new) return;
+        setStreams((prev) => {
+          const next = [...prev];
+          const idx = next.findIndex((s) => s.id === payload.new.id);
+          if (idx >= 0) next[idx] = normalizeLiveRow(payload.new);
+          else next.push(normalizeLiveRow(payload.new));
+          return sortStreams(next);
+        });
+      },
+      onUpdate: (payload) => {
+        if (!active || !payload?.new) return;
+        setStreams((prev) => {
+          const idx = prev.findIndex((s) => s.id === payload.new.id);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = normalizeLiveRow(payload.new);
+          return sortStreams(next);
+        });
+      },
+      onDelete: (payload) => {
+        if (!active || !payload?.old) return;
+        setStreams((prev) => prev.filter((s) => s.id !== payload.old.id));
+      },
+    })
+      .then((unsub) => {
+        if (active) unsubscribeRealtime = unsub;
+        else unsub();
+      })
+      .catch((e) => console.error('LiveScreen realtime subscribe error:', e));
+
+    return () => {
+      active = false;
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
-  // Fetch seller info for unique createdBy UIDs
+  // Fetch seller info for unique createdBy UIDs (batched via live-sellers Edge).
   useEffect(() => {
     const fetchSellers = async () => {
       const uids = [...new Set(streams.map((s) => s.createdBy).filter(Boolean))];
@@ -391,36 +407,13 @@ const LiveScreen = () => {
       const missingUids = uids.filter((uid) => !newMap[uid]);
       if (missingUids.length === 0) return;
 
-      // Firestore 'in' queries max 10 items
-      const chunks = [];
-      for (let i = 0; i < missingUids.length; i += 10) {
-        chunks.push(missingUids.slice(i, i + 10));
+      const res = await getLiveSellersApi(missingUids);
+      if (res.success) {
+        Object.assign(newMap, res.sellers);
+        setSellerMap(newMap);
+      } else {
+        console.error('LiveScreen fetchSellers error:', res.error);
       }
-
-      for (const chunk of chunks) {
-        // We have to fetch individually because we don't know the queryable field name
-        // and supplier doc ID is the UID
-        await Promise.all(
-          chunk.map(async (uid) => {
-            try {
-              const supplierDocRef = doc(db, 'supplier', uid);
-              const docSnap = await getDoc(supplierDocRef);
-              if (docSnap.exists()) {
-                const data = docSnap.data();
-                newMap[uid] = {
-                  alias: data.alias || '',
-                  gardenOrCompanyName: data.gardenOrCompanyName || '',
-                  profileImage: data.profileImage || data.profilePhotoUrl || '',
-                };
-              }
-            } catch (e) {
-              console.error('Error fetching seller profile:', e);
-            }
-          }),
-        );
-      }
-
-      setSellerMap(newMap);
     };
 
     fetchSellers();

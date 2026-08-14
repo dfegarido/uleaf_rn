@@ -1,4 +1,3 @@
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Alert,
   Dimensions,
@@ -11,11 +10,12 @@ import { Alert,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
 
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
+import { getLiveStreamsApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const getScreenDimensions = () => {
   const { width: screenWidth } = Dimensions.get('window');
@@ -116,32 +116,79 @@ const OngoingLiveListScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    const liveCollectionRef = collection(db, 'live');
-    const q = query(
-      liveCollectionRef,
-      where('status', 'in', ['live', 'waiting']),
-      orderBy('createdAt', 'desc'),
-    );
+    let active = true;
+    let unsubscribeRealtime = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedLiveStreams = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        fetchedLiveStreams.push({
-          id: doc.id,
-          title: data.title || 'Untitled Stream',
-          thumbnail: data.coverPhotoUrl,
-          sessionId: data.sessionId || '',
-          status: data.status,
-          viewers: data.totalViewers || 0,
-          createdBy: data.createdBy || '',
-          liveType: data.liveType || 'live',
-        });
-      });
-      setLiveStreams(fetchedLiveStreams);
+    // Map a normalized stream row into the LiveVideoCard's expected shape.
+    const toCard = (row) => ({
+      id: row.id,
+      title: row.title || 'Untitled Stream',
+      thumbnail: row.coverPhotoUrl,
+      sessionId: row.sessionId || '',
+      status: row.status,
+      viewers: row.totalViewers || 0,
+      createdBy: row.createdBy || '',
+      liveType: row.liveType || 'live',
     });
 
-    return () => unsubscribe();
+    const loadOngoing = async () => {
+      const res = await getLiveStreamsApi();
+      if (!active) return;
+      if (res.success) {
+        const ongoing = res.streams
+          .filter((s) => s.status === 'live' || s.status === 'waiting')
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          .map(toCard);
+        setLiveStreams(ongoing);
+      } else {
+        console.error('OngoingLiveListScreen loadOngoing error:', res.error);
+      }
+    };
+
+    loadOngoing();
+
+    subscribeToLiveStreams({
+      onInsert: (payload) => {
+        if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        if (row.status !== 'live' && row.status !== 'waiting') return;
+        setLiveStreams((prev) => {
+          const next = [...prev];
+          const idx = next.findIndex((s) => s.id === row.id);
+          if (idx >= 0) next[idx] = toCard(row);
+          else next.push(toCard(row));
+          return next;
+        });
+      },
+      onUpdate: (payload) => {
+        if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        setLiveStreams((prev) => {
+          if (row.status !== 'live' && row.status !== 'waiting') {
+            return prev.filter((s) => s.id !== row.id);
+          }
+          const idx = prev.findIndex((s) => s.id === row.id);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = toCard(row);
+          return next;
+        });
+      },
+      onDelete: (payload) => {
+        if (!active || !payload?.old) return;
+        setLiveStreams((prev) => prev.filter((s) => s.id !== payload.old.id));
+      },
+    })
+      .then((unsub) => {
+        if (active) unsubscribeRealtime = unsub;
+        else unsub();
+      })
+      .catch((e) => console.error('OngoingLiveListScreen realtime subscribe error:', e));
+
+    return () => {
+      active = false;
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
   return (

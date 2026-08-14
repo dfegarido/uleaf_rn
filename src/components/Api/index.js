@@ -120,6 +120,7 @@ export {deleteAddressBookEntryApi} from './deleteAddressBookEntryApi';
 export {uploadProfilePhotoApi} from './uploadProfilePhotoApi';
 export {uploadChatShopPhotoApi} from './uploadChatShopPhotoApi';
 export * from './chatApi';
+export * from './liveApi';
 export {uploadBuyerContentPhotoApi} from './uploadBuyerContentPhotoApi';
 export {getBrowsePlantByGenusApi} from './getBrowsePlantByGenus';
 export {postBuyerUpdateInfoApi} from './postBuyerUpdateInfoApi';

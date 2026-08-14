@@ -1,13 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,14 +16,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import XIcon from '../../../assets/icons/greylight/x-regular';
-import Avatar from '../../../components/Avatar/Avatar';
 import { resolveSellerDisplayName } from '../../../utils/resolveSellerAlias';
+import { getLiveStreamsApi, getLiveSellersApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const RECENT_SEARCHES_KEY = 'recent_live_searches';
 const MAX_RECENT = 10;
@@ -127,7 +118,6 @@ const SearchResultCard = ({ stream, cardWidth, index, sellerMap, onPress }) => {
           </ImageBackground>
         </View>
         <View style={styles.sellerRow}>
-          <Avatar size={28} imageUri={seller.profileImage || seller.profilePhotoUrl} rounded />
           <View style={styles.sellerTextColumn}>
             <Text style={styles.sellerName} numberOfLines={1}>
               {sellerName}
@@ -172,38 +162,61 @@ const ScreenLiveSearch = ({ navigation }) => {
 
   // Fetch all streams
   useEffect(() => {
-    const liveCollectionRef = collection(db, 'live');
-    const q = query(
-      liveCollectionRef,
-      where('status', 'in', ['live', 'waiting', 'draft']),
-      orderBy('createdAt', 'desc'),
-    );
+    let active = true;
+    let unsubscribeRealtime = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedStreams = [];
-      querySnapshot.forEach((document) => {
-        const data = document.data();
-        fetchedStreams.push({
-          id: document.id,
-          title: data.title || 'Untitled Stream',
-          coverPhotoUrl: data.coverPhotoUrl,
-          sessionId: data.sessionId || '',
-          status: data.status,
-          totalViewers: data.totalViewers || 0,
-          createdBy: data.createdBy || '',
-          liveType: data.liveType || 'live',
-          scheduledAt: data.scheduledAt || null,
-          createdAt: data.createdAt || null,
-        });
-      });
-      setStreams(fetchedStreams);
+    const loadStreams = async () => {
+      const res = await getLiveStreamsApi();
+      if (!active) return;
+      if (res.success) {
+        setStreams(res.streams);
+      } else {
+        console.error('ScreenLiveSearch loadStreams error:', res.error);
+      }
       setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    loadStreams();
+
+    subscribeToLiveStreams({
+      onInsert: (payload) => {
+        if (!active || !payload?.new) return;
+        setStreams((prev) => {
+          const next = [...prev];
+          const idx = next.findIndex((s) => s.id === payload.new.id);
+          if (idx >= 0) next[idx] = normalizeLiveRow(payload.new);
+          else next.push(normalizeLiveRow(payload.new));
+          return next;
+        });
+      },
+      onUpdate: (payload) => {
+        if (!active || !payload?.new) return;
+        setStreams((prev) => {
+          const idx = prev.findIndex((s) => s.id === payload.new.id);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = normalizeLiveRow(payload.new);
+          return next;
+        });
+      },
+      onDelete: (payload) => {
+        if (!active || !payload?.old) return;
+        setStreams((prev) => prev.filter((s) => s.id !== payload.old.id));
+      },
+    })
+      .then((unsub) => {
+        if (active) unsubscribeRealtime = unsub;
+        else unsub();
+      })
+      .catch((e) => console.error('ScreenLiveSearch realtime subscribe error:', e));
+
+    return () => {
+      active = false;
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
-  // Fetch seller info for unique createdBy UIDs
+  // Fetch seller info for unique createdBy UIDs (batched via live-sellers Edge).
   useEffect(() => {
     const fetchSellers = async () => {
       const uids = [...new Set(streams.map((s) => s.createdBy).filter(Boolean))];
@@ -213,34 +226,13 @@ const ScreenLiveSearch = ({ navigation }) => {
       const missingUids = uids.filter((uid) => !newMap[uid]);
       if (missingUids.length === 0) return;
 
-      const chunks = [];
-      for (let i = 0; i < missingUids.length; i += 10) {
-        chunks.push(missingUids.slice(i, i + 10));
+      const res = await getLiveSellersApi(missingUids);
+      if (res.success) {
+        Object.assign(newMap, res.sellers);
+        setSellerMap(newMap);
+      } else {
+        console.error('ScreenLiveSearch fetchSellers error:', res.error);
       }
-
-      for (const chunk of chunks) {
-        await Promise.all(
-          chunk.map(async (uid) => {
-            try {
-              const supplierDocRef = doc(db, 'supplier', uid);
-              const docSnap = await getDoc(supplierDocRef);
-              if (docSnap.exists()) {
-                const data = docSnap.data();
-                newMap[uid] = {
-                  alias: data.alias || '',
-                  gardenOrCompanyName: data.gardenOrCompanyName || '',
-                  profileImage: data.profilePhotoUrl || data.profileImage || '',
-                  profilePhotoUrl: data.profilePhotoUrl || data.profileImage || '',
-                };
-              }
-            } catch {
-              // ignore individual fetch errors
-            }
-          }),
-        );
-      }
-
-      setSellerMap(newMap);
     };
 
     fetchSellers();

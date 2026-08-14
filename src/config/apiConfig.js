@@ -245,6 +245,8 @@ const generateEndpoints = () => ({
   POST_CHAT_DELETE: `${getSupabaseBaseUrl()}/chat-delete`,
   POST_CHAT_CREATE: `${getSupabaseBaseUrl()}/chat-create`,
   GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
+  GET_LIVE_STREAMS: `${getSupabaseBaseUrl()}/live-list`,
+  GET_LIVE_SELLERS: `${getSupabaseBaseUrl()}/live-sellers`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   
   // Listing Management APIs

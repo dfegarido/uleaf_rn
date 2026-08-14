@@ -1,10 +1,10 @@
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { db } from '../../../firebase';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
+import { getLiveStreamsApi, normalizeLiveRow } from '../Api/liveApi';
+import { subscribeToLiveStreams } from '../../utils/realtimeLive';
 
 const formatScheduledTime = (scheduledAt) => {
   if (!scheduledAt) return 'Date TBD';
@@ -143,44 +143,70 @@ const LiveSellerStrip = ({ navigation }) => {
   }, [phase, slideAnim]);
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'live'),
-      where('status', 'in', ['live', 'waiting', 'draft']),
-      orderBy('createdAt', 'desc'),
-    );
+    let active = true;
+    let unsubscribeRealtime = null;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const streams = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-
-        // Sort: live first, then waiting, then draft (by scheduledAt ascending)
-        streams.sort((a, b) => {
-          const statusOrder = { live: 0, waiting: 1, draft: 2 };
-          if (statusOrder[a.status] !== statusOrder[b.status]) {
-            return statusOrder[a.status] - statusOrder[b.status];
-          }
-          if (a.status === 'draft' && b.status === 'draft') {
-            const aTime = a.scheduledAt?.seconds || 0;
-            const bTime = b.scheduledAt?.seconds || 0;
-            return aTime - bTime;
-          }
-          return 0;
-        });
-
+    const loadStreams = async () => {
+      const res = await getLiveStreamsApi();
+      if (!active) return;
+      if (res.success) {
+        const streams = res.streams
+          .filter((s) => s.status === 'live' || s.status === 'waiting' || s.status === 'draft')
+          .sort((a, b) => {
+            const statusOrder = { live: 0, waiting: 1, draft: 2 };
+            if (statusOrder[a.status] !== statusOrder[b.status]) {
+              return statusOrder[a.status] - statusOrder[b.status];
+            }
+            if (a.status === 'draft' && b.status === 'draft') {
+              return (a.scheduledAt?.seconds || 0) - (b.scheduledAt?.seconds || 0);
+            }
+            return 0;
+          });
         setLiveStreams(streams);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('LiveSellerStrip onSnapshot error:', error);
-        setLoading(false);
-      },
-    );
+      } else {
+        console.error('LiveSellerStrip loadStreams error:', res.error);
+      }
+      setLoading(false);
+    };
 
-    return () => unsubscribe();
+    loadStreams();
+
+    subscribeToLiveStreams({
+      onInsert: (payload) => {
+        if (!active || !payload?.new) return;
+        setLiveStreams((prev) => {
+          const next = [...prev];
+          const idx = next.findIndex((s) => s.id === payload.new.id);
+          if (idx >= 0) next[idx] = normalizeLiveRow(payload.new);
+          else next.push(normalizeLiveRow(payload.new));
+          return next;
+        });
+      },
+      onUpdate: (payload) => {
+        if (!active || !payload?.new) return;
+        setLiveStreams((prev) => {
+          const idx = prev.findIndex((s) => s.id === payload.new.id);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = normalizeLiveRow(payload.new);
+          return next;
+        });
+      },
+      onDelete: (payload) => {
+        if (!active || !payload?.old) return;
+        setLiveStreams((prev) => prev.filter((s) => s.id !== payload.old.id));
+      },
+    })
+      .then((unsub) => {
+        if (active) unsubscribeRealtime = unsub;
+        else unsub();
+      })
+      .catch((e) => console.error('LiveSellerStrip realtime subscribe error:', e));
+
+    return () => {
+      active = false;
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
   const animatedSectionStyle = {
