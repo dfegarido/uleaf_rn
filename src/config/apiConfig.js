@@ -240,7 +240,10 @@ const generateEndpoints = () => ({
   GET_CHAT_MEMBERSHIP: `${getSupabaseBaseUrl()}/chat-membership`,
   POST_CHAT_JOIN_REQUEST: `${getSupabaseBaseUrl()}/chat-join-request`,
   GET_CHAT_PARTICIPANTS: `${getSupabaseBaseUrl()}/chat-participants`,
+  GET_CHAT_PARTICIPANTS_BATCH: `${getSupabaseBaseUrl()}/chat-participants-batch`,
   GET_CHATS: `${getSupabaseBaseUrl()}/chats`,
+  POST_CHAT_DELETE: `${getSupabaseBaseUrl()}/chat-delete`,
+  POST_CHAT_CREATE: `${getSupabaseBaseUrl()}/chat-create`,
   GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   

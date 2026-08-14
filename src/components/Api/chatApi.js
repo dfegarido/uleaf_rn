@@ -179,6 +179,39 @@ export const getChatParticipantsApi = async (chatId) => {
 };
 
 /**
+ * Resolve name + avatarUrl for a batch of UIDs (buyer/supplier/admin).
+ * Uses POST with a JSON body to avoid URL-length limits when the Rooms tab sends
+ * hundreds of group participant UIDs (React Native fetch can fail on very long
+ * GET query strings). Chunks into batches of 500 to respect the Edge cap.
+ * @param {string[]} uids
+ * @returns {Promise<{success, participants: {uid:{name,avatarUrl}}}}>
+ */
+const BATCH_CHUNK_SIZE = 500;
+export const getChatParticipantsBatchApi = async (uids) => {
+  try {
+    const unique = Array.from(new Set((uids || []).filter(Boolean)));
+    if (unique.length === 0) return { success: true, participants: {} };
+
+    const participants = {};
+    for (let i = 0; i < unique.length; i += BATCH_CHUNK_SIZE) {
+      const chunk = unique.slice(i, i + BATCH_CHUNK_SIZE);
+      const res = await fetch(API_ENDPOINTS.GET_CHAT_PARTICIPANTS_BATCH, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ uids: chunk }),
+      });
+      const body = await parseJson(res);
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      Object.assign(participants, body.participants || {});
+    }
+    return { success: true, participants, data: { participants } };
+  } catch (error) {
+    console.error('getChatParticipantsBatchApi error:', error.message);
+    return { success: false, participants: {}, error: error.message };
+  }
+};
+
+/**
  * Normalize a chat row from the Edge Function into the Firestore-compatible shape
  * the MessagesScreen already consumes (Firestore Timestamp-like objects with
  * .seconds / .toDate()). The Edge returns `timestamp` as an ISO string; the screen
@@ -244,6 +277,49 @@ export const getChatRealtimeTokenApi = async () => {
     return { success: true, token: body.token, expiresAt: body.expiresAt, data: body };
   } catch (error) {
     console.error('getChatRealtimeTokenApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Chat management operations backed by Supabase.
+ * @param {Object} opts { mode: 'delete'|'leave'|'remove-member', chatId, memberUid? }
+ */
+export const chatDeleteApi = async ({ mode, chatId, memberUid }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.POST_CHAT_DELETE, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode, chatId, memberUid }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('chatDeleteApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Create a new private chat in Supabase (closes the create-chat gap: the old
+ * Firestore-only addDoc produced chats that Supabase message reads rejected
+ * with "Not a participant of this chat").
+ * @param {Object} opts { id?, participantIds, participants, name?, avatarUrl? }
+ * @returns {Promise<{success, chat: {id, ...}}>}
+ */
+export const chatCreateApi = async ({ id, participantIds, participants, name, avatarUrl }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.POST_CHAT_CREATE, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ id, participantIds, participants, name, avatarUrl }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('chatCreateApi error:', error.message);
     return { success: false, error: error.message };
   }
 };

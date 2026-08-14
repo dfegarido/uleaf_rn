@@ -153,7 +153,7 @@ const normalizeRealtimeMessage = (row) => {
   const specials = {
     chatid: 'chatId', senderid: 'senderId', islisting: 'isListing', listingid: 'listingId',
     imageurl: 'imageUrl', imageurls: 'imageUrls', replyto: 'replyTo', createdat: 'createdAt',
-    updatedat: 'updatedAt', clientid: 'clientId', videourl: 'videoUrl', thumbnailurl: 'thumbnailUrl',
+    updatedat: 'updatedAt', client_id: 'clientId', videourl: 'videoUrl', thumbnailurl: 'thumbnailUrl',
     videoduration: 'videoDuration', videosize: 'videoSize', videoformat: 'videoFormat',
     deletedat: 'deletedAt', deletedby: 'deletedBy', edithistory: 'editHistory',
     lasteditedat: 'lastEditedAt', is_edited: 'isEdited',

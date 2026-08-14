@@ -40,6 +40,7 @@ import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { listAdminsApi } from '../../components/Api/listAdminsApi';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
+import { chatDeleteApi } from '../../components/Api/chatApi';
 
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 
@@ -1194,39 +1195,12 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setLoading(true);
-              
-              // Get the current chat document
-              const chatDocRef = doc(db, 'chats', chatId);
-              const chatDocSnap = await getDoc(chatDocRef);
-              
-              if (!chatDocSnap.exists()) {
-                throw new Error('Chat not found');
+
+              const res = await chatDeleteApi({ mode: 'leave', chatId });
+              if (!res.success) {
+                throw new Error(res.error || 'Failed to leave group');
               }
-              
-              const chatData = chatDocSnap.data();
-              const currentParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-              const currentParticipantIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
-              
-              // Find the exact participant object
-              const myParticipant = currentParticipants.find(p => p.uid === currentUserUid);
-              
-              if (myParticipant) {
-                // Remove yourself from the group
-                await updateDoc(chatDocRef, {
-                  participants: arrayRemove(myParticipant),
-                  participantIds: arrayRemove(currentUserUid),
-                });
-              } else {
-                // Fallback: manually filter
-                const updatedParticipants = currentParticipants.filter(p => p.uid !== currentUserUid);
-                const updatedParticipantIds = currentParticipantIds.filter(id => id !== currentUserUid);
-                
-                await updateDoc(chatDocRef, {
-                  participants: updatedParticipants,
-                  participantIds: updatedParticipantIds,
-                });
-              }
-              
+
               setLoading(false);
               // Navigate back to MessagesScreen (list of all chats) after leaving
               // Use a robust navigation approach that works for all user types (buyer, seller, admin)
@@ -1300,42 +1274,15 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setLoading(true);
-              
-              // First, get the current chat document to get exact participant objects
-              const chatDocRef = doc(db, 'chats', chatId);
-              const chatDocSnap = await getDoc(chatDocRef);
-              
-              if (!chatDocSnap.exists()) {
-                throw new Error('Chat not found');
+
+              const res = await chatDeleteApi({ mode: 'remove-member', chatId, memberUid: member.uid });
+              if (!res.success) {
+                throw new Error(res.error || 'Failed to remove member');
               }
-              
-              const chatData = chatDocSnap.data();
-              const currentParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-              const currentParticipantIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
-              
-              // Find the exact participant object from the document
-              const exactParticipant = currentParticipants.find(p => p.uid === member.uid);
-              
-              if (exactParticipant) {
-                // Remove the exact participant object
-                await updateDoc(chatDocRef, {
-                  participants: arrayRemove(exactParticipant),
-                  participantIds: arrayRemove(member.uid),
-                });
-              } else {
-                // Fallback: manually filter the arrays
-                const updatedParticipants = currentParticipants.filter(p => p.uid !== member.uid);
-                const updatedParticipantIds = currentParticipantIds.filter(id => id !== member.uid);
-                
-                await updateDoc(chatDocRef, {
-                  participants: updatedParticipants,
-                  participantIds: updatedParticipantIds,
-                });
-              }
-              
+
               // Update local state immediately
               setParticipants(prev => prev.filter(p => p.uid !== member.uid));
-              
+
               Alert.alert('Success', `${member.name} has been removed from the group.`);
             } catch (error) {
               console.log('Error removing member:', error);
@@ -1364,15 +1311,17 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             setLoading(true);
             try {
-              await deleteDoc(doc(db, 'chats', chatId));
+              const res = await chatDeleteApi({ mode: 'delete', chatId });
+              if (!res.success) {
+                throw new Error(res.error || 'Failed to delete chat');
+              }
               setLoading(false);
-              // Navigate back to MessagesScreen (list of all chats) after deleting
-              // Use goBack() twice to go back through ChatScreen to MessagesScreen
-              // This works regardless of navigation context (admin, buyer, seller)
-              navigation.goBack(); // Go back from ChatSettingsScreen to ChatScreen
-              setTimeout(() => {
-                navigation.goBack(); // Go back from ChatScreen to MessagesScreen
-              }, 300);
+              // Navigate to MessagesScreen, which pops the stack back to the
+              // existing MessagesScreen and unmounts ChatScreen — so ChatScreen's
+              // focus effect never re-fires loadInitialMessages for the deleted chat.
+              // Pass deletedChatId so MessagesScreen can optimistically remove it
+              // from the list immediately, before the refetch completes.
+              navigation.navigate('MessagesScreen', { deletedChatId: chatId });
             } catch (error) {
               console.log('Error deleting chat:', error);
               Alert.alert('Error', 'Failed to delete chat. Please try again.');
