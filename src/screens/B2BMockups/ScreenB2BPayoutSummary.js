@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import {globalStyles} from '../../assets/styles/styles';
@@ -30,6 +29,31 @@ const GROUP_KEYS = [
   {key: 'scanDate', label: 'Scan'},
 ];
 
+const GROUP_FALLBACK = {
+  liveSaleDate: 'No live sale date',
+  orderDate: 'No order date',
+  scanDate: 'Not scanned',
+};
+
+const GROUP_TITLE = {
+  liveSaleDate: 'Live sale date',
+  orderDate: 'Order date',
+  scanDate: 'Scan date',
+};
+
+const groupValue = (item, groupBy) => {
+  const raw = item?.[groupBy];
+  if (!raw || raw === '—' || raw === '-') {
+    return GROUP_FALLBACK[groupBy];
+  }
+  return raw;
+};
+
+const parseGroupDate = label => {
+  const timestamp = Date.parse(label);
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
 const STATUS_FILTERS = [
   {key: 'all', label: 'All'},
   {key: 'Ready for partial', label: 'Ready'},
@@ -45,32 +69,28 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [payouts, setPayouts] = useState(SAMPLE_PAYOUTS);
   const [usingSample, setUsingSample] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      const load = async () => {
-        setLoading(true);
-        const result = await listB2BPayoutApi();
-        if (!active) {
-          return;
-        }
-        if (result.success && Array.isArray(result.data?.items)) {
-          setPayouts(result.data.items);
-          setUsingSample(false);
-        } else {
-          setPayouts(SAMPLE_PAYOUTS);
-          setUsingSample(true);
-        }
-        setLoading(false);
-      };
-      load();
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const result = await listB2BPayoutApi();
+      if (!active) {
+        return;
+      }
+      if (result.success && Array.isArray(result.data?.items)) {
+        setPayouts(result.data.items);
+        setUsingSample(false);
+      } else {
+        setPayouts(SAMPLE_PAYOUTS);
+        setUsingSample(true);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     if (statusFilter === 'all') {
@@ -82,13 +102,27 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const groups = useMemo(() => {
     const map = {};
     filtered.forEach(item => {
-      const key = item[groupBy] || 'Not scanned';
+      const key = groupValue(item, groupBy);
       if (!map[key]) {
         map[key] = [];
       }
       map[key].push(item);
     });
-    return Object.entries(map);
+    const fallback = GROUP_FALLBACK[groupBy];
+    return Object.entries(map).sort(([a], [b]) => {
+      if (a === fallback && b !== fallback) {
+        return 1;
+      }
+      if (a !== fallback && b === fallback) {
+        return -1;
+      }
+      const dateA = parseGroupDate(a);
+      const dateB = parseGroupDate(b);
+      if (dateA != null && dateB != null) {
+        return dateA - dateB;
+      }
+      return String(a).localeCompare(String(b));
+    });
   }, [filtered, groupBy]);
 
   const totals = payouts.reduce(
@@ -136,7 +170,9 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
         navigation={navigation}
         title={isAdmin ? 'B2B Payouts' : 'Payouts'}
       />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <Text style={styles.heroKicker}>{isAdmin ? 'ADMIN' : 'SELLER'}</Text>
           <Text style={styles.heroLabel}>Net payout</Text>
@@ -224,7 +260,9 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
             return (
               <View key={date} style={styles.dateBlock}>
                 <View style={styles.dateHead}>
-                  <Text style={styles.dateTitle}>{date}</Text>
+                  <Text style={styles.dateTitle}>
+                    {GROUP_TITLE[groupBy]} · {date}
+                  </Text>
                   <Text style={[styles.dateNet, net < 0 && styles.negative]}>
                     {formatUsd(net)}
                   </Text>
@@ -233,6 +271,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
                   <PayoutCard
                     key={item.id}
                     item={item}
+                    groupBy={groupBy}
                     onPress={() =>
                       navigation.navigate('ScreenB2BPayoutDetail', {
                         payout: item,
@@ -262,11 +301,12 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   );
 };
 
-const PayoutCard = ({item, onPress}) => {
+const PayoutCard = React.memo(({item, groupBy, onPress}) => {
   const netValue = getGrossNetPayout(item);
   const tone = payoutStatusTone(item.payoutStatus);
   const remaining = Number(((netValue || 0) - (item.amountPaid || 0)).toFixed(2));
   const hasProof = (item.proofs || []).length > 0;
+  const groupedDate = groupValue(item, groupBy);
 
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
@@ -275,6 +315,9 @@ const PayoutCard = ({item, onPress}) => {
           <Text style={styles.plant}>{item.plant}</Text>
           <Text style={styles.meta}>
             #{item.orderId} · {item.potSize} · {item.businessName}
+          </Text>
+          <Text style={styles.groupMeta}>
+            {GROUP_TITLE[groupBy]} · {groupedDate}
           </Text>
         </View>
         <View style={styles.amountCol}>
@@ -317,7 +360,7 @@ const PayoutCard = ({item, onPress}) => {
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const HeroStat = ({label, value}) => (
   <View style={styles.heroStat}>
@@ -452,7 +495,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginBottom: 8,
   },
-  dateTitle: {fontWeight: '700', color: '#556065', fontSize: 13},
+  dateTitle: {fontWeight: '700', color: '#556065', fontSize: 13, flex: 1, paddingRight: 8},
   dateNet: {fontWeight: '700', color: '#356641', fontSize: 13},
   card: {
     backgroundColor: '#f2f7f3',
@@ -465,6 +508,7 @@ const styles = StyleSheet.create({
   cardTop: {flexDirection: 'row', alignItems: 'flex-start'},
   plant: {fontWeight: '700', color: '#202325', fontSize: 16},
   meta: {color: '#7F8D91', fontSize: 12, marginTop: 4},
+  groupMeta: {color: '#356641', fontSize: 12, marginTop: 6, fontWeight: '600'},
   amountCol: {alignItems: 'flex-end'},
   amount: {fontWeight: '700', color: '#539461', fontSize: 18},
   paidHint: {color: '#7F8D91', fontSize: 11, marginTop: 4},

@@ -192,42 +192,67 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title={`Order #${seed.orderId}`} />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.plant}>{seed.plant}</Text>
-        <Text style={styles.meta}>
-          {seed.potSize} · {seed.businessName} · {seed.country}
-        </Text>
-
-        <View style={styles.flags}>
-          <Flag label="Payout" value={payoutStatus} tone={tone} />
-          <Flag
-            label="Leaf Trail"
-            value={seed.leafTrailStatus}
-            tone={seed.scanned ? 'scan' : 'wait'}
-          />
-        </View>
-
-        <View style={styles.scanCard}>
-          <Text style={styles.scanTitle}>QR / scan status</Text>
-          <Text style={styles.scanBody}>{scanLabel}</Text>
-          <Text style={styles.scanHint}>
-            Same scan visibility as Admin Orders. Payout is calculated only when
-            Leaf Trail is Inventory for Hub.
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <Text style={styles.heroKicker}>{seed.businessName}</Text>
+          <Text style={styles.plant}>{seed.plant}</Text>
+          <Text style={styles.meta}>
+            {seed.potSize}
+            {seed.variegation ? ` · ${seed.variegation}` : ''} · {seed.country}
           </Text>
+          <Text style={styles.heroLabel}>Net payout</Text>
+          <Text style={[styles.heroAmount, (net == null || net < 0) && styles.negative]}>
+            {formatUsd(net)}
+          </Text>
+          <View style={styles.badgeRow}>
+            <StatusPill label={payoutStatus} tone={tone} />
+            <StatusPill
+              label={seed.scanned ? seed.leafTrailStatus : 'Not scanned'}
+              tone={seed.scanned ? 'scan' : 'wait'}
+            />
+          </View>
+          {net != null && net > 0 ? (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {width: `${Math.min(100, Math.max(0, (amountPaid / net) * 100))}%`},
+                  ]}
+                />
+              </View>
+              <View style={styles.heroStats}>
+                <HeroStat label="Paid" value={formatUsd(amountPaid)} />
+                <HeroStat label="Remaining" value={formatUsd(remaining)} />
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.dates}>
-          <DateCell label="Live Sale" value={seed.liveSaleDate} />
-          <DateCell label="Order Date" value={seed.orderDate} />
-          <DateCell label="Scan Date" value={seed.scanDate} />
+          <DateCell label="Live sale" value={seed.liveSaleDate} />
+          <DateCell label="Order date" value={seed.orderDate} />
+          <DateCell label="Scan date" value={seed.scanDate} />
+        </View>
+
+        <View style={[styles.panel, seed.scanned ? styles.panelOk : styles.panelWait]}>
+          <View style={styles.panelHead}>
+            <View style={[styles.dot, seed.scanned ? styles.dotOk : styles.dotWait]} />
+            <Text style={styles.panelTitle}>QR / Leaf Trail</Text>
+          </View>
+          <Text style={styles.panelBody}>{scanLabel}</Text>
+          <Text style={styles.panelHint}>
+            Payout is calculated only when Leaf Trail is Inventory for Hub. Full remaining
+            releases after hub staff receives the plant.
+          </Text>
         </View>
 
         {!eligible && !exception ? (
-          <View style={styles.blockCard}>
-            <Text style={styles.blockTitle}>Payout not calculated</Text>
-            <Text style={styles.blockBody}>
-              Seller must scan the plant QR first so Leaf Trail is Inventory for
-              Hub. This confirms the sold plant exists and a QR is attached.
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Payout not calculated</Text>
+            <Text style={styles.panelHint}>
+              Seller must scan the plant QR first so Leaf Trail is Inventory for Hub.
+              This confirms the sold plant exists and a QR is attached.
             </Text>
           </View>
         ) : exception ? (
@@ -239,7 +264,7 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
               Buyer plant credit is issued automatically. Seller is charged a{' '}
               {CANCELLATION_FEE_PERCENT}% cancellation fee on listed USD.
             </Text>
-            <View style={styles.card}>
+            <View style={styles.breakdown}>
               <Row label="Listed USD price" value={formatUsd(seed.listedPrice)} />
               <Row
                 label={`Cancellation fee (${CANCELLATION_FEE_PERCENT}%)`}
@@ -268,15 +293,16 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
             </Text>
           </View>
         ) : (
-          <View style={styles.card}>
+          <View style={styles.breakdown}>
+            <Text style={styles.breakdownTitle}>Payout breakdown</Text>
             <Row label="Listed USD price" value={formatUsd(seed.listedPrice)} />
             <Row
               label={`Commission (${seed.commissionRate}%)`}
               value={`− ${formatUsd(seed.commission)}`}
-              negative
+              dim
             />
-            <Row label="Logistics" value={`− ${formatUsd(seed.logistics)}`} negative />
-            <Row label="Plant Care" value={`− ${formatUsd(seed.plantCare)}`} negative />
+            <Row label="Logistics" value={`− ${formatUsd(seed.logistics)}`} dim />
+            <Row label="Plant care" value={`− ${formatUsd(seed.plantCare)}`} dim />
             <View style={styles.divider} />
             <Row label="Net payout" value={formatUsd(net)} emphasis />
             <Row label="Paid so far" value={formatUsd(amountPaid)} />
@@ -285,8 +311,8 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
         )}
 
         {isAdmin && eligible && !exception ? (
-          <>
-            <Text style={styles.section}>Partial payout (70–80%)</Text>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Partial payout (70–80%)</Text>
             <View style={styles.segment}>
               {PARTIAL_PERCENT_OPTIONS.map(pct => (
                 <TouchableOpacity
@@ -304,19 +330,19 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={styles.partialHint}>
-              {partialPercent}% of {formatUsd(net)} = {formatUsd(partialAmount)}. Full
-              remaining releases after hub staff receives the plant.
+            <Text style={styles.panelHint}>
+              {partialPercent}% of {formatUsd(net)} = {formatUsd(partialAmount)}. Remaining
+              releases after hub receive.
             </Text>
-          </>
+          </View>
         ) : null}
 
         {isAdmin ? (
-          <View style={styles.proofCard}>
-            <Text style={styles.section}>Proof of transfer</Text>
-            <Text style={styles.proofHint}>
-              Attach a screenshot of the bank or Remitly transaction before marking
-              Partially paid or Fully paid.
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Proof of transfer</Text>
+            <Text style={styles.panelHint}>
+              Attach a bank or Remitly screenshot before marking Partially paid or Fully
+              paid.
             </Text>
             {proofs.map((proof, index) => (
               <View key={`${proof.kind}-${index}`} style={styles.proofRow}>
@@ -345,8 +371,8 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
             <ImagePickerModal onImagePicked={attachProof} limit={1} />
           </View>
         ) : proofs.length ? (
-          <View style={styles.proofCard}>
-            <Text style={styles.section}>Proof of transfer</Text>
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Proof of transfer</Text>
             <Text style={styles.proofMeta}>
               {latestProof.label} · {latestProof.attachedAt}
             </Text>
@@ -393,12 +419,26 @@ const DateCell = ({label, value}) => (
   </View>
 );
 
-const Row = ({label, value, negative, emphasis}) => (
+const HeroStat = ({label, value}) => (
+  <View style={styles.heroStat}>
+    <Text style={styles.heroStatValue}>{value}</Text>
+    <Text style={styles.heroStatLabel}>{label}</Text>
+  </View>
+);
+
+const StatusPill = ({label, tone}) => (
+  <View style={[styles.pill, styles[`pill_${tone}`]]}>
+    <Text style={[styles.pillText, styles[`pillText_${tone}`]]}>{label}</Text>
+  </View>
+);
+
+const Row = ({label, value, negative, emphasis, dim}) => (
   <View style={styles.row}>
     <Text style={[styles.rowLabel, emphasis && styles.emphasis]}>{label}</Text>
     <Text
       style={[
         styles.rowValue,
+        dim && styles.rowDim,
         emphasis && styles.emphasis,
         negative && styles.negative,
       ]}>
@@ -407,115 +447,158 @@ const Row = ({label, value, negative, emphasis}) => (
   </View>
 );
 
-const Flag = ({label, value, tone}) => (
-  <View style={styles.flag}>
-    <Text style={styles.flagLabel}>{label}</Text>
-    <View style={[styles.flagChip, styles[`flag_${tone}`]]}>
-      <Text style={[styles.flagText, styles[`flagText_${tone}`]]}>{value}</Text>
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
   content: {padding: 20, paddingBottom: 40},
-  plant: {fontSize: 20, fontWeight: '700', color: '#202325'},
-  meta: {color: '#7F8D91', marginTop: 4, marginBottom: 16},
-  flags: {flexDirection: 'row', gap: 12, marginBottom: 16},
-  flag: {flex: 1},
-  flagLabel: {color: '#7F8D91', fontSize: 12, marginBottom: 6},
-  flagChip: {alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6},
-  flagText: {fontWeight: '700', fontSize: 12},
-  flag_paid: {backgroundColor: '#DFECDF'},
-  flagText_paid: {color: '#356641'},
-  flag_partial: {backgroundColor: '#FEF0C7'},
-  flagText_partial: {color: '#B54708'},
-  flag_ready: {backgroundColor: '#D1E9FF'},
-  flagText_ready: {color: '#175CD3'},
-  flag_alert: {backgroundColor: '#FEE4E2'},
-  flagText_alert: {color: '#B42318'},
-  flag_wait: {backgroundColor: '#E4E7E9'},
-  flagText_wait: {color: '#475467'},
-  flag_scan: {backgroundColor: '#E4E7E9'},
-  flagText_scan: {color: '#344054'},
-  scanCard: {
-    backgroundColor: '#F5F6F6',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+  hero: {
+    backgroundColor: '#f2f7f3',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 12,
   },
-  scanTitle: {fontWeight: '700', color: '#202325', marginBottom: 4},
-  scanBody: {color: '#202325', fontSize: 14},
-  scanHint: {color: '#7F8D91', fontSize: 12, marginTop: 6, lineHeight: 18},
-  dates: {flexDirection: 'row', gap: 8, marginBottom: 16},
+  heroKicker: {
+    color: '#356641',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  plant: {fontSize: 22, fontWeight: '700', color: '#202325'},
+  meta: {color: '#556065', marginTop: 4, fontSize: 13},
+  heroLabel: {color: '#556065', fontSize: 12, marginTop: 14},
+  heroAmount: {color: '#539461', fontSize: 32, fontWeight: '700', marginTop: 2},
+  badgeRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12},
+  progressWrap: {marginTop: 16},
+  progressTrack: {
+    height: 8,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+  },
+  progressFill: {height: '100%', backgroundColor: '#539461', borderRadius: 8},
+  heroStats: {flexDirection: 'row', marginTop: 12},
+  heroStat: {flex: 1},
+  heroStatValue: {color: '#356641', fontWeight: '700', fontSize: 14},
+  heroStatLabel: {color: '#7F8D91', fontSize: 11, marginTop: 2, fontWeight: '600'},
+  pill: {paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8},
+  pillText: {fontSize: 11, fontWeight: '700'},
+  pill_paid: {backgroundColor: '#DFECDF'},
+  pillText_paid: {color: '#356641'},
+  pill_partial: {backgroundColor: '#FEF0C7'},
+  pillText_partial: {color: '#B54708'},
+  pill_ready: {backgroundColor: '#D1E9FF'},
+  pillText_ready: {color: '#175CD3'},
+  pill_alert: {backgroundColor: '#FEE4E2'},
+  pillText_alert: {color: '#B42318'},
+  pill_wait: {backgroundColor: '#E4E7E9'},
+  pillText_wait: {color: '#475467'},
+  pill_scan: {backgroundColor: '#DFECDF'},
+  pillText_scan: {color: '#356641'},
+  dates: {flexDirection: 'row', gap: 8, marginBottom: 12},
   dateCell: {
     flex: 1,
-    backgroundColor: '#F5F6F6',
-    borderRadius: 10,
-    padding: 10,
-  },
-  dateLabel: {color: '#7F8D91', fontSize: 11, marginBottom: 4},
-  dateValue: {color: '#202325', fontWeight: '600', fontSize: 13},
-  card: {
+    backgroundColor: '#f2f7f3',
     borderWidth: 1,
-    borderColor: '#E4E7E9',
+    borderColor: '#C0DAC2',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
   },
+  dateLabel: {color: '#7F8D91', fontSize: 11, marginBottom: 4, fontWeight: '600'},
+  dateValue: {color: '#202325', fontWeight: '700', fontSize: 13},
+  panel: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  panelOk: {backgroundColor: '#f2f7f3'},
+  panelWait: {backgroundColor: '#F5F6F6', borderColor: '#E4E7E9'},
+  panelHead: {flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6},
+  dot: {width: 10, height: 10, borderRadius: 5},
+  dotOk: {backgroundColor: '#539461'},
+  dotWait: {backgroundColor: '#A9B3B7'},
+  panelTitle: {fontWeight: '700', color: '#202325', fontSize: 15},
+  panelBody: {color: '#202325', fontSize: 14, marginTop: 2},
+  panelHint: {color: '#7F8D91', fontSize: 12, marginTop: 8, lineHeight: 18},
+  breakdown: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  breakdownTitle: {fontWeight: '700', color: '#202325', fontSize: 15, marginBottom: 12},
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   rowLabel: {color: '#556065', fontSize: 14, flex: 1, paddingRight: 8},
   rowValue: {color: '#202325', fontSize: 14, fontWeight: '600'},
+  rowDim: {color: '#7F8D91'},
   negative: {color: '#B42318'},
-  emphasis: {fontWeight: '700', color: '#202325', fontSize: 16},
-  divider: {height: 1, backgroundColor: '#E4E7E9', marginBottom: 12},
-  blockCard: {
-    backgroundColor: '#F5F6F6',
-    borderRadius: 12,
-    padding: 16,
-  },
-  blockTitle: {fontWeight: '700', color: '#202325', marginBottom: 6},
-  blockBody: {color: '#556065', fontSize: 13, lineHeight: 20},
+  emphasis: {fontWeight: '700', color: '#356641', fontSize: 16},
+  divider: {height: 1, backgroundColor: '#C0DAC2', marginBottom: 12, marginTop: 4},
   alertCard: {
     backgroundColor: '#FEF3F2',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
+    marginBottom: 12,
   },
-  alertTitle: {fontWeight: '700', color: '#B42318', marginBottom: 6},
+  alertTitle: {fontWeight: '700', color: '#B42318', marginBottom: 6, fontSize: 15},
   alertBody: {color: '#912018', fontSize: 13, lineHeight: 20, marginBottom: 12},
   creditNote: {color: '#356641', fontSize: 12, fontWeight: '600', marginTop: 10},
-  section: {fontWeight: '700', color: '#202325', marginTop: 20, marginBottom: 8},
   segment: {
     flexDirection: 'row',
-    backgroundColor: '#F5F6F6',
+    backgroundColor: '#f2f7f3',
     borderRadius: 10,
     padding: 4,
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    marginTop: 10,
   },
   segBtn: {flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center'},
-  segBtnOn: {backgroundColor: '#fff'},
-  segText: {color: '#7F8D91', fontSize: 13, fontWeight: '700'},
-  segTextOn: {color: '#202325'},
-  partialHint: {color: '#7F8D91', fontSize: 12, marginTop: 8, lineHeight: 18},
-  proofCard: {marginTop: 8},
-  proofHint: {color: '#7F8D91', fontSize: 12, marginBottom: 10, lineHeight: 18},
-  proofRow: {flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10},
-  proofThumb: {width: 48, height: 48, borderRadius: 8, backgroundColor: '#E4E7E9'},
+  segBtnOn: {backgroundColor: '#539461'},
+  segText: {color: '#356641', fontSize: 13, fontWeight: '700'},
+  segTextOn: {color: '#fff'},
+  proofRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 10,
+    backgroundColor: '#f2f7f3',
+    borderRadius: 12,
+    padding: 10,
+  },
+  proofThumb: {width: 52, height: 52, borderRadius: 8, backgroundColor: '#DFECDF'},
   proofPlaceholder: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: 8,
-    backgroundColor: '#E4E7E9',
+    backgroundColor: '#DFECDF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  proofPlaceholderText: {color: '#7F8D91', fontSize: 10, fontWeight: '700'},
-  proofLabel: {fontWeight: '600', color: '#202325'},
+  proofPlaceholderText: {color: '#356641', fontSize: 10, fontWeight: '700'},
+  proofLabel: {fontWeight: '700', color: '#202325'},
   proofMeta: {color: '#7F8D91', fontSize: 12, marginTop: 2},
-  warn: {color: '#B54708', fontSize: 12, fontWeight: '600', marginBottom: 8},
-  waitNote: {color: '#B54708', fontSize: 12, marginTop: 12, lineHeight: 18},
+  warn: {color: '#B54708', fontSize: 12, fontWeight: '600', marginTop: 8, marginBottom: 4},
+  waitNote: {
+    color: '#B54708',
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 18,
+    backgroundColor: '#FEF0C7',
+    borderRadius: 10,
+    padding: 12,
+  },
 });
 
 export default ScreenB2BPayoutDetail;
