@@ -1,5 +1,6 @@
 import React, { memo, useRef, useState } from 'react';
 import {
+  Alert,
   Dimensions,
   Image,
   Modal,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import Options from '../../../../assets/admin-icons/options.svg';
@@ -90,15 +92,29 @@ const PlantImagePeek = ({ uri }) => {
   );
 };
 
-const MetaChip = ({ label, value }) => {
+const MetaChip = ({ label, value, onPress, valueStyle, accessibilityLabel }) => {
   if (!value) return null;
-  return (
-    <View style={styles.metaChip}>
+  const content = (
+    <>
       <Text style={styles.metaChipLabel}>{label}</Text>
-      <Text style={styles.metaChipValue} numberOfLines={1}>
+      <Text style={[styles.metaChipValue, valueStyle]} numberOfLines={1}>
         {value}
       </Text>
-    </View>
+    </>
+  );
+  if (!onPress) {
+    return <View style={styles.metaChip}>{content}</View>;
+  }
+  return (
+    <TouchableOpacity
+      style={[styles.metaChip, styles.metaChipClickable]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || `View invoice for ${value}`}
+      accessibilityHint="Opens the invoice for this transaction">
+      {content}
+    </TouchableOpacity>
   );
 };
 
@@ -112,6 +128,7 @@ const ForReceivingPlantCard = ({
   statusPillLabel = 'For Receiving',
   statusPillVariant = 'forReceiving',
 }) => {
+  const navigation = useNavigation();
   const flightLabel = formatPlantFlightDateForDisplay(item.flightDate) || item.flightDate || '—';
   const dateOrdered = getDateOrderedDatePart(item);
   const garden = item.gardenOrCompanyName || item.gardenName || '';
@@ -123,6 +140,18 @@ const ForReceivingPlantCard = ({
 
   const openTagMenu = () => {
     openTagAs(null, item.id);
+  };
+
+  const openInvoice = () => {
+    const transactionNumber = String(txn || '').trim();
+    if (!transactionNumber) {
+      Alert.alert(
+        'Invoice unavailable',
+        'This plant has no transaction number, so an invoice cannot be opened.',
+      );
+      return;
+    }
+    navigation.navigate('InvoiceViewScreen', { transactionNumber });
   };
 
   return (
@@ -173,7 +202,13 @@ const ForReceivingPlantCard = ({
 
       {!compact && (txn || garden || buyer || usd) ? (
         <View style={styles.metaRow}>
-          <MetaChip label="Txn" value={txn} />
+          <MetaChip
+            label="Txn"
+            value={txn}
+            onPress={txn ? openInvoice : undefined}
+            valueStyle={txn ? styles.metaChipValueLink : undefined}
+            accessibilityLabel={`View invoice for ${txn}`}
+          />
           <MetaChip label="Garden" value={garden} />
           <MetaChip label="Buyer" value={buyer} />
           {usd ? (
@@ -212,7 +247,17 @@ const ForReceivingPlantCard = ({
           ) : null}
           {compact ? (
             <View style={styles.compactMeta}>
-              {txn ? <Text style={styles.compactMetaText}>#{txn}</Text> : null}
+              {txn ? (
+                <TouchableOpacity
+                  onPress={openInvoice}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View invoice for ${txn}`}>
+                  <Text style={[styles.compactMetaText, styles.compactTxnLink]} numberOfLines={1}>
+                    #{txn}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               {garden ? <Text style={styles.compactMetaText}>{garden}</Text> : null}
             </View>
           ) : null}
@@ -353,6 +398,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 5,
+  },
+  metaChipClickable: {
+    backgroundColor: '#F3FAF4',
+    borderWidth: 1,
+    borderColor: '#C5E3CC',
+  },
+  metaChipValueLink: {
+    color: '#1B7A43',
+    textDecorationLine: 'underline',
+  },
+  compactTxnLink: {
+    color: '#1B7A43',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   metaChipLabel: {
     fontSize: 10,

@@ -82,7 +82,15 @@ const InvoiceViewScreen = () => {
       setLoading(false);
     } catch (err) {
       console.error('Error loading invoice:', err);
-      setError(err.message || 'Failed to load invoice');
+      const raw = String(err.message || '').trim();
+      const looksUnavailable =
+        !raw ||
+        /not found|unavailable|no order|cannot be generated|only be generated/i.test(raw);
+      setError(
+        looksUnavailable
+          ? `Invoice is unavailable for transaction ${transactionNumber}.`
+          : raw,
+      );
       setLoading(false);
     }
   };
