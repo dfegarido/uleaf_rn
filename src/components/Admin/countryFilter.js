@@ -21,7 +21,15 @@ const CountryOption = ({ label, isSelected, onSelect }) => (
 
 const CountryFilter = ({ isVisible, onClose, onApply }) => {
   // Mock data for the list of countries
-  const availableCountries = [{label: 'Thailand', value: 'TH'}, {label: 'Indonesia', value: 'ID'}, {label: 'Philippines', value: 'PH'}];
+  const availableCountries = [
+    {label: 'Thailand', value: 'TH'},
+    {label: 'Indonesia', value: 'ID'},
+    {label: 'Philippines', value: 'PH'},
+    {label: 'Singapore', value: 'SG'},
+    {label: 'Vietnam', value: 'VN'},
+    {label: 'Taiwan', value: 'TW'},
+    {label: 'United States', value: 'US'},
+  ];
   
   // State to manage the array of selected countries
   const [selectedCountries, setSelectedCountries] = useState([]);

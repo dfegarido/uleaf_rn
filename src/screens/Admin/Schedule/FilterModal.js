@@ -64,7 +64,7 @@ const FilterModal = ({ visible, onClose, onApply, filterType, selectedValues = [
       case 'status':
         return ['Active', 'Canceled'];
       case 'country':
-        return ['Philippines', 'Thailand', 'Indonesia'];
+        return ['Philippines', 'Thailand', 'Indonesia', 'Singapore', 'Vietnam', 'Taiwan', 'United States'];
       default:
         return [];
     }

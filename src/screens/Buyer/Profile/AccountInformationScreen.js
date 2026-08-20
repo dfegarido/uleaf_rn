@@ -113,6 +113,9 @@ const AccountInformationScreen = () => {
     { code: '+63', country: 'PH', flag: '🇵🇭' },
     { code: '+66', country: 'TH', flag: '🇹🇭' },
     { code: '+62', country: 'ID', flag: '🇮🇩' },
+    { code: '+65', country: 'SG', flag: '🇸🇬' },
+    { code: '+84', country: 'VN', flag: '🇻🇳' },
+    { code: '+886', country: 'TW', flag: '🇹🇼' },
   ];
 
   useEffect(() => {

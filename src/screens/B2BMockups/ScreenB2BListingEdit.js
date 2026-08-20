@@ -108,6 +108,10 @@ const ScreenB2BListingEdit = ({navigation}) => {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="Live listings" />
+      <Text style={styles.usdNote}>
+        Business listings use exact USD. Seller enters $197.00, buyer sees $197.00. No
+        conversion and no rounding to $5.
+      </Text>
       <View style={styles.toolbar}>
         <TouchableOpacity
           style={[styles.toolBtn, manageMode && styles.toolBtnOn]}
@@ -278,6 +282,13 @@ const ChipCell = ({value, options, onChange, small}) => (
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
+  usdNote: {
+    color: '#556065',
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
   toolbar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

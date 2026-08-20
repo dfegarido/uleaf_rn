@@ -1840,7 +1840,7 @@ const BuyXGetY = () => {
           <View style={styles.fullscreenOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.countrySheetContainer}>
-                {(countryOptions.length ? countryOptions : ['Thailand','Indonesia','Philippines']).map((label, idx, arr) => (
+                {(countryOptions.length ? countryOptions : ['Thailand','Indonesia','Philippines','Singapore','Vietnam','Taiwan']).map((label, idx, arr) => (
                   <View key={`${label}-${idx}`}>
                     <View style={styles.typeRowWrapper}>
                       <TouchableOpacity

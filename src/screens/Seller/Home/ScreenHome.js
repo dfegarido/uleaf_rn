@@ -572,7 +572,8 @@ const ScreenHome = ({navigation}) => {
             <Text style={styles.b2bPreviewKicker}>B2B ASIA MOCKUP</Text>
             <Text style={styles.b2bPreviewTitle}>Listing inline + bulk edit</Text>
             <Text style={styles.b2bPreviewBody}>
-              Edit USD price, pot size, height, status, pin, and listing type. Then Manage for bulk updates.
+          Edit USD price, pot size, height, status, pin, and listing type. Business
+          listings keep the exact USD entered — no conversion and no $5 rounding.
             </Text>
           </TouchableOpacity>
 

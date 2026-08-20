@@ -374,6 +374,8 @@ const generateEndpoints = () => ({
   GET_B2B_ACCOUNT: `${getBaseUrl()}/getB2BAccount`,
   LIST_B2B_BUSINESS_REQUEST: `${getBaseUrl()}/listB2BBusinessRequest`,
   UPDATE_B2B_BUSINESS_REQUEST: `${getBaseUrl()}/updateB2BBusinessRequest`,
+  GET_B2B_FEE_CONFIG: `${getBaseUrl()}/getB2BFeeConfig`,
+  UPDATE_B2B_FEE_CONFIG: `${getBaseUrl()}/updateB2BFeeConfig`,
   
   // Order Export endpoints
   EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,

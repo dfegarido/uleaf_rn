@@ -42,7 +42,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [groupName, setGroupName] = useState('');
   const [userTypeFilter, setUserTypeFilter] = useState('all'); // 'all', 'buyer', 'supplier'
-  const [countryFilter, setCountryFilter] = useState('all'); // 'all', 'Philippines', 'Indonesia', 'Thailand'
+  const [countryFilter, setCountryFilter] = useState('all'); // 'all' or country name
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -54,8 +54,7 @@ const GroupChatModal = ({ visible, onClose, onCreateGroup }) => {
   const lastFetchedQueryRef = useRef(null);
   const queryCacheRef = useRef(new Map());
   
-  // Fixed country list
-  const availableCountries = ['Philippines', 'Indonesia', 'Thailand'];
+  const availableCountries = ['Philippines', 'Indonesia', 'Thailand', 'Singapore', 'Vietnam', 'Taiwan', 'United States'];
   
   // Check explicit userType first (most reliable)
   const explicitBuyer = 

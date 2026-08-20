@@ -35,7 +35,10 @@ const UserInformation = () => {
     { code: 'US', name: 'United States' },
     { code: 'PH', name: 'Philippines' },
     { code: 'TH', name: 'Thailand' },
-    { code: 'ID', name: 'Indonesia' }
+    { code: 'ID', name: 'Indonesia' },
+    { code: 'SG', name: 'Singapore' },
+    { code: 'VN', name: 'Vietnam' },
+    { code: 'TW', name: 'Taiwan' },
   ];
   
   // Editable fields state
@@ -79,7 +82,10 @@ const UserInformation = () => {
       'United States': 'US',
       'Philippines': 'PH',
       'Thailand': 'TH',
-      'Indonesia': 'ID'
+      'Indonesia': 'ID',
+      'Singapore': 'SG',
+      'Vietnam': 'VN',
+      'Taiwan': 'TW',
     };
     
     // If it's already a country code, just return it
@@ -99,7 +105,10 @@ const UserInformation = () => {
       'US': 'United States',
       'PH': 'Philippines',
       'TH': 'Thailand',
-      'ID': 'Indonesia'
+      'ID': 'Indonesia',
+      'SG': 'Singapore',
+      'VN': 'Vietnam',
+      'TW': 'Taiwan',
     };
     
     // If it's already a full country name, just return it
@@ -747,6 +756,9 @@ const UserInformation = () => {
                     {country.code === 'PH' && <PhFlag width={24} height={24} />}
                     {country.code === 'TH' && <ThFlag width={24} height={24} />}
                     {country.code === 'ID' && <IdFlag width={24} height={24} />}
+                    {country.code === 'SG' && <Text style={{fontSize: 20}}>🇸🇬</Text>}
+                    {country.code === 'VN' && <Text style={{fontSize: 20}}>🇻🇳</Text>}
+                    {country.code === 'TW' && <Text style={{fontSize: 20}}>🇹🇼</Text>}
                     <Text style={styles.countryName}>{country.name}</Text>
                   </View>
                   {editableFields.country === country.name && (

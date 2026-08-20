@@ -74,13 +74,19 @@ export function parseLiveListingExcelFromBase64(base64) {
   }
 
   const rows = [];
+  const hasUsdColumn = raw.some(r => {
+    const keys = Object.keys(r).map(k => normalizeKey(k));
+    return keys.includes('usd_price') || keys.includes('usdprice');
+  });
   for (let i = 0; i < raw.length; i++) {
     const n = normalizeRowKeys(raw[i]);
     const genus = String(n.genus ?? '').trim();
     const species = String(n.species ?? '').trim();
     const variegation = String(n.variegation ?? '').trim();
     const potSize = normalizePotSize(n.pot_size ?? n.potsize ?? '');
-    const localPrice = n.local_price ?? n.localprice ?? '';
+    const localPrice = hasUsdColumn
+      ? (n.usd_price ?? n.usdprice ?? n.local_price ?? n.localprice ?? '')
+      : (n.local_price ?? n.localprice ?? '');
     const approxRaw = n.approximate_height ?? n.approximateheight ?? '';
     const approximateHeight = normalizeApproxHeight(approxRaw);
 
