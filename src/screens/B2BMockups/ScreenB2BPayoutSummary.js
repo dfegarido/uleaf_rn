@@ -19,7 +19,6 @@ import {
   getCancellationFee,
   getGrossNetPayout,
   isExceptionCondition,
-  isPayoutEligible,
   payoutStatusTone,
 } from './mockData';
 
@@ -63,28 +62,71 @@ const STATUS_FILTERS = [
   {key: 'Missing / Damaged', label: 'Issues'},
 ];
 
+const emptyTotals = {
+  listed: 0,
+  commission: 0,
+  logistics: 0,
+  plantCare: 0,
+  cancellationFees: 0,
+  net: 0,
+  paid: 0,
+  awaitingScan: 0,
+  issues: 0,
+};
+
+const computeTotals = items =>
+  items.reduce((acc, item) => {
+    if (!item.scanned) {
+      acc.awaitingScan += 1;
+      return acc;
+    }
+    if (isExceptionCondition(item)) {
+      const fee = getCancellationFee(item.listedPrice);
+      acc.cancellationFees += fee;
+      acc.net -= fee;
+      acc.issues += 1;
+      return acc;
+    }
+    const net = item.netPayout != null ? item.netPayout : getGrossNetPayout(item);
+    if (net == null) {
+      return acc;
+    }
+    acc.listed += Number(item.listedPrice) || 0;
+    acc.commission += Number(item.commission) || 0;
+    acc.logistics += Number(item.logistics) || 0;
+    acc.plantCare += Number(item.plantCare) || 0;
+    acc.net += Number(net) || 0;
+    acc.paid += Number(item.amountPaid) || 0;
+    return acc;
+  }, {...emptyTotals});
+
 const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const isAdmin = route?.params?.audience === 'admin';
   const [groupBy, setGroupBy] = useState('liveSaleDate');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [payouts, setPayouts] = useState(SAMPLE_PAYOUTS);
-  const [usingSample, setUsingSample] = useState(true);
-  const [loading, setLoading] = useState(false);
+  const [payouts, setPayouts] = useState([]);
+  const [usingSample, setUsingSample] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [apiTotals, setApiTotals] = useState(null);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
+      setLoading(true);
       const result = await listB2BPayoutApi();
       if (!active) {
         return;
       }
       if (result.success && Array.isArray(result.data?.items)) {
         setPayouts(result.data.items);
+        setApiTotals(result.data.totals || null);
         setUsingSample(false);
       } else {
         setPayouts(SAMPLE_PAYOUTS);
+        setApiTotals(null);
         setUsingSample(true);
       }
+      setLoading(false);
     };
     load();
     return () => {
@@ -125,44 +167,20 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
     });
   }, [filtered, groupBy]);
 
-  const totals = payouts.reduce(
-    (acc, item) => {
-      if (!item.scanned) {
-        acc.awaitingScan += 1;
-        return acc;
+  const computedTotals = useMemo(() => computeTotals(payouts), [payouts]);
+  const totals = apiTotals
+    ? {
+        ...computedTotals,
+        ...apiTotals,
+        awaitingScan: apiTotals.awaitingScan ?? computedTotals.awaitingScan,
       }
-      if (isExceptionCondition(item)) {
-        const fee = getCancellationFee(item.listedPrice);
-        acc.cancellationFees += fee;
-        acc.net -= fee;
-        acc.issues += 1;
-        return acc;
-      }
-      if (!isPayoutEligible(item)) {
-        return acc;
-      }
-      acc.listed += item.listedPrice;
-      acc.commission += item.commission;
-      acc.logistics += item.logistics;
-      acc.plantCare += item.plantCare;
-      acc.net += item.netPayout || 0;
-      acc.paid += item.amountPaid || 0;
-      return acc;
-    },
-    {
-      listed: 0,
-      commission: 0,
-      logistics: 0,
-      plantCare: 0,
-      cancellationFees: 0,
-      net: 0,
-      paid: 0,
-      awaitingScan: 0,
-      issues: 0,
-    },
-  );
+    : computedTotals;
 
-  const remaining = Number((totals.net - totals.paid).toFixed(2));
+  const remaining = Number(
+    ((totals.remaining != null
+      ? totals.remaining
+      : Number(totals.net || 0) - Number(totals.paid || 0)) || 0).toFixed(2),
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -182,9 +200,13 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
             <Text style={styles.heroAmount}>{formatUsd(totals.net)}</Text>
           )}
           <Text style={styles.sourceNote}>
-            {usingSample
-              ? 'Sample data — start the functions emulator on this branch to load live orders. Nothing is deployed.'
-              : 'Live orders from this branch API (`b2bPayout` overlay). Existing payouts are unchanged.'}
+            {loading
+              ? 'Loading payouts…'
+              : usingSample
+                ? 'Sample data — start the functions emulator on this branch to load live orders. Nothing is deployed.'
+                : `Live orders from this branch API. ${payouts.length} plant${
+                    payouts.length === 1 ? '' : 's'
+                  }. Sample mockup numbers are not mixed in.`}
           </Text>
           <View style={styles.heroStats}>
             <HeroStat label="Paid" value={formatUsd(totals.paid)} />
