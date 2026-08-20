@@ -11,6 +11,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import {ImagePickerModal} from '../../components/ImagePicker';
+import {updateB2BPayoutApi} from '../../components/Api/b2bPayoutApi';
 import MockupHeader from './MockupHeader';
 import {
   CANCELLATION_FEE_PERCENT,
@@ -29,6 +30,7 @@ import {
 const ScreenB2BPayoutDetail = ({navigation, route}) => {
   const seed = route?.params?.payout || SAMPLE_PAYOUTS[0];
   const isAdmin = route?.params?.audience === 'admin';
+  const usingSample = route?.params?.usingSample ?? !seed.orderDocId;
   const [payoutStatus, setPayoutStatus] = useState(seed.payoutStatus);
   const [amountPaid, setAmountPaid] = useState(seed.amountPaid || 0);
   const [partialPercent, setPartialPercent] = useState(
@@ -36,6 +38,34 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
   );
   const [proofs, setProofs] = useState(seed.proofs || []);
   const [pendingKind, setPendingKind] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const applyPayout = next => {
+    if (!next) {
+      return;
+    }
+    setPayoutStatus(next.payoutStatus);
+    setAmountPaid(next.amountPaid || 0);
+    setPartialPercent(next.partialPercent || DEFAULT_PARTIAL_PERCENT);
+    setProofs(next.proofs || []);
+  };
+
+  const persist = async payload => {
+    if (usingSample) {
+      return {ok: false, sample: true};
+    }
+    setSaving(true);
+    const result = await updateB2BPayoutApi({
+      payoutId: seed.orderDocId || seed.id,
+      ...payload,
+    });
+    setSaving(false);
+    if (result.success) {
+      applyPayout(result.data?.payout);
+      return {ok: true};
+    }
+    return {ok: false, error: result.error};
+  };
 
   const net = getGrossNetPayout(seed);
   const eligible = isPayoutEligible(seed);
@@ -69,34 +99,46 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
     [proofs],
   );
 
-  const attachProof = uris => {
+  const attachProof = async uris => {
     const uri = uris?.[0];
     if (!uri) {
       return;
     }
     const kind = pendingKind || (amountPaid > 0 ? 'full' : 'partial');
     const shouldApply = pendingKind != null;
-    setProofs(prev => [
-      ...prev,
-      {
-        kind,
-        uri,
-        label: 'Bank / Remitly screenshot',
-        method: 'Remitly',
-        attachedAt: 'Just now',
-      },
-    ]);
+    const localProof = {
+      kind,
+      uri,
+      label: 'Bank / Remitly screenshot',
+      method: 'Remitly',
+      attachedAt: 'Just now',
+    };
+    setProofs(prev => [...prev, localProof]);
     setPendingKind(null);
+
+    const saved = await persist({action: 'attachProof', kind, uri});
+    if (!saved.ok && !saved.sample) {
+      Alert.alert('Not saved to backend', saved.error || 'Functions are not running on this branch.');
+    }
+
     if (!shouldApply) {
       return;
     }
     if (kind === 'partial' && amountPaid === 0 && net > 0) {
       const paid = getPartialAmount(net, partialPercent);
-      setAmountPaid(paid);
-      setPayoutStatus(seed.hubReceived ? 'Ready for full' : 'Partially paid');
+      if (saved.sample) {
+        setAmountPaid(paid);
+        setPayoutStatus(seed.hubReceived ? 'Ready for full' : 'Partially paid');
+      } else {
+        await persist({action: 'markPartial', partialPercent, uri});
+      }
     } else if (kind === 'full' && remaining > 0) {
-      setAmountPaid(net);
-      setPayoutStatus('Fully paid');
+      if (saved.sample) {
+        setAmountPaid(net);
+        setPayoutStatus('Fully paid');
+      } else {
+        await persist({action: 'markFull', uri});
+      }
     }
   };
 
@@ -113,26 +155,36 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
     );
   };
 
-  const markPartial = () => {
-    requireProofThen('partial', () => {
-      setAmountPaid(partialAmount);
-      setPayoutStatus(seed.hubReceived ? 'Ready for full' : 'Partially paid');
+  const markPartial = async () => {
+    requireProofThen('partial', async () => {
+      const saved = await persist({action: 'markPartial', partialPercent});
+      if (saved.sample || !saved.ok) {
+        setAmountPaid(partialAmount);
+        setPayoutStatus(seed.hubReceived ? 'Ready for full' : 'Partially paid');
+      }
       Alert.alert(
-        'Partially paid (mockup)',
-        `${partialPercent}% of ${formatUsd(net)} = ${formatUsd(partialAmount)} marked paid. Remaining ${formatUsd(
+        saved.ok ? 'Partially paid' : 'Partially paid (local only)',
+        `${partialPercent}% of ${formatUsd(net)} = ${formatUsd(partialAmount)}. Remaining ${formatUsd(
           net - partialAmount,
-        )} releases after hub staff receives the plant.`,
+        )} releases after hub staff receives the plant.${
+          saved.ok ? '' : ' Backend not running — not written to b2bPayout.'
+        }`,
       );
     });
   };
 
-  const markFull = () => {
-    requireProofThen('full', () => {
-      setAmountPaid(net);
-      setPayoutStatus('Fully paid');
+  const markFull = async () => {
+    requireProofThen('full', async () => {
+      const saved = await persist({action: 'markFull'});
+      if (saved.sample || !saved.ok) {
+        setAmountPaid(net);
+        setPayoutStatus('Fully paid');
+      }
       Alert.alert(
-        'Fully paid (mockup)',
-        `Remaining ${formatUsd(remaining)} released. Hub received this plant.`,
+        saved.ok ? 'Fully paid' : 'Fully paid (local only)',
+        `Remaining ${formatUsd(remaining)} released.${
+          saved.ok ? '' : ' Backend not running — not written to b2bPayout.'
+        }`,
       );
     });
   };
@@ -302,7 +354,10 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
         ) : null}
 
         {isAdmin && canPayPartial ? (
-          <TouchableOpacity style={globalStyles.primaryButton} onPress={markPartial}>
+          <TouchableOpacity
+            style={[globalStyles.primaryButton, saving && {opacity: 0.6}]}
+            disabled={saving}
+            onPress={markPartial}>
             <Text style={globalStyles.primaryButtonText}>
               Mark partially paid · {formatUsd(partialAmount)}
             </Text>
@@ -310,7 +365,10 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
         ) : null}
 
         {isAdmin && canPayFull ? (
-          <TouchableOpacity style={globalStyles.primaryButton} onPress={markFull}>
+          <TouchableOpacity
+            style={[globalStyles.primaryButton, saving && {opacity: 0.6}]}
+            disabled={saving}
+            onPress={markFull}>
             <Text style={globalStyles.primaryButtonText}>
               Release full remaining · {formatUsd(remaining)}
             </Text>

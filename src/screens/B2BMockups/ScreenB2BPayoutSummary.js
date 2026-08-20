@@ -1,8 +1,18 @@
-import React, {useMemo, useState} from 'react';
-import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useCallback, useMemo, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import {globalStyles} from '../../assets/styles/styles';
+import {listB2BPayoutApi} from '../../components/Api/b2bPayoutApi';
 import MockupHeader from './MockupHeader';
 import {
   SAMPLE_PAYOUTS,
@@ -33,13 +43,41 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const isAdmin = route?.params?.audience === 'admin';
   const [groupBy, setGroupBy] = useState('liveSaleDate');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [payouts, setPayouts] = useState(SAMPLE_PAYOUTS);
+  const [usingSample, setUsingSample] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const load = async () => {
+        setLoading(true);
+        const result = await listB2BPayoutApi();
+        if (!active) {
+          return;
+        }
+        if (result.success && Array.isArray(result.data?.items)) {
+          setPayouts(result.data.items);
+          setUsingSample(false);
+        } else {
+          setPayouts(SAMPLE_PAYOUTS);
+          setUsingSample(true);
+        }
+        setLoading(false);
+      };
+      load();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const filtered = useMemo(() => {
     if (statusFilter === 'all') {
-      return SAMPLE_PAYOUTS;
+      return payouts;
     }
-    return SAMPLE_PAYOUTS.filter(item => item.payoutStatus === statusFilter);
-  }, [statusFilter]);
+    return payouts.filter(item => item.payoutStatus === statusFilter);
+  }, [payouts, statusFilter]);
 
   const groups = useMemo(() => {
     const map = {};
@@ -53,7 +91,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
     return Object.entries(map);
   }, [filtered, groupBy]);
 
-  const totals = SAMPLE_PAYOUTS.reduce(
+  const totals = payouts.reduce(
     (acc, item) => {
       if (!item.scanned) {
         acc.awaitingScan += 1;
@@ -102,7 +140,16 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
         <View style={styles.hero}>
           <Text style={styles.heroKicker}>{isAdmin ? 'ADMIN' : 'SELLER'}</Text>
           <Text style={styles.heroLabel}>Net payout</Text>
-          <Text style={styles.heroAmount}>{formatUsd(totals.net)}</Text>
+          {loading ? (
+            <ActivityIndicator color="#539461" style={{marginVertical: 16}} />
+          ) : (
+            <Text style={styles.heroAmount}>{formatUsd(totals.net)}</Text>
+          )}
+          <Text style={styles.sourceNote}>
+            {usingSample
+              ? 'Sample data — start the functions emulator on this branch to load live orders. Nothing is deployed.'
+              : 'Live orders from this branch API (`b2bPayout` overlay). Existing payouts are unchanged.'}
+          </Text>
           <View style={styles.heroStats}>
             <HeroStat label="Paid" value={formatUsd(totals.paid)} />
             <HeroStat label="Remaining" value={formatUsd(remaining)} />
@@ -190,6 +237,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
                       navigation.navigate('ScreenB2BPayoutDetail', {
                         payout: item,
                         audience: isAdmin ? 'admin' : 'seller',
+                        usingSample,
                       })
                     }
                   />
@@ -323,6 +371,12 @@ const styles = StyleSheet.create({
   },
   heroLabel: {color: '#556065', fontSize: 13, marginTop: 10},
   heroAmount: {color: '#539461', fontSize: 32, fontWeight: '700', marginTop: 4},
+  sourceNote: {
+    color: '#556065',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 8,
+  },
   heroStats: {
     flexDirection: 'row',
     marginTop: 16,
