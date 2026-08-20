@@ -22,7 +22,8 @@ const ScreenB2BFeeConfig = ({navigation}) => {
       <MockupHeader navigation={navigation} title="B2B fees" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.formula}>
-          Listed USD − Commission − Logistics − Plant Care = Net Payout
+          Listed USD − Commission − Logistics − Plant Care = Net Payout{'\n'}
+          Missing/damaged: − Listed USD × {defaults.cancellationFeePercent}% cancellation
         </Text>
 
         <Text style={styles.section}>All businesses (default)</Text>
@@ -46,6 +47,13 @@ const ScreenB2BFeeConfig = ({navigation}) => {
             label="Plant Care ($)"
             value={String(defaults.plantCare)}
             onChange={v => setDefaults({...defaults, plantCare: Number(v) || 0})}
+          />
+          <Field
+            label="Missing/damaged cancellation % of listed USD"
+            value={String(defaults.cancellationFeePercent)}
+            onChange={v =>
+              setDefaults({...defaults, cancellationFeePercent: Number(v) || 0})
+            }
           />
           <Toggle
             label="Deduct logistics from payout"

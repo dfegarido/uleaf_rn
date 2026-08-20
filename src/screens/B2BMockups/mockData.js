@@ -1,6 +1,44 @@
 export const MOCKUP_NOTE =
   'Mockup — sample data for client review. Nothing is saved.';
 
+export const CANCELLATION_FEE_PERCENT = 3.5;
+export const PARTIAL_PERCENT_OPTIONS = [70, 75, 80];
+export const DEFAULT_PARTIAL_PERCENT = 75;
+
+export const getCancellationFee = listedPrice =>
+  Number((Number(listedPrice) * (CANCELLATION_FEE_PERCENT / 100)).toFixed(2));
+
+export const isExceptionCondition = item =>
+  item?.condition === 'missing' || item?.condition === 'damaged';
+
+export const isPayoutEligible = item => {
+  if (isExceptionCondition(item)) {
+    return true;
+  }
+  return Boolean(item?.scanned) &&
+    (item.leafTrailStatus === 'Inventory for Hub' ||
+      item.leafTrailStatus === 'Received');
+};
+
+export const getGrossNetPayout = item => {
+  if (isExceptionCondition(item)) {
+    return -getCancellationFee(item.listedPrice);
+  }
+  if (!isPayoutEligible(item)) {
+    return null;
+  }
+  return Number(
+    (item.listedPrice - item.commission - item.logistics - item.plantCare).toFixed(2),
+  );
+};
+
+export const getPartialAmount = (net, percent = DEFAULT_PARTIAL_PERCENT) => {
+  if (net == null || net <= 0) {
+    return 0;
+  }
+  return Number((net * (percent / 100)).toFixed(2));
+};
+
 export const SAMPLE_PAYOUTS = [
   {
     id: 'po-12345',
@@ -17,10 +55,18 @@ export const SAMPLE_PAYOUTS = [
     logistics: 20,
     plantCare: 5,
     netPayout: 155,
+    scanned: true,
+    leafTrailStatus: 'Inventory for Hub',
+    hubReceived: false,
+    condition: 'ok',
+    payoutStatus: 'Ready for partial',
+    partialPercent: 75,
+    amountPaid: 0,
     paymentStatus: 'Paid',
-    payoutStatus: 'Receivable',
     businessName: 'Greenleaf Garden',
     country: 'Philippines',
+    proofs: [],
+    buyerCreditIssued: false,
   },
   {
     id: 'po-12346',
@@ -37,10 +83,66 @@ export const SAMPLE_PAYOUTS = [
     logistics: 15,
     plantCare: 5,
     netPayout: 137.5,
+    scanned: true,
+    leafTrailStatus: 'Received',
+    hubReceived: true,
+    condition: 'ok',
+    payoutStatus: 'Partially paid',
+    partialPercent: 75,
+    amountPaid: 103.13,
     paymentStatus: 'Paid',
-    payoutStatus: 'Receivable',
     businessName: 'Greenleaf Garden',
     country: 'Philippines',
+    proofs: [
+      {
+        kind: 'partial',
+        label: 'Remitly screenshot',
+        method: 'Remitly',
+        attachedAt: 'Aug 13, 2026',
+      },
+    ],
+    buyerCreditIssued: false,
+  },
+  {
+    id: 'po-12347',
+    orderId: '12347',
+    plant: 'Alocasia Dragon Scale',
+    variegation: '',
+    potSize: '4"',
+    liveSaleDate: 'Aug 10, 2026',
+    orderDate: 'Aug 11, 2026',
+    scanDate: 'Aug 12, 2026',
+    listedPrice: 65,
+    commissionRate: 10,
+    commission: 6.5,
+    logistics: 15,
+    plantCare: 5,
+    netPayout: 38.5,
+    scanned: true,
+    leafTrailStatus: 'Received',
+    hubReceived: true,
+    condition: 'ok',
+    payoutStatus: 'Fully paid',
+    partialPercent: 80,
+    amountPaid: 38.5,
+    paymentStatus: 'Paid',
+    businessName: 'Greenleaf Garden',
+    country: 'Philippines',
+    proofs: [
+      {
+        kind: 'partial',
+        label: 'Bank transfer screenshot',
+        method: 'Bank',
+        attachedAt: 'Aug 13, 2026',
+      },
+      {
+        kind: 'full',
+        label: 'Remitly screenshot',
+        method: 'Remitly',
+        attachedAt: 'Aug 18, 2026',
+      },
+    ],
+    buyerCreditIssued: false,
   },
   {
     id: 'po-12350',
@@ -56,11 +158,82 @@ export const SAMPLE_PAYOUTS = [
     commission: 7.2,
     logistics: 15,
     plantCare: 5,
-    netPayout: 62.8,
+    netPayout: null,
+    scanned: false,
+    leafTrailStatus: '—',
+    hubReceived: false,
+    condition: 'ok',
+    payoutStatus: 'Awaiting scan',
+    partialPercent: 75,
+    amountPaid: 0,
     paymentStatus: 'Paid',
-    payoutStatus: 'Receivable',
     businessName: 'Greenleaf Garden',
     country: 'Philippines',
+    proofs: [],
+    buyerCreditIssued: false,
+  },
+  {
+    id: 'po-12352',
+    orderId: '12352',
+    plant: 'Hoya Kerrii',
+    variegation: '',
+    potSize: '4"',
+    liveSaleDate: 'Aug 17, 2026',
+    orderDate: 'Aug 17, 2026',
+    scanDate: 'Aug 18, 2026',
+    listedPrice: 120,
+    commissionRate: 10,
+    commission: 12,
+    logistics: 15,
+    plantCare: 5,
+    netPayout: -4.2,
+    scanned: true,
+    leafTrailStatus: 'Missing',
+    hubReceived: false,
+    condition: 'missing',
+    payoutStatus: 'Missing / Damaged',
+    partialPercent: 75,
+    amountPaid: 0,
+    paymentStatus: 'Paid',
+    businessName: 'Greenleaf Garden',
+    country: 'Philippines',
+    proofs: [],
+    buyerCreditIssued: true,
+  },
+  {
+    id: 'po-12353',
+    orderId: '12353',
+    plant: 'Philodendron Pink Princess',
+    variegation: 'Pink Princess',
+    potSize: '6"',
+    liveSaleDate: 'Aug 17, 2026',
+    orderDate: 'Aug 17, 2026',
+    scanDate: 'Aug 18, 2026',
+    listedPrice: 150,
+    commissionRate: 10,
+    commission: 15,
+    logistics: 20,
+    plantCare: 5,
+    netPayout: -5.25,
+    scanned: true,
+    leafTrailStatus: 'Damaged',
+    hubReceived: false,
+    condition: 'damaged',
+    payoutStatus: 'Missing / Damaged',
+    partialPercent: 70,
+    amountPaid: 77,
+    paymentStatus: 'Paid',
+    businessName: 'Greenleaf Garden',
+    country: 'Philippines',
+    proofs: [
+      {
+        kind: 'partial',
+        label: 'Remitly screenshot',
+        method: 'Remitly',
+        attachedAt: 'Aug 19, 2026',
+      },
+    ],
+    buyerCreditIssued: true,
   },
 ];
 
@@ -160,6 +333,7 @@ export const SAMPLE_FEE_CONFIG = {
     logisticsSmall: 15,
     logisticsLarge: 20,
     plantCare: 5,
+    cancellationFeePercent: 3.5,
     applyLogistics: true,
     applyPlantCare: true,
   },
@@ -200,9 +374,29 @@ export const SAMPLE_US_BUYER = {
 };
 
 export const formatUsd = value => {
+  if (value == null || value === '') {
+    return '—';
+  }
   const n = Number(value);
   if (Number.isNaN(n)) {
     return '$0.00';
   }
-  return `$${n.toFixed(2)}`;
+  const abs = Math.abs(n).toFixed(2);
+  return n < 0 ? `-$${abs}` : `$${abs}`;
+};
+
+export const payoutStatusTone = status => {
+  switch (status) {
+    case 'Fully paid':
+      return 'paid';
+    case 'Partially paid':
+      return 'partial';
+    case 'Ready for partial':
+    case 'Ready for full':
+      return 'ready';
+    case 'Missing / Damaged':
+      return 'alert';
+    default:
+      return 'wait';
+  }
 };

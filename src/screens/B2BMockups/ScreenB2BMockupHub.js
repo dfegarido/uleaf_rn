@@ -28,10 +28,12 @@ const CARDS = [
   },
   {
     key: 'payout',
-    title: 'B2B payout summary',
-    subtitle: 'Listed → Commission → Logistics → Plant Care → Net',
+    title: 'Admin B2B payouts',
+    subtitle:
+      'Partial 70–80%, full after hub receive, scan required, 3.5% missing/damaged fee',
     route: 'ScreenB2BPayoutSummary',
-    audience: 'Seller / Admin',
+    params: {audience: 'admin'},
+    audience: 'Admin',
   },
   {
     key: 'listing',
@@ -63,7 +65,7 @@ const ScreenB2BMockupHub = ({navigation}) => {
             key={card.key}
             style={styles.card}
             activeOpacity={0.8}
-            onPress={() => navigation.navigate(card.route)}>
+            onPress={() => navigation.navigate(card.route, card.params)}>
             <Text style={styles.audience}>{card.audience}</Text>
             <Text style={[globalStyles.textLGGreyDark, styles.cardTitle]}>
               {card.title}
