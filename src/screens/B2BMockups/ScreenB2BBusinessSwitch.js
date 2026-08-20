@@ -1,7 +1,19 @@
-import React, {useMemo, useState} from 'react';
-import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
+import {
+  getB2BAccountApi,
+  updateB2BBusinessRequestApi,
+} from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
 
 const PATHS = [
@@ -28,14 +40,95 @@ const STATUS_COPY = {
   rejected: {title: 'Rejected', color: '#B42318', bg: '#FDECEC'},
 };
 
+const statusFromRequest = request => {
+  if (!request?.status) {
+    return 'idle';
+  }
+  if (request.status === 'Pending') {
+    return 'pending';
+  }
+  if (request.status === 'Approved') {
+    return 'approved';
+  }
+  if (request.status === 'Rejected') {
+    return 'rejected';
+  }
+  return 'idle';
+};
+
+const pathFromAccountClass = accountClass => {
+  if (String(accountClass || '').startsWith('Asia')) {
+    return 'asia';
+  }
+  return 'us';
+};
+
 const ScreenB2BBusinessSwitch = ({navigation}) => {
   const [pathKey, setPathKey] = useState('us');
   const [status, setStatus] = useState('idle');
+  const [account, setAccount] = useState(null);
+  const [usingSample, setUsingSample] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const path = useMemo(() => PATHS.find(p => p.key === pathKey), [pathKey]);
   const statusMeta = STATUS_COPY[status];
+  const pathLocked = !usingSample && Boolean(account?.accountClass);
 
-  const onSubmit = () => {
-    setStatus('pending');
+  const applyAccount = nextAccount => {
+    setAccount(nextAccount);
+    setPathKey(pathFromAccountClass(nextAccount?.accountClass));
+    setStatus(statusFromRequest(nextAccount?.request));
+  };
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      const result = await getB2BAccountApi();
+      if (!active) {
+        return;
+      }
+      if (result.success && result.data?.account) {
+        setUsingSample(false);
+        applyAccount(result.data.account);
+      } else {
+        setUsingSample(true);
+        setAccount(null);
+        setStatus('idle');
+      }
+      setLoading(false);
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const onSubmit = async () => {
+    if (usingSample) {
+      setStatus('pending');
+      Alert.alert(
+        'Request submitted (sample)',
+        'Start the functions emulator on this branch to save a real request. Account type does not change until admin approval.',
+      );
+      return;
+    }
+    setSaving(true);
+    const result = await updateB2BBusinessRequestApi({
+      action: 'submit',
+      toType: path.to,
+    });
+    setSaving(false);
+    if (!result.success) {
+      Alert.alert('Could not submit', result.error);
+      return;
+    }
+    if (result.data?.account) {
+      applyAccount(result.data.account);
+    } else {
+      setStatus('pending');
+    }
     Alert.alert(
       'Request submitted',
       'Admin will approve or reject. Your current account type does not change until approval.',
@@ -46,12 +139,22 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="Become a Business" />
       <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.sourceNote}>
+          {usingSample
+            ? 'Sample mode — start the functions emulator on this branch to submit a real request. Nothing is deployed.'
+            : `Live account type: ${account?.accountClass || '—'}. Stored on the user record.`}
+        </Text>
+
         <View style={styles.segment}>
           {PATHS.map(item => (
             <TouchableOpacity
               key={item.key}
               style={[styles.segBtn, pathKey === item.key && styles.segBtnOn]}
+              disabled={pathLocked}
               onPress={() => {
+                if (pathLocked) {
+                  return;
+                }
                 setPathKey(item.key);
                 setStatus('idle');
               }}>
@@ -62,71 +165,89 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
           ))}
         </View>
 
-        <View style={[styles.statusCard, {backgroundColor: statusMeta.bg}]}>
-          <Text style={[styles.statusLabel, {color: statusMeta.color}]}>
-            {statusMeta.title}
-          </Text>
-          <Text style={styles.statusBody}>
-            {path.label} → {path.to}
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>What changes after approval</Text>
-          <Bullet text={path.keeps} />
-          <Bullet text={path.selling} />
-          <Bullet text="Listings are entered and shown in exact USD. No $5 rounding." />
-          <Bullet text="Payout = Listed USD − Commission − Logistics − Plant Care." />
-        </View>
-
-        {status === 'idle' && (
-          <TouchableOpacity style={globalStyles.primaryButton} onPress={onSubmit}>
-            <Text style={globalStyles.primaryButtonText}>Submit for admin approval</Text>
-          </TouchableOpacity>
-        )}
-        {status === 'pending' && (
-          <View style={styles.pendingBox}>
-            <Text style={styles.pendingText}>
-              Waiting on admin. You can still use your current account as usual.
-            </Text>
-            <View style={styles.demoRow}>
-              <TouchableOpacity
-                style={styles.demoBtn}
-                onPress={() => setStatus('approved')}>
-                <Text style={styles.demoBtnText}>Demo: Approved</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.demoBtn, styles.demoBtnReject]}
-                onPress={() => setStatus('rejected')}>
-                <Text style={[styles.demoBtnText, {color: '#B42318'}]}>Demo: Rejected</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        {status === 'approved' && (
-          <View style={styles.resultBox}>
-            <Text style={styles.resultTitle}>Account is now {path.to}</Text>
-            <Text style={styles.resultBody}>
-              {path.key === 'us'
-                ? 'Shop as a customer is still available. Live Selling is unlocked. Mainstream selling stays off.'
-                : 'USD listings and commission payouts are now on. Existing Asia Seller accounts are unchanged.'}
-            </Text>
-          </View>
-        )}
-        {status === 'rejected' && (
-          <View style={styles.resultBox}>
-            <Text style={styles.resultTitle}>Request was not approved</Text>
-            <Text style={styles.resultBody}>
-              Account type stays {path.label}. You can submit again later.
-            </Text>
-            <TouchableOpacity
-              style={globalStyles.secondaryButtonAccent}
-              onPress={() => setStatus('idle')}>
-              <Text style={globalStyles.secondaryButtonButtonTextAccent}>
-                Submit again
+        {loading ? (
+          <ActivityIndicator color="#539461" style={{marginVertical: 24}} />
+        ) : (
+          <>
+            <View style={[styles.statusCard, {backgroundColor: statusMeta.bg}]}>
+              <Text style={[styles.statusLabel, {color: statusMeta.color}]}>
+                {statusMeta.title}
               </Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.statusBody}>
+                {path.label} → {path.to}
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>What changes after approval</Text>
+              <Bullet text={path.keeps} />
+              <Bullet text={path.selling} />
+              <Bullet text="Listings are entered and shown in exact USD. No $5 rounding." />
+              <Bullet text="Payout = Listed USD − Commission − Logistics − Plant Care." />
+            </View>
+
+            {status === 'idle' && (
+              <TouchableOpacity
+                style={globalStyles.primaryButton}
+                disabled={saving}
+                onPress={onSubmit}>
+                <Text style={globalStyles.primaryButtonText}>
+                  {saving ? 'Submitting…' : 'Submit for admin approval'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {status === 'pending' && (
+              <View style={styles.pendingBox}>
+                <Text style={styles.pendingText}>
+                  Waiting on admin. You can still use your current account as usual.
+                </Text>
+                {usingSample ? (
+                  <View style={styles.demoRow}>
+                    <TouchableOpacity
+                      style={styles.demoBtn}
+                      onPress={() => setStatus('approved')}>
+                      <Text style={styles.demoBtnText}>Demo: Approved</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.demoBtn, styles.demoBtnReject]}
+                      onPress={() => setStatus('rejected')}>
+                      <Text style={[styles.demoBtnText, {color: '#B42318'}]}>
+                        Demo: Rejected
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
+            )}
+            {status === 'approved' && (
+              <View style={styles.resultBox}>
+                <Text style={styles.resultTitle}>
+                  Account is now {account?.accountClass || path.to}
+                </Text>
+                <Text style={styles.resultBody}>
+                  {path.key === 'us'
+                    ? 'Shop as a customer is still available. Live Selling is unlocked. Mainstream selling stays off.'
+                    : 'USD listings and commission payouts are now on. Existing Asia Seller accounts are unchanged.'}
+                </Text>
+              </View>
+            )}
+            {status === 'rejected' && (
+              <View style={styles.resultBox}>
+                <Text style={styles.resultTitle}>Request was not approved</Text>
+                <Text style={styles.resultBody}>
+                  Account type stays {account?.accountClass || path.label}. You can
+                  submit again later.
+                </Text>
+                <TouchableOpacity
+                  style={globalStyles.secondaryButtonAccent}
+                  onPress={() => setStatus('idle')}>
+                  <Text style={globalStyles.secondaryButtonButtonTextAccent}>
+                    Submit again
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -143,6 +264,12 @@ const Bullet = ({text}) => (
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
   content: {padding: 20, paddingBottom: 40},
+  sourceNote: {
+    color: '#7F8D91',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
   segment: {
     flexDirection: 'row',
     backgroundColor: '#F5F6F6',

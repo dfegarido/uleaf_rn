@@ -371,6 +371,9 @@ const generateEndpoints = () => ({
   LIST_PAYOUT_DETAIL: `${getBaseUrl()}/listPayoutDetail`,
   LIST_B2B_PAYOUT: `${getBaseUrl()}/listB2BPayout`,
   UPDATE_B2B_PAYOUT: `${getBaseUrl()}/updateB2BPayout`,
+  GET_B2B_ACCOUNT: `${getBaseUrl()}/getB2BAccount`,
+  LIST_B2B_BUSINESS_REQUEST: `${getBaseUrl()}/listB2BBusinessRequest`,
+  UPDATE_B2B_BUSINESS_REQUEST: `${getBaseUrl()}/updateB2BBusinessRequest`,
   
   // Order Export endpoints
   EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,

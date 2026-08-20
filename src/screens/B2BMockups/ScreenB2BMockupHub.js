@@ -57,8 +57,9 @@ const ScreenB2BMockupHub = ({navigation}) => {
       <MockupHeader navigation={navigation} title="B2B Asia Mockups" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[globalStyles.textMDGreyDark, styles.intro]}>
-          Walkthrough screens for client review. All numbers are sample data from
-          the signed-off Trello rules.
+          Walkthrough screens for client review. Account conversion and payouts
+          talk to the branch emulator when it is running; otherwise sample data
+          is shown. Nothing is deployed.
         </Text>
         {CARDS.map(card => (
           <TouchableOpacity

@@ -1,7 +1,19 @@
-import React, {useMemo, useState} from 'react';
-import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useEffect, useMemo, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
+import {
+  listB2BBusinessRequestApi,
+  updateB2BBusinessRequestApi,
+} from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
 import {SAMPLE_REQUESTS} from './mockData';
 
@@ -11,6 +23,9 @@ const ScreenB2BAdminApproval = ({navigation}) => {
   const [requests, setRequests] = useState(SAMPLE_REQUESTS);
   const [filter, setFilter] = useState('Pending');
   const [selectedId, setSelectedId] = useState(null);
+  const [usingSample, setUsingSample] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const visible = useMemo(
     () => (filter === 'All' ? requests : requests.filter(r => r.status === filter)),
@@ -18,13 +33,56 @@ const ScreenB2BAdminApproval = ({navigation}) => {
   );
   const selected = requests.find(r => r.id === selectedId) || visible[0];
 
-  const setStatus = status => {
+  const loadRequests = async () => {
+    setLoading(true);
+    const result = await listB2BBusinessRequestApi({status: 'All'});
+    if (result.success && Array.isArray(result.data?.items)) {
+      setRequests(result.data.items);
+      setUsingSample(false);
+    } else {
+      setRequests(SAMPLE_REQUESTS);
+      setUsingSample(true);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const setStatus = async status => {
     if (!selected) {
       return;
     }
-    setRequests(prev =>
-      prev.map(r => (r.id === selected.id ? {...r, status} : r)),
-    );
+    if (usingSample) {
+      setRequests(prev =>
+        prev.map(r => (r.id === selected.id ? {...r, status} : r)),
+      );
+      Alert.alert(
+        status === 'Approved' ? 'Approved (sample)' : 'Rejected (sample)',
+        status === 'Approved'
+          ? `${selected.name} would become ${selected.toType}. Start the emulator to persist this.`
+          : `${selected.name} stays ${selected.fromType}. Start the emulator to persist this.`,
+      );
+      return;
+    }
+
+    setSaving(true);
+    const result = await updateB2BBusinessRequestApi({
+      action: status === 'Approved' ? 'approve' : 'reject',
+      requestId: selected.id,
+    });
+    setSaving(false);
+    if (!result.success) {
+      Alert.alert('Could not update', result.error);
+      return;
+    }
+    const next = result.data?.request;
+    if (next) {
+      setRequests(prev => prev.map(r => (r.id === next.id ? next : r)));
+    } else {
+      await loadRequests();
+    }
     Alert.alert(
       status === 'Approved' ? 'Approved' : 'Rejected',
       status === 'Approved'
@@ -37,6 +95,12 @@ const ScreenB2BAdminApproval = ({navigation}) => {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="Business Approvals" />
       <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.sourceNote}>
+          {usingSample
+            ? 'Sample data — start the functions emulator on this branch to load real requests. Nothing is deployed.'
+            : 'Live conversion requests. Approve changes account type; reject leaves it unchanged.'}
+        </Text>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
           {FILTERS.map(item => (
             <TouchableOpacity
@@ -51,51 +115,76 @@ const ScreenB2BAdminApproval = ({navigation}) => {
           ))}
         </ScrollView>
 
-        {visible.map(item => (
-          <TouchableOpacity
-            key={item.id}
-            style={[styles.row, selected?.id === item.id && styles.rowOn]}
-            onPress={() => setSelectedId(item.id)}>
-            <View style={{flex: 1}}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.meta}>
-                {item.fromType} → {item.toType}
-              </Text>
-              <Text style={styles.meta}>{item.gardenName} · {item.country}</Text>
-            </View>
-            <View style={[styles.badge, badgeStyle(item.status)]}>
-              <Text style={styles.badgeText}>{item.status}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {loading ? (
+          <ActivityIndicator color="#539461" style={{marginVertical: 24}} />
+        ) : (
+          <>
+            {visible.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>No {filter.toLowerCase()} requests</Text>
+                <Text style={styles.emptyBody}>
+                  {usingSample
+                    ? 'Sample list is empty for this filter.'
+                    : 'Submitted requests from US Customer and Asia Seller accounts will show here.'}
+                </Text>
+              </View>
+            ) : null}
 
-        {selected && (
-          <View style={styles.detail}>
-            <Text style={styles.detailTitle}>Applicant</Text>
-            <Line label="Name" value={selected.name} />
-            <Line label="Email" value={selected.email} />
-            <Line label="Garden" value={selected.gardenName} />
-            <Line label="Country" value={selected.country} />
-            <Line label="Current type" value={selected.fromType} />
-            <Line label="Requested type" value={selected.toType} />
-            <Line label="Submitted" value={selected.submittedAt} />
-            <Line label="Notes" value={selected.notes} />
+            {visible.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.row, selected?.id === item.id && styles.rowOn]}
+                onPress={() => setSelectedId(item.id)}>
+                <View style={{flex: 1}}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.meta}>
+                    {item.fromType} → {item.toType}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {item.gardenName} · {item.country}
+                  </Text>
+                </View>
+                <View style={[styles.badge, badgeStyle(item.status)]}>
+                  <Text style={styles.badgeText}>{item.status}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
 
-            {selected.status === 'Pending' && (
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={[globalStyles.secondaryButtonAccent, styles.actionBtn]}
-                  onPress={() => setStatus('Rejected')}>
-                  <Text style={globalStyles.secondaryButtonButtonTextAccent}>Reject</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[globalStyles.primaryButton, styles.actionBtn]}
-                  onPress={() => setStatus('Approved')}>
-                  <Text style={globalStyles.primaryButtonText}>Approve</Text>
-                </TouchableOpacity>
+            {selected && (
+              <View style={styles.detail}>
+                <Text style={styles.detailTitle}>Applicant</Text>
+                <Line label="Name" value={selected.name} />
+                <Line label="Email" value={selected.email} />
+                <Line label="Garden" value={selected.gardenName} />
+                <Line label="Country" value={selected.country} />
+                <Line label="Current type" value={selected.fromType} />
+                <Line label="Requested type" value={selected.toType} />
+                <Line label="Submitted" value={selected.submittedAt} />
+                <Line label="Notes" value={selected.notes} />
+
+                {selected.status === 'Pending' && (
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      style={[globalStyles.secondaryButtonAccent, styles.actionBtn]}
+                      disabled={saving}
+                      onPress={() => setStatus('Rejected')}>
+                      <Text style={globalStyles.secondaryButtonButtonTextAccent}>
+                        {saving ? 'Saving…' : 'Reject'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[globalStyles.primaryButton, styles.actionBtn]}
+                      disabled={saving}
+                      onPress={() => setStatus('Approved')}>
+                      <Text style={globalStyles.primaryButtonText}>
+                        {saving ? 'Saving…' : 'Approve'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
-          </View>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -105,7 +194,7 @@ const ScreenB2BAdminApproval = ({navigation}) => {
 const Line = ({label, value}) => (
   <View style={styles.line}>
     <Text style={styles.lineLabel}>{label}</Text>
-    <Text style={styles.lineValue}>{value}</Text>
+    <Text style={styles.lineValue}>{value || '—'}</Text>
   </View>
 );
 
@@ -122,6 +211,12 @@ const badgeStyle = status => {
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
   content: {padding: 20, paddingBottom: 40},
+  sourceNote: {
+    color: '#7F8D91',
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
   filters: {marginBottom: 12, flexGrow: 0},
   chip: {
     paddingHorizontal: 14,
@@ -133,6 +228,14 @@ const styles = StyleSheet.create({
   chipOn: {backgroundColor: '#539461'},
   chipText: {color: '#556065', fontWeight: '600'},
   chipTextOn: {color: '#fff'},
+  empty: {
+    backgroundColor: '#f2f7f3',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  emptyTitle: {fontWeight: '700', color: '#202325', marginBottom: 4},
+  emptyBody: {color: '#7F8D91', fontSize: 13, lineHeight: 18},
   row: {
     flexDirection: 'row',
     alignItems: 'center',
