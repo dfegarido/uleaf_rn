@@ -610,6 +610,20 @@ const BuyerProfileScreen = (props) => {
 
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+            title="US Customer mockup"
+            rightText="Maya Chen"
+            onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}
+          />
+
+          <MenuItem
+            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+            title="Sell as a Business"
+            rightText="Mockup"
+            onPress={() => navigation.navigate('ScreenB2BBusinessSwitch')}
+          />
+
+          <MenuItem
+            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="Notification Settings"
             onPress={() => navigation.navigate('NotificationSettingsScreen')}
           />

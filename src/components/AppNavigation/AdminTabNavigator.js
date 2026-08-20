@@ -78,6 +78,15 @@ import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCredit
 import ClearCreditsScreen from '../../screens/Admin/PlantCredits/ClearCreditsScreen';
 import AdminCreditsScreen from '../../screens/Admin/PlantCredits/AdminCreditsScreen';
 import ManualAdjustmentScreen from '../../screens/Admin/PlantCredits/ManualAdjustmentScreen';
+import { ScreenB2BAdminApproval,
+  ScreenB2BBusinessSwitch,
+  ScreenB2BFeeConfig,
+  ScreenB2BListingEdit,
+  ScreenB2BMockupHub,
+  ScreenB2BPayoutDetail,
+  ScreenB2BPayoutSummary,
+  ScreenB2BUsBuyerAccount,
+} from '../../screens/B2BMockups';
 import ScreenPlantDetail from '../../screens/Buyer/Shop/ScreenPlantDetail';
 
 const Tab = createBottomTabNavigator();
@@ -296,6 +305,16 @@ function AdminTabs() {
       <Stack.Screen name="AdminTermsOfUse" options={{headerShown: false}} component={AdminTermsOfUseScreen} />
       <Stack.Screen name="AdminPrivacyPolicy" options={{headerShown: false}} component={AdminPrivacyPolicyScreen} />
       <Stack.Screen name="AdminVersionControl" options={{headerShown: false}} component={AdminVersionControlScreen} />
+
+      {/* B2B Asia mockups (client review — sample data only) */}
+      <Stack.Screen name="ScreenB2BMockupHub" options={{headerShown: false}} component={ScreenB2BMockupHub} />
+      <Stack.Screen name="ScreenB2BBusinessSwitch" options={{headerShown: false}} component={ScreenB2BBusinessSwitch} />
+      <Stack.Screen name="ScreenB2BAdminApproval" options={{headerShown: false}} component={ScreenB2BAdminApproval} />
+      <Stack.Screen name="ScreenB2BPayoutSummary" options={{headerShown: false}} component={ScreenB2BPayoutSummary} />
+      <Stack.Screen name="ScreenB2BPayoutDetail" options={{headerShown: false}} component={ScreenB2BPayoutDetail} />
+      <Stack.Screen name="ScreenB2BListingEdit" options={{headerShown: false}} component={ScreenB2BListingEdit} />
+      <Stack.Screen name="ScreenB2BFeeConfig" options={{headerShown: false}} component={ScreenB2BFeeConfig} />
+      <Stack.Screen name="ScreenB2BUsBuyerAccount" options={{headerShown: false}} component={ScreenB2BUsBuyerAccount} />
       </Stack.Navigator>
     );
   }

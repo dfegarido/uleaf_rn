@@ -60,6 +60,15 @@ import { ScreenHome,
   ScreenPayout,
   ScreenPayoutDetails,
 } from '../../screens/Seller/Home';
+import { ScreenB2BAdminApproval,
+  ScreenB2BBusinessSwitch,
+  ScreenB2BFeeConfig,
+  ScreenB2BListingEdit,
+  ScreenB2BMockupHub,
+  ScreenB2BPayoutDetail,
+  ScreenB2BPayoutSummary,
+  ScreenB2BUsBuyerAccount,
+} from '../../screens/B2BMockups';
 import { ScreenListing,
   ScreenListingAction,
   ScreenListingDetail,
@@ -787,6 +796,15 @@ const MainStack = () => {
         component={ScreenPayoutDetails}
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
+
+      <Stack.Screen name="ScreenB2BMockupHub" component={ScreenB2BMockupHub} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BBusinessSwitch" component={ScreenB2BBusinessSwitch} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BAdminApproval" component={ScreenB2BAdminApproval} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BPayoutSummary" component={ScreenB2BPayoutSummary} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BPayoutDetail" component={ScreenB2BPayoutDetail} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BListingEdit" component={ScreenB2BListingEdit} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BFeeConfig" component={ScreenB2BFeeConfig} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BUsBuyerAccount" component={ScreenB2BUsBuyerAccount} options={{headerShown: false}} />
 
       <Stack.Screen
         name="ScreenTerms"

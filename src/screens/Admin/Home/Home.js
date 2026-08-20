@@ -138,6 +138,55 @@ const BusinessPerformance = ({ navigation, pendingWildgoneCount = 0 }) => {
     );
   };
 
+const B2BAsiaSection = ({navigation}) => {
+  return (
+    <View style={[styles.sectionContainer, {paddingTop: 24}]}>
+      <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>B2B Asia</Text>
+      <Text style={{color: '#7F8D91', marginTop: 4, fontSize: 12}}>
+        Mockups for client review — sample data only
+      </Text>
+      <View style={styles.grid}>
+        <IconTile
+          title="Approvals"
+          badgeCount={2}
+          onPress={() => navigation.navigate('ScreenB2BAdminApproval')}>
+          <UserManagementIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="B2B Payouts"
+          onPress={() => navigation.navigate('ScreenB2BPayoutSummary', {audience: 'admin'})}>
+          <PayoutsIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="Fee Settings"
+          onPress={() => navigation.navigate('ScreenB2BFeeConfig')}>
+          <DiscountsIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="Listing Edit"
+          onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+          <ListingViewIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="Switch Flow"
+          onPress={() => navigation.navigate('ScreenB2BBusinessSwitch')}>
+          <LiveSetupIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="US Buyer"
+          onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}>
+          <AvatarIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="All Mockups"
+          onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
+          <HappeningsIcon width={48} height={48} />
+        </IconTile>
+      </View>
+    </View>
+  );
+};
+
 const LeafTrailGreenhouse = ({navigation}) => {
   return (
     <View style={[styles.sectionContainer, {paddingTop: 24}]}>
@@ -464,6 +513,7 @@ const Home = () => {
           </View>
         </View>
         {isAdmin && <BusinessPerformance navigation={navigation} pendingWildgoneCount={pendingWildgoneCount} />}
+        {isAdmin && <B2BAsiaSection navigation={navigation} />}
         <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle isFullAdmin={isAdmin} />
         <NewsEventsRewards isFullAdmin={isAdmin} />

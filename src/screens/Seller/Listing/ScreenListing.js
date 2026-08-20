@@ -2160,6 +2160,16 @@ const ScreenListing = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View>
+        <TouchableOpacity
+          style={styles.b2bListingBanner}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+          <Text style={styles.b2bListingKicker}>B2B ASIA MOCKUP</Text>
+          <Text style={styles.b2bListingTitle}>Inline edit + bulk update</Text>
+          <Text style={styles.b2bListingBody}>
+            Preview USD price, pot size, height, status, pin, and listing type. Sample data only.
+          </Text>
+        </TouchableOpacity>
         {/* Filter Tabs */}
         <TabFilter
           tabFilters={userInfo?.liveFlag != 'No' ? FilterLiveTabs : FilterTabs}
@@ -2734,6 +2744,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     // zIndex: 10,
     paddingTop: 12,
+  },
+  b2bListingBanner: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 8,
+    backgroundColor: '#f2f7f3',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 12,
+    padding: 14,
+  },
+  b2bListingKicker: {
+    color: '#356641',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  b2bListingTitle: {
+    color: '#202325',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  b2bListingBody: {
+    color: '#556065',
+    fontSize: 13,
+    lineHeight: 18,
   },
   contents: {
     // paddingHorizontal: 20,

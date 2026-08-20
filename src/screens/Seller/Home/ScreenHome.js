@@ -540,6 +540,28 @@ const ScreenHome = ({navigation}) => {
           {/* App Update Available Card */}
           <AppUpdateCard style={{marginBottom: 16}} />
 
+          <TouchableOpacity
+            style={styles.b2bPreviewCard}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
+            <Text style={styles.b2bPreviewKicker}>B2B ASIA MOCKUP</Text>
+            <Text style={styles.b2bPreviewTitle}>Commission payouts & USD listings</Text>
+            <Text style={styles.b2bPreviewBody}>
+              Preview the new Business payout breakdown and listing edit screens. Sample data only.
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.b2bPreviewCard}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+            <Text style={styles.b2bPreviewKicker}>B2B ASIA MOCKUP</Text>
+            <Text style={styles.b2bPreviewTitle}>Listing inline + bulk edit</Text>
+            <Text style={styles.b2bPreviewBody}>
+              Edit USD price, pot size, height, status, pin, and listing type. Then Manage for bulk updates.
+            </Text>
+          </TouchableOpacity>
+
           {/* Stats Cards */}
           <ScrollView
             horizontal
@@ -973,6 +995,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  b2bPreviewCard: {
+    backgroundColor: '#f2f7f3',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  b2bPreviewKicker: {
+    color: '#356641',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  b2bPreviewTitle: {
+    color: '#202325',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  b2bPreviewBody: {
+    color: '#556065',
+    fontSize: 13,
+    lineHeight: 18,
   },
   cardBlack: {
     height: 135,
