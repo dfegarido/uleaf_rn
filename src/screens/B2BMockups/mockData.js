@@ -312,6 +312,7 @@ export const SAMPLE_REQUESTS = [
     submittedAt: 'Aug 13, 2026',
     status: 'Pending',
     notes: 'Existing live seller switching to USD + commission model.',
+    liveFlag: 'Yes',
   },
   {
     id: 'req-3',
@@ -324,6 +325,10 @@ export const SAMPLE_REQUESTS = [
     submittedAt: 'Aug 8, 2026',
     status: 'Approved',
     notes: 'Approved. New listings use exact USD.',
+    liveFlag: 'Yes',
+    reviewedAt: 'Aug 9, 2026',
+    reviewedBy: 'admin@ileafu.com',
+    reviewNotes: 'Live Selling verified. Approved for USD commission model.',
   },
 ];
 

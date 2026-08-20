@@ -30,6 +30,7 @@ const PATHS = [
     to: 'Asia Business',
     keeps: 'Asia Seller and Asia Business stay available in parallel.',
     selling: 'New listings are priced in USD. Commission payout applies.',
+    liveRule: 'Live Selling must be enabled on your seller account before you can upgrade.',
   },
 ];
 
@@ -63,8 +64,9 @@ const pathFromAccountClass = accountClass => {
   return 'us';
 };
 
-const ScreenB2BBusinessSwitch = ({navigation}) => {
-  const [pathKey, setPathKey] = useState('us');
+const ScreenB2BBusinessSwitch = ({navigation, route}) => {
+  const initialPath = route?.params?.path === 'asia' ? 'asia' : 'us';
+  const [pathKey, setPathKey] = useState(initialPath);
   const [status, setStatus] = useState('idle');
   const [account, setAccount] = useState(null);
   const [usingSample, setUsingSample] = useState(true);
@@ -73,7 +75,13 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
 
   const path = useMemo(() => PATHS.find(p => p.key === pathKey), [pathKey]);
   const statusMeta = STATUS_COPY[status];
+  const isSupplierAccount = account?.collectionName === 'supplier';
   const pathLocked = !usingSample && Boolean(account?.accountClass);
+  const asiaUpgradeBlocked =
+    !usingSample &&
+    pathKey === 'asia' &&
+    account?.canUpgradeToAsiaBusiness === false;
+  const canSubmit = status === 'idle' && !asiaUpgradeBlocked;
 
   const applyAccount = nextAccount => {
     setAccount(nextAccount);
@@ -96,6 +104,7 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
         setUsingSample(true);
         setAccount(null);
         setStatus('idle');
+        setPathKey(initialPath);
       }
       setLoading(false);
     };
@@ -103,7 +112,7 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialPath]);
 
   const onSubmit = async () => {
     if (usingSample) {
@@ -111,6 +120,13 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
       Alert.alert(
         'Request submitted (sample)',
         'Start the functions emulator on this branch to save a real request. Account type does not change until admin approval.',
+      );
+      return;
+    }
+    if (asiaUpgradeBlocked) {
+      Alert.alert(
+        'Upgrade not available',
+        'Live Selling must be enabled before upgrading to Asia Business. Your account stays Asia Seller.',
       );
       return;
     }
@@ -135,9 +151,14 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
     );
   };
 
+  const title =
+    pathKey === 'asia' || isSupplierAccount
+      ? 'Upgrade to Asia Business'
+      : 'Become a Business';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <MockupHeader navigation={navigation} title="Become a Business" />
+      <MockupHeader navigation={navigation} title={title} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sourceNote}>
           {usingSample
@@ -145,25 +166,39 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
             : `Live account type: ${account?.accountClass || '—'}. Stored on the user record.`}
         </Text>
 
-        <View style={styles.segment}>
-          {PATHS.map(item => (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.segBtn, pathKey === item.key && styles.segBtnOn]}
-              disabled={pathLocked}
-              onPress={() => {
-                if (pathLocked) {
-                  return;
-                }
-                setPathKey(item.key);
-                setStatus('idle');
-              }}>
-              <Text style={[styles.segText, pathKey === item.key && styles.segTextOn]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {!usingSample && isSupplierAccount ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Asia Seller account</Text>
+            <Text style={styles.infoBody}>
+              Live Selling flag: {account?.liveFlag || 'No'}
+              {account?.liveFlag === 'Yes'
+                ? ' — eligible to request Asia Business.'
+                : ' — upgrade stays blocked until Live Selling is enabled.'}
+            </Text>
+          </View>
+        ) : null}
+
+        {!isSupplierAccount ? (
+          <View style={styles.segment}>
+            {PATHS.map(item => (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.segBtn, pathKey === item.key && styles.segBtnOn]}
+                disabled={pathLocked}
+                onPress={() => {
+                  if (pathLocked) {
+                    return;
+                  }
+                  setPathKey(item.key);
+                  setStatus('idle');
+                }}>
+                <Text style={[styles.segText, pathKey === item.key && styles.segTextOn]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
 
         {loading ? (
           <ActivityIndicator color="#539461" style={{marginVertical: 24}} />
@@ -182,11 +217,22 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
               <Text style={styles.sectionTitle}>What changes after approval</Text>
               <Bullet text={path.keeps} />
               <Bullet text={path.selling} />
+              {path.liveRule ? <Bullet text={path.liveRule} /> : null}
               <Bullet text="Listings are entered and shown in exact USD. No $5 rounding." />
               <Bullet text="Payout = Listed USD − Commission − Logistics − Plant Care." />
             </View>
 
-            {status === 'idle' && (
+            {asiaUpgradeBlocked ? (
+              <View style={styles.blockedBox}>
+                <Text style={styles.blockedTitle}>Upgrade not available yet</Text>
+                <Text style={styles.blockedBody}>
+                  Sellers without Live Selling stay on Asia Seller. Ask admin to enable
+                  Live Selling before submitting this request.
+                </Text>
+              </View>
+            ) : null}
+
+            {canSubmit ? (
               <TouchableOpacity
                 style={globalStyles.primaryButton}
                 disabled={saving}
@@ -195,7 +241,7 @@ const ScreenB2BBusinessSwitch = ({navigation}) => {
                   {saving ? 'Submitting…' : 'Submit for admin approval'}
                 </Text>
               </TouchableOpacity>
-            )}
+            ) : null}
             {status === 'pending' && (
               <View style={styles.pendingBox}>
                 <Text style={styles.pendingText}>
@@ -270,6 +316,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 12,
   },
+  infoCard: {
+    backgroundColor: '#f2f7f3',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+  },
+  infoTitle: {fontWeight: '700', color: '#202325', marginBottom: 6},
+  infoBody: {color: '#556065', fontSize: 14, lineHeight: 20},
   segment: {
     flexDirection: 'row',
     backgroundColor: '#F5F6F6',
@@ -307,6 +363,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   bulletText: {flex: 1, color: '#556065', fontSize: 14, lineHeight: 20},
+  blockedBox: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  blockedTitle: {fontWeight: '700', color: '#B42318', marginBottom: 6},
+  blockedBody: {color: '#7A271A', fontSize: 14, lineHeight: 20},
   pendingBox: {
     backgroundColor: '#E6F2FC',
     borderRadius: 12,

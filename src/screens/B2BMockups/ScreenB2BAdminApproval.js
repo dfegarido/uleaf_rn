@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -26,12 +27,17 @@ const ScreenB2BAdminApproval = ({navigation}) => {
   const [usingSample, setUsingSample] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState('');
 
   const visible = useMemo(
     () => (filter === 'All' ? requests : requests.filter(r => r.status === filter)),
     [filter, requests],
   );
   const selected = requests.find(r => r.id === selectedId) || visible[0];
+
+  useEffect(() => {
+    setReviewNotes(selected?.reviewNotes || '');
+  }, [selected?.id, selected?.reviewNotes]);
 
   const loadRequests = async () => {
     setLoading(true);
@@ -56,7 +62,17 @@ const ScreenB2BAdminApproval = ({navigation}) => {
     }
     if (usingSample) {
       setRequests(prev =>
-        prev.map(r => (r.id === selected.id ? {...r, status} : r)),
+        prev.map(r =>
+          r.id === selected.id
+            ? {
+                ...r,
+                status,
+                reviewedAt: 'Aug 20, 2026',
+                reviewNotes: reviewNotes || 'Sample review note',
+                reviewedBy: 'admin-sample',
+              }
+            : r,
+        ),
       );
       Alert.alert(
         status === 'Approved' ? 'Approved (sample)' : 'Rejected (sample)',
@@ -71,6 +87,7 @@ const ScreenB2BAdminApproval = ({navigation}) => {
     const result = await updateB2BBusinessRequestApi({
       action: status === 'Approved' ? 'approve' : 'reject',
       requestId: selected.id,
+      reviewNotes,
     });
     setSaving(false);
     if (!result.success) {
@@ -90,6 +107,14 @@ const ScreenB2BAdminApproval = ({navigation}) => {
         : `${selected.name} stays ${selected.fromType}.`,
     );
   };
+
+  const isAsiaRequest = selected?.fromType === 'Asia Seller';
+  const liveBlocked =
+    !usingSample &&
+    isAsiaRequest &&
+    selected?.status === 'Pending' &&
+    selected?.liveFlag &&
+    selected.liveFlag !== 'Yes';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -159,28 +184,71 @@ const ScreenB2BAdminApproval = ({navigation}) => {
                 <Line label="Country" value={selected.country} />
                 <Line label="Current type" value={selected.fromType} />
                 <Line label="Requested type" value={selected.toType} />
+                {isAsiaRequest ? (
+                  <Line
+                    label="Live Selling flag"
+                    value={selected.liveFlag || (usingSample ? 'Yes' : 'No')}
+                  />
+                ) : null}
                 <Line label="Submitted" value={selected.submittedAt} />
-                <Line label="Notes" value={selected.notes} />
+                <Line label="Applicant notes" value={selected.notes} />
+
+                {selected.status !== 'Pending' ? (
+                  <View style={styles.historyBlock}>
+                    <Text style={styles.historyTitle}>Approval history</Text>
+                    <Line label="Decision" value={selected.status} />
+                    <Line label="Reviewed" value={selected.reviewedAt} />
+                    <Line label="Reviewed by" value={selected.reviewedBy} />
+                    <Line label="Review notes" value={selected.reviewNotes} />
+                  </View>
+                ) : null}
 
                 {selected.status === 'Pending' && (
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      style={[globalStyles.secondaryButtonAccent, styles.actionBtn]}
-                      disabled={saving}
-                      onPress={() => setStatus('Rejected')}>
-                      <Text style={globalStyles.secondaryButtonButtonTextAccent}>
-                        {saving ? 'Saving…' : 'Reject'}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[globalStyles.primaryButton, styles.actionBtn]}
-                      disabled={saving}
-                      onPress={() => setStatus('Approved')}>
-                      <Text style={globalStyles.primaryButtonText}>
-                        {saving ? 'Saving…' : 'Approve'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <>
+                    {liveBlocked ? (
+                      <View style={styles.warnBox}>
+                        <Text style={styles.warnTitle}>Cannot approve yet</Text>
+                        <Text style={styles.warnBody}>
+                          Live Selling is not enabled for this seller. They remain Asia
+                          Seller until Live Selling is turned on.
+                        </Text>
+                      </View>
+                    ) : null}
+                    {!usingSample ? (
+                      <View style={styles.notesField}>
+                        <Text style={styles.lineLabel}>Admin review notes (optional)</Text>
+                        <TextInput
+                          style={styles.notesInput}
+                          value={reviewNotes}
+                          onChangeText={setReviewNotes}
+                          placeholder="Reason or notes for the decision"
+                          multiline
+                        />
+                      </View>
+                    ) : null}
+                    <View style={styles.actions}>
+                      <TouchableOpacity
+                        style={[globalStyles.secondaryButtonAccent, styles.actionBtn]}
+                        disabled={saving}
+                        onPress={() => setStatus('Rejected')}>
+                        <Text style={globalStyles.secondaryButtonButtonTextAccent}>
+                          {saving ? 'Saving…' : 'Reject'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          globalStyles.primaryButton,
+                          styles.actionBtn,
+                          liveBlocked && styles.actionDisabled,
+                        ]}
+                        disabled={saving || liveBlocked}
+                        onPress={() => setStatus('Approved')}>
+                        <Text style={globalStyles.primaryButtonText}>
+                          {saving ? 'Saving…' : 'Approve'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
               </View>
             )}
@@ -259,11 +327,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#f2f7f3',
   },
   detailTitle: {fontWeight: '700', fontSize: 16, color: '#202325', marginBottom: 12},
+  historyBlock: {
+    marginTop: 4,
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#C0DAC2',
+  },
+  historyTitle: {fontWeight: '700', color: '#202325', marginBottom: 10},
   line: {marginBottom: 10},
   lineLabel: {color: '#7F8D91', fontSize: 12, marginBottom: 2},
   lineValue: {color: '#202325', fontSize: 14},
+  warnBox: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  warnTitle: {fontWeight: '700', color: '#B42318', marginBottom: 4},
+  warnBody: {color: '#7A271A', fontSize: 13, lineHeight: 18},
+  notesField: {marginBottom: 12},
+  notesInput: {
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 72,
+    textAlignVertical: 'top',
+    backgroundColor: '#fff',
+    color: '#202325',
+  },
   actions: {flexDirection: 'row', gap: 10, marginTop: 8},
   actionBtn: {flex: 1},
+  actionDisabled: {opacity: 0.5},
 });
 
 export default ScreenB2BAdminApproval;

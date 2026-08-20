@@ -543,6 +543,20 @@ const ScreenHome = ({navigation}) => {
           <TouchableOpacity
             style={styles.b2bPreviewCard}
             activeOpacity={0.85}
+            onPress={() =>
+              navigation.navigate('ScreenB2BBusinessSwitch', {path: 'asia'})
+            }>
+            <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
+            <Text style={styles.b2bPreviewTitle}>Upgrade to Asia Business</Text>
+            <Text style={styles.b2bPreviewBody}>
+              Request admin approval to switch from Asia Seller to Asia Business. Live
+              Selling must be enabled first.
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.b2bPreviewCard}
+            activeOpacity={0.85}
             onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
             <Text style={styles.b2bPreviewKicker}>B2B ASIA MOCKUP</Text>
             <Text style={styles.b2bPreviewTitle}>Commission payouts & USD listings</Text>
