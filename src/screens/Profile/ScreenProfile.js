@@ -180,12 +180,16 @@ const ScreenProfile = ({navigation}) => {
             </View>
             <View>
               <Text style={globalStyles.textLGGreyDark}>
-                {data?.firstName && data?.lastName
-                  ? `${data.firstName} ${data.lastName}`
-                  : data?.gardenOrCompanyName || 'User Name'}
+                {(() => {
+                  const first = data?.firstName || userInfo?.firstName || '';
+                  const last = data?.lastName || userInfo?.lastName || '';
+                  const garden = data?.gardenOrCompanyName || userInfo?.gardenOrCompanyName || '';
+                  const fullName = `${first} ${last}`.trim();
+                  return fullName || garden || 'User Name';
+                })()}
               </Text>
               <Text style={styles.status}>
-                @{data?.username || data?.email?.split('@')[0] || 'username'}
+                @{data?.username || userInfo?.username || data?.email?.split('@')[0] || 'username'}
               </Text>
               {data?.email && (
                 <Text style={[globalStyles.textSMGreyDark, {marginTop: 4}]}>

@@ -247,6 +247,10 @@ const generateEndpoints = () => ({
   GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
   GET_LIVE_STREAMS: `${getSupabaseBaseUrl()}/live-list`,
   GET_LIVE_SELLERS: `${getSupabaseBaseUrl()}/live-sellers`,
+  POST_SUPPLIER_UPDATE: `${getSupabaseBaseUrl()}/supplier-update`,
+  POST_REPORT_PROBLEM: `${getSupabaseBaseUrl()}/report-problem`,
+  POST_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
+  POST_PROFILE_PHOTO_UPLOAD: `${getSupabaseBaseUrl()}/profile-photo-upload`,
   SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
   
   // Listing Management APIs

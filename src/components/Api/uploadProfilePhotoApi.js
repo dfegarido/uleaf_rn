@@ -1,114 +1,75 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
-import { API_ENDPOINTS } from '../../config/apiConfig';
+import {API_ENDPOINTS} from '../../config/apiConfig';
+import RNFS from 'react-native-fs';
 
 /**
- * Upload profile photo using multipart/form-data (direct file upload)
- * This is more efficient than base64 encoding and reduces payload size
- * 
- * @param {string} imageUri - Local file URI
+ * Upload profile photo using base64 JSON (Supabase Edge Function).
+ *
+ * Reads the local image file as base64 and POSTs it to the
+ * /profile-photo-upload Edge Function, which stores it in the Supabase
+ * `profiles` Storage bucket and updates the buyer/supplier row.
+ *
+ * @param {string} imageUri - Local file URI (or an already-uploaded URL, which is returned as-is)
  * @param {string|null} overrideToken - Optional auth token override
  * @returns {Promise<Object>} Response with profilePhotoUrl
  */
 export const uploadProfilePhotoApi = async (imageUri, overrideToken = null) => {
   console.log('Starting uploadProfilePhotoApi...');
-  
+
   try {
     const token = overrideToken || await getStoredAuthToken();
 
-    // Extract filename from URI
+    // If it's already a URL, return it as-is (nothing to upload).
+    if (typeof imageUri === 'string' && (imageUri.startsWith('http://') || imageUri.startsWith('https://'))) {
+      console.log('ℹ️ Image is already a URL, returning as-is:', imageUri);
+      return { success: true, profilePhotoUrl: imageUri, profileImage: imageUri };
+    }
+
+    // Extract filename + mime from the URI.
     const filename = typeof imageUri === 'string' ? imageUri.split('/').pop() : 'photo.jpg';
     const ext = filename && filename.includes('.') ? filename.split('.').pop().toLowerCase() : '';
-    const mimeMap = { 
-      jpg: 'image/jpeg', 
-      jpeg: 'image/jpeg', 
-      png: 'image/png', 
-      gif: 'image/gif', 
-      webp: 'image/webp' 
+    const mimeMap = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
     };
     const mimeType = mimeMap[ext] || 'image/jpeg';
 
-    console.log('📤 Uploading profile photo:', filename);
-    console.log('🌐 API Endpoint:', API_ENDPOINTS.UPLOAD_PROFILE_PHOTO);
-    console.log('📁 Using multipart/form-data (direct file upload)');
+    console.log('📤 Reading image as base64:', filename);
+    const base64 = await RNFS.readFile(imageUri, 'base64');
 
-    // Create FormData with the image file
-    const formData = new FormData();
-    
-    // For React Native, we need to append the file with proper format
-    formData.append('profilePhoto', {
-      uri: imageUri,
-      type: mimeType,
-      name: filename,
+    console.log('🌐 API Endpoint:', API_ENDPOINTS.POST_PROFILE_PHOTO_UPLOAD);
+
+    const response = await fetch(API_ENDPOINTS.POST_PROFILE_PHOTO_UPLOAD, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        image: base64,
+        filename,
+        mimeType,
+      }),
     });
 
-    console.log('📦 FormData created, sending request...');
-    console.log('📋 FormData details:', {
-      fieldName: 'profilePhoto',
-      uri: imageUri,
-      type: mimeType,
-      name: filename
-    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Upload failed: ${response.status} - ${errorText || 'Unknown error'}`);
+    }
 
-    // Use XMLHttpRequest instead of fetch for better React Native FormData support
-    // fetch() can have issues with FormData in React Native, especially on iOS
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      let timeoutId = null;
+    const result = await response.json();
+    console.log('✅ Upload response:', result);
 
-      // Set up timeout
-      timeoutId = setTimeout(() => {
-        xhr.abort();
-        reject(new Error('Upload request timed out. Please try again.'));
-      }, 120000); // 120 second timeout
+    if (!result.success) {
+      throw new Error(result.error || result.message || 'Upload failed');
+    }
 
-      xhr.onload = function() {
-        clearTimeout(timeoutId);
-        
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const result = JSON.parse(xhr.responseText);
-            console.log('✅ Upload response:', result);
-
-            if (!result.success) {
-              reject(new Error(result.error || result.message || 'Upload failed'));
-              return;
-            }
-
-            resolve(result);
-          } catch (parseError) {
-            console.error('❌ Failed to parse response:', parseError);
-            reject(new Error('Invalid response from server'));
-          }
-        } else {
-          console.error('❌ Server error:', xhr.status, xhr.responseText);
-          reject(new Error(`Upload failed: ${xhr.status} - ${xhr.responseText || 'Unknown error'}`));
-        }
-      };
-
-      xhr.onerror = function() {
-        clearTimeout(timeoutId);
-        console.error('❌ Network error during upload');
-        reject(new Error('Network error during upload. Please check your connection.'));
-      };
-
-      xhr.ontimeout = function() {
-        clearTimeout(timeoutId);
-        console.error('❌ Request timeout');
-        reject(new Error('Upload request timed out. Please try again.'));
-      };
-
-      // Open and send request
-      xhr.open('POST', API_ENDPOINTS.UPLOAD_PROFILE_PHOTO);
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      // Don't set Content-Type - let XMLHttpRequest set it with boundary for multipart/form-data
-      
-      console.log('🚀 Sending XMLHttpRequest...');
-      xhr.send(formData);
-    });
-
+    return result;
   } catch (error) {
     console.error('❌ uploadProfilePhotoApi error:', error.message || error);
     throw error;
   }
 };
-
