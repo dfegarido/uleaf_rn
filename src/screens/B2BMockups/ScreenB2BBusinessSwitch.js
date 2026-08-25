@@ -69,16 +69,15 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
   const [pathKey, setPathKey] = useState(initialPath);
   const [status, setStatus] = useState('idle');
   const [account, setAccount] = useState(null);
-  const [usingSample, setUsingSample] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const path = useMemo(() => PATHS.find(p => p.key === pathKey), [pathKey]);
   const statusMeta = STATUS_COPY[status];
   const isSupplierAccount = account?.collectionName === 'supplier';
-  const pathLocked = !usingSample && Boolean(account?.accountClass);
+  const pathLocked = Boolean(account?.accountClass);
   const asiaUpgradeBlocked =
-    !usingSample &&
     pathKey === 'asia' &&
     account?.canUpgradeToAsiaBusiness === false;
   const canSubmit = status === 'idle' && !asiaUpgradeBlocked;
@@ -98,10 +97,10 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
         return;
       }
       if (result.success && result.data?.account) {
-        setUsingSample(false);
+        setLoadError(null);
         applyAccount(result.data.account);
       } else {
-        setUsingSample(true);
+        setLoadError(result.error || 'Could not load this account from Firestore.');
         setAccount(null);
         setStatus('idle');
         setPathKey(initialPath);
@@ -115,11 +114,10 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
   }, [initialPath]);
 
   const onSubmit = async () => {
-    if (usingSample) {
-      setStatus('pending');
+    if (loadError || !account) {
       Alert.alert(
-        'Request submitted (sample)',
-        'Start the functions emulator on this branch to save a real request. Account type does not change until admin approval.',
+        'Not connected',
+        loadError || 'Couldn’t load this account. Try again in a moment.',
       );
       return;
     }
@@ -161,12 +159,12 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
       <MockupHeader navigation={navigation} title={title} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sourceNote}>
-          {usingSample
-            ? 'Sample mode — start the functions emulator on this branch to submit a real request. Nothing is deployed.'
-            : `Live account type: ${account?.accountClass || '—'}. Stored on the user record.`}
+          {loadError
+            ? 'Couldn’t load this account. Try again in a moment.'
+            : `Current account type: ${account?.accountClass || '—'}`}
         </Text>
 
-        {!usingSample && isSupplierAccount ? (
+        {isSupplierAccount ? (
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Asia Seller account</Text>
             <Text style={styles.infoBody}>
@@ -247,22 +245,6 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                 <Text style={styles.pendingText}>
                   Waiting on admin. You can still use your current account as usual.
                 </Text>
-                {usingSample ? (
-                  <View style={styles.demoRow}>
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => setStatus('approved')}>
-                      <Text style={styles.demoBtnText}>Demo: Approved</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.demoBtn, styles.demoBtnReject]}
-                      onPress={() => setStatus('rejected')}>
-                      <Text style={[styles.demoBtnText, {color: '#B42318'}]}>
-                        Demo: Rejected
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
               </View>
             )}
             {status === 'approved' && (

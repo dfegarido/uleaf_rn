@@ -15,7 +15,6 @@ import {globalStyles} from '../../assets/styles/styles';
 import {getB2BFeeConfigApi, updateB2BFeeConfigApi} from '../../components/Api/b2bFeeApi';
 import {BUSINESS_COUNTRY_NAMES} from '../../utils/b2bCountries';
 import MockupHeader from './MockupHeader';
-import {SAMPLE_FEE_CONFIG} from './mockData';
 
 const emptyBusiness = {
   name: '',
@@ -25,12 +24,23 @@ const emptyBusiness = {
   applyPlantCare: true,
 };
 
+const EMPTY_DEFAULTS = {
+  commissionPercent: 10,
+  logisticsSmall: 15,
+  logisticsLarge: 20,
+  plantCare: 5,
+  cancellationFeePercent: 3.5,
+  applyLogistics: true,
+  applyPlantCare: true,
+};
+
 const ScreenB2BFeeConfig = ({navigation}) => {
-  const [defaults, setDefaults] = useState(SAMPLE_FEE_CONFIG.defaults);
-  const [countries, setCountries] = useState(SAMPLE_FEE_CONFIG.byCountry);
-  const [businesses, setBusinesses] = useState(SAMPLE_FEE_CONFIG.byBusiness);
+  const [defaults, setDefaults] = useState(EMPTY_DEFAULTS);
+  const [countries, setCountries] = useState([]);
+  const [businesses, setBusinesses] = useState([]);
   const [newBusiness, setNewBusiness] = useState(emptyBusiness);
-  const [usingSample, setUsingSample] = useState(true);
+  const [live, setLive] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -45,9 +55,13 @@ const ScreenB2BFeeConfig = ({navigation}) => {
         setDefaults(result.data.defaults);
         setCountries(result.data.byCountry || []);
         setBusinesses(result.data.byBusiness || []);
-        setUsingSample(false);
+        setLive(true);
+        setLoadError(null);
       } else {
-        setUsingSample(true);
+        setLive(false);
+        setCountries([]);
+        setBusinesses([]);
+        setLoadError(result.error || 'Could not load fee config from Firestore.');
       }
       setLoading(false);
     };
@@ -58,10 +72,10 @@ const ScreenB2BFeeConfig = ({navigation}) => {
   }, []);
 
   const onSave = async () => {
-    if (usingSample) {
+    if (!live) {
       Alert.alert(
-        'Saved (sample)',
-        'Start the functions emulator on this branch to persist commission and fees. Existing payout snapshots would not be recalculated.',
+        'Not connected',
+        'Couldn’t load fee settings. Try again in a moment.',
       );
       return;
     }
@@ -96,9 +110,9 @@ const ScreenB2BFeeConfig = ({navigation}) => {
       <MockupHeader navigation={navigation} title="B2B fees" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sourceNote}>
-          {usingSample
-            ? 'Sample configuration — start the functions emulator on this branch to save live rates. Nothing is deployed.'
-            : 'Live `b2bFeeConfig`. Changes apply to future orders only.'}
+          {loadError
+            ? 'Couldn’t load fee settings. Try again in a moment.'
+            : 'These rates apply to new orders. Existing payouts are not recalculated.'}
         </Text>
         <Text style={styles.formula}>
           Listed USD − Commission − Logistics − Plant Care = Net Payout{'\n'}

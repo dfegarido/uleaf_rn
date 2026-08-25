@@ -11,11 +11,10 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import {getB2BAccountApi} from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
-import {SAMPLE_US_BUYER} from './mockData';
 
 const ScreenB2BUsBuyerAccount = ({navigation}) => {
-  const [account, setAccount] = useState(SAMPLE_US_BUYER);
-  const [usingSample, setUsingSample] = useState(true);
+  const [account, setAccount] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,10 +26,10 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
       }
       if (result.success && result.data?.account) {
         setAccount(result.data.account);
-        setUsingSample(false);
+        setLoadError(null);
       } else {
-        setAccount(SAMPLE_US_BUYER);
-        setUsingSample(true);
+        setAccount(null);
+        setLoadError(result.error || 'Could not load this account from Firestore.');
       }
       setLoading(false);
     };
@@ -41,6 +40,28 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
   }, []);
 
   const display = useMemo(() => {
+    if (!account) {
+      return {
+        firstName: '',
+        lastName: '',
+        username: '',
+        email: '',
+        phone: '',
+        accountClass: 'Account',
+        status: '',
+        country: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        leafPoints: 0,
+        plantCredits: 0,
+        shippingCredits: 0,
+        canPurchase: false,
+        canLiveSell: false,
+        canMainstreamSell: false,
+      };
+    }
     const firstName = account.firstName || account.name?.split(' ')[0] || 'Buyer';
     const lastName =
       account.lastName || account.name?.split(' ').slice(1).join(' ') || '';
@@ -74,13 +95,17 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
       <MockupHeader navigation={navigation} title={display.accountClass} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sourceNote}>
-          {usingSample
-            ? 'Sample profile — start the functions emulator on this branch to load the signed-in user. Nothing is deployed.'
-            : 'Account type is stored on the user record and drives buy / live-sell / mainstream permissions.'}
+          {loadError
+            ? 'Couldn’t load this account. Try again in a moment.'
+            : 'What this customer can buy and sell.'}
         </Text>
 
         {loading ? (
           <ActivityIndicator color="#539461" style={{marginVertical: 24}} />
+        ) : loadError ? (
+          <Text style={styles.sourceNote}>
+            Start the app again after the local server is running.
+          </Text>
         ) : (
           <>
             <View style={styles.hero}>

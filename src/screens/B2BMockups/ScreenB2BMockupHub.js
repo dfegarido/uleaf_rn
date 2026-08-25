@@ -8,7 +8,7 @@ const CARDS = [
   {
     key: 'buyer',
     title: 'US Customer account',
-    subtitle: 'Maya Chen · San Francisco, CA · buys in USD, cannot sell yet',
+    subtitle: 'Signed-in buyer account type, permissions, and addresses',
     route: 'ScreenB2BUsBuyerAccount',
     audience: 'Buyer',
   },
@@ -54,12 +54,10 @@ const CARDS = [
 const ScreenB2BMockupHub = ({navigation}) => {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <MockupHeader navigation={navigation} title="B2B Asia Mockups" />
+      <MockupHeader navigation={navigation} title="B2B Asia" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[globalStyles.textMDGreyDark, styles.intro]}>
-          Walkthrough screens for client review. Account conversion and payouts
-          talk to the branch emulator when it is running; otherwise sample data
-          is shown. Nothing is deployed.
+          Approvals, payouts, fees, and account switching.
         </Text>
         {CARDS.map(card => (
           <TouchableOpacity

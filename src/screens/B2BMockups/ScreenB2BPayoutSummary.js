@@ -14,7 +14,6 @@ import {globalStyles} from '../../assets/styles/styles';
 import {listB2BPayoutApi} from '../../components/Api/b2bPayoutApi';
 import MockupHeader from './MockupHeader';
 import {
-  SAMPLE_PAYOUTS,
   formatUsd,
   getCancellationFee,
   getGrossNetPayout,
@@ -105,7 +104,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const [groupBy, setGroupBy] = useState('liveSaleDate');
   const [statusFilter, setStatusFilter] = useState('all');
   const [payouts, setPayouts] = useState([]);
-  const [usingSample, setUsingSample] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [apiTotals, setApiTotals] = useState(null);
 
@@ -120,11 +119,11 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
       if (result.success && Array.isArray(result.data?.items)) {
         setPayouts(result.data.items);
         setApiTotals(result.data.totals || null);
-        setUsingSample(false);
+        setLoadError(null);
       } else {
-        setPayouts(SAMPLE_PAYOUTS);
+        setPayouts([]);
         setApiTotals(null);
-        setUsingSample(true);
+        setLoadError(result.error || 'Could not load payouts from Firestore.');
       }
       setLoading(false);
     };
@@ -202,11 +201,11 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           <Text style={styles.sourceNote}>
             {loading
               ? 'Loading payouts…'
-              : usingSample
-                ? 'Sample data — start the functions emulator on this branch to load live orders. Nothing is deployed.'
-                : `Live orders from this branch API. ${payouts.length} plant${
-                    payouts.length === 1 ? '' : 's'
-                  }. Sample mockup numbers are not mixed in.`}
+              : loadError
+                ? 'Couldn’t load payouts. Try again in a moment.'
+                : payouts.length === 0
+                  ? 'No payouts to show yet.'
+                  : `${payouts.length} plant${payouts.length === 1 ? '' : 's'}`}
           </Text>
           <View style={styles.heroStats}>
             <HeroStat label="Paid" value={formatUsd(totals.paid)} />
@@ -298,7 +297,6 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
                       navigation.navigate('ScreenB2BPayoutDetail', {
                         payout: item,
                         audience: isAdmin ? 'admin' : 'seller',
-                        usingSample,
                       })
                     }
                   />

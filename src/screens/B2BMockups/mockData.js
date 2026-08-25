@@ -1,5 +1,4 @@
-export const MOCKUP_NOTE =
-  'Mockup — sample data for client review. Nothing is saved.';
+export const MOCKUP_NOTE = '';
 
 export const CANCELLATION_FEE_PERCENT = 3.5;
 export const PARTIAL_PERCENT_OPTIONS = [70, 75, 80];

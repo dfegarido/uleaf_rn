@@ -558,10 +558,10 @@ const ScreenHome = ({navigation}) => {
             style={styles.b2bPreviewCard}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
-            <Text style={styles.b2bPreviewKicker}>B2B ASIA MOCKUP</Text>
-            <Text style={styles.b2bPreviewTitle}>Commission payouts & USD listings</Text>
+            <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
+            <Text style={styles.b2bPreviewTitle}>Commission payouts</Text>
             <Text style={styles.b2bPreviewBody}>
-              Preview the new Business payout breakdown and listing edit screens. Sample data only.
+              Live B2B payout breakdown from paid orders. Empty if none match.
             </Text>
           </TouchableOpacity>
 
@@ -569,11 +569,10 @@ const ScreenHome = ({navigation}) => {
             style={styles.b2bPreviewCard}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
-            <Text style={styles.b2bPreviewKicker}>B2B ASIA MOCKUP</Text>
+            <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
             <Text style={styles.b2bPreviewTitle}>Listing inline + bulk edit</Text>
             <Text style={styles.b2bPreviewBody}>
-          Edit USD price, pot size, height, status, pin, and listing type. Business
-          listings keep the exact USD entered — no conversion and no $5 rounding.
+              UI preview only — not wired to listings. Use existing listing screens for real USD edits.
             </Text>
           </TouchableOpacity>
 

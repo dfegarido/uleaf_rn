@@ -3,7 +3,6 @@ import {Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} 
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import MockupHeader from './MockupHeader';
-import {SAMPLE_LISTINGS} from './mockData';
 
 const POTS = ['2"', '4"', '6"'];
 const HEIGHTS = ['Below', 'Above'];
@@ -11,7 +10,7 @@ const STATUSES = ['Live', 'Inactive'];
 const TYPES = ['Live', 'Group Chat'];
 
 const ScreenB2BListingEdit = ({navigation}) => {
-  const [rows, setRows] = useState(SAMPLE_LISTINGS);
+  const [rows, setRows] = useState([]);
   const [manageMode, setManageMode] = useState(false);
   const [selected, setSelected] = useState([]);
   const [bulkField, setBulkField] = useState('price');
@@ -36,7 +35,10 @@ const ScreenB2BListingEdit = ({navigation}) => {
   };
 
   const onUpdate = () => {
-    Alert.alert('Update', 'Listing changes would save to the database. This mockup does not write data.');
+    Alert.alert(
+      'Not connected',
+      'Inline listing edit is not wired to Firestore yet. Use the existing listing screens for real edits.',
+    );
   };
 
   const applyBulk = () => {
@@ -109,8 +111,9 @@ const ScreenB2BListingEdit = ({navigation}) => {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="Live listings" />
       <Text style={styles.usdNote}>
-        Business listings use exact USD. Seller enters $197.00, buyer sees $197.00. No
-        conversion and no rounding to $5.
+        This editor is not connected to live listings yet. Exact USD (no $5 rounding) is
+        already applied when Business accounts create or update listings in the existing
+        listing flow.
       </Text>
       <View style={styles.toolbar}>
         <TouchableOpacity

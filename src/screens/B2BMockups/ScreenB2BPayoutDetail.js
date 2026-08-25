@@ -17,7 +17,6 @@ import {
   CANCELLATION_FEE_PERCENT,
   DEFAULT_PARTIAL_PERCENT,
   PARTIAL_PERCENT_OPTIONS,
-  SAMPLE_PAYOUTS,
   formatUsd,
   getCancellationFee,
   getGrossNetPayout,
@@ -28,9 +27,8 @@ import {
 } from './mockData';
 
 const ScreenB2BPayoutDetail = ({navigation, route}) => {
-  const seed = route?.params?.payout || SAMPLE_PAYOUTS[0];
+  const seed = route?.params?.payout;
   const isAdmin = route?.params?.audience === 'admin';
-  const usingSample = route?.params?.usingSample ?? !seed.orderDocId;
   const [payoutStatus, setPayoutStatus] = useState(seed.payoutStatus);
   const [amountPaid, setAmountPaid] = useState(seed.amountPaid || 0);
   const [partialPercent, setPartialPercent] = useState(
@@ -51,8 +49,8 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
   };
 
   const persist = async payload => {
-    if (usingSample) {
-      return {ok: false, sample: true};
+    if (!seed?.orderDocId && !seed?.id) {
+      return {ok: false, error: 'No payout selected'};
     }
     setSaving(true);
     const result = await updateB2BPayoutApi({
@@ -188,6 +186,17 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
       );
     });
   };
+
+  if (!seed) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        <MockupHeader navigation={navigation} title="Payout" />
+        <Text style={{padding: 20, color: '#556065'}}>
+          Open a payout from the list. This screen does not use sample orders.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>

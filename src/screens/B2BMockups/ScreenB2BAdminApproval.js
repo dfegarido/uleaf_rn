@@ -16,15 +16,14 @@ import {
   updateB2BBusinessRequestApi,
 } from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
-import {SAMPLE_REQUESTS} from './mockData';
 
 const FILTERS = ['Pending', 'Approved', 'Rejected', 'All'];
 
 const ScreenB2BAdminApproval = ({navigation}) => {
-  const [requests, setRequests] = useState(SAMPLE_REQUESTS);
+  const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState('Pending');
   const [selectedId, setSelectedId] = useState(null);
-  const [usingSample, setUsingSample] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -44,10 +43,10 @@ const ScreenB2BAdminApproval = ({navigation}) => {
     const result = await listB2BBusinessRequestApi({status: 'All'});
     if (result.success && Array.isArray(result.data?.items)) {
       setRequests(result.data.items);
-      setUsingSample(false);
+      setLoadError(null);
     } else {
-      setRequests(SAMPLE_REQUESTS);
-      setUsingSample(true);
+      setRequests([]);
+      setLoadError(result.error || 'Could not load business requests.');
     }
     setLoading(false);
   };
@@ -60,29 +59,6 @@ const ScreenB2BAdminApproval = ({navigation}) => {
     if (!selected) {
       return;
     }
-    if (usingSample) {
-      setRequests(prev =>
-        prev.map(r =>
-          r.id === selected.id
-            ? {
-                ...r,
-                status,
-                reviewedAt: 'Aug 20, 2026',
-                reviewNotes: reviewNotes || 'Sample review note',
-                reviewedBy: 'admin-sample',
-              }
-            : r,
-        ),
-      );
-      Alert.alert(
-        status === 'Approved' ? 'Approved (sample)' : 'Rejected (sample)',
-        status === 'Approved'
-          ? `${selected.name} would become ${selected.toType}. Start the emulator to persist this.`
-          : `${selected.name} stays ${selected.fromType}. Start the emulator to persist this.`,
-      );
-      return;
-    }
-
     setSaving(true);
     const result = await updateB2BBusinessRequestApi({
       action: status === 'Approved' ? 'approve' : 'reject',
@@ -110,7 +86,6 @@ const ScreenB2BAdminApproval = ({navigation}) => {
 
   const isAsiaRequest = selected?.fromType === 'Asia Seller';
   const liveBlocked =
-    !usingSample &&
     isAsiaRequest &&
     selected?.status === 'Pending' &&
     selected?.liveFlag &&
@@ -120,11 +95,16 @@ const ScreenB2BAdminApproval = ({navigation}) => {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="Business Approvals" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sourceNote}>
-          {usingSample
-            ? 'Sample data — start the functions emulator on this branch to load real requests. Nothing is deployed.'
-            : 'Live conversion requests. Approve changes account type; reject leaves it unchanged.'}
-        </Text>
+        {loadError ? (
+          <Text style={styles.sourceNote}>
+            Couldn’t load requests. Pull back and open this screen again.
+          </Text>
+        ) : (
+          <Text style={styles.sourceNote}>
+            Review requests to become a Business account. Approve updates their type;
+            reject leaves them as they are.
+          </Text>
+        )}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filters}>
           {FILTERS.map(item => (
@@ -148,9 +128,7 @@ const ScreenB2BAdminApproval = ({navigation}) => {
               <View style={styles.empty}>
                 <Text style={styles.emptyTitle}>No {filter.toLowerCase()} requests</Text>
                 <Text style={styles.emptyBody}>
-                  {usingSample
-                    ? 'Sample list is empty for this filter.'
-                    : 'Submitted requests from US Customer and Asia Seller accounts will show here.'}
+                  Submitted requests from US Customer and Asia Seller accounts will show here.
                 </Text>
               </View>
             ) : null}
@@ -187,7 +165,7 @@ const ScreenB2BAdminApproval = ({navigation}) => {
                 {isAsiaRequest ? (
                   <Line
                     label="Live Selling flag"
-                    value={selected.liveFlag || (usingSample ? 'Yes' : 'No')}
+                    value={selected.liveFlag || 'No'}
                   />
                 ) : null}
                 <Line label="Submitted" value={selected.submittedAt} />
@@ -214,8 +192,7 @@ const ScreenB2BAdminApproval = ({navigation}) => {
                         </Text>
                       </View>
                     ) : null}
-                    {!usingSample ? (
-                      <View style={styles.notesField}>
+                    <View style={styles.notesField}>
                         <Text style={styles.lineLabel}>Admin review notes (optional)</Text>
                         <TextInput
                           style={styles.notesInput}
@@ -225,7 +202,6 @@ const ScreenB2BAdminApproval = ({navigation}) => {
                           multiline
                         />
                       </View>
-                    ) : null}
                     <View style={styles.actions}>
                       <TouchableOpacity
                         style={[globalStyles.secondaryButtonAccent, styles.actionBtn]}

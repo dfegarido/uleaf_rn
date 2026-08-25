@@ -142,13 +142,9 @@ const B2BAsiaSection = ({navigation}) => {
   return (
     <View style={[styles.sectionContainer, {paddingTop: 24}]}>
       <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>B2B Asia</Text>
-      <Text style={{color: '#7F8D91', marginTop: 4, fontSize: 12}}>
-        Mockups for client review — sample data only
-      </Text>
       <View style={styles.grid}>
         <IconTile
           title="Approvals"
-          badgeCount={2}
           onPress={() => navigation.navigate('ScreenB2BAdminApproval')}>
           <UserManagementIcon width={48} height={48} />
         </IconTile>
@@ -178,7 +174,7 @@ const B2BAsiaSection = ({navigation}) => {
           <AvatarIcon width={48} height={48} />
         </IconTile>
         <IconTile
-          title="All Mockups"
+          title="All B2B screens"
           onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
           <HappeningsIcon width={48} height={48} />
         </IconTile>

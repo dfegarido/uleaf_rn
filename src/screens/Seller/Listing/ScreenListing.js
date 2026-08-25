@@ -2164,10 +2164,10 @@ const ScreenListing = ({navigation}) => {
           style={styles.b2bListingBanner}
           activeOpacity={0.85}
           onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
-          <Text style={styles.b2bListingKicker}>B2B ASIA MOCKUP</Text>
+          <Text style={styles.b2bListingKicker}>B2B ASIA</Text>
           <Text style={styles.b2bListingTitle}>Inline edit + bulk update</Text>
           <Text style={styles.b2bListingBody}>
-            Preview USD price, pot size, height, status, pin, and listing type. Sample data only.
+            Listing editor is not wired to Firestore yet. Use existing listing screens for live edits.
           </Text>
         </TouchableOpacity>
         {/* Filter Tabs */}

@@ -306,7 +306,7 @@ function AdminTabs() {
       <Stack.Screen name="AdminPrivacyPolicy" options={{headerShown: false}} component={AdminPrivacyPolicyScreen} />
       <Stack.Screen name="AdminVersionControl" options={{headerShown: false}} component={AdminVersionControlScreen} />
 
-      {/* B2B Asia mockups (client review — sample data only) */}
+      {/* B2B Asia */}
       <Stack.Screen name="ScreenB2BMockupHub" options={{headerShown: false}} component={ScreenB2BMockupHub} />
       <Stack.Screen name="ScreenB2BBusinessSwitch" options={{headerShown: false}} component={ScreenB2BBusinessSwitch} />
       <Stack.Screen name="ScreenB2BAdminApproval" options={{headerShown: false}} component={ScreenB2BAdminApproval} />
