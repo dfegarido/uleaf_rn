@@ -1,7 +1,7 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
-  ActivityIndicator,
   Alert,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -123,7 +123,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
       } else {
         setPayouts([]);
         setApiTotals(null);
-        setLoadError(result.error || 'Could not load payouts from Firestore.');
+        setLoadError(result.error || 'Couldn’t load payouts.');
       }
       setLoading(false);
     };
@@ -194,38 +194,61 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           <Text style={styles.heroKicker}>{isAdmin ? 'ADMIN' : 'SELLER'}</Text>
           <Text style={styles.heroLabel}>Net payout</Text>
           {loading ? (
-            <ActivityIndicator color="#539461" style={{marginVertical: 16}} />
+            <SkeletonBlock style={styles.skelHeroAmount} />
           ) : (
             <Text style={styles.heroAmount}>{formatUsd(totals.net)}</Text>
           )}
-          <Text style={styles.sourceNote}>
-            {loading
-              ? 'Loading payouts…'
-              : loadError
+          {loading ? (
+            <SkeletonBlock style={styles.skelNote} />
+          ) : (
+            <Text style={styles.sourceNote}>
+              {loadError
                 ? 'Couldn’t load payouts. Try again in a moment.'
                 : payouts.length === 0
                   ? 'No payouts to show yet.'
                   : `${payouts.length} plant${payouts.length === 1 ? '' : 's'}`}
-          </Text>
+            </Text>
+          )}
           <View style={styles.heroStats}>
-            <HeroStat label="Paid" value={formatUsd(totals.paid)} />
-            <HeroStat label="Remaining" value={formatUsd(remaining)} />
-            <HeroStat label="Unscanned" value={String(totals.awaitingScan)} />
+            {loading ? (
+              <>
+                <SkeletonStat />
+                <SkeletonStat />
+                <SkeletonStat />
+              </>
+            ) : (
+              <>
+                <HeroStat label="Paid" value={formatUsd(totals.paid)} />
+                <HeroStat label="Remaining" value={formatUsd(remaining)} />
+                <HeroStat label="Unscanned" value={String(totals.awaitingScan)} />
+              </>
+            )}
           </View>
         </View>
 
         <View style={styles.formulaCard}>
-          <FormulaLine label="Listed" value={formatUsd(totals.listed)} />
-          <FormulaLine label="Commission" value={`− ${formatUsd(totals.commission)}`} dim />
-          <FormulaLine label="Logistics" value={`− ${formatUsd(totals.logistics)}`} dim />
-          <FormulaLine label="Plant care" value={`− ${formatUsd(totals.plantCare)}`} dim />
-          {totals.cancellationFees > 0 ? (
-            <FormulaLine
-              label="Cancellation 3.5%"
-              value={`− ${formatUsd(totals.cancellationFees)}`}
-              alert
-            />
-          ) : null}
+          {loading ? (
+            <>
+              <SkeletonFormula />
+              <SkeletonFormula />
+              <SkeletonFormula />
+              <SkeletonFormula />
+            </>
+          ) : (
+            <>
+              <FormulaLine label="Listed" value={formatUsd(totals.listed)} />
+              <FormulaLine label="Commission" value={`− ${formatUsd(totals.commission)}`} dim />
+              <FormulaLine label="Logistics" value={`− ${formatUsd(totals.logistics)}`} dim />
+              <FormulaLine label="Plant care" value={`− ${formatUsd(totals.plantCare)}`} dim />
+              {totals.cancellationFees > 0 ? (
+                <FormulaLine
+                  label="Cancellation 3.5%"
+                  value={`− ${formatUsd(totals.cancellationFees)}`}
+                  alert
+                />
+              ) : null}
+            </>
+          )}
         </View>
 
         <View style={styles.ruleRow}>
@@ -270,7 +293,14 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           </View>
         </View>
 
-        {groups.length === 0 ? (
+        {loading ? (
+          <View style={styles.dateBlock}>
+            <SkeletonBlock style={styles.skelDateHead} />
+            <PayoutCardSkeleton />
+            <PayoutCardSkeleton />
+            <PayoutCardSkeleton />
+          </View>
+        ) : groups.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No payouts in this filter</Text>
             <Text style={styles.emptyBody}>Switch status to see other plants.</Text>
@@ -306,20 +336,77 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           })
         )}
 
-        <TouchableOpacity
-          style={globalStyles.secondaryButtonAccent}
-          onPress={() =>
-            Alert.alert(
-              'Export',
-              'CSV would include order, scan status, leaf trail, payout status, listed price, fees, cancellation 3.5%, partial/full paid, and proof of transfer.',
-            )
-          }>
-          <Text style={globalStyles.secondaryButtonButtonTextAccent}>Export</Text>
-        </TouchableOpacity>
+        {!loading ? (
+          <TouchableOpacity
+            style={globalStyles.secondaryButtonAccent}
+            onPress={() =>
+              Alert.alert(
+                'Export',
+                'CSV would include order, scan status, leaf trail, payout status, listed price, fees, cancellation 3.5%, partial/full paid, and proof of transfer.',
+              )
+            }>
+            <Text style={globalStyles.secondaryButtonButtonTextAccent}>Export</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+const SkeletonPulse = ({children}) => {
+  const opacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {toValue: 1, duration: 800, useNativeDriver: true}),
+        Animated.timing(opacity, {toValue: 0.45, duration: 800, useNativeDriver: true}),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [opacity]);
+
+  return <Animated.View style={{opacity}}>{children}</Animated.View>;
+};
+
+const SkeletonBlock = ({style}) => (
+  <SkeletonPulse>
+    <View style={[styles.skelBlock, style]} />
+  </SkeletonPulse>
+);
+
+const SkeletonStat = () => (
+  <View style={styles.heroStat}>
+    <SkeletonBlock style={styles.skelStatValue} />
+    <SkeletonBlock style={styles.skelStatLabel} />
+  </View>
+);
+
+const SkeletonFormula = () => (
+  <View style={styles.formulaLine}>
+    <SkeletonBlock style={styles.skelFormulaLabel} />
+    <SkeletonBlock style={styles.skelFormulaValue} />
+  </View>
+);
+
+const PayoutCardSkeleton = () => (
+  <View style={styles.card}>
+    <View style={styles.cardTop}>
+      <View style={{flex: 1, paddingRight: 12}}>
+        <SkeletonBlock style={styles.skelPlant} />
+        <SkeletonBlock style={styles.skelMeta} />
+        <SkeletonBlock style={styles.skelMetaShort} />
+      </View>
+      <SkeletonBlock style={styles.skelAmount} />
+    </View>
+    <View style={styles.cardBadges}>
+      <SkeletonBlock style={styles.skelChip} />
+      <SkeletonBlock style={styles.skelChip} />
+    </View>
+    <SkeletonBlock style={styles.skelFoot} />
+  </View>
+);
 
 const PayoutCard = React.memo(({item, groupBy, onPress}) => {
   const netValue = getGrossNetPayout(item);
@@ -434,6 +521,20 @@ const styles = StyleSheet.create({
   },
   heroLabel: {color: '#556065', fontSize: 13, marginTop: 10},
   heroAmount: {color: '#539461', fontSize: 32, fontWeight: '700', marginTop: 4},
+  skelBlock: {backgroundColor: '#D7E5D9', borderRadius: 8},
+  skelHeroAmount: {width: 160, height: 36, marginTop: 8, borderRadius: 10},
+  skelNote: {width: '55%', height: 12, marginTop: 10},
+  skelStatValue: {width: 56, height: 18, marginBottom: 6, alignSelf: 'center'},
+  skelStatLabel: {width: 48, height: 10, alignSelf: 'center'},
+  skelFormulaLabel: {width: 90, height: 12},
+  skelFormulaValue: {width: 64, height: 12},
+  skelDateHead: {width: '48%', height: 14, marginBottom: 12},
+  skelPlant: {width: '70%', height: 16, marginBottom: 8},
+  skelMeta: {width: '85%', height: 12, marginBottom: 6},
+  skelMetaShort: {width: '50%', height: 12},
+  skelAmount: {width: 72, height: 20},
+  skelChip: {width: 88, height: 22, borderRadius: 11, marginRight: 8},
+  skelFoot: {width: '60%', height: 12, marginTop: 10},
   sourceNote: {
     color: '#556065',
     fontSize: 11,
