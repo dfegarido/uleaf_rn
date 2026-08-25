@@ -169,25 +169,25 @@ const generateEndpoints = () => ({
   
   // Admin Management APIs
   CREATE_ADMIN: `${getBaseUrl()}/createAdmin`,
-  ADMIN_LOGIN: `${getBaseUrl()}/adminLogin`,
-  GET_ADMIN_INFO: `${getBaseUrl()}/getAdminInfo`,
+  ADMIN_LOGIN: `${getSupabaseBaseUrl()}/admin-login`,
+  GET_ADMIN_INFO: `${getSupabaseBaseUrl()}/admin-info`,
   GET_BUYER_INFO: `${getBaseUrl()}/getBuyerInfo`,
   GET_SUPPLIER_INFO: `${getBaseUrl()}/getSupplierInfo`,
-  LIST_ADMINS: `${getBaseUrl()}/listAdmins`,
-  UPDATE_ADMIN: `${getBaseUrl()}/updateAdmin`,
+  LIST_ADMINS: `${getSupabaseBaseUrl()}/admin-list`,
+  UPDATE_ADMIN: `${getSupabaseBaseUrl()}/admin-update`,
   UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
-  DELETE_ADMIN: `${getBaseUrl()}/deleteAdmin`,
-  GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
-  UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
-  GET_ADMIN_LISTINGS: `${getBaseUrl()}/getAdminListings`,
-  GET_ADMIN_LISTING_DETAIL: `${getBaseUrl()}/getAdminListingDetail`,
-  GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`, // Admin taxonomy management (genus collection with metadata)
+  DELETE_ADMIN: `${getSupabaseBaseUrl()}/admin-delete`,
+  GET_ALL_USERS: `${getSupabaseBaseUrl()}/admin-users`,
+  UPDATE_USER_STATUS: `${getSupabaseBaseUrl()}/admin-user-status`,
+  GET_ADMIN_LISTINGS: `${getSupabaseBaseUrl()}/admin-listings`,
+  GET_ADMIN_LISTING_DETAIL: `${getSupabaseBaseUrl()}/admin-listing-detail`,
+  GET_GENUS_LIST: `${getSupabaseBaseUrl()}/genus-list`, // Admin taxonomy management (genus collection with metadata)
   GET_GENUS_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-genus`, // Seller dropdown (genus collection, simple list)
   // Taxonomy Management APIs
   ADD_PLANT_TAXONOMY: `${getBaseUrl()}/addPlantTaxonomy`,
   UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,
   DELETE_PLANT_TAXONOMY: `${getBaseUrl()}/deletePlantTaxonomy`,
-  GET_SPECIES_FOR_GENUS: `${getBaseUrl()}/getSpeciesForGenus`,
+  GET_SPECIES_FOR_GENUS: `${getSupabaseBaseUrl()}/species-for-genus`,
   IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
   DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
   DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE: `${getBaseUrl()}/downloadLiveListingBatchTemplate`,
@@ -297,7 +297,7 @@ const generateEndpoints = () => ({
   GET_BUYER_ORDERS: `${getSupabaseBaseUrl()}/buyer-orders`,
   GET_BUYER_ORDERS_GROUPED: `${getSupabaseBaseUrl()}/buyer-orders-grouped`,
   GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
-  GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
+  GET_ADMIN_ORDERS: `${getSupabaseBaseUrl()}/admin-orders`,
   GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
   GENERATE_INVOICE: `${getSupabaseBaseUrl()}/generate-invoice`,
   
@@ -376,26 +376,26 @@ const generateEndpoints = () => ({
   // Flight Change Request endpoints
   SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
   GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
-  GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getAdminFlightChangeRequests`,
-  UPDATE_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/updateFlightChangeRequest`,
+  GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getSupabaseBaseUrl()}/flight-change-requests`,
+  UPDATE_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/flight-change-request-update`,
 
   // Flight Schedule endpoints
-  GET_FLIGHT_SCHEDULE: `${getBaseUrl()}/getFlightSchedule`,
-  UPDATE_FLIGHT_DATE_STATUS: `${getBaseUrl()}/updateFlightDateStatus`,
-  UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getBaseUrl()}/updateFlightDateForSchedule`,
+  GET_FLIGHT_SCHEDULE: `${getSupabaseBaseUrl()}/flight-schedule`,
+  UPDATE_FLIGHT_DATE_STATUS: `${getSupabaseBaseUrl()}/flight-date-status`,
+  UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getSupabaseBaseUrl()}/flight-date-schedule-update`,
   GET_ACTIVE_FLIGHT_DATES: `${getSupabaseBaseUrl()}/active-flight-dates`,
 
   // Leaf Trail endpoints
   UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
   UPDATE_PLANT_STATUS: `${getBaseUrl()}/updatePlantStatus`,
-  GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getBaseUrl()}/getAdminLeafTrailReceiving`,
-  EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
-  GET_ADMIN_LEAF_TRAIL_SORTING: `${getBaseUrl()}/getAdminLeafTrailSorting`,
-  GET_ADMIN_LEAF_TRAIL_PACKING: `${getBaseUrl()}/getAdminLeafTrailPacking`,
-  GET_ADMIN_LEAF_TRAIL_SHIPPING: `${getBaseUrl()}/getAdminLeafTrailShipping`,
-  GET_ADMIN_LEAF_TRAIL_SHIPPED: `${getBaseUrl()}/getAdminLeafTrailShipped`,
-  GET_ADMIN_LEAF_TRAIL_FILTERS: `${getBaseUrl()}/getAdminFilters`,
-  GET_ADMIN_SCAN_QR: `${getBaseUrl()}/getAdminScanQr`,
+  GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  EXPORT_ALL_ORDERS_TO_CSV: `${getSupabaseBaseUrl()}/admin-export-orders`,
+  GET_ADMIN_LEAF_TRAIL_SORTING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_PACKING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_SHIPPING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_SHIPPED: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_FILTERS: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_SCAN_QR: `${getSupabaseBaseUrl()}/admin-order-details`,
   ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
   ASSIGN_RECEIVER_BOXES: `${getBaseUrl()}/assignReceiverBoxes`,
   ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
@@ -416,9 +416,9 @@ const generateEndpoints = () => ({
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
 
   // Payment Management APIs
-  GET_PENDING_PAYMENT_ORDERS: `${getBaseUrl()}/getPendingPaymentOrders`,
-  UPDATE_ORDER_READY_TO_FLY: `${getBaseUrl()}/updateOrderToReadyToFly`,
-  DELETE_PENDING_ORDER: `${getBaseUrl()}/deletePendingOrder`,
+  GET_PENDING_PAYMENT_ORDERS: `${getSupabaseBaseUrl()}/admin-payment-management`,
+  UPDATE_ORDER_READY_TO_FLY: `${getSupabaseBaseUrl()}/admin-payment-management`,
+  DELETE_PENDING_ORDER: `${getSupabaseBaseUrl()}/admin-payment-management`,
 
   // Group Chat Notification
   SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,

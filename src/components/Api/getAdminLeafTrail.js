@@ -188,7 +188,7 @@ export const getAdminLeafTrailReceiving = async (filters) => {
       );
     }
 
-    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_RECEIVING}${cleanedParams ? '?' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_RECEIVING}?action=getAdminLeafTrailReceiving${cleanedParams ? '&' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
     
     const response = await fetch(
       url,
@@ -314,7 +314,7 @@ export const getAdminScanQr = async (filters, leafTrailStatus, isScanning = fals
       filters.expectedSortingTrayNumber = scanOptions.expectedSortingTrayNumber;
     }
     const urlParam = new URLSearchParams(filters).toString()
-    const url = `${API_ENDPOINTS.GET_ADMIN_SCAN_QR}?${urlParam}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_SCAN_QR}?action=getAdminScanQr${urlParam ? '&' + urlParam : ''}`
     
     const response = await fetch(
       url,
@@ -355,6 +355,7 @@ export const getAdminLeafTrailFilters = async (
     const token = await getStoredAuthToken();
     let url = API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_FILTERS;
     const params = new URLSearchParams();
+    params.set('action', 'getAdminFilters');
 
     if (statuses) {
       const statusesParam =
@@ -410,7 +411,7 @@ export const getAdminLeafTrailSorting = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SORTING}${cleanedParams ? '?' + new URLSearchParams(cleanedParams).toString() : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SORTING}?action=getAdminLeafTrailSorting${cleanedParams ? '&' + new URLSearchParams(cleanedParams).toString() : ''}`
 
     const response = await fetch(
       url,
@@ -563,7 +564,7 @@ export const getAdminLeafTrailPacking = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_PACKING}${cleanedParams ? '?' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_PACKING}?action=getAdminLeafTrailPacking${cleanedParams ? '&' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
     
     const response = await fetch(
       url,
@@ -728,7 +729,7 @@ export const getAdminLeafTrailShipping = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SHIPPING}${cleanedParams ? '?' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SHIPPING}?action=getAdminLeafTrailShipping${cleanedParams ? '&' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
 
     const response = await fetch(
       url,
@@ -765,7 +766,7 @@ export const getAdminLeafTrailShipped = async (filters = {sort: 'desc'}) => {
       );
     }
 
-    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SHIPPED}${cleanedParams ? '?' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
+    const url = `${API_ENDPOINTS.GET_ADMIN_LEAF_TRAIL_SHIPPED}?action=getAdminLeafTrailShipped${cleanedParams ? '&' + buildAdminLeafTrailQueryString(cleanedParams) : ''}`
     console.log('url', url);
 
     const response = await fetch(
