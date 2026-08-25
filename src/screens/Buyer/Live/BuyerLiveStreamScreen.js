@@ -61,6 +61,7 @@ import { addToCartApi } from '../../../components/Api/cartApi';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { shareLiveStream } from '../../../utils/liveShareLink';
+import { getAgoraUid } from '../../../utils/getAgoraUid';
 import { retryAsync } from '../../../utils/utils';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
@@ -77,6 +78,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [appId, setAppId] = useState(null);
   const [channelName, setChannelName] = useState(null);
   const [token, setToken] = useState(null);
+  const [myUid, setMyUid] = useState(null);
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
   const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
   const [activeListing, setActiveListing] = useState(null);
@@ -334,7 +336,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         const buyerAvatar = await AsyncStorage.getItem('profilePhotoUrl');
         setProfilePhotoUrl(buyerAvatar);
 
-        const response = await generateAgoraToken(sessionId);
+        // Derive a stable, unique uid for THIS viewer so it never collides with
+        // the broadcaster or other viewers (a uid collision makes Agora kick the
+        // existing user, surfacing as "no broadcaster found").
+        const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+        const uid = getAgoraUid(userId);
+        setMyUid(uid);
+
+        const response = await generateAgoraToken(sessionId, uid);
 
         if (response.token && response.appId && response.channelName) {
           setToken(response.token);
@@ -347,7 +356,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         console.error('Error fetching token:', error);
         setError(error.message);
       }
- };
+};
 
  useEffect(() => {
   if (!activeListing) return;
@@ -549,7 +558,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       
       try {
         // Join the channel with specific options
-        rtc.joinChannel(token, channelName, 0, {
+        rtc.joinChannel(token, channelName, myUid ?? 0, {
           autoSubscribeVideo: true,
           autoSubscribeAudio: true,
           publishLocalAudio: false,
@@ -770,6 +779,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   return (
      <SafeAreaView style={styles.container}>
+      {/* TEMP DIAGNOSTIC BANNER - remove after testing */}
+      <View style={{ position: 'absolute', top: 90, left: 8, right: 8, zIndex: 9999, backgroundColor: '#FFF8DC', padding: 8, borderRadius: 6, borderWidth: 2, borderColor: '#DAA520' }}>
+        <Text style={{ fontSize: 11, color: '#000' }}>{`DIAG channel=${channelName} uid=${myUid} tok=${token ? 'Y' : 'N'} joined=${joined} remote=${remoteUid ?? 'null'} err=${error ?? '-'}`}</Text>
+      </View>
       {isLoading && (
                       <Modal transparent animationType="fade">
                         <View style={styles.loadingOverlay}>

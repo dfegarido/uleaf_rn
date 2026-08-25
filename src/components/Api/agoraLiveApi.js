@@ -1,10 +1,11 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const generateAgoraToken = async (channelName, agoraUid=null) => {
   try {
     const token = await getStoredAuthToken();
     
-    const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/generateLiveSessionData', {
+    const response = await fetch(API_ENDPOINTS.POST_GENERATE_LIVE_SESSION, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

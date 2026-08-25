@@ -125,9 +125,9 @@ const InviteFriendsScreen = () => {
     publishReferralCodeMapping(uid, inviteCode);
   }, [uid, inviteCode]);
 
-  // Fetch referral stats on mount (use mock data for rorounifix@gmail.com)
+  // Fetch referral stats on mount (real data from Supabase)
   const userEmail = userInfo?.email || userInfo?.user?.email || userInfo?.data?.email || '';
-  const useMockReferrals = userEmail === 'rorounifix@gmail.com';
+  const useMockReferrals = false;
 
   useEffect(() => {
     let cancelled = false;

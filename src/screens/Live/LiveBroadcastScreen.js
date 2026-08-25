@@ -48,6 +48,7 @@ import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import RNFS from 'react-native-fs';
 import { AuthContext } from '../../auth/AuthProvider';
 import { generateAgoraToken, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
+import { getAgoraUid } from '../../utils/getAgoraUid';
 import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
 import { uploadImageToBackend } from '../../components/Api/uploadImageToBackend';
 import { updateListingApi } from '../../components/Api/listingManagementApi';
@@ -182,16 +183,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const fetchToken = async () => {
     try {
-      // The channel name for the session is the sessionId
-      const response = await generateAgoraToken(sessionId);
-     
+      // The channel name for the session is the sessionId.
+      // Derive a stable, unique uid for THIS broadcaster so it never collides
+      // with viewers joining the same channel (a uid collision makes Agora kick
+      // the existing user, surfacing as "no broadcaster found" for viewers).
+      const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
+      const myUid = getAgoraUid(userId);
+      setUid(myUid);
+
+      const response = await generateAgoraToken(sessionId, myUid);
+    
       console.log('Fetched token response:', response);
       
       if (response.token && response.appId && response.channelName) {
         setToken(response.token);
         setAppId(response.appId);
         setChannelName(response.channelName);
-        setUid(response.agoraUid);
       } else {
         throw new Error(response.error || 'Invalid token response from server');
       }
@@ -343,13 +350,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         orientationMode: 0, // Adaptive
       });
       rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
-      rtc.setupLocalVideo({ uid: 0, renderMode: 1 });
+      rtc.setupLocalVideo({ uid: uid ?? 0, renderMode: 1 });
       rtc.startPreview();
       
       console.log('🔴 Starting broadcast with token:', token.substring(0, 20) + '...');
       console.log('🔄 Channel name:', channelName);
       
-      rtc.joinChannel(token, channelName, 0, {});
+      rtc.joinChannel(token, channelName, uid ?? 0, {});
     };
 
     startBroadcast();
@@ -748,6 +755,10 @@ console.log('activeListing?.id', activeListing?.id);
 
   return (
        <SafeAreaView style={styles.container}>
+        {/* TEMP DIAGNOSTIC BANNER - remove after testing */}
+        <View style={{ position: 'absolute', top: 90, left: 8, right: 8, zIndex: 9999, backgroundColor: '#FFE4E1', padding: 8, borderRadius: 6, borderWidth: 2, borderColor: '#DC143C' }}>
+          <Text style={{ fontSize: 11, color: '#000' }}>{`DIAG channel=${channelName} uid=${uid ?? 'null'} tok=${token ? 'Y' : 'N'} joined=${joined} err=${error ?? '-'}`}</Text>
+        </View>
         {isLoading && (
                 <Modal transparent animationType="fade">
                   <View style={styles.loadingOverlay}>

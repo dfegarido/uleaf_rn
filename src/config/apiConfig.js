@@ -247,6 +247,7 @@ const generateEndpoints = () => ({
   GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
   GET_LIVE_STREAMS: `${getSupabaseBaseUrl()}/live-list`,
   GET_LIVE_SELLERS: `${getSupabaseBaseUrl()}/live-sellers`,
+  POST_GENERATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/generate-live-session`,
   POST_SUPPLIER_UPDATE: `${getSupabaseBaseUrl()}/supplier-update`,
   POST_REPORT_PROBLEM: `${getSupabaseBaseUrl()}/report-problem`,
   POST_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
@@ -365,6 +366,12 @@ const generateEndpoints = () => ({
   CREATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
   UPDATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
   DELETE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+
+  // Referral APIs
+  REFERRAL_INFO: `${getSupabaseBaseUrl()}/referral-info`,
+  LIST_REFERRAL_REWARDS: `${getSupabaseBaseUrl()}/list-referral-rewards`,
+  CREATE_REFERRAL: `${getSupabaseBaseUrl()}/create-referral`,
+  REDEEM_REFERRAL_REWARD: `${getBaseUrl()}/redeemReferralReward`,
   
   // Flight Change Request endpoints
   SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
