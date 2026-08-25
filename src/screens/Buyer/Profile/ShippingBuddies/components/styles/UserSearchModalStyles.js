@@ -75,6 +75,7 @@ const styles = StyleSheet.create({
   },
   modalUserList: {
     paddingVertical: 8,
+    paddingBottom: 24,
   },
   modalUserItem: {
     flexDirection: 'row',
