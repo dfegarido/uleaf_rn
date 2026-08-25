@@ -231,7 +231,13 @@ const BuyerProfileScreen = (props) => {
   }, [isFocused, isLoggedIn]);
 
   const loadAllProfileData = async (forceRefresh = false) => {
-    setLoading(true);
+    // Only show the skeleton on the very first load (no data yet). On
+    // subsequent accesses, keep the existing data visible and refresh in the
+    // background so the screen doesn't flash a skeleton every time.
+    const hasData = Object.keys(data).length > 0;
+    if (!hasData) {
+      setLoading(true);
+    }
     try {
       const profileData = await loadProfileData(forceRefresh);
       await Promise.all([
