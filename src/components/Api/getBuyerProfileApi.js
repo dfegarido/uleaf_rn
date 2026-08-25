@@ -59,3 +59,43 @@ export const getBuyerProfileApi = async (forceRefresh = false) => {
     throw error;
   }
 };
+
+/**
+ * Read the cached buyer profile (if any) without hitting the network.
+ * Used to seed the profile screen instantly on mount so it doesn't flash a
+ * skeleton when the data is already cached.
+ *
+ * Normalizes lowercase PostgREST keys (e.g. profileimage, profilephotourl)
+ * to camelCase so callers can rely on camelCase regardless of when the cache
+ * was written.
+ * @returns {Promise<Object|null>} Cached profile, or null if none/fresh.
+ */
+export const getCachedBuyerProfile = async () => {
+  try {
+    const token = await getStoredAuthToken();
+    if (!token) return null;
+    const userKey = getBuyerUidFromToken(token);
+    const cached = await getCachedResponse(CACHE_ENDPOINT, '', userKey);
+    if (!cached) return null;
+    // Map known lowercase profile keys to camelCase.
+    const lowerToCamel = {
+      profileimage: 'profileImage',
+      profilephotourl: 'profilePhotoUrl',
+      profilephotopath: 'profilePhotoPath',
+      profilephotoupdatedat: 'profilePhotoUpdatedAt',
+      firstname: 'firstName',
+      lastname: 'lastName',
+      username: 'username',
+      email: 'email',
+    };
+    const normalized = { ...cached };
+    for (const [lower, camel] of Object.entries(lowerToCamel)) {
+      if (normalized[lower] !== undefined && normalized[camel] === undefined) {
+        normalized[camel] = normalized[lower];
+      }
+    }
+    return normalized;
+  } catch (e) {
+    return null;
+  }
+};

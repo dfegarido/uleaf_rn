@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useRef, useState} from 'react';
 import { View,
   Text,
   StyleSheet,
@@ -16,6 +16,7 @@ import {useIsFocused} from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import { getBuyerProfileApi,
+  getCachedBuyerProfile,
   getAddressBookEntriesApi,
   deactivateBuyerApi,
   getBuddyRequestsApi,
@@ -229,6 +230,21 @@ const BuyerProfileScreen = (props) => {
       loadAllProfileData();
     }
   }, [isFocused, isLoggedIn]);
+
+  // Seed the profile from cache on mount so the screen renders instantly
+  // instead of flashing a skeleton when the data is already cached.
+  const seededFromCacheRef = useRef(false);
+  useEffect(() => {
+    if (isLoggedIn && !seededFromCacheRef.current) {
+      seededFromCacheRef.current = true;
+      getCachedBuyerProfile().then((cached) => {
+        if (cached) {
+          setData(cached);
+          setLoading(false);
+        }
+      });
+    }
+  }, [isLoggedIn]);
 
   const loadAllProfileData = async (forceRefresh = false) => {
     // Only show the skeleton on the very first load (no data yet). On
