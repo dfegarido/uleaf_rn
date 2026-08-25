@@ -230,10 +230,10 @@ const BuyerProfileScreen = (props) => {
     }
   }, [isFocused, isLoggedIn]);
 
-  const loadAllProfileData = async () => {
+  const loadAllProfileData = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const profileData = await loadProfileData();
+      const profileData = await loadProfileData(forceRefresh);
       await Promise.all([
         loadAddressBookCount(),
         loadProfileStats(profileData),
@@ -256,7 +256,7 @@ const BuyerProfileScreen = (props) => {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadAllProfileData();
+      await loadAllProfileData(true);
   } catch (error) {
       
     } finally {
@@ -264,13 +264,13 @@ const BuyerProfileScreen = (props) => {
     }
   };
 
-  const loadProfileData = async () => {
+  const loadProfileData = async (forceRefresh = false) => {
     let netState = await NetInfo.fetch();
     if (!netState.isConnected || !netState.isInternetReachable) {
       throw new Error('No internet connection.');
     }
 
-    const res = await retryAsync(() => getBuyerProfileApi(), 3, 1000);
+    const res = await retryAsync(() => getBuyerProfileApi(forceRefresh), 3, 1000);
 
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load profile data');
