@@ -172,7 +172,7 @@ const generateEndpoints = () => ({
   ADMIN_LOGIN: `${getSupabaseBaseUrl()}/admin-login`,
   GET_ADMIN_INFO: `${getSupabaseBaseUrl()}/admin-info`,
   GET_BUYER_INFO: `${getBaseUrl()}/getBuyerInfo`,
-  GET_SUPPLIER_INFO: `${getBaseUrl()}/getSupplierInfo`,
+GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   LIST_ADMINS: `${getSupabaseBaseUrl()}/admin-list`,
   UPDATE_ADMIN: `${getSupabaseBaseUrl()}/admin-update`,
   UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
@@ -183,20 +183,21 @@ const generateEndpoints = () => ({
   GET_ADMIN_LISTING_DETAIL: `${getSupabaseBaseUrl()}/admin-listing-detail`,
   GET_GENUS_LIST: `${getSupabaseBaseUrl()}/genus-list`, // Admin taxonomy management (genus collection with metadata)
   GET_GENUS_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-genus`, // Seller dropdown (genus collection, simple list)
+  GET_SPECIES_FROM_PLANT_CATALOG: `${getSupabaseBaseUrl()}/get-species-from-plant-catalog`,
   // Taxonomy Management APIs
-  ADD_PLANT_TAXONOMY: `${getBaseUrl()}/addPlantTaxonomy`,
-  UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,
-  DELETE_PLANT_TAXONOMY: `${getBaseUrl()}/deletePlantTaxonomy`,
+  ADD_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/add-plant-taxonomy`,
+  UPDATE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/update-plant-taxonomy`,
+  DELETE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/delete-plant-taxonomy`,
   GET_SPECIES_FOR_GENUS: `${getSupabaseBaseUrl()}/species-for-genus`,
   IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
   DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
   DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE: `${getBaseUrl()}/downloadLiveListingBatchTemplate`,
   MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getBaseUrl()}/migratePlantCatalogToTaxonomy`,
   // Genus Request Workflow
-  INSERT_GENUS_REQUEST: `${getBaseUrl()}/insertGenusRequest`,
-  GET_GENUS_REQUESTS: `${getBaseUrl()}/getGenusRequests`,
-  APPROVE_GENUS_REQUEST: `${getBaseUrl()}/approveGenusRequest`,
-  REJECT_GENUS_REQUEST: `${getBaseUrl()}/rejectGenusRequest`,
+  INSERT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
+  GET_GENUS_REQUESTS: `${getSupabaseBaseUrl()}/genus-requests`,
+  APPROVE_GENUS_REQUEST: `${getSupabaseBaseUrl()}/approve-genus-request`,
+  REJECT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/reject-genus-request`,
   
   // QR Code APIs
   QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
@@ -213,8 +214,8 @@ const generateEndpoints = () => ({
   
   // Shop APIs
   GET_SORT: `${getBaseUrl()}/getSort`,
-  GET_GENUS: `${getBaseUrl()}/getGenus`,
-  GET_VARIEGATION: `${getBaseUrl()}/getVariegation`,
+GET_GENUS: `${getSupabaseBaseUrl()}/get-genus`,
+GET_VARIEGATION: `${getSupabaseBaseUrl()}/get-variegation`,
   GET_VARIEGATION_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-variegation`,
   GET_COUNTRY: `${getSupabaseBaseUrl()}/dropdown-country`,
   GET_LISTING_TYPE: `${getSupabaseBaseUrl()}/dropdown-listing-type`,
@@ -223,11 +224,11 @@ const generateEndpoints = () => ({
   BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
   BROWSE_PLANTS_BY_GENUS: `${getSupabaseBaseUrl()}/browse-plants-by-genus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
-  SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
+SEARCH_LISTING: `${getSupabaseBaseUrl()}/search-listing`,
   SEARCH_PLANTS: `${getSupabaseBaseUrl()}/plant-search`,
   GET_BUYER_LISTINGS: `${getSupabaseBaseUrl()}/buyer-listings`,
   GET_BUYER_LISTING: `${getSupabaseBaseUrl()}/listing-detail`, // Single plant detail
-  GET_BUYER_LISTING_LIVE: `${getBaseUrl()}/getBuyerListingLive`, // Single plant detail
+GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single plant detail
   GET_PRICE_DROP_BADGE_LISTINGS: `${getSupabaseBaseUrl()}/price-drop-badge`, // Price Drop badge
   GET_PLANT_RECOMMENDATIONS: `${getSupabaseBaseUrl()}/plant-recommendations`,
   GET_BUYER_CONTENT: `${getSupabaseBaseUrl()}/buyer-content`,
@@ -252,17 +253,17 @@ const generateEndpoints = () => ({
   POST_REPORT_PROBLEM: `${getSupabaseBaseUrl()}/report-problem`,
   POST_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
   POST_PROFILE_PHOTO_UPLOAD: `${getSupabaseBaseUrl()}/profile-photo-upload`,
-  SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
+SEARCH_DRAFT_LISTINGS: `${getSupabaseBaseUrl()}/search-draft-listings`,
   
   // Listing Management APIs
   UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
   UPLOAD_CHAT_VIDEO: `${getBaseUrl()}/uploadChatVideo`,
-  ADD_LISTING: `${getBaseUrl()}/addListing`,
-  UPDATE_LISTING: `${getBaseUrl()}/updateListing`,
-  GET_LISTING: `${getBaseUrl()}/getListing`,
+ADD_LISTING: `${getSupabaseBaseUrl()}/add-listing`,
+UPDATE_LISTING: `${getSupabaseBaseUrl()}/update-listing`,
+GET_LISTING: `${getSupabaseBaseUrl()}/get-listing`,
   SYNC_SELLER_EXPIRED_LISTINGS: `${getBaseUrl()}/syncSellerExpiredListings`,
-  DUPLICATE_LISTING: `${getBaseUrl()}/duplicateListing`,
-  DELETE_LISTING: `${getBaseUrl()}/deleteListingByPlantCode`,
+DUPLICATE_LISTING: `${getSupabaseBaseUrl()}/duplicate-listing`,
+DELETE_LISTING: `${getSupabaseBaseUrl()}/delete-listing`,
   // External listing/reporting service used for business performance charts
   // Cloud Run endpoint that accepts POST { interval }
   // Use a local path when running with the emulator so developers can stub the endpoint.
@@ -271,7 +272,7 @@ const generateEndpoints = () => ({
   // News & Events (buyer announcements)
   GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
   // External dashboard statistics (not hosted on our functions base)
-  GET_DASHBOARD_STATISTICS: `${getBaseUrl()}/getDashboardStatistics`,
+GET_DASHBOARD_STATISTICS: `${getSupabaseBaseUrl()}/dashboard-statistics`,
   // External listing/reporting service used for business performance charts
   // This is an external Cloud Run endpoint that accepts POST { interval }
   
@@ -285,15 +286,15 @@ const generateEndpoints = () => ({
 
   // Discount Code APIs
   VALIDATE_DISCOUNT_CODE: `${getSupabaseBaseUrl()}/validate-discount`,
-  CREATE_DISCOUNT: `${getBaseUrl()}/createDiscount`,
-  UPDATE_DISCOUNT: `${getBaseUrl()}/updateDiscount`,
-  DELETE_DISCOUNT: `${getBaseUrl()}/deleteDiscount`,
-  GET_DISCOUNTS: `${getBaseUrl()}/getDiscounts`,
-  GET_DISCOUNT: `${getBaseUrl()}/getDiscount`,
+CREATE_DISCOUNT: `${getSupabaseBaseUrl()}/create-discount`,
+UPDATE_DISCOUNT: `${getSupabaseBaseUrl()}/update-discount`,
+DELETE_DISCOUNT: `${getSupabaseBaseUrl()}/delete-discount`,
+GET_DISCOUNTS: `${getSupabaseBaseUrl()}/get-discounts`,
+GET_DISCOUNT: `${getSupabaseBaseUrl()}/get-discount`,
 
   // Order APIs
-  GET_ORDERS: `${getBaseUrl()}/getOrders`,
-  GET_ORDER_FOR_RECEIVING: `${getBaseUrl()}/getOrderForReceiving`,
+GET_ORDERS: `${getSupabaseBaseUrl()}/get-orders`,
+GET_ORDER_FOR_RECEIVING: `${getSupabaseBaseUrl()}/order-for-receiving`,
   GET_BUYER_ORDERS: `${getSupabaseBaseUrl()}/buyer-orders`,
   GET_BUYER_ORDERS_GROUPED: `${getSupabaseBaseUrl()}/buyer-orders-grouped`,
   GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
@@ -302,30 +303,30 @@ const generateEndpoints = () => ({
   GENERATE_INVOICE: `${getSupabaseBaseUrl()}/generate-invoice`,
   
   // Seller Order APIs
-  UPDATE_ORDER_SELLER_SCANNED: `${getBaseUrl()}/updateOrderSellerScanned`,
-  GET_SELLER_ORDER_COUNTS: `${getBaseUrl()}/getSellerOrderCounts`,
-  UPDATE_ORDER_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateOrderLeafTrailStatus`,
+UPDATE_ORDER_SELLER_SCANNED: `${getSupabaseBaseUrl()}/update-order-seller-scanned`,
+GET_SELLER_ORDER_COUNTS: `${getSupabaseBaseUrl()}/seller-order-counts`,
+  UPDATE_ORDER_LEAF_TRAIL_STATUS: `${getSupabaseBaseUrl()}/update-order-leaf-trail-status`,
   
   // System APIs
-  CHECK_MAINTENANCE: `${getBaseUrl()}/checkMaintenance`,
-  SET_MAINTENANCE: `${getBaseUrl()}/setMaintenance`,
-  GET_APP_VERSION: `${getBaseUrl()}/getAppVersion`,
-  SET_APP_VERSION: `${getBaseUrl()}/setAppVersion`,
+CHECK_MAINTENANCE: `${getSupabaseBaseUrl()}/check-maintenance`,
+SET_MAINTENANCE: `${getSupabaseBaseUrl()}/set-maintenance`,
+GET_APP_VERSION: `${getSupabaseBaseUrl()}/get-app-version`,
+SET_APP_VERSION: `${getSupabaseBaseUrl()}/set-app-version`,
   
   // Credit Request APIs
-  REQUEST_CREDIT: `${getBaseUrl()}/requestCredit`,
-  GET_BUYER_CREDIT_REQUESTS: `${getBaseUrl()}/getBuyerCreditRequests`,
-  GET_CREDIT_REQUEST_DETAIL: `${getBaseUrl()}/getCreditRequestDetail`,
-  GET_JOURNEY_MISHAP_ORDERS: `${getBaseUrl()}/getJourneyMishapOrders`,
-  GET_PLANTS_WITH_CREDIT_REQUESTS: `${getBaseUrl()}/getPlantsWithCreditRequests`,
+REQUEST_CREDIT: `${getSupabaseBaseUrl()}/request-credit`,
+GET_BUYER_CREDIT_REQUESTS: `${getSupabaseBaseUrl()}/buyer-credit-requests`,
+GET_CREDIT_REQUEST_DETAIL: `${getSupabaseBaseUrl()}/credit-request-detail`,
+GET_JOURNEY_MISHAP_ORDERS: `${getSupabaseBaseUrl()}/journey-mishap-orders`,
+GET_PLANTS_WITH_CREDIT_REQUESTS: `${getSupabaseBaseUrl()}/plants-with-credit-requests`,
   GET_JOURNEY_MISHAP_DATA: `${getSupabaseBaseUrl()}/journey-mishap-data`,
-  GET_ADMIN_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getAdminJourneyMishapData`,
-  UPDATE_JOURNEY_MISHAP_STATUS: `${getBaseUrl()}/updateJourneyMishapStatus`,
+GET_ADMIN_JOURNEY_MISHAP_DATA: `${getSupabaseBaseUrl()}/admin-journey-mishap-data`,
+UPDATE_JOURNEY_MISHAP_STATUS: `${getSupabaseBaseUrl()}/update-journey-mishap-status`,
   EXPORT_BUYER_ORDERS: `${getSupabaseBaseUrl()}/export-buyer-orders`,
-  CLEAR_CREDITS: `${getBaseUrl()}/clearCredits`,
-  GET_PLANT_CREDIT_LEDGER: `${getBaseUrl()}/getPlantCreditLedger`,
-  GET_BUYER_CREDIT_STATEMENT: `${getBaseUrl()}/getBuyerCreditStatement`,
-  MANUAL_ADJUST_CREDITS: `${getBaseUrl()}/manualAdjustCredits`,
+CLEAR_CREDITS: `${getSupabaseBaseUrl()}/clear-credits`,
+GET_PLANT_CREDIT_LEDGER: `${getSupabaseBaseUrl()}/plant-credit-ledger`,
+GET_BUYER_CREDIT_STATEMENT: `${getSupabaseBaseUrl()}/buyer-credit-statement`,
+MANUAL_ADJUST_CREDITS: `${getSupabaseBaseUrl()}/manual-adjust-credits`,
   
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,
@@ -337,18 +338,18 @@ const generateEndpoints = () => ({
   GET_DELIVERY_OPTIONS: `${getBaseUrl()}/getDeliveryOptions`,
   
   // Location Dropdown APIs
-  GET_DROPDOWN_STATES: `${getBaseUrl()}/getDropdownStates`,
-  GET_DROPDOWN_CITIES: `${getBaseUrl()}/getDropdownCities`,
+GET_DROPDOWN_STATES: `${getSupabaseBaseUrl()}/states-data`,
+GET_DROPDOWN_CITIES: `${getSupabaseBaseUrl()}/cities-data`,
   POPULATE_DROPDOWN_STATES: `${getBaseUrl()}/populateDropdownStates`,
   POPULATE_DROPDOWN_CITIES: `${getBaseUrl()}/populateDropdownCities`,
   TRIGGER_LOCATION_DATA_UPDATE: `${getBaseUrl()}/triggerLocationDataUpdate`,
   // Public (unauthenticated) location endpoints
   PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
   PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
-  GET_CITIES_BY_STATE: `${getBaseUrl()}/getCitiesByState`,
+GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   
   // User related endpoints
-  SEARCH_USER: `${getBaseUrl()}/searchUser`,
+  SEARCH_USER: `${getSupabaseBaseUrl()}/search-user`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
   UPLOAD_CHAT_SHOP_PHOTO: `${getBaseUrl()}/uploadChatShopPhoto`,
   UPLOAD_BUYER_CONTENT_PHOTO: `${getBaseUrl()}/uploadBuyerContentPhoto`,
@@ -374,7 +375,7 @@ const generateEndpoints = () => ({
   REDEEM_REFERRAL_REWARD: `${getBaseUrl()}/redeemReferralReward`,
   
   // Flight Change Request endpoints
-  SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
+SUBMIT_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/submit-flight-change-request`,
   GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
   GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getSupabaseBaseUrl()}/flight-change-requests`,
   UPDATE_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/flight-change-request-update`,
@@ -386,8 +387,8 @@ const generateEndpoints = () => ({
   GET_ACTIVE_FLIGHT_DATES: `${getSupabaseBaseUrl()}/active-flight-dates`,
 
   // Leaf Trail endpoints
-  UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
-  UPDATE_PLANT_STATUS: `${getBaseUrl()}/updatePlantStatus`,
+  UPDATE_LEAF_TRAIL_STATUS: `${getSupabaseBaseUrl()}/leaf-trail-status`,
+  UPDATE_PLANT_STATUS: `${getSupabaseBaseUrl()}/plant-status`,
   GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getSupabaseBaseUrl()}/admin-order-details`,
   EXPORT_ALL_ORDERS_TO_CSV: `${getSupabaseBaseUrl()}/admin-export-orders`,
   GET_ADMIN_LEAF_TRAIL_SORTING: `${getSupabaseBaseUrl()}/admin-order-details`,
@@ -396,23 +397,22 @@ const generateEndpoints = () => ({
   GET_ADMIN_LEAF_TRAIL_SHIPPED: `${getSupabaseBaseUrl()}/admin-order-details`,
   GET_ADMIN_LEAF_TRAIL_FILTERS: `${getSupabaseBaseUrl()}/admin-order-details`,
   GET_ADMIN_SCAN_QR: `${getSupabaseBaseUrl()}/admin-order-details`,
-  ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
-  ASSIGN_RECEIVER_BOXES: `${getBaseUrl()}/assignReceiverBoxes`,
-  ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
-  UPDATE_PLANTS_TO_SORTED: `${getBaseUrl()}/updatePlantsToSorted`,
-  UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getBaseUrl()}/updatePlantsToNeedsToStay`,
-  GET_ORDERS_BY_SORTING_TRAY: `${getBaseUrl()}/getOrdersBySortingTray`,
-  GET_ORDERS_BY_BOX_NUMBER: `${getBaseUrl()}/getOrdersByBoxNumber`,
-  GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
-  ADD_LEAF_TRAIL_TRACKING_NUMBER: `${getBaseUrl()}/addLeafTrailTrackingNumber`,
-  ADD_LEAF_TRAIL_SHIPPING_DETAILS: `${getBaseUrl()}/addLeafTrailShippingDetails`,
-  SEND_RECEIVER_BOXES_TO_IN_TRANSIT: `${getBaseUrl()}/sendReceiverBoxesToInTransit`,
+  ADD_LEAF_TRAIL_BOX_NUMBER: `${getSupabaseBaseUrl()}/leaf-trail-box-number`,
+  ASSIGN_RECEIVER_BOXES: `${getSupabaseBaseUrl()}/assign-receiver-boxes`,
+  ADD_LEAF_SORT_TRAY: `${getSupabaseBaseUrl()}/leaf-trail-sort-tray`,
+  UPDATE_PLANTS_TO_SORTED: `${getSupabaseBaseUrl()}/plants-sorted-needs-stay`,
+  UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getSupabaseBaseUrl()}/plants-sorted-needs-stay`,
+  GET_ORDERS_BY_SORTING_TRAY: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ORDERS_BY_BOX_NUMBER: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ORDERS_BY_TRACKING_NUMBER: `${getSupabaseBaseUrl()}/admin-order-details`,
+  ADD_LEAF_TRAIL_TRACKING_NUMBER: `${getSupabaseBaseUrl()}/leaf-trail-tracking-number`,
+  ADD_LEAF_TRAIL_SHIPPING_DETAILS: `${getSupabaseBaseUrl()}/leaf-trail-shipping-details`,
+  SEND_RECEIVER_BOXES_TO_IN_TRANSIT: `${getSupabaseBaseUrl()}/send-receiver-boxes-in-transit`,
 
   // Delivery Export endpoint
   DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
   
   // Order Export endpoints
-  EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
 
   // Payment Management APIs
@@ -430,6 +430,7 @@ const generateEndpoints = () => ({
 
   // Live Stream Requests
   CREATE_LIVE_REQUEST: `${getBaseUrl()}/createLiveRequest`,
+  UPDATE_LIVE_SESSION_STATUS: `${getSupabaseBaseUrl()}/update-live-session-status`,
   GET_LIVE_REQUESTS: `${getBaseUrl()}/getLiveRequests`,
   UPDATE_LIVE_REQUEST_STATUS: `${getBaseUrl()}/updateLiveRequestStatus`,
 });

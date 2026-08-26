@@ -339,11 +339,15 @@ const JourneyMishapDetail = () => {
           </View>
 
           {/* Attachment */}
-          {creditRequest.attachments && creditRequest.attachments.length > 0 && (
+          {(() => {
+            const raw = creditRequest.attachments;
+            const atts = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? (() => { try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch (e) { return []; } })() : []);
+            if (atts.length === 0) return null;
+            return (
             <View style={styles.attachmentSection}>
               <Text style={styles.attachmentLabel}>Attachment</Text>
               <ScrollView horizontal style={styles.attachmentScroll} showsHorizontalScrollIndicator={false}>
-                {creditRequest.attachments.map((attachment, index) => (
+                {atts.map((attachment, index) => (
                   <View key={index} style={styles.attachmentItem}>
                     {attachment.type === 'video' ? (
                   <View style={styles.videoContainer}>
@@ -359,7 +363,8 @@ const JourneyMishapDetail = () => {
                 ))}
               </ScrollView>
             </View>
-          )}
+            );
+          })()}
 
           {/* Message */}
           {creditRequest.description && (

@@ -150,7 +150,7 @@ export const getActiveLiveListingApi = async () => {
 export const updateLiveSessionStatusApi = async (sessionId, newStatus) => {
   try {
     const token = await getStoredAuthToken();
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateLiveSessionStatus`;
+    const url = `${API_ENDPOINTS.UPDATE_LIVE_SESSION_STATUS}`;
 
     const response = await fetch(url, {
       method: 'POST',

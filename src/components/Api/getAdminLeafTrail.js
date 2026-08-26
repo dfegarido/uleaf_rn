@@ -595,7 +595,7 @@ export const getOrdersBySortingTray = async (trayNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `${API_ENDPOINTS.GET_ORDERS_BY_SORTING_TRAY}?sortingTrayNumber=${encodeURIComponent(trayNumber)}`,
+      `${API_ENDPOINTS.GET_ORDERS_BY_SORTING_TRAY}?action=getOrdersBySortingTray&sortingTrayNumber=${encodeURIComponent(trayNumber)}`,
       {
         method: 'GET', 
         headers: {
@@ -628,7 +628,7 @@ export const getOrdersByBoxNumber = async (boxNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `${API_ENDPOINTS.GET_ORDERS_BY_BOX_NUMBER}?boxNumber=${encodeURIComponent(boxNumber)}`,
+      `${API_ENDPOINTS.GET_ORDERS_BY_BOX_NUMBER}?action=getOrdersByBoxNumber&boxNumber=${encodeURIComponent(boxNumber)}`,
       {
         method: 'GET', 
         headers: {
@@ -661,7 +661,7 @@ export const getOrdersByTrackingNumber = async (trackingNumber) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `${API_ENDPOINTS.GET_ORDERS_BY_TRACKING_NUMBER}?trackingNumber=${encodeURIComponent(trackingNumber)}`,
+      `${API_ENDPOINTS.GET_ORDERS_BY_TRACKING_NUMBER}?action=getOrdersByTrackingNumber&trackingNumber=${encodeURIComponent(trackingNumber)}`,
       {
         method: 'GET', 
         headers: {
