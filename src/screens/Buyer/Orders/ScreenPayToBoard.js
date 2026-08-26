@@ -4,10 +4,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect, useCallback} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import VenmoLogoIcon from '../../../assets/buyer-icons/venmo-logo.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
@@ -20,6 +17,10 @@ import {useAuth} from '../../../auth/AuthProvider';
 import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
 import { createAndCapturePaypalOrder } from '../../../components/Api/paymentApi';
 import { filterPayToBoardGroups, filterGroupPlants, isPayToBoard } from '../../../utils/buyerOrderFiltering';
+import {
+  getCountryCode,
+  getCountryFlag,
+} from '../../../utils/buyerOrderCardTransform';
 
 const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const navigation = useNavigation();
@@ -251,31 +252,6 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       buyerUid: plant.buyerUid || orderMeta.buyerUid || null,
       _rawPlantRecord: plant
     };
-  };
-
-  const getCountryCode = (record) => {
-    if (!record) return 'ID';
-
-    if (record.plantSourceCountry) return record.plantSourceCountry;
-    if (record.order && record.order.plantSourceCountry) return record.order.plantSourceCountry;
-    if (record.products && record.products.length > 0) {
-      return record.products[0].plantSourceCountry || record.products[0].supplierCountry || 'ID';
-    }
-    if (record.plantDetails && record.plantDetails.plantSourceCountry) return record.plantDetails.plantSourceCountry;
-    return 'ID';
-  };
-
-  const getCountryFlag = (order) => {
-    const countryCode = getCountryCode(order);
-    const flagMap = {
-      'TH': ThailandFlag,
-      'PH': PhilippinesFlag,
-      'ID': IndonesiaFlag,
-      'US': IndonesiaFlag,
-      'BR': IndonesiaFlag,
-      'NL': IndonesiaFlag
-    };
-    return flagMap[countryCode] || IndonesiaFlag;
   };
 
   // Map backend status codes to friendly UI labels

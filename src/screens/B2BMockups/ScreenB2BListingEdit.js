@@ -80,11 +80,17 @@ const rowsEqual = (a, b) =>
   a.potSize === b.potSize &&
   a.height === b.height;
 
-const ScreenB2BListingEdit = ({navigation}) => {
+const ScreenB2BListingEdit = ({navigation, route}) => {
   const {userInfo} = useContext(AuthContext);
+  const nestedUser = userInfo?.user || userInfo?.data || {};
+  const userType =
+    nestedUser.userType || userInfo?.userType || nestedUser.role || userInfo?.role;
   const isAdmin =
-    userInfo?.userType === 'admin' || userInfo?.userType === 'sub_admin';
-  const sellerUid = userInfo?.uid || userInfo?.id;
+    route?.params?.audience === 'admin' ||
+    userType === 'admin' ||
+    userType === 'sub_admin';
+  const sellerUid =
+    userInfo?.uid || userInfo?.id || nestedUser.uid || nestedUser.id;
   const [rows, setRows] = useState([]);
   const [baseline, setBaseline] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,76 +121,83 @@ const ScreenB2BListingEdit = ({navigation}) => {
 
   const channelConfig = CHANNELS.find(item => item.key === channel) || CHANNELS[0];
 
-  const loadListings = useCallback(
-    async ({isRefresh = false} = {}) => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      try {
-        let mapped = [];
-        let totalItems = 0;
-        let totalPages = 1;
+  const loadListings = useCallback(async ({isRefresh = false} = {}) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
-        if (isAdmin) {
-          const result = await getAdminListingsApi({
-            status: channelConfig.status,
-            sort: 'latest',
-            limit: PAGE_SIZE,
-            page,
-          });
-          if (!result.success) {
-            setRows([]);
-            setBaseline([]);
-            setLoadError(result.error || 'Could not load listings.');
-            return;
-          }
-          mapped = (result.data?.listings || []).map(listingToRow);
-          const serverPagination = result.data?.pagination || {};
-          totalItems = Number(serverPagination.totalItems) || mapped.length;
-          totalPages = Math.max(
-            1,
-            Number(serverPagination.totalPages) || Math.ceil(totalItems / PAGE_SIZE) || 1,
-          );
-        } else {
-          if (!sellerUid) {
-            setRows([]);
-            setBaseline([]);
-            setLoadError('Sign in as a seller to load your listings.');
-            return;
-          }
-          const {listings} = await fetchSellerListingsFromFirestore(sellerUid);
-          const wanted = new Set(
-            String(channelConfig.status)
-              .split(',')
-              .map(item => item.trim().toLowerCase()),
-          );
-          const filtered = listings.filter(item =>
-            wanted.has(String(item.status || '').trim().toLowerCase()),
-          );
-          totalItems = filtered.length;
-          totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-          const start = (page - 1) * PAGE_SIZE;
-          mapped = filtered.slice(start, start + PAGE_SIZE).map(listingToRow);
-        }
-
-        setRows(mapped);
-        setBaseline(mapped.map(row => ({...row})));
-        setPagination({currentPage: page, totalPages, totalItems});
-        setLoadError(null);
-        setSelected([]);
-      } catch (error) {
+    try {
+      if (!isAdmin && !sellerUid) {
         setRows([]);
         setBaseline([]);
-        setLoadError(error.message || 'Could not load listings.');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
+        setLoadError('Sign in as a seller to load your listings.');
+        return;
       }
-    },
-    [channelConfig.status, page, isAdmin, sellerUid],
-  );
+
+      let mapped = [];
+      let totalItems = 0;
+      let totalPages = 1;
+
+      if (isAdmin) {
+        const result = await getAdminListingsApi({
+          status: channelConfig.status,
+          listingChannel:
+            channel === 'live'
+              ? 'live'
+              : channel === 'group'
+                ? 'group_chat'
+                : 'all',
+          sort: 'latest',
+          limit: PAGE_SIZE,
+          page,
+        });
+        if (!result.success) {
+          setRows([]);
+          setBaseline([]);
+          setLoadError(result.error || 'Could not load listings.');
+          return;
+        }
+        mapped = (result.data?.listings || []).map(listingToRow);
+        const serverPagination = result.data?.pagination || {};
+        totalItems = Number(serverPagination.totalItems) || mapped.length;
+        totalPages = Math.max(
+          1,
+          Number(serverPagination.totalPages) ||
+            Math.ceil(totalItems / PAGE_SIZE) ||
+            1,
+        );
+      } else {
+        const {listings} = await fetchSellerListingsFromFirestore(sellerUid);
+        const wanted = new Set(
+          String(channelConfig.status)
+            .split(',')
+            .map(item => item.trim().toLowerCase()),
+        );
+        const filtered = listings.filter(item =>
+          wanted.has(String(item.status || '').trim().toLowerCase()),
+        );
+        totalItems = filtered.length;
+        totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+        const start = (page - 1) * PAGE_SIZE;
+        mapped = filtered.slice(start, start + PAGE_SIZE).map(listingToRow);
+      }
+
+      setRows(mapped);
+      setBaseline(mapped.map(row => ({...row})));
+      setPagination({currentPage: page, totalPages, totalItems});
+      setLoadError(null);
+      setSelected([]);
+    } catch (error) {
+      setRows([]);
+      setBaseline([]);
+      setLoadError(error.message || 'Could not load listings.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [channel, channelConfig.status, page, isAdmin, sellerUid]);
 
   useEffect(() => {
     loadListings();

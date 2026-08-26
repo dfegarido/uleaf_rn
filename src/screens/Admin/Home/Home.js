@@ -160,7 +160,9 @@ const B2BAsiaSection = ({navigation}) => {
         </IconTile>
         <IconTile
           title="Listing Edit"
-          onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+          onPress={() =>
+            navigation.navigate('ScreenB2BListingEdit', {audience: 'admin'})
+          }>
           <ListingViewIcon width={48} height={48} />
         </IconTile>
         <IconTile

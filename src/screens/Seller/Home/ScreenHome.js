@@ -40,6 +40,7 @@ import { getDateFilterApi,
 
 
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import LiveIcon from '../../../assets/images/live.svg';
 import MessageIcon from '../../../assets/images/messages.svg';
@@ -540,43 +541,65 @@ const ScreenHome = ({navigation}) => {
           {/* App Update Available Card */}
           <AppUpdateCard style={{marginBottom: 16}} />
 
-          <TouchableOpacity
-            style={styles.b2bPreviewCard}
-            activeOpacity={0.85}
-            onPress={() =>
-              navigation.navigate('ScreenB2BBusinessSwitch', {path: 'asia'})
-            }>
-            <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
-            <Text style={styles.b2bPreviewTitle}>Upgrade to Asia Business</Text>
-            <Text style={styles.b2bPreviewBody}>
-              Request admin approval to switch from Asia Seller to Asia Business. Live
-              Selling must be enabled first.
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.b2bSection}>
+            <View style={styles.b2bSectionHeader}>
+              <Text style={styles.b2bSectionTitle}>B2B Asia</Text>
+              <Text style={styles.b2bSectionSubtitle}>
+                Business account, payouts & USD listings
+              </Text>
+            </View>
 
-          <TouchableOpacity
-            style={styles.b2bPreviewCard}
-            activeOpacity={0.85}
-            onPress={() =>
-              navigation.navigate('ScreenB2BPayoutSummary', {audience: 'seller'})
-            }>
-            <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
-            <Text style={styles.b2bPreviewTitle}>Commission payouts</Text>
-            <Text style={styles.b2bPreviewBody}>
-              Paid orders for this seller with commission, logistics, and plant care.
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.b2bActionList}>
+              <TouchableOpacity
+                style={styles.b2bActionRow}
+                activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate('ScreenB2BBusinessSwitch', {path: 'asia'})
+                }>
+                <View style={styles.b2bActionText}>
+                  <Text style={styles.b2bActionTitle}>Upgrade to Business</Text>
+                  <Text style={styles.b2bActionBody}>
+                    Switch from Asia Seller — Live Selling required
+                  </Text>
+                </View>
+                <RightIcon width={20} height={20} />
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.b2bPreviewCard}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
-            <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
-            <Text style={styles.b2bPreviewTitle}>Listing inline + bulk edit</Text>
-            <Text style={styles.b2bPreviewBody}>
-              Edit your Live and Group Chat listings in USD, then save to Firestore.
-            </Text>
-          </TouchableOpacity>
+              <View style={styles.b2bActionDivider} />
+
+              <TouchableOpacity
+                style={styles.b2bActionRow}
+                activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate('ScreenB2BPayoutSummary', {
+                    audience: 'seller',
+                  })
+                }>
+                <View style={styles.b2bActionText}>
+                  <Text style={styles.b2bActionTitle}>Commission payouts</Text>
+                  <Text style={styles.b2bActionBody}>
+                    Fees, logistics & plant care on paid orders
+                  </Text>
+                </View>
+                <RightIcon width={20} height={20} />
+              </TouchableOpacity>
+
+              <View style={styles.b2bActionDivider} />
+
+              <TouchableOpacity
+                style={styles.b2bActionRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+                <View style={styles.b2bActionText}>
+                  <Text style={styles.b2bActionTitle}>Edit listings in USD</Text>
+                  <Text style={styles.b2bActionBody}>
+                    Inline or bulk update Live & Group Chat
+                  </Text>
+                </View>
+                <RightIcon width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {/* Stats Cards */}
           <ScrollView
@@ -1012,31 +1035,55 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  b2bPreviewCard: {
+  b2bSection: {
+    marginBottom: 20,
+  },
+  b2bSectionHeader: {
+    marginBottom: 10,
+  },
+  b2bSectionTitle: {
+    color: '#202325',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  b2bSectionSubtitle: {
+    color: '#7F8D91',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  b2bActionList: {
     backgroundColor: '#f2f7f3',
     borderWidth: 1,
     borderColor: '#C0DAC2',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    overflow: 'hidden',
   },
-  b2bPreviewKicker: {
-    color: '#356641',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    marginBottom: 4,
+  b2bActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  b2bPreviewTitle: {
+  b2bActionText: {
+    flex: 1,
+  },
+  b2bActionTitle: {
     color: '#202325',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  b2bPreviewBody: {
+  b2bActionBody: {
     color: '#556065',
     fontSize: 13,
     lineHeight: 18,
+  },
+  b2bActionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#C0DAC2',
+    marginLeft: 16,
   },
   cardBlack: {
     height: 135,

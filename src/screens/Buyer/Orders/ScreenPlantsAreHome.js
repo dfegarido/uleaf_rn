@@ -358,21 +358,25 @@ const ScreenPlantsAreHome = ({plantOwnerFilter = null, onBuyersLoaded = null}) =
     return 'ID'; // Default to Indonesia
   };
   
-  // Ensure we only return valid country codes
+  // Ensure we only return valid country codes (also accepts full names like "Philippines")
   const validateCountryCode = (code) => {
     if (!code) return 'ID';
-    
-    // Valid country codes we support
-    const validCodes = ['PH', 'TH', 'ID'];
-    const upperCode = code.toUpperCase();
-    
-    if (validCodes.includes(upperCode)) {
-      return upperCode;
+
+    const nameToCode = {
+      PHILIPPINES: 'PH',
+      THAILAND: 'TH',
+      INDONESIA: 'ID',
+      PH: 'PH',
+      TH: 'TH',
+      ID: 'ID',
+    };
+    const key = String(code).trim().toUpperCase();
+    if (nameToCode[key]) {
+      return nameToCode[key];
     }
-    
-    // Log unexpected codes to help debug
+
     console.log(`Unexpected country code found: ${code}, using default ID`);
-    return 'ID'; // Default to Indonesia for unknown codes
+    return 'ID';
   };
 
   const getCountryFlag = (orderOrPlant) => {

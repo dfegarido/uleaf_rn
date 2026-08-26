@@ -3,14 +3,15 @@ import { useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import { filterByPlantOwner, isReadyToFly, getBuyerUid } from '../../../utils/buyerOrderFiltering';
+import {
+  getCountryCode,
+  getCountryFlag,
+} from '../../../utils/buyerOrderCardTransform';
 
 const READY_TO_FLY_LIMIT = 4;
 
@@ -194,58 +195,6 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       // include original plant record for any additional fields
       _rawPlantRecord: plant
     };
-  };
-
-  // Helper functions for display formatting
-  const getCountryCode = (record) => {
-    if (!record) return 'ID';
-
-    console.log('🔍 getCountryCode - Checking record for plantSourceCountry:', {
-      hasRecord: !!record,
-      plantSourceCountry: record.plantSourceCountry,
-      orderPlantSourceCountry: record.order?.plantSourceCountry,
-      supplierName: record.supplierName,
-      supplierCode: record.supplierCode,
-      plantDetails: record.plantDetails ? Object.keys(record.plantDetails) : 'none'
-    });
-
-    // Prefer explicit plant-level country first
-    if (record.plantSourceCountry) return record.plantSourceCountry;
-
-    // If record contains an order metadata object, prefer its plantSourceCountry
-    if (record.order && record.order.plantSourceCountry) return record.order.plantSourceCountry;
-
-    // If this is an order-like object with products, prefer the first product's plantSourceCountry
-    if (record.products && record.products.length > 0) {
-      return record.products[0].plantSourceCountry || record.products[0].supplierCountry || 'ID';
-    }
-
-    // As a last resort, check nested plantDetails for any explicit country field
-    if (record.plantDetails && record.plantDetails.plantSourceCountry) return record.plantDetails.plantSourceCountry;
-
-    // Do NOT return supplierCode or sellerCode (they are identifiers, not country codes)
-    console.warn('⚠️ No plantSourceCountry found, defaulting to ID for plant:', record.plantName || record.plantCode);
-    return 'ID';
-  };
-
-  const getCountryFlag = (order) => {
-    const countryCode = getCountryCode(order);
-    console.log('🔍 getCountryFlag - raw order:', JSON.stringify(order, null, 2).substring(0, 500));
-    console.log('🔍 Country code for flag:', countryCode, 'for plant:', order?.plantName || order?.plantCode);
-    
-    // Map country codes to flag components
-    const flagMap = {
-      'TH': ThailandFlag,
-      'PH': PhilippinesFlag,
-      'ID': IndonesiaFlag,
-      // Use Indonesia as default for other countries
-      'US': IndonesiaFlag,
-      'BR': IndonesiaFlag,
-      'NL': IndonesiaFlag
-    };
-    
-    // Use matching flag or default to Indonesia
-    return flagMap[countryCode] || IndonesiaFlag;
   };
 
   // Apply plant owner filter using centralized filtering utility

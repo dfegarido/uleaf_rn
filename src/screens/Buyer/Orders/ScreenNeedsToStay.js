@@ -3,14 +3,15 @@ import { useRoute } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import { useAuth } from '../../../auth/AuthProvider';
 import { getBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import { filterByPlantOwner, isNeedsToStay, getBuyerUid } from '../../../utils/buyerOrderFiltering';
+import {
+  getCountryCode,
+  getCountryFlag,
+} from '../../../utils/buyerOrderCardTransform';
 
 const NEEDS_TO_STAY_LIMIT = 4;
 
@@ -160,25 +161,6 @@ const ScreenNeedsToStay = ({ plantOwnerFilter = null, onBuyersLoaded = null }) =
       buyerUid: plant.buyerUid || orderMeta.buyerUid || null,
       _rawPlantRecord: plant,
     };
-  };
-
-  const getCountryCode = (record) => {
-    if (!record) return 'ID';
-    if (record.plantSourceCountry) return record.plantSourceCountry;
-    if (record.order?.plantSourceCountry) return record.order.plantSourceCountry;
-    if (record.products?.length > 0) return record.products[0].plantSourceCountry || 'ID';
-    if (record.plantDetails?.plantSourceCountry) return record.plantDetails.plantSourceCountry;
-    return 'ID';
-  };
-
-  const getCountryFlag = (order) => {
-    const code = getCountryCode(order);
-    const flagMap = {
-      TH: ThailandFlag,
-      PH: PhilippinesFlag,
-      ID: IndonesiaFlag,
-    };
-    return flagMap[code] || IndonesiaFlag;
   };
 
   const applyFilter = useCallback((ordersToFilter, filter) => {
