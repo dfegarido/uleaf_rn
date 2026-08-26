@@ -52,9 +52,8 @@ import AppUpdateCard from '../../../components/AppUpdateCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAdminFlightChangeRequestsApi } from '../../../components/Api/adminOrderApi';
 import { getAdminJourneyMishapDataApi } from '../../../components/Api/orderManagementApi';
+import { getLiveRequestsAdminApi } from '../../../components/Api/liveRequestApi';
 import NetInfo from '@react-native-community/netinfo';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../../../firebase';
 
 
 const AdminHeader = ({onPressProfile = () => {}, insets, profilePhotoUri}) => {
@@ -180,12 +179,9 @@ const LeafTrailGreenhouse = ({navigation}) => {
         }
 
         console.log('🔍 Fetching pending live stream requests for badge...');
-        const q = query(
-          collection(db, 'liveRequests'),
-          where('status', '==', 'pending')
-        );
-        const snapshot = await getDocs(q);
-        const count = snapshot.size;
+        const response = await getLiveRequestsAdminApi();
+        const reqs = response.data || [];
+        const count = reqs.filter(r => r.status === 'pending').length;
 
         console.log('✅ Pending live stream requests count:', count);
         setPendingLiveRequestsCount(count);
@@ -212,19 +208,47 @@ const LeafTrailGreenhouse = ({navigation}) => {
 
         console.log('📦 Full API response:', JSON.stringify(response, null, 2));
 
-        // Check multiple possible response structures
-        let count = 0;
+        // Collect all pending requests across possible response structures
+        let pendingRequests = [];
         if (response.success) {
           if (response.data?.data?.requests && Array.isArray(response.data.data.requests)) {
-            count = response.data.data.requests.length;
+            pendingRequests = response.data.data.requests;
           } else if (response.data?.requests && Array.isArray(response.data.requests)) {
-            count = response.data.requests.length;
+            pendingRequests = response.data.requests;
           } else if (Array.isArray(response.data)) {
-            count = response.data.length;
+            pendingRequests = response.data;
           }
         }
 
-        console.log('✅ Pending flight change requests count:', count);
+        // Only count requests whose flight date is TODAY or FUTURE. This keeps
+        // the badge consistent with the Flight Date screen (which only surfaces
+        // future/today pending requests). Stale pending requests on past dates
+        // should NOT show a badge.
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let count = 0;
+        pendingRequests.forEach((request) => {
+          let date = null;
+          if (request.currentFlightDateObj) {
+            date = new Date(request.currentFlightDateObj);
+            if (isNaN(date.getTime())) date = null;
+            else date.setHours(0, 0, 0, 0);
+          }
+          if (!date) {
+            try {
+              date = new Date(request.currentFlightDate);
+              if (isNaN(date.getTime())) date = null;
+              else date.setHours(0, 0, 0, 0);
+            } catch {
+              date = null;
+            }
+          }
+          if (date && date.getTime() >= today.getTime()) {
+            count += 1;
+          }
+        });
+
+        console.log('✅ Pending (future/today) flight change requests count:', count);
         setPendingRequestsCount(count);
       } catch (error) {
         console.error('❌ Error fetching pending flight change requests:', error);

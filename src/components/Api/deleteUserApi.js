@@ -1,5 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
-import {API_CONFIG} from '../../config/apiConfig';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Deletes a user account (Admin only)
@@ -12,8 +12,8 @@ export const deleteUserApi = async (userId, notes = null) => {
   try {
     const token = await getStoredAuthToken();
     
-    // Use BASE_URL directly from API_CONFIG
-    const url = `${API_CONFIG.BASE_URL}/deleteUser`;
+    // Use the Supabase edge function endpoint
+    const url = API_ENDPOINTS.DELETE_USER;
     
     const response = await fetch(
       url,

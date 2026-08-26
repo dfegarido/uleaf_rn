@@ -1,6 +1,51 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
 
+/** Admin list of live requests (Supabase). */
+export const getLiveRequestsAdminApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.GET_LIVE_REQUESTS_ADMIN, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Get live requests admin API error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Admin edit of a live request (Supabase). */
+export const updateLiveRequestApi = async (data) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.UPDATE_LIVE_REQUEST, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Update live request API error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 /**
  * Create a live stream request
  * @param {Object} data - Request data

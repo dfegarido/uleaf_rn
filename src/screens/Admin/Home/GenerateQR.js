@@ -175,7 +175,8 @@ const GenerateQR = ({navigation}) => {
 
   // Filter states
   const [selectedFilters, setSelectedFilters] = useState({
-    sellerName: null, // Seller name
+    sellerName: null, // Seller name (chip label)
+    sellerUid: null,  // Seller id sent to the API (exact match)
     buyer: null,
     createdDate: null, // Date range for created date
     flightDate: [], // Array of flight dates
@@ -238,7 +239,10 @@ const GenerateQR = ({navigation}) => {
       const queryParams = new URLSearchParams();
       
       // Add filter parameters
-      if (selectedFilters.sellerName) {
+      // Prefer the exact supplier id; fall back to the name for older selections.
+      if (selectedFilters.sellerUid) {
+        queryParams.append('sellerUid', selectedFilters.sellerUid);
+      } else if (selectedFilters.sellerName) {
         queryParams.append('sellerName', selectedFilters.sellerName);
       }
       if (selectedFilters.buyer) {
@@ -308,8 +312,17 @@ const GenerateQR = ({navigation}) => {
         }
       }
 
-      // If we get here, the API call was successful
-      Alert.alert('Success', 'QR codes PDF has been sent to your email address. Please check your inbox.');
+      // If we get here, the API call was successful.
+      // Report the number of plants actually included in the PDF so it is
+      // visibly comparable to the on-screen count (the emailed set previously
+      // ignored the created-date and joiner filters and could silently differ).
+      const emailedCount = typeof data.orderCount === 'number' ? data.orderCount : null;
+      Alert.alert(
+        'Success',
+        emailedCount === null
+          ? 'QR codes PDF has been sent to your email address. Please check your inbox.'
+          : `QR codes PDF with ${emailedCount} plant${emailedCount === 1 ? '' : 's'} has been sent to your email address. Please check your inbox.`,
+      );
       
     } catch (err) {
       console.error('Error sending QR codes email:', err);
@@ -407,7 +420,10 @@ const GenerateQR = ({navigation}) => {
       const queryParams = new URLSearchParams();
       
       // Add filter parameters
-      if (selectedFilters.sellerName) {
+      // Prefer the exact supplier id; fall back to the name for older selections.
+      if (selectedFilters.sellerUid) {
+        queryParams.append('sellerUid', selectedFilters.sellerUid);
+      } else if (selectedFilters.sellerName) {
         queryParams.append('sellerName', selectedFilters.sellerName);
       }
       if (selectedFilters.buyer) {
@@ -985,8 +1001,11 @@ const GenerateQR = ({navigation}) => {
   }, []);
 
   // Filter handlers
-  const handleSellerNameSelect = useCallback((sellerName) => {
-    setSelectedFilters((prev) => ({ ...prev, sellerName }));
+  const handleSellerNameSelect = useCallback((sellerName, sellerUid = null) => {
+    // Keep sellerName for the chip label; send sellerUid to the API when we have
+    // it (exact id match). Name-only matching silently returned 0 orders for any
+    // supplier whose personal name differs from their gardenOrCompanyName.
+    setSelectedFilters((prev) => ({ ...prev, sellerName, sellerUid }));
     setSellerNameModalVisible(false);
   }, []);
 
@@ -1272,6 +1291,24 @@ const GenerateQR = ({navigation}) => {
           return selectedFilters.sellerName ? `${baseLabel}: ${selectedFilters.sellerName}` : baseLabel;
         case 'Transaction':
           return selectedFilters.transaction ? `${baseLabel}: ${selectedFilters.transaction}` : baseLabel;
+        case 'Buyer': {
+          // buyer holds an email or uid; show the friendly name when we can
+          // resolve it from the loaded options, else the raw value.
+          const b = buyerOptions.find(
+            (opt) =>
+              opt.email === selectedFilters.buyer ||
+              opt.id === selectedFilters.buyer ||
+              opt.uid === selectedFilters.buyer,
+          );
+          const display = b?.name || selectedFilters.buyer;
+          return display ? `${baseLabel}: ${display}` : baseLabel;
+        }
+        case 'Joiner': {
+          const j = joinerOptions.find(
+            (opt) => opt.id === selectedFilters.joiner || opt.uid === selectedFilters.joiner,
+          );
+          return j?.name ? `${baseLabel}: ${j.name}` : baseLabel;
+        }
         default:
           return baseLabel;
       }
@@ -1697,6 +1734,7 @@ const GenerateQR = ({navigation}) => {
   const handleResetAllFilters = useCallback(() => {
     setSelectedFilters({
       sellerName: null,
+      sellerUid: null,
       buyer: null,
       createdDate: null,
       flightDate: [],
@@ -1827,7 +1865,7 @@ const GenerateQR = ({navigation}) => {
           onClose={() => setSellerNameModalVisible(false)}
           onSelectSellerName={handleSellerNameSelect}
           onReset={() => {
-            setSelectedFilters((prev) => ({ ...prev, sellerName: null }));
+            setSelectedFilters((prev) => ({ ...prev, sellerName: null, sellerUid: null }));
             setSellerNameModalVisible(false);
           }}
           currentSellerName={selectedFilters.sellerName || ''}
@@ -1979,7 +2017,7 @@ const GenerateQR = ({navigation}) => {
           onClose={() => setSellerNameModalVisible(false)}
           onSelectSellerName={handleSellerNameSelect}
           onReset={() => {
-            setSelectedFilters((prev) => ({ ...prev, sellerName: null }));
+            setSelectedFilters((prev) => ({ ...prev, sellerName: null, sellerUid: null }));
             setSellerNameModalVisible(false);
           }}
           currentSellerName={selectedFilters.sellerName || ''}
@@ -2220,7 +2258,7 @@ const GenerateQR = ({navigation}) => {
         onClose={() => setSellerNameModalVisible(false)}
         onSelectSellerName={handleSellerNameSelect}
         onReset={() => {
-          setSelectedFilters((prev) => ({ ...prev, sellerName: null }));
+          setSelectedFilters((prev) => ({ ...prev, sellerName: null, sellerUid: null }));
           setSellerNameModalVisible(false);
         }}
         currentSellerName={selectedFilters.sellerName || ''}

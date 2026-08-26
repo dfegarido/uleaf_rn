@@ -9,8 +9,7 @@ import { View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '../../../../firebase';
+import { openFlightDateChatApi } from '../../../components/Api/flightDateOrdersApi';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { getAdminFlightChangeRequestsApi, updateFlightChangeRequestApi } from '../../../components/Api/adminOrderApi';
 import NetInfo from '@react-native-community/netinfo';
@@ -265,78 +264,28 @@ const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation, flightChan
         return;
       }
 
-      // Check if a private chat already exists with this buyer
-      const existingChatQuery = query(
-        collection(db, 'chats'),
-        where('participantIds', 'array-contains', currentUserUid),
-        where('type', '==', 'private'),
-      );
-
-      const existingChatsSnapshot = await getDocs(existingChatQuery);
-      let existingChat = null;
-
-      existingChatsSnapshot.forEach(doc => {
-        const chatData = doc.data();
-        // Ensure it's a private chat with exactly 2 participants
-        if (chatData.type === 'private' && 
-            chatData.participantIds && 
-            chatData.participantIds.length === 2 &&
-            chatData.participantIds.includes(buyerInfo.uid)) {
-          existingChat = {id: doc.id, ...chatData};
-        }
+      // Open-or-create a private admin<->buyer chat (dedupe handled server-side)
+      const flightDate = currentFlightDate ? String(currentFlightDate) : '';
+      const res = await openFlightDateChatApi({
+        flightDate,
+        buyerUid: buyerInfo.uid,
+        buyerName: buyerInfo.fullName || 'Buyer',
+        buyerAvatar: buyerInfo.avatar || '',
       });
 
-      // If chat exists, navigate to it
-      if (existingChat) {
-        navigation.navigate('ChatScreen', {
-          id: existingChat.id,
-          participantIds: existingChat.participantIds,
-          participants: existingChat.participants,
-          avatarUrl: buyerInfo.avatar || '',
-          name: buyerInfo.fullName,
-          type: 'private',
-        });
+      if (!res.success) {
+        Alert.alert('Error', res.error || 'Failed to open chat');
         return;
       }
 
-      // Otherwise create a new chat
-      const currentUserAvatar = userInfo?.data?.profileImage || 
-                                 userInfo?.data?.profilePhotoUrl || 
-                                 userInfo?.profileImage || 
-                                 userInfo?.profilePhotoUrl || '';
-      const currentUserName = `${userInfo?.data?.firstName || userInfo?.user?.firstName || userInfo?.firstName || ''} ${userInfo?.data?.lastName || userInfo?.user?.lastName || userInfo?.lastName || ''}`.trim() || 
-                               userInfo?.data?.email || 
-                               userInfo?.user?.email || 
-                               'Admin';
+      const chatData = res.data?.chat || {};
+      const chatId = chatData.id;
 
-      const chatData = {
-        participants: [
-          {
-            uid: currentUserUid,
-            name: currentUserName,
-            avatarUrl: currentUserAvatar,
-          },
-          {
-            uid: buyerInfo.uid,
-            name: buyerInfo.fullName,
-            avatarUrl: buyerInfo.avatar || '',
-          },
-        ],
-        participantIds: [currentUserUid, buyerInfo.uid],
-        type: 'private',
-        createdAt: new Date(),
-        lastMessage: null,
-        lastMessageTime: null,
-        unreadBy: [],
-      };
-
-      const chatRef = await addDoc(collection(db, 'chats'), chatData);
-      
-      // Navigate to the newly created chat
+      // Navigate to ChatScreen with the newly found/created chat
       navigation.navigate('ChatScreen', {
-        id: chatRef.id,
-        participantIds: chatData.participantIds,
-        participants: chatData.participants,
+        id: chatId,
+        participantIds: chatData.participantIds || [currentUserUid, buyerInfo.uid],
+        participants: chatData.participants || [],
         avatarUrl: buyerInfo.avatar || '',
         name: buyerInfo.fullName,
         type: 'private',

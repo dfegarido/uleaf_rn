@@ -1,6 +1,27 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
+export const getBuyerCreditsApi = async (buyerUid) => {
+  try {
+    const token = await getStoredAuthToken();
+    const response = await fetch(`${API_ENDPOINTS.GET_BUYER_CREDITS}?buyerUid=${encodeURIComponent(buyerUid)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP ${response.status}`);
+    }
+    return { success: true, data: data.data || { plantCredits: [], shippingByOrder: {} } };
+  } catch (e) {
+    console.error('Get buyer credits API error:', e);
+    return { success: false, error: e.message };
+  }
+};
+
 export const CREDIT_STATEMENT_QUERY_KEY = (buyerUid) => ['credit-statement', buyerUid];
 
 export const CREDIT_MANAGEMENT_QUERY_KEY = ['credit-management'];

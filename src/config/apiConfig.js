@@ -189,10 +189,11 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   UPDATE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/update-plant-taxonomy`,
   DELETE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/delete-plant-taxonomy`,
   GET_SPECIES_FOR_GENUS: `${getSupabaseBaseUrl()}/species-for-genus`,
-  IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
+  DELETE_USER: `${getSupabaseBaseUrl()}/admin-user-delete`,
+  IMPORT_TAXONOMY_DATA: `${getSupabaseBaseUrl()}/import-taxonomy-data`,
   DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
   DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE: `${getBaseUrl()}/downloadLiveListingBatchTemplate`,
-  MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getBaseUrl()}/migratePlantCatalogToTaxonomy`,
+  MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getSupabaseBaseUrl()}/migrate-plant-catalog-taxonomy`,
   // Genus Request Workflow
   INSERT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
   GET_GENUS_REQUESTS: `${getSupabaseBaseUrl()}/genus-requests`,
@@ -200,8 +201,8 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   REJECT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/reject-genus-request`,
   
   // QR Code APIs
-  QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
-  QR_GENERATOR_ORDERS: `${getBaseUrl()}/qrGenerator/orders`,
+  QR_GENERATOR: `${getSupabaseBaseUrl()}/qr-generate`,
+  QR_GENERATOR_ORDERS: `${getSupabaseBaseUrl()}/qr-orders`,
   THERMAL_LABEL_GENERATOR: `${getBaseUrl()}/thermalLabelGenerator`,
   EMAIL_THERMAL_LABELS: `${getBaseUrl()}/emailThermalLabels`,
   GENERATE_RECEIVER_BOX_LABELS: `${getBaseUrl()}/generateReceiverBoxLabels`,
@@ -431,8 +432,14 @@ SUBMIT_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/submit-flight-change-requ
   // Live Stream Requests
   CREATE_LIVE_REQUEST: `${getBaseUrl()}/createLiveRequest`,
   UPDATE_LIVE_SESSION_STATUS: `${getSupabaseBaseUrl()}/update-live-session-status`,
+  UPDATE_LIVE_REQUEST_STATUS: `${getSupabaseBaseUrl()}/update-live-request-status`,
+  GET_LIVE_REQUESTS_ADMIN: `${getSupabaseBaseUrl()}/get-live-requests`,
+  UPDATE_LIVE_REQUEST: `${getSupabaseBaseUrl()}/update-live-request`,
+  FLIGHT_DATE_ORDERS: `${getSupabaseBaseUrl()}/flight-date-orders`,
+  LEAF_POINTS: `${getSupabaseBaseUrl()}/leaf-points`,
+  CREDIT_BUYERS: `${getSupabaseBaseUrl()}/credit-buyers`,
+  GET_BUYER_CREDITS: `${getSupabaseBaseUrl()}/get-buyer-credits`,
   GET_LIVE_REQUESTS: `${getBaseUrl()}/getLiveRequests`,
-  UPDATE_LIVE_REQUEST_STATUS: `${getBaseUrl()}/updateLiveRequestStatus`,
 });
 
 // API Endpoints - Initially generated with default environment

@@ -16,22 +16,11 @@ import { ActivityIndicator,
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
-import { addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
 import { launchImageLibrary } from 'react-native-image-picker';
 
-import { db } from '../../../../firebase';
-import { useAuth } from '../../../auth/AuthProvider';
+import { getChatShopsAdminApi, getGroupChatsApi, getGroupChatDetailApi, createChatShopApi, updateChatShopApi, deleteChatShopApi } from '../../../components/Api/adminBuyerContentApi';
 import { uploadChatShopPhotoApi } from '../../../components/Api';
+import { useAuth } from '../../../auth/AuthProvider';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 
 // Removed DefaultShopImage - will use empty placeholder view instead
@@ -108,9 +97,9 @@ export default function ChatShops({ navigation }) {
   const fetchChatShops = useCallback(async () => {
     try {
       setLoading(true);
-      // Fetch all chat shops without orderBy to avoid index issues
-      const snapshot = await getDocs(collection(db, 'chatShops'));
-      const shops = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Fetch all chat shops via Supabase edge function
+      const res = await getChatShopsAdminApi();
+      const shops = res.data || [];
       
       // Sort in-memory: by priority (ascending), then by createdAt
       // Shops without priority go to the bottom
@@ -123,8 +112,8 @@ export default function ChatShops({ navigation }) {
         }
         
         // If same priority, sort by createdAt
-        const aTime = a.createdAt?.toDate?.() || new Date(0);
-        const bTime = b.createdAt?.toDate?.() || new Date(0);
+        const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+        const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
         return aTime - bTime;
       });
       
@@ -138,29 +127,22 @@ export default function ChatShops({ navigation }) {
 
   const fetchGroupChats = useCallback(async () => {
     try {
-      // IMPORTANT: avoid orderBy() here to prevent Firestore index errors.
-      // We'll fetch all group chats and sort in-memory.
-      const q = query(collection(db, 'chats'), where('type', '==', 'group'));
-      const snapshot = await getDocs(q);
-      const allChats = snapshot.docs
-        .map((d) => {
-          const data = d.data() || {};
+      // Fetch all group chats via Supabase edge function
+      const res = await getGroupChatsApi();
+      const allChats = (res.data || []).map((d) => {
+        const ts =
+          (d.timestamp && typeof d.timestamp.toDate === 'function' && d.timestamp.toDate()) ||
+          (d.timestamp instanceof Date ? d.timestamp : null) ||
+          (d.createdAt && typeof d.createdAt.toDate === 'function' && d.createdAt.toDate()) ||
+          (d.createdAt instanceof Date ? d.createdAt : null) ||
+          null;
 
-          const ts =
-            (data.timestamp && typeof data.timestamp.toDate === 'function' && data.timestamp.toDate()) ||
-            (data.timestamp instanceof Date ? data.timestamp : null) ||
-            (data.createdAt && typeof data.createdAt.toDate === 'function' && data.createdAt.toDate()) ||
-            (data.createdAt instanceof Date ? data.createdAt : null) ||
-            null;
-
-          return {
-            id: d.id,
-            ...data,
-            name: data.name || 'Unnamed Group',
-            _sortTs: ts ? ts.getTime() : 0,
-          };
-        })
-        .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0));
+        return {
+          ...d,
+          name: d.name || 'Unnamed Group',
+          _sortTs: ts ? ts.getTime() : 0,
+        };
+      }).sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0));
 
       console.log(`📊 Fetched ${allChats.length} total group chats`);
       setGroupChats(allChats);
@@ -309,13 +291,12 @@ export default function ChatShops({ navigation }) {
 
       if (editingShop) {
         // Update existing
-        await updateDoc(doc(db, 'chatShops', editingShop.id), shopData);
+        const res = await updateChatShopApi(editingShop.id, shopData);
+        if (!res.success) throw new Error(res.error);
       } else {
         // Create new
-        await addDoc(collection(db, 'chatShops'), {
-          ...shopData,
-          createdAt: new Date(),
-        });
+        const res = await createChatShopApi({ ...shopData, createdAt: new Date() });
+        if (!res.success) throw new Error(res.error);
       }
 
       closeModal();
@@ -339,7 +320,8 @@ export default function ChatShops({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteDoc(doc(db, 'chatShops', shopId));
+              const res = await deleteChatShopApi(shopId);
+              if (!res.success) throw new Error(res.error);
               fetchChatShops();
             } catch (error) {
               console.error('Error deleting chat shop:', error);
@@ -360,17 +342,15 @@ export default function ChatShops({ navigation }) {
 
       console.log('📱 Opening group chat:', shop.groupChatId);
 
-      // Fetch the group chat data from Firestore
-      const chatDocRef = doc(db, 'chats', shop.groupChatId);
-      const chatDoc = await getDoc(chatDocRef);
-
-      if (!chatDoc.exists()) {
+      // Fetch the group chat data from Supabase edge function
+      const res = await getGroupChatDetailApi(shop.groupChatId);
+      if (!res.success) {
         Alert.alert('Error', 'Group chat not found. It may have been deleted.');
         return;
       }
 
-      const chatData = chatDoc.data();
-      
+      const chatData = res.data || {};
+
       // Navigate to ChatScreen with the full chat data
       navigation.navigate('ChatScreen', {
         id: shop.groupChatId,

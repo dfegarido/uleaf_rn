@@ -136,9 +136,12 @@ const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, cur
       setIsSearching(false);
       setSearchedSellers([]);
     } else {
-      // When modal opens, reset search query to show all sellers
+      // When modal opens, start with an empty query so the full seller list is
+      // shown. Pre-filling with the current selection made the modal open on a
+      // "No sellers found" state, because the stored label is a display name
+      // that the seller search does not necessarily match.
       console.log('[SellerNameFilter] Modal opened, resetting search query');
-      setSearchQuery(currentSellerName || '');
+      setSearchQuery('');
       setIsSearching(false);
       setSearchedSellers([]);
     }
@@ -191,7 +194,11 @@ const SellerNameFilter = ({ isVisible, onClose, onSelectSellerName, onReset, cur
   const handleSelect = (seller) => {
     const name = seller.name || `${seller.firstName || ''} ${seller.lastName || ''}`.trim() || seller.email;
     if (onSelectSellerName && typeof onSelectSellerName === 'function') {
-      onSelectSellerName(name);
+      // Pass the id alongside the display name. The name alone is ambiguous:
+      // the backend used to match it against the supplier's gardenOrCompanyName
+      // only, so selecting a supplier's personal name returned zero orders.
+      // The uid is matched exactly (sellercode/suppliercode/supplieruid).
+      onSelectSellerName(name, seller.uid || seller.id || null);
     }
     onClose();
   };

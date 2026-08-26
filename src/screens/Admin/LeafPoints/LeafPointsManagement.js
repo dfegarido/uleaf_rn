@@ -11,8 +11,7 @@ import { View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from '../../../../firebase';
+import { getLeafPointsApi } from '../../../components/Api/adminBuyerContentApi';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 
 const LeafPointsManagement = ({ navigation }) => {
@@ -26,32 +25,11 @@ const LeafPointsManagement = ({ navigation }) => {
     try {
       setLoading(true);
       
-      // Fetch all buyers from buyer collection
-      const buyersSnap = await getDocs(collection(db, 'buyer'));
-      
-      // Filter buyers who have leafPoints > 0
-      const buyersWithPoints = [];
-      buyersSnap.forEach(doc => {
-        const data = doc.data();
-        const leafPoints = data.leafPoints || 0;
-        
-        if (leafPoints > 0) {
-          buyersWithPoints.push({
-            uid: doc.id,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            email: data.email || '',
-            username: data.username || '',
-            leafPoints: leafPoints,
-            country: data.country || data.region || '',
-            createdAt: data.createdAt,
-          });
-        }
-      });
-      
-      // Sort by leafPoints descending (highest first)
-      buyersWithPoints.sort((a, b) => b.leafPoints - a.leafPoints);
-      
+      // Fetch all buyers with leaf points via Supabase edge function
+      const res = await getLeafPointsApi();
+      if (!res.success) throw new Error(res.error || 'Failed to fetch leaf points');
+      const buyersWithPoints = res.data || [];
+
       console.log(`📊 Found ${buyersWithPoints.length} buyers with leaf points`);
       setBuyers(buyersWithPoints);
       setFilteredBuyers(buyersWithPoints);

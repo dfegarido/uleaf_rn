@@ -15,9 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import ScreenHeader from '../../../components/Admin/header';
 import Loading from '../../../components/Loading/Loading';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { clearCreditsApi, invalidateCreditManagementCache, invalidateCreditStatementCache } from '../../../components/Api/creditApi';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../../../firebase';
+import { clearCreditsApi, getBuyerCreditsApi, invalidateCreditManagementCache, invalidateCreditStatementCache } from '../../../components/Api/creditApi';
 import { CREDIT_COLORS, getReasonMeta, CREDIT_TYPES, REASON_TYPES } from '../../../utils/creditEnums';
 
 const REASON_PLACEHOLDER = 'e.g. Paid buyer directly via PayPal on Jul 10…';
@@ -83,53 +81,19 @@ export default function ClearCreditsScreen() {
 
     const load = async () => {
       try {
-        const [plantSnap, shippingSnap] = await Promise.all([
-          getDocs(query(collection(db, 'plant_credits'), where('buyerUid', '==', buyer.uid))),
-          getDocs(query(collection(db, 'shipping_credits'), where('buyerUid', '==', buyer.uid))),
-        ]);
+        const res = await getBuyerCreditsApi(buyer.uid);
+        if (!res.success) throw new Error(res.error || 'Failed to load credits');
 
-        const shippingByOrder = {};
-        shippingSnap.forEach((docSnap) => {
-          const d = docSnap.data();
-          const oid = d.sourceOrderId || d.orderId;
-          if (!oid) return;
-          if (!shippingByOrder[oid]) {
-            shippingByOrder[oid] = {
-              amount: 0,
-              usedAmount: 0,
-              remainingAmount: 0,
-              carrier: d.carrier,
-              trackingNumber: d.trackingNumber,
-              shipLeg: d.shipLeg || d.route,
-            };
-          }
-          shippingByOrder[oid].amount += Number(d.amount || 0);
-          shippingByOrder[oid].usedAmount += Number(d.usedAmount || 0);
-          shippingByOrder[oid].remainingAmount += Number(d.remainingAmount ?? d.amount ?? 0);
-        });
+        const { plantCredits = [], shippingByOrder = {} } = res.data || {};
 
-        const list = [];
-        plantSnap.forEach((docSnap) => {
-          const d = docSnap.data();
-          const amount = Number(d.amount || 0);
-          const usedAmount = Number(d.usedAmount || 0);
-          const remainingAmount = Number(d.remainingAmount ?? amount - usedAmount);
-          if (d.status === 'fully_used' || remainingAmount <= 0) return;
-
-          const tiedShipping = shippingByOrder[d.sourceOrderId || d.orderId] || null;
-          list.push({
-            id: docSnap.id,
-            plantName: d.plantName || d.plantDetails?.plantName || 'Unknown Plant',
-            plantCode: d.plantCode || d.plantDetails?.plantCode,
-            orderId: d.sourceOrderId || d.orderId,
-            amount,
-            usedAmount,
-            remainingAmount,
-            status: d.status || 'active',
-            reasonType: d.reasonType,
-            issuedDate: d.createdAt?.toDate ? d.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
+        // Merge tied shipping into each plant credit (mirrors the old mapping)
+        const list = plantCredits.map((d) => {
+          const tiedShipping = shippingByOrder[d.orderId] || null;
+          return {
+            ...d,
+            id: d.id,
             tiedShipping,
-          });
+          };
         });
 
         setCredits(list);

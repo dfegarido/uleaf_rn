@@ -14,8 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../../../firebase';
+import { getCreditBuyersApi } from '../../../components/Api/adminBuyerContentApi';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import Avatar from '../../../shared/components/Avatar';
 import ScreenHeader from '../../../components/Admin/header';
@@ -162,40 +161,12 @@ const SkeletonSummaryCard = () => (
 );
 
 const fetchCreditManagementBuyers = async () => {
-  const [buyerSnap, txSnap] = await Promise.all([
-    getDocs(collection(db, 'buyer')),
-    getDocs(collection(db, 'credit_transactions')),
-  ]);
-
-  const buyersWithHistory = new Set();
-  txSnap.forEach((docSnap) => {
-    const data = docSnap.data();
-    if (data.buyerUid) buyersWithHistory.add(data.buyerUid);
-  });
-
-  const list = [];
-  buyerSnap.forEach((docSnap) => {
-    const data = docSnap.data();
-    if (!buyersWithHistory.has(docSnap.id)) return;
-
-    const plantCredits = Number(data.plantCredits ?? data.plant_credits ?? 0);
-    const shippingCredits = Number(data.shippingCredits ?? data.shipping_credits ?? 0);
-    const requiresInvestigation = (plantCredits < 0 || shippingCredits < 0) && (Math.abs(plantCredits) > 0.001 || Math.abs(shippingCredits) > 0.001);
-
-    const lastActivityAt = data.lastActivityAt ?? data.updatedAt ?? data.createdAt;
-    const name = `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.username || data.email || 'Unknown';
-
-    list.push({
-      uid: docSnap.id,
-      name,
-      email: data.email || '',
-      country: data.country || data.region || '',
-      plantCredits,
-      shippingCredits,
-      requiresInvestigation,
-      lastActivityAt,
-    });
-  });
+  const res = await getCreditBuyersApi();
+  if (!res.success) throw new Error(res.error || 'Failed to fetch credit buyers');
+  const list = (res.data || []).map((d) => ({
+    ...d,
+    lastActivityAt: d.lastActivityAt,
+  }));
 
   list.sort((a, b) => {
     const aTime = a.lastActivityAt?.toDate ? a.lastActivityAt.toDate() : new Date(a.lastActivityAt || 0);
