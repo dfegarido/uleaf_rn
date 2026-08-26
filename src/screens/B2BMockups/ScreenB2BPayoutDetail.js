@@ -68,7 +68,15 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
   const net = getGrossNetPayout(seed);
   const eligible = isPayoutEligible(seed);
   const exception = isExceptionCondition(seed);
-  const cancellationFee = exception ? getCancellationFee(seed.listedPrice) : 0;
+  const cancellationBase = exception
+    ? Number(
+        Math.max(
+          0,
+          Number(seed.listedPrice || 0) - Number(seed.logistics || 0) - Number(seed.plantCare || 0),
+        ).toFixed(2),
+      )
+    : 0;
+  const cancellationFee = exception ? getCancellationFee(seed) : 0;
   const partialAmount = getPartialAmount(net, partialPercent);
   const remaining = Number(((net || 0) - amountPaid).toFixed(2));
   const tone = payoutStatusTone(payoutStatus);
@@ -270,13 +278,17 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
               {seed.condition === 'missing' ? 'Missing' : 'Damaged'} plant
             </Text>
             <Text style={styles.alertBody}>
-              Buyer plant credit is issued automatically. Seller is charged a{' '}
-              {CANCELLATION_FEE_PERCENT}% cancellation fee on listed USD.
+              Buyer plant credit is issued. iLeafU keeps the {seed.commissionRate || 10}%
+              commission. The seller is charged a non-refundable{' '}
+              {CANCELLATION_FEE_PERCENT}% fee on listed USD minus logistics and plant care.
             </Text>
             <View style={styles.breakdown}>
               <Row label="Listed USD price" value={formatUsd(seed.listedPrice)} />
+              <Row label="Less logistics" value={`− ${formatUsd(seed.logistics)}`} />
+              <Row label="Less plant care" value={`− ${formatUsd(seed.plantCare)}`} />
+              <Row label="Fee base" value={formatUsd(cancellationBase)} />
               <Row
-                label={`Cancellation fee (${CANCELLATION_FEE_PERCENT}%)`}
+                label={`${CANCELLATION_FEE_PERCENT}% non-refundable`}
                 value={formatUsd(cancellationFee)}
                 negative
               />

@@ -80,7 +80,7 @@ const computeTotals = items =>
       return acc;
     }
     if (isExceptionCondition(item)) {
-      const fee = getCancellationFee(item.listedPrice);
+      const fee = getCancellationFee(item);
       acc.cancellationFees += fee;
       acc.net -= fee;
       acc.issues += 1;

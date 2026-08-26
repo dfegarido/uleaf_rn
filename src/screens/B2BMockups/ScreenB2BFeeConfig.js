@@ -116,7 +116,7 @@ const ScreenB2BFeeConfig = ({navigation}) => {
         </Text>
         <Text style={styles.formula}>
           Listed USD − Commission − Logistics − Plant Care = Net Payout{'\n'}
-          Missing/damaged: − Listed USD × {defaults.cancellationFeePercent}% cancellation
+          Missing/damaged: − {defaults.cancellationFeePercent}% of (Listed − Logistics − Plant Care)
         </Text>
 
         {loading ? (
@@ -146,7 +146,7 @@ const ScreenB2BFeeConfig = ({navigation}) => {
                 onChange={v => setDefaults({...defaults, plantCare: Number(v) || 0})}
               />
               <Field
-                label="Missing/damaged cancellation % of listed USD"
+                label="Missing/damaged % of (listed − logistics − plant care)"
                 value={String(defaults.cancellationFeePercent)}
                 onChange={v =>
                   setDefaults({...defaults, cancellationFeePercent: Number(v) || 0})

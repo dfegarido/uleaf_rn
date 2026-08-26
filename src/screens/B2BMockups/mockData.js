@@ -4,8 +4,20 @@ export const CANCELLATION_FEE_PERCENT = 3.5;
 export const PARTIAL_PERCENT_OPTIONS = [70, 75, 80];
 export const DEFAULT_PARTIAL_PERCENT = 75;
 
-export const getCancellationFee = listedPrice =>
-  Number((Number(listedPrice) * (CANCELLATION_FEE_PERCENT / 100)).toFixed(2));
+export const getExceptionBase = ({listedPrice, logistics = 0, plantCare = 0} = {}) =>
+  Number(
+    Math.max(0, Number(listedPrice || 0) - Number(logistics || 0) - Number(plantCare || 0)).toFixed(2),
+  );
+
+export const getCancellationFee = ({
+  listedPrice,
+  logistics = 0,
+  plantCare = 0,
+  percent = CANCELLATION_FEE_PERCENT,
+} = {}) => {
+  const base = getExceptionBase({listedPrice, logistics, plantCare});
+  return Number((base * ((Number(percent) || CANCELLATION_FEE_PERCENT) / 100)).toFixed(2));
+};
 
 export const isExceptionCondition = item =>
   item?.condition === 'missing' || item?.condition === 'damaged';
@@ -21,7 +33,7 @@ export const isPayoutEligible = item => {
 
 export const getGrossNetPayout = item => {
   if (isExceptionCondition(item)) {
-    return -getCancellationFee(item.listedPrice);
+    return -getCancellationFee(item);
   }
   if (!isPayoutEligible(item)) {
     return null;
@@ -185,7 +197,7 @@ export const SAMPLE_PAYOUTS = [
     commission: 12,
     logistics: 15,
     plantCare: 5,
-    netPayout: -4.2,
+    netPayout: -3.5,
     scanned: true,
     leafTrailStatus: 'Missing',
     hubReceived: false,
@@ -213,7 +225,7 @@ export const SAMPLE_PAYOUTS = [
     commission: 15,
     logistics: 20,
     plantCare: 5,
-    netPayout: -5.25,
+    netPayout: -4.38,
     scanned: true,
     leafTrailStatus: 'Damaged',
     hubReceived: false,

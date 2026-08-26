@@ -41,6 +41,7 @@ export const getAdminListingsApi = async (filters = {}) => {
     
     if (filters.sort) queryParams.append('sort', filters.sort);
     if (filters.status) queryParams.append('status', filters.status);
+    if (filters.listingChannel) queryParams.append('listingChannel', filters.listingChannel);
     if (filters.genus) queryParams.append('genus', filters.genus);
     if (filters.variegation) queryParams.append('variegation', filters.variegation);
     if (filters.listingType) queryParams.append('listingType', filters.listingType);

@@ -557,11 +557,13 @@ const ScreenHome = ({navigation}) => {
           <TouchableOpacity
             style={styles.b2bPreviewCard}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
+            onPress={() =>
+              navigation.navigate('ScreenB2BPayoutSummary', {audience: 'seller'})
+            }>
             <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
             <Text style={styles.b2bPreviewTitle}>Commission payouts</Text>
             <Text style={styles.b2bPreviewBody}>
-              Live B2B payout breakdown from paid orders. Empty if none match.
+              Paid orders for this seller with commission, logistics, and plant care.
             </Text>
           </TouchableOpacity>
 
@@ -572,7 +574,7 @@ const ScreenHome = ({navigation}) => {
             <Text style={styles.b2bPreviewKicker}>B2B ASIA</Text>
             <Text style={styles.b2bPreviewTitle}>Listing inline + bulk edit</Text>
             <Text style={styles.b2bPreviewBody}>
-              UI preview only — not wired to listings. Use existing listing screens for real USD edits.
+              Edit your Live and Group Chat listings in USD, then save to Firestore.
             </Text>
           </TouchableOpacity>
 
