@@ -35,11 +35,7 @@ const LoadingModal = ({ message = 'Preparing your plant data...' }) => {
 
 const styles = StyleSheet.create({
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: 'rgba(22, 30, 26, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',

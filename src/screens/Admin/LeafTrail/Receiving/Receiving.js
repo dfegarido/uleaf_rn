@@ -1771,14 +1771,6 @@ const ReceivingScreen = ({navigation, route}) => {
                             )}
                         />
                         
-                        {/* Loading Modal - inside Label Viewer */}
-                        {isLoading && (
-                            <ReceivingLoadingOverlay
-                                message={loadingMessage}
-                                contextLabel={activeLoadingContextLabel}
-                                title={activeLoadingTitle}
-                            />
-                        )}
                     </View>
                 </Modal>
                 <ScreenHeader 

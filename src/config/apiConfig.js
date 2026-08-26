@@ -203,9 +203,9 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   // QR Code APIs
   QR_GENERATOR: `${getSupabaseBaseUrl()}/qr-generate`,
   QR_GENERATOR_ORDERS: `${getSupabaseBaseUrl()}/qr-orders`,
-  THERMAL_LABEL_GENERATOR: `${getBaseUrl()}/thermalLabelGenerator`,
-  EMAIL_THERMAL_LABELS: `${getBaseUrl()}/emailThermalLabels`,
-  GENERATE_RECEIVER_BOX_LABELS: `${getBaseUrl()}/generateReceiverBoxLabels`,
+  THERMAL_LABEL_GENERATOR: `${getSupabaseBaseUrl()}/thermal-label-generator`,
+  EMAIL_THERMAL_LABELS: `${getSupabaseBaseUrl()}/email-thermal-labels`,
+  GENERATE_RECEIVER_BOX_LABELS: `${getSupabaseBaseUrl()}/generate-receiver-box-labels`,
   
   // Cart APIs
   ADD_TO_CART: `${getSupabaseBaseUrl()}/add-to-cart`,

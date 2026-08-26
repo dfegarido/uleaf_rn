@@ -1856,7 +1856,9 @@ const GenerateQR = ({navigation}) => {
 
         {/* Loading Modal - animated plant */}
         <Modal transparent animationType="fade" visible={loading}>
-          <LoadingModal message={loadingMessage} />
+          <View style={{ flex: 1 }}>
+            <LoadingModal message={loadingMessage} />
+          </View>
         </Modal>
 
         {/* Filter Modals */}
