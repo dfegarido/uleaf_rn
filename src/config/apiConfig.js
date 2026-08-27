@@ -353,7 +353,7 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   SEARCH_USER: `${getSupabaseBaseUrl()}/search-user`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
   UPLOAD_CHAT_SHOP_PHOTO: `${getSupabaseBaseUrl()}/chat-shop-photo-upload`,
-  UPLOAD_BUYER_CONTENT_PHOTO: `${getBaseUrl()}/uploadBuyerContentPhoto`,
+  UPLOAD_BUYER_CONTENT_PHOTO: `${getSupabaseBaseUrl()}/buyer-content-photo-upload`,
   
   // Shipping Buddy endpoints
   SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,
