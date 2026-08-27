@@ -352,7 +352,7 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   // User related endpoints
   SEARCH_USER: `${getSupabaseBaseUrl()}/search-user`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
-  UPLOAD_CHAT_SHOP_PHOTO: `${getBaseUrl()}/uploadChatShopPhoto`,
+  UPLOAD_CHAT_SHOP_PHOTO: `${getSupabaseBaseUrl()}/chat-shop-photo-upload`,
   UPLOAD_BUYER_CONTENT_PHOTO: `${getBaseUrl()}/uploadBuyerContentPhoto`,
   
   // Shipping Buddy endpoints
