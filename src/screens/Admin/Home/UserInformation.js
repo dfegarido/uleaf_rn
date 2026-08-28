@@ -298,8 +298,8 @@ const UserInformation = () => {
     try {
       setIsUpdatingStatus(true);
       
-      // Determine the new status (opposite of current)
-      const newStatus = isAccountActive ? 'inactive' : 'active';
+      // API only accepts "active" | "de-activate"
+      const newStatus = isAccountActive ? 'de-activate' : 'active';
       
       // Get auth token
       const authToken = await getStoredAuthToken();
