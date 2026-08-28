@@ -35,19 +35,11 @@ import { retryAsync } from '../../../utils/utils';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
-
-import { addDoc,
-  arrayUnion,
-  collection,
-  doc,
-  Timestamp,
-  updateDoc
-} from 'firebase/firestore';
 import ArrowUpIcon from '../../../assets/icons/accent/arrow-up-right-regular.svg';
 import QuestionIcon from '../../../assets/icons/accent/question-regular.svg';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
 import { getActiveLiveListingApi } from '../../../components/Api/agoraLiveApi';
+import { sendChatMessageApi } from '../../../components/Api/chatApi';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -112,7 +104,10 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
     // Extract sort option names as label/value pairs
-    let localGenusData = getGenusApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localGenusData = (getGenusApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionGenus(localGenusData);
   };
@@ -135,9 +130,12 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
     // Extract sort option names as label/value pairs
     // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
     setSelectedSpecies('');
-    let localSpeciesDatas = getSpeciesApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localSpeciesDatas = (getSpeciesApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
-    setDropdownOptionSpecies(getSpeciesApiData.data);
+    setDropdownOptionSpecies(localSpeciesDatas);
   // Caching intentionally disabled for species dropdown
   };
 
@@ -171,12 +169,15 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
     // let localVariegationData = getVariegationApiData.data.map(
     //   item => item.name,
     // );
-    let localVariegationData = getVariegationApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localVariegationData = (getVariegationApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     setSelectedVariegation('');
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length != 0 ? true : false,
     // );
-    setSelectedVariegation(getVariegationApiData.data[0]);
+    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
     // Cache the response for 10 minutes
@@ -341,28 +342,13 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
         chatId: id,
         senderId: currentUserUid || null,
         text: text.trim(),
-        timestamp: Timestamp.now(),
         isListing,
         listingId,
       };
 
-      // Add message to messages collection
-      await addDoc(collection(db, 'messages'), newMsg);
-      // Mark chat lastMessage and update timestamp, mark unread for other participants
-      const otherParticipantIds = Array.isArray(participantIds)
-        ? participantIds.filter(pid => pid && pid !== currentUserUid)
-        : [];
-
-      try {
-        await updateDoc(doc(db, 'chats', id), {
-          lastMessage: newMsg.text,
-          timestamp: Timestamp.now(),
-          unreadBy: arrayUnion(...otherParticipantIds),
-        });
-      } catch (err) {
-        // ignore update failures
-        console.error('sendMessage', error);
-      }
+      // Send the message via the Supabase chat-message edge fn (replaces the
+      // Firestore addDoc + updateDoc writes).
+      await sendChatMessageApi(newMsg);
     } catch (error) {
       // ignore send errors
       console.error('sendMessage', error);

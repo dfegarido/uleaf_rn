@@ -7,7 +7,9 @@ export {
   getListingPriceInfo,
   getListingTypeDisplayLabel,
   isListingPinned,
+  listingMatchesGenusFilter,
   prepareMyStoreActiveListings,
+  prepareSellerChannelTabListings,
 } from './fetchSellerListingsFromFirestore';
 
 /**

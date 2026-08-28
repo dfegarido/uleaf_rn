@@ -1,14 +1,13 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
-import {API_CONFIG, API_ENDPOINTS} from '../../config/apiConfig';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSellSpeciesApi = async genus => {
   try {
     const token = await getStoredAuthToken();
     const params = new URLSearchParams();
 
-    let endpoint;
     if (genus) params.append('genus', genus);
-    endpoint = `${API_CONFIG.BASE_URL}/getSpeciesFromPlantCatalogDropdown?${params.toString()}`;
+    const endpoint = `${API_ENDPOINTS.GET_SPECIES_FROM_PLANT_CATALOG}?${params.toString()}`;
     console.log('getSellSpeciesApi calling endpoint:', endpoint);
 
     const response = await fetch(endpoint, {

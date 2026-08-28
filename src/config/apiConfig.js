@@ -283,6 +283,12 @@ GET_DATE_PERIOD_DROPDOWN: `${getSupabaseBaseUrl()}/date-period-dropdown`,
 LIST_PAYOUT: `${getSupabaseBaseUrl()}/list-payout`,
   // Sort options for seller My Store screen
 GET_SORT_STORE_DROPDOWN: `${getSupabaseBaseUrl()}/sort-store-dropdown`,
+  // Sort options for seller Listing screen (same source)
+GET_SORT_DROPDOWN: `${getSupabaseBaseUrl()}/sort-store-dropdown`,
+  // Mutation dropdown for seller Sell screen
+GET_MUTATION_DROPDOWN: `${getSupabaseBaseUrl()}/mutation-dropdown`,
+  // Active live listing for seller Sell screen
+GET_ACTIVE_LIVE_LISTING: `${getSupabaseBaseUrl()}/active-live-listing`,
   // Mark a chat as read (remove current user from unreadby)
 POST_CHAT_MARK_READ: `${getSupabaseBaseUrl()}/chat-mark-read`,
   // Find an existing private chat between the current user and another user

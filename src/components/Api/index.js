@@ -71,6 +71,7 @@ export {getGenusApi} from './getGenusApi';
 export {postSellerAfterSignInApi} from './postSellerAfterSignInApi';
 export {postSellerPinCodeApi} from './postSellerPinCodeApi';
 export {getManageListingApi} from './getManageListingApi';
+export {getSupplierInfoApi} from './getSupplierInfoApi';
 export {getSortApi} from './getSortApi';
 export {getVariegationApi} from './getVariegationApi';
 export {getListingTypeApi} from './getListingTypeApi';

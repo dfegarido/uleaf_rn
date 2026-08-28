@@ -1,17 +1,21 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
-export const getMutationApi = async () => {
+/**
+ * Get the authenticated supplier's profile from Supabase.
+ * @returns {Promise<Object>} supplier profile (camelCase, liveFlag normalized)
+ */
+export const getSupplierInfoApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      API_ENDPOINTS.GET_MUTATION_DROPDOWN,
+      API_ENDPOINTS.GET_SUPPLIER_INFO,
       {
-        method: 'GET', // or 'POST' if your function expects a body
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // Pass token in Authorization header
+          Authorization: `Bearer ${token}`,
         },
       },
     );
@@ -21,10 +25,9 @@ export const getMutationApi = async () => {
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    const json = await response.json();
-    return json;
+    return await response.json();
   } catch (error) {
-    console.log('getMutationApi error:', error.message);
-    throw error; // optionally rethrow for use in UI
+    console.log('getSupplierInfoApi error:', error.message);
+    throw error;
   }
 };

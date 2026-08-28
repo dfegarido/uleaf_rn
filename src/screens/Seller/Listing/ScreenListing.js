@@ -38,11 +38,11 @@ import Toast from '../../../components/Toast/Toast';
 import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../../../../firebase';
 import {
-  fetchSellerListingsFromFirestore,
+  fetchSellerListingsFromSupabase,
   listingMatchesGenusFilter,
   prepareMyStoreActiveListings,
   prepareSellerChannelTabListings,
-} from '../../../utils/fetchSellerListingsFromFirestore';
+} from '../../../utils/fetchSellerListingsFromSupabase';
 import { syncSellerExpiredListingsApi } from '../../../components/Api/syncSellerExpiredListingsApi';
 import { isListingPastExpiration } from '../../../utils/listingExpirationUtils';
 import { retryAsync } from '../../../utils/utils';
@@ -540,8 +540,8 @@ const ScreenListing = ({navigation}) => {
           await syncExpiredListingsForSeller(uid);
 
           if (allListingsRef.current.length === 0) {
-            if (__DEV__) console.log('[Live tab] Fetching listings from Firestore…');
-            const { listings: rawListings } = await fetchSellerListingsFromFirestore(uid);
+            if (__DEV__) console.log('[Live tab] Fetching listings from Supabase…');
+            const { listings: rawListings } = await fetchSellerListingsFromSupabase(uid);
             if (fetchId !== liveFetchIdRef.current) return;
             allListingsRef.current = rawListings;
           }
@@ -596,11 +596,11 @@ const ScreenListing = ({navigation}) => {
 
       await syncExpiredListingsForSeller(uid);
 
-      // Only re-fetch from Firestore when cache is empty (first load / after refresh)
+      // Only re-fetch from Supabase when cache is empty (first load / after refresh)
       if (allListingsRef.current.length === 0) {
         const fetchId = ++allFetchIdRef.current;
-        if (__DEV__) console.log('[All tabs] Fetching listings from Firestore…');
-        const { listings: rawListings } = await fetchSellerListingsFromFirestore(uid);
+        if (__DEV__) console.log('[All tabs] Fetching listings from Supabase…');
+        const { listings: rawListings } = await fetchSellerListingsFromSupabase(uid);
         if (fetchId !== allFetchIdRef.current) return;
         allListingsRef.current = rawListings;
         if (__DEV__) console.log(`[All tabs] Fetched ${rawListings.length} listing(s)`);

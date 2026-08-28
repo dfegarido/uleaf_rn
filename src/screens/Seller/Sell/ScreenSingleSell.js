@@ -109,7 +109,10 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
     // Extract sort option names as label/value pairs
-    let localGenusData = getGenusApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localGenusData = (getGenusApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionGenus(localGenusData);
   };
@@ -130,11 +133,13 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error(getSpeciesApiData?.message || 'Failed to load species');
     }
     // Extract sort option names as label/value pairs
-    // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
+    // InputDropdownSearch expects an array of strings.
+    let localSpeciesDatas = (getSpeciesApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     setSelectedSpecies('');
-    let localSpeciesDatas = getSpeciesApiData.data;
     // Set options
-    setDropdownOptionSpecies(getSpeciesApiData.data);
+    setDropdownOptionSpecies(localSpeciesDatas);
   // Caching intentionally disabled for species dropdown
   };
 
@@ -165,15 +170,15 @@ const ScreenSingleSell = ({navigation, route}) => {
       );
     }
     // Extract sort option names as label/value pairs
-    // let localVariegationData = getVariegationApiData.data.map(
-    //   item => item.name,
-    // );
-    let localVariegationData = getVariegationApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localVariegationData = (getVariegationApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     setSelectedVariegation('');
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length != 0 ? true : false,
     // );
-    setSelectedVariegation(getVariegationApiData.data[0]);
+    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
     // Cache the response for 10 minutes

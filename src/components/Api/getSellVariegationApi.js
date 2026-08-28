@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSellVariegationApi = async (genus, species) => {
   try {
@@ -8,7 +9,7 @@ export const getSellVariegationApi = async (genus, species) => {
     params.append('species', species);
 
     const response = await fetch(
-      `https://getvariegationfromplantcatalogdropdown-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      `${API_ENDPOINTS.GET_VARIEGATION}?${params.toString()}`,
       {
         method: 'GET', // or 'POST' if your function expects a body
         headers: {

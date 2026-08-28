@@ -129,8 +129,7 @@ export const setLiveListingActiveApi = async ({ plantCode }) => {
 export const getActiveLiveListingApi = async () => {
   try {
     const token = await getStoredAuthToken();
-    // Use the local development URL for now.
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getActiveLiveListing`;
+    const url = API_ENDPOINTS.GET_ACTIVE_LIVE_LISTING;
 
     const response = await fetch(url, {
       method: 'GET',

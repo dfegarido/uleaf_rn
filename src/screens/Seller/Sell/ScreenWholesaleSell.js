@@ -105,7 +105,10 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
     // Extract sort option names as label/value pairs
-    let localGenusData = getGenusApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localGenusData = (getGenusApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionGenus(localGenusData);
   };
@@ -126,7 +129,10 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     // Extract sort option names as label/value pairs
     // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
     setSelectedSpecies('');
-    let localSpeciesData = getSpeciesApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localSpeciesData = (getSpeciesApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionSpecies(localSpeciesData);
   };
@@ -149,12 +155,15 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     // let localVariegationData = getVariegationApiData.data.map(
     //   item => item.name,
     // );
-    let localVariegationData = getVariegationApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localVariegationData = (getVariegationApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     setSelectedVariegation('');
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length == 0 ? true : false,
     // );
-    setSelectedVariegation(getVariegationApiData.data[0]);
+    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
   };
