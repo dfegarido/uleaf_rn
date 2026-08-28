@@ -266,14 +266,27 @@ GET_LISTING: `${getSupabaseBaseUrl()}/get-listing`,
 DUPLICATE_LISTING: `${getSupabaseBaseUrl()}/duplicate-listing`,
 DELETE_LISTING: `${getSupabaseBaseUrl()}/delete-listing`,
   // External listing/reporting service used for business performance charts
-  // Cloud Run endpoint that accepts POST { interval }
-  // Use a local path when running with the emulator so developers can stub the endpoint.
-  GET_LISTING_REPORT: USE_LOCAL_API ? `${getBaseUrl()}/getListingReport` : 'https://getlistingreport-nstilwgvua-uc.a.run.app',
+  // Supabase Edge Function that accepts POST { interval }
+  GET_LISTING_REPORT: `${getSupabaseBaseUrl()}/listing-report`,
   
   // News & Events (buyer announcements)
   GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
+  // News & Events for seller home carousel (Supabase)
+GET_NEWS_EVENT: `${getSupabaseBaseUrl()}/news-event`,
+  // Chat Shops for seller home (supplier shops the seller is a member of)
+GET_CHAT_SHOPS_SUPPLIER: `${getSupabaseBaseUrl()}/chat-shops-supplier`,
   // External dashboard statistics (not hosted on our functions base)
 GET_DASHBOARD_STATISTICS: `${getSupabaseBaseUrl()}/dashboard-statistics`,
+  // Date period dropdown (Weekly/Monthly) for seller home Business Performance
+GET_DATE_PERIOD_DROPDOWN: `${getSupabaseBaseUrl()}/date-period-dropdown`,
+  // Payout listing for seller Payouts screen
+LIST_PAYOUT: `${getSupabaseBaseUrl()}/list-payout`,
+  // Sort options for seller My Store screen
+GET_SORT_STORE_DROPDOWN: `${getSupabaseBaseUrl()}/sort-store-dropdown`,
+  // Mark a chat as read (remove current user from unreadby)
+POST_CHAT_MARK_READ: `${getSupabaseBaseUrl()}/chat-mark-read`,
+  // Find an existing private chat between the current user and another user
+GET_CHAT_FIND_PRIVATE: `${getSupabaseBaseUrl()}/chat-find-private`,
   // External listing/reporting service used for business performance charts
   // This is an external Cloud Run endpoint that accepts POST { interval }
   

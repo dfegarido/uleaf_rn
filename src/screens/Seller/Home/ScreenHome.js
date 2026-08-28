@@ -12,15 +12,6 @@ import { Alert,
   TouchableOpacity,
   View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import { collection,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore';
-import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
@@ -36,7 +27,9 @@ import { getDateFilterApi,
   getHomeBusinessPerformanceApi,
   getHomeEventsApi,
   getHomeSummaryApi,
+  getChatShopsSupplierApi,
 } from '../../../components/Api';
+import { getChatDetailApi } from '../../../components/Api/shopContentApi';
 
 
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
@@ -187,7 +180,7 @@ const ScreenHome = ({navigation}) => {
   };
   // Events
 
-  // Load chat shops from Firestore
+  // Load chat shops from Supabase (supplier shops the seller is a member of)
   const loadChatShops = async () => {
     try {
       setLoadingChatShops(true);
@@ -200,74 +193,16 @@ const ScreenHome = ({navigation}) => {
       
       console.log('👤 Current seller UID:', userInfo.uid);
       
-      // Fetch chat shops for suppliers only
-      const q = query(
-        collection(db, 'chatShops'),
-        where('userType', '==', 'supplier')
-      );
-      const snapshot = await getDocs(q);
-      const allShops = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      
-      // Sort all shops by priority before filtering
-      const sortedAllShops = allShops.sort((a, b) => {
-        const aPriority = a.priority ?? 999; // No priority = 999 (bottom)
-        const bPriority = b.priority ?? 999;
-        
-        if (aPriority !== bPriority) {
-          return aPriority - bPriority;
-        }
-        
-        const aTime = a.createdAt?.toDate?.() || new Date(0);
-        const bTime = b.createdAt?.toDate?.() || new Date(0);
-        return aTime - bTime;
-      });
-      
-      console.log(`📦 Found ${sortedAllShops.length} total supplier chat shops (sorted by priority)`);
-      
-      // Filter shops where seller is a member of the linked group chat
-      const filteredShops = [];
-      for (const shop of sortedAllShops) {
-        console.log(`\n🔍 Checking shop: "${shop.name}" (ID: ${shop.id})`);
-        console.log(`   Linked group chat ID: ${shop.groupChatId}`);
-        
-        if (!shop.groupChatId) {
-          console.log('   ⚠️  No group chat linked to this shop');
-          continue;
-        }
-        
-        try {
-          // Fetch the group chat to check membership
-          const chatDocRef = doc(db, 'chats', shop.groupChatId);
-          const chatDoc = await getDoc(chatDocRef);
-          
-          if (chatDoc.exists()) {
-            const chatData = chatDoc.data();
-            // Group chat members are stored in 'participantIds' field
-            const participantIds = chatData.participantIds || [];
-            
-            console.log(`   👥 Group chat members (${participantIds.length}):`, participantIds);
-            console.log(`   🔐 Is seller a member?`, participantIds.includes(userInfo.uid));
-            
-            // Check if current seller is in the participantIds array
-            if (participantIds.includes(userInfo.uid)) {
-              console.log(`   ✅ Shop "${shop.name}" is accessible`);
-              filteredShops.push(shop);
-            } else {
-              console.log(`   ❌ Seller not a member of this group chat`);
-            }
-          } else {
-            console.log(`   ⚠️  Group chat document not found`);
-          }
-        } catch (error) {
-          console.error(`   ❌ Error checking membership for shop ${shop.id}:`, error);
-        }
+      // Fetch supplier chat shops via the Supabase edge function (replaces the
+      // direct Firestore chatShops + chats reads).
+      const res = await getChatShopsSupplierApi();
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to load chat shops.');
       }
       
-      console.log(`\n📱 Final result: ${filteredShops.length} accessible chat shops for seller (out of ${sortedAllShops.length} total)`);
-      setChatShops(filteredShops);
+      const sortedAllShops = res.shops || [];
+      console.log(`📦 Found ${sortedAllShops.length} accessible supplier chat shops`);
+      setChatShops(sortedAllShops);
     } catch (error) {
       console.error('❌ Error loading chat shops:', error);
       // Silent fail - chat shops are not critical
@@ -287,16 +222,15 @@ const ScreenHome = ({navigation}) => {
 
       console.log('📱 Opening group chat from shop:', shop.groupChatId);
 
-      // Fetch the group chat data from Firestore
-      const chatDocRef = doc(db, 'chats', shop.groupChatId);
-      const chatDoc = await getDoc(chatDocRef);
+      // Fetch the group chat data from Supabase (replaces the Firestore getDoc read)
+      const res = await getChatDetailApi(shop.groupChatId);
 
-      if (!chatDoc.exists()) {
+      if (!res?.success || !res.data) {
         Alert.alert('Error', 'Group chat not found. It may have been deleted.');
         return;
       }
 
-      const chatData = chatDoc.data();
+      const chatData = res.data;
       
       // Navigate to ChatScreen with the full chat data
       navigation.navigate('ChatScreen', {

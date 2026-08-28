@@ -302,18 +302,61 @@ export const chatDeleteApi = async ({ mode, chatId, memberUid }) => {
 };
 
 /**
- * Create a new private chat in Supabase (closes the create-chat gap: the old
- * Firestore-only addDoc produced chats that Supabase message reads rejected
- * with "Not a participant of this chat").
- * @param {Object} opts { id?, participantIds, participants, name?, avatarUrl? }
+ * Find an existing private chat between the current user and another user.
+ * Replaces the Firestore getDocs(query(collection(db,'chats'), ...)) lookup.
+ * @param {string} otherUid
+ * @returns {Promise<{success, chat: Object|null, error?}>}
+ */
+export const findPrivateChatApi = async (otherUid) => {
+  try {
+    const res = await fetch(`${API_ENDPOINTS.GET_CHAT_FIND_PRIVATE}?otherUid=${encodeURIComponent(otherUid)}`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, chat: body.chat || null, data: body };
+  } catch (error) {
+    console.error('findPrivateChatApi error:', error.message);
+    return { success: false, chat: null, error: error.message };
+  }
+};
+
+/**
+ * Mark a chat as read for the current user (removes them from unreadby).
+ * Replaces the Firestore updateDoc(doc(db,'chats',id), {unreadBy: arrayRemove(uid)}).
+ * @param {string} chatId
+ * @returns {Promise<{success, error?}>}
+ */
+export const markChatReadApi = async (chatId) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.POST_CHAT_MARK_READ, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ chatId }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return normalize(body);
+  } catch (error) {
+    console.error('markChatReadApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Create a new private or group chat in Supabase (closes the create-chat gap:
+ * the old Firestore-only addDoc produced chats that Supabase message reads
+ * rejected with "Not a participant of this chat").
+ * @param {Object} opts { id?, participantIds, participants, name?, avatarUrl?, type?, isPublic?, lastMessage? }
  * @returns {Promise<{success, chat: {id, ...}}>}
  */
-export const chatCreateApi = async ({ id, participantIds, participants, name, avatarUrl }) => {
+export const chatCreateApi = async ({ id, participantIds, participants, name, avatarUrl, type, isPublic, lastMessage }) => {
   try {
     const res = await fetch(API_ENDPOINTS.POST_CHAT_CREATE, {
       method: 'POST',
       headers: await authHeaders(),
-      body: JSON.stringify({ id, participantIds, participants, name, avatarUrl }),
+      body: JSON.stringify({ id, participantIds, participants, name, avatarUrl, type, isPublic, lastMessage }),
     });
     const body = await parseJson(res);
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);

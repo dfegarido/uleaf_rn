@@ -1,11 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const getHomeEventsApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://getnewsandevent-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.GET_NEWS_EVENT,
       {
         method: 'GET',
         headers: {

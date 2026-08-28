@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const getHomePayoutListingApi = async nextPageToken => {
   try {
@@ -9,7 +10,7 @@ export const getHomePayoutListingApi = async nextPageToken => {
     console.log(params.toString());
 
     const response = await fetch(
-      `https://listpayout-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      `${API_ENDPOINTS.LIST_PAYOUT}?${params.toString()}`,
       {
         method: 'GET',
         headers: {

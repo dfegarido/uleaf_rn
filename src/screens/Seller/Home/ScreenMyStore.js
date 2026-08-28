@@ -41,12 +41,12 @@ import { getGenusApi,
 } from '../../../components/Api';
 import {auth} from '../../../../firebase';
 import {
-  fetchSellerListingsFromFirestore,
+  fetchSellerListingsFromSupabase,
   getListingPriceInfo,
   getListingTypeDisplayLabel,
   isListingPinned,
   prepareMyStoreActiveListings,
-} from '../../../utils/fetchSellerListingsFromFirestore';
+} from '../../../utils/fetchSellerListingsFromSupabase';
 
 const screenHeight = Dimensions.get('window').height;
 const PAGE_SIZE = 10;
@@ -156,7 +156,7 @@ const ScreenMyStore = ({navigation}) => {
         }
 
         if (forceRefresh || allListingsRef.current.length === 0) {
-          const {listings} = await fetchSellerListingsFromFirestore(uid);
+          const {listings} = await fetchSellerListingsFromSupabase(uid);
           allListingsRef.current = listings;
         }
 

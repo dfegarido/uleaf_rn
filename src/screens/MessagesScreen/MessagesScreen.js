@@ -1,14 +1,7 @@
 import { addDoc,
-  arrayRemove,
   collection,
   doc,
   getDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  updateDoc,
-  where,
 } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,7 +24,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
-import { getChatsApi, getChatParticipantsBatchApi, chatCreateApi } from '../../components/Api/chatApi';
+import { getChatsApi, getChatParticipantsBatchApi, chatCreateApi, markChatReadApi, findPrivateChatApi, getChatMessagesApi } from '../../components/Api/chatApi';
 import { getChatShopsApi, getChatDetailApi } from '../../components/Api/shopContentApi';
 import { CACHE_CONFIGS, getCachedImageUri, setCachedImageUri } from '../../utils/imageCache';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
@@ -471,16 +464,11 @@ const MessagesScreen = ({navigation}) => {
 
           groupAvatarFetchInFlightRef.current.add(chatId);
           try {
-            const latestMessagesQuery = query(
-              collection(db, 'messages'),
-              where('chatId', '==', chatId),
-              orderBy('timestamp', 'desc'),
-              limit(20),
-            );
-            const snap = await getDocs(latestMessagesQuery);
+            const res = await getChatMessagesApi(chatId, { limit: 20 });
+            const msgs = res?.messages || [];
             const uniqueSenderUids = [];
-            snap.docs.forEach((d) => {
-              const senderId = d.data()?.senderId;
+            msgs.forEach((m) => {
+              const senderId = m?.senderId;
               if (senderId && !uniqueSenderUids.includes(senderId)) {
                 uniqueSenderUids.push(senderId);
               }
@@ -530,9 +518,7 @@ const MessagesScreen = ({navigation}) => {
       navigation.navigate('ChatScreen', safeParams);
 
       // Mark as read in the background (fire-and-forget)
-      updateDoc(doc(db, 'chats', item.id), {
-        unreadBy: arrayRemove(currentUserUid),
-      }).catch(error => {
+      markChatReadApi(item.id).catch(error => {
         console.error('Error marking chat as read:', error);
         // Silently fail - navigation already happened
       });
@@ -584,25 +570,8 @@ const MessagesScreen = ({navigation}) => {
       
       // First check if a private chat already exists with this user
       // Only check for private chats with exactly 2 participants
-      const existingChatQuery = query(
-        collection(db, 'chats'),
-        where('participantIds', 'array-contains', currentUserUid),
-        where('type', '==', 'private'),
-      );
-
-      const existingChatsSnapshot = await getDocs(existingChatQuery);
-      let existingChat = null;
-
-      existingChatsSnapshot.forEach(doc => {
-        const chatData = doc.data();
-        // Ensure it's a private chat with exactly 2 participants
-        if (chatData.type === 'private' && 
-            chatData.participantIds && 
-            chatData.participantIds.length === 2 &&
-            chatData.participantIds.includes(user.uid)) {
-          existingChat = {id: doc.id, ...chatData};
-        }
-      });
+      const findRes = await findPrivateChatApi(user.uid);
+      let existingChat = findRes?.success ? findRes.chat : null;
 
       // If chat exists, navigate to it
       if (existingChat) {
@@ -728,33 +697,26 @@ const MessagesScreen = ({navigation}) => {
         }))
       ];
 
-      // Prepare group chat data
-      const groupChatData = {
-        participants: allParticipants,
-        participantIds: allParticipantIds,
-        lastMessage: '',
-        timestamp: new Date(),
-        name: name,
-        type: 'group',
-        isPublic: false, // Default to private - only admins can change this in settings
-      };
-
-      // Create the group chat
+      // Create the group chat via Supabase (replaces the Firestore addDoc + getDoc)
       try {
-        const addChat = await addDoc(collection(db, 'chats'), groupChatData);
-        
-        const docRef = doc(db, 'chats', addChat.id);
-        const docSnap = await getDoc(docRef);
+        const createRes = await chatCreateApi({
+          participantIds: allParticipantIds,
+          participants: allParticipants,
+          name,
+          type: 'group',
+          isPublic: false,
+          lastMessage: '',
+        });
 
-        if (docSnap.exists()) {
-          const newChatData = {id: docSnap.id, ...docSnap.data()};
-          await sendGroupChatNotificationApi(allParticipantIds, name);
-          navigation.navigate('ChatScreen', newChatData);
-        } else {
-          throw new Error('Failed to get created chat document');
+        if (!createRes.success || !createRes.chat) {
+          throw new Error(createRes.error || 'Failed to create group chat');
         }
+
+        const newChatData = createRes.chat;
+        await sendGroupChatNotificationApi(allParticipantIds, name);
+        navigation.navigate('ChatScreen', newChatData);
       } catch (firestoreError) {
-        console.error('handleCreateGroup: Firestore error creating chat document:', firestoreError);
+        console.error('handleCreateGroup: error creating chat document:', firestoreError);
         Alert.alert(
           'Error',
           'Failed to create group chat. Please try again.',

@@ -96,6 +96,7 @@ export {getMutationApi} from './getMutationApi';
 export {getDateFilterApi} from './getDateFilterApi';
 export {getHomeSummaryApi} from './getHomeSummaryApi';
 export {getHomeEventsApi} from './getHomeEventsApi';
+export {getChatShopsSupplierApi} from './getChatShopsSupplierApi';
 export {getBuyerEventsApi} from './getBuyerEventsApi';
 export {getHomePayoutListingApi} from './getHomePayoutListingApi';
 export {postSellUpdateApi} from './postSellUpdateApi';

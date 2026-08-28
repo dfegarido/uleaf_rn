@@ -1,11 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const getDateFilterApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://getdateperioddropdown-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.GET_DATE_PERIOD_DROPDOWN,
       {
         method: 'GET',
         headers: {
