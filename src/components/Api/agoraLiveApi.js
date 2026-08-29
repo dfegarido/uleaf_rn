@@ -110,7 +110,7 @@ export const getLiveListingsBySessionApi = async (sessionId, status='Live') => {
 export const setLiveListingActiveApi = async ({ plantCode }) => {
   try {
     const token = await getStoredAuthToken();
-    const response = await fetch('https://us-central1-i-leaf-u.cloudfunctions.net/setActiveLiveListing', {
+    const response = await fetch(API_ENDPOINTS.SET_ACTIVE_LIVE_LISTING, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

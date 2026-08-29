@@ -262,9 +262,16 @@ SEARCH_DRAFT_LISTINGS: `${getSupabaseBaseUrl()}/search-draft-listings`,
 ADD_LISTING: `${getSupabaseBaseUrl()}/add-listing`,
 UPDATE_LISTING: `${getSupabaseBaseUrl()}/update-listing`,
 GET_LISTING: `${getSupabaseBaseUrl()}/get-listing`,
-  SYNC_SELLER_EXPIRED_LISTINGS: `${getBaseUrl()}/syncSellerExpiredListings`,
+  SYNC_SELLER_EXPIRED_LISTINGS: `${getSupabaseBaseUrl()}/sync-seller-expired-listings`,
 DUPLICATE_LISTING: `${getSupabaseBaseUrl()}/duplicate-listing`,
 DELETE_LISTING: `${getSupabaseBaseUrl()}/delete-listing`,
+  // Listing action write paths (migrated to Supabase)
+  UPDATE_LISTING_STATUS: `${getSupabaseBaseUrl()}/update-listing-status`,
+  UPDATE_LISTING_DISCOUNT: `${getSupabaseBaseUrl()}/update-listing-discount`,
+  UPDATE_LISTING_VARIATION_QTY: `${getSupabaseBaseUrl()}/update-listing-variation-qty`,
+  PIN_LISTING: `${getSupabaseBaseUrl()}/pin-listing`,
+  PUBLISH_LISTING: `${getSupabaseBaseUrl()}/publish-listing`,
+  SET_ACTIVE_LIVE_LISTING: `${getSupabaseBaseUrl()}/set-active-live-listing`,
   // External listing/reporting service used for business performance charts
   // Supabase Edge Function that accepts POST { interval }
   GET_LISTING_REPORT: `${getSupabaseBaseUrl()}/listing-report`,

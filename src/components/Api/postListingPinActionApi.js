@@ -1,11 +1,11 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postListingPinActionApi = async (plantCode, pinTag) => {
   try {
     const token = await getStoredAuthToken();
 
-    console.log(JSON.stringify({plantCode, pinTag}));
-    const response = await fetch('https://pinlisting-nstilwgvua-uc.a.run.app', {
+    const response = await fetch(API_ENDPOINTS.PIN_LISTING, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

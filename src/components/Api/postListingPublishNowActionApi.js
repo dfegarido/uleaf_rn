@@ -1,16 +1,16 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postListingPublishNowActionApi = async plantCodes => {
   try {
     const token = await getStoredAuthToken();
-    // console.log(JSON.stringify({plantCodes}));
-    const response = await fetch('https://publishnow-nstilwgvua-uc.a.run.app', {
+    const response = await fetch(API_ENDPOINTS.PUBLISH_LISTING, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({plantCodes}),
+      body: JSON.stringify({plantCodes, publishType: 'Publish Now'}),
     });
 
     if (!response.ok) {

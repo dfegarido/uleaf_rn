@@ -24,6 +24,7 @@ import { getAllPlantGenusApi,
   postListingActivateActionApi,
   postListingApplyDiscountActionApi,
   postListingDeactivateActionApi,
+  postListingDeleteApi,
   postListingPinActionApi,
   postListingRemoveDiscountActionApi,
   postListingUpdateStockActionApi,
@@ -35,8 +36,7 @@ import { InputGroupAddon } from '../../../components/InputGroupAddon';
 import { ReusableActionSheet } from '../../../components/ReusableActionSheet';
 import TabFilter from '../../../components/TabFilter/TabFilter';
 import Toast from '../../../components/Toast/Toast';
-import { doc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { auth, db } from '../../../../firebase';
+import { auth } from '../../../../firebase';
 import {
   fetchSellerListingsFromSupabase,
   listingMatchesGenusFilter,
@@ -388,13 +388,15 @@ const ScreenListing = ({navigation}) => {
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
 
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.delete(doc(db, 'listing', item.id));
-            });
-            batch.commit().catch(() => {
-              showToast('Some listings failed to delete.', 'error');
-              onRefresh();
+            Promise.all(
+              selectedItems.map(item =>
+                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
+              ),
+            ).then(results => {
+              if (results.some(r => r === null)) {
+                showToast('Some listings failed to delete.', 'error');
+                onRefresh();
+              }
             });
           },
         },
@@ -421,15 +423,8 @@ const ScreenListing = ({navigation}) => {
             );
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} moved to Active.`);
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.update(doc(db, 'listing', item.id), {
-                status: 'Active',
-                isActiveLiveListing: false,
-                updatedAt: serverTimestamp(),
-              });
-            });
-            batch.commit().catch(() => {
+            const plantCodes = selectedItems.map(item => item.plantCode ?? item.id);
+            postListingActivateActionApi(plantCodes).catch(() => {
               showToast('Failed to export listings.', 'error');
               onRefresh();
             });
@@ -459,15 +454,8 @@ const ScreenListing = ({navigation}) => {
             );
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deactivated.`);
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.update(doc(db, 'listing', item.id), {
-                status: 'Inactive',
-                isActiveLiveListing: false,
-                updatedAt: serverTimestamp(),
-              });
-            });
-            batch.commit().catch(() => {
+            const plantCodes = selectedItems.map(item => item.plantCode ?? item.id);
+            postListingDeactivateActionApi(plantCodes).catch(() => {
               showToast('Some listings failed to deactivate.', 'error');
               onRefresh();
             });
@@ -1570,10 +1558,8 @@ const ScreenListing = ({navigation}) => {
 
     showToast('Listing deleted.');
 
-    // Firestore delete in background
-    const batch = writeBatch(db);
-    batch.delete(doc(db, 'listing', item.id));
-    batch.commit().catch(() => {
+    // Supabase delete in background
+    postListingDeleteApi(item.plantCode ?? item.id).catch(() => {
       // Rollback on failure
       setDataTable(prevDataTable);
       allListingsRef.current = prevAllListings;
@@ -1669,13 +1655,15 @@ const ScreenListing = ({navigation}) => {
             setTotalListings(prev => Math.max(0, prev - count));
             exitActiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.delete(doc(db, 'listing', item.id));
-            });
-            batch.commit().catch(() => {
-              showToast('Some listings failed to delete.', 'error');
-              onRefresh();
+            Promise.all(
+              selectedItems.map(item =>
+                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
+              ),
+            ).then(results => {
+              if (results.some(r => r === null)) {
+                showToast('Some listings failed to delete.', 'error');
+                onRefresh();
+              }
             });
           },
         },
@@ -1767,13 +1755,15 @@ const ScreenListing = ({navigation}) => {
             setTotalListings(prev => Math.max(0, prev - count));
             exitGroupChatSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.delete(doc(db, 'listing', item.id));
-            });
-            batch.commit().catch(() => {
-              showToast('Some listings failed to delete.', 'error');
-              onRefresh();
+            Promise.all(
+              selectedItems.map(item =>
+                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
+              ),
+            ).then(results => {
+              if (results.some(r => r === null)) {
+                showToast('Some listings failed to delete.', 'error');
+                onRefresh();
+              }
             });
           },
         },
@@ -1864,13 +1854,15 @@ const ScreenListing = ({navigation}) => {
             setTotalListings(prev => Math.max(0, prev - count));
             exitInactiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.delete(doc(db, 'listing', item.id));
-            });
-            batch.commit().catch(() => {
-              showToast('Some listings failed to delete.', 'error');
-              onRefresh();
+            Promise.all(
+              selectedItems.map(item =>
+                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
+              ),
+            ).then(results => {
+              if (results.some(r => r === null)) {
+                showToast('Some listings failed to delete.', 'error');
+                onRefresh();
+              }
             });
           },
         },
@@ -1962,13 +1954,15 @@ const ScreenListing = ({navigation}) => {
             setTotalListings(prev => Math.max(0, prev - count));
             exitDiscountedSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            const batch = writeBatch(db);
-            selectedItems.forEach(item => {
-              batch.delete(doc(db, 'listing', item.id));
-            });
-            batch.commit().catch(() => {
-              showToast('Some listings failed to delete.', 'error');
-              onRefresh();
+            Promise.all(
+              selectedItems.map(item =>
+                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
+              ),
+            ).then(results => {
+              if (results.some(r => r === null)) {
+                showToast('Some listings failed to delete.', 'error');
+                onRefresh();
+              }
             });
           },
         },
