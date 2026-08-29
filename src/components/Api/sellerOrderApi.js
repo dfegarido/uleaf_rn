@@ -1,6 +1,34 @@
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 
+/**
+ * Wrap an ISO timestamp into a Firestore-Timestamp-shaped object so the
+ * screen's `.createdAt._seconds * 1000` call site (legacy Firestore shape)
+ * keeps working after the Supabase migration returns ISO strings.
+ */
+const toTimestampShape = (iso) => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return {
+    _seconds: Math.floor(d.getTime() / 1000),
+    seconds: Math.floor(d.getTime() / 1000),
+    nanoseconds: (d.getTime() % 1000) * 1e6,
+    toDate: () => d,
+  };
+};
+
+/** Normalize raw order rows from the edge fn into the screen's expected shape. */
+const normalizeOrderRow = (row) => {
+  const normalized = { ...row };
+  if (normalized.createdAt && typeof normalized.createdAt === 'string') {
+    normalized.createdAt = toTimestampShape(normalized.createdAt);
+  }
+  if (normalized.flightDate && typeof normalized.flightDate === 'string') {
+    normalized.flightDate = toTimestampShape(normalized.flightDate);
+  }
+  return normalized;
+};
+
 export const updateOrderSellerScanned = async (data, isScanning = false) => {
   try {
 
@@ -101,6 +129,11 @@ export const getOrderForReceiving = async (filters = {sort: 'desc'}) => {
     }
 
     const json = await response.json();
+    // Wrap ISO timestamps into Firestore-Timestamp-shaped objects so the
+    // screen's `.createdAt._seconds` and `moment(flightDate)` call sites work.
+    if (json && Array.isArray(json.data)) {
+      json.data = json.data.map(normalizeOrderRow);
+    }
     return json;
   } catch (error) {
     console.error('getOrderForReceiving error:', error.message);
