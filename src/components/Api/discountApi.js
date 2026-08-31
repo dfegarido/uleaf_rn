@@ -98,13 +98,7 @@ export const createDiscountApi = async (discountData) => {
     // Use API_ENDPOINTS if available, otherwise use direct URL
     // NOTE: The backend endpoint must be created as: createDiscount
     // If your backend uses a different endpoint name, update it here or in apiConfig.js
-    let endpoint = API_ENDPOINTS?.CREATE_DISCOUNT;
-    if (!endpoint) {
-      // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
-        'https://us-central1-i-leaf-u.cloudfunctions.net';
-      endpoint = `${baseUrl}/createDiscount`;
-    }
+    const endpoint = API_ENDPOINTS.CREATE_DISCOUNT;
     
     console.log('Calling endpoint:', endpoint);
 
@@ -237,16 +231,11 @@ export const updateDiscountApi = async (discountId, discountData) => {
     let endpoint = API_ENDPOINTS?.UPDATE_DISCOUNT;
     
     // If endpoint exists and has :id placeholder, replace it
-    if (endpoint && endpoint.includes(':id')) {
+    if (endpoint.includes(':id')) {
       endpoint = endpoint.replace(':id', discountId);
-    } else if (endpoint) {
+    } else {
       // If endpoint exists but no placeholder, append the ID
       endpoint = `${endpoint}/${discountId}`;
-    } else {
-      // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
-        'https://us-central1-i-leaf-u.cloudfunctions.net';
-      endpoint = `${baseUrl}/updateDiscount/${discountId}`;
     }
 
     const response = await fetch(endpoint, {
@@ -302,13 +291,7 @@ export const getDiscountsApi = async (options = {}) => {
     if (options.limit) queryParams.append('limit', options.limit.toString());
     if (options.offset) queryParams.append('offset', options.offset.toString());
 
-    let endpoint = API_ENDPOINTS?.GET_DISCOUNTS;
-    if (!endpoint) {
-      // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
-        'https://us-central1-i-leaf-u.cloudfunctions.net';
-      endpoint = `${baseUrl}/getDiscounts`;
-    }
+    const endpoint = API_ENDPOINTS.GET_DISCOUNTS;
 
     // Append query string if there are params
     if (queryParams.toString()) {
@@ -395,14 +378,7 @@ export const validateDiscountCodeApi = async (code, cartItems, buyerId) => {
     console.log('💳 [validateDiscountCodeApi] API_ENDPOINTS.VALIDATE_DISCOUNT_CODE:', API_ENDPOINTS?.VALIDATE_DISCOUNT_CODE);
     console.log('💳 [validateDiscountCodeApi] API_ENDPOINTS keys:', Object.keys(API_ENDPOINTS || {}).filter(k => k.includes('DISCOUNT')));
 
-    let endpoint = API_ENDPOINTS?.VALIDATE_DISCOUNT_CODE;
-    if (!endpoint) {
-      console.warn('⚠️ [validateDiscountCodeApi] VALIDATE_DISCOUNT_CODE not found in API_ENDPOINTS, using fallback');
-      // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') ||
-        'https://us-central1-i-leaf-u.cloudfunctions.net';
-      endpoint = `${baseUrl}/validateDiscountCode`;
-    }
+    const endpoint = API_ENDPOINTS.VALIDATE_DISCOUNT_CODE;
 
     console.log('💳 [validateDiscountCodeApi] Calling endpoint:', endpoint);
 
@@ -501,16 +477,11 @@ export const getDiscountApi = async (discountId) => {
     let endpoint = API_ENDPOINTS?.GET_DISCOUNT;
     
     // If endpoint exists and has :id placeholder, replace it
-    if (endpoint && endpoint.includes(':id')) {
+    if (endpoint.includes(':id')) {
       endpoint = endpoint.replace(':id', discountId);
-    } else if (endpoint) {
+    } else {
       // If endpoint exists but no placeholder, append the ID
       endpoint = `${endpoint}/${discountId}`;
-    } else {
-      // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
-        'https://us-central1-i-leaf-u.cloudfunctions.net';
-      endpoint = `${baseUrl}/getDiscount/${discountId}`;
     }
 
     console.log('Calling getDiscount endpoint:', endpoint);
@@ -555,16 +526,11 @@ export const deleteDiscountApi = async (discountId) => {
     let endpoint = API_ENDPOINTS?.DELETE_DISCOUNT;
     
     // If endpoint exists and has :id placeholder, replace it
-    if (endpoint && endpoint.includes(':id')) {
+    if (endpoint.includes(':id')) {
       endpoint = endpoint.replace(':id', discountId);
-    } else if (endpoint) {
+    } else {
       // If endpoint exists but no placeholder, append the ID
       endpoint = `${endpoint}/${discountId}`;
-    } else {
-      // Fallback to constructing URL manually
-      const baseUrl = API_ENDPOINTS?.GET_ADMIN_LISTINGS?.replace('/getAdminListings', '') || 
-        'https://us-central1-i-leaf-u.cloudfunctions.net';
-      endpoint = `${baseUrl}/deleteDiscount/${discountId}`;
     }
 
     const response = await fetch(endpoint, {

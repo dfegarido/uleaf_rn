@@ -404,6 +404,15 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   UPDATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
   DELETE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
 
+  // Buyer account management (Supabase; password update stays on Firebase — auth domain)
+  BUYER_UPDATE: `${getSupabaseBaseUrl()}/buyer-update`,
+  DEACTIVATE_BUYER: `${getSupabaseBaseUrl()}/deactivate-buyer`,
+  UPDATE_BUYER_PASSWORD: `${getBaseUrl()}/updateBuyerPassword`,
+
+  // Payout detail (Supabase)
+  PAYOUT_DETAIL: `${getSupabaseBaseUrl()}/payout-detail`,
+  PAYOUT_DETAIL_EXPORT: `${getSupabaseBaseUrl()}/payout-detail-export`,
+
   // Referral APIs
   REFERRAL_INFO: `${getSupabaseBaseUrl()}/referral-info`,
   LIST_REFERRAL_REWARDS: `${getSupabaseBaseUrl()}/list-referral-rewards`,

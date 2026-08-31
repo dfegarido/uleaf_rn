@@ -78,7 +78,7 @@ const ScreenPayout = ({navigation, route}) => {
     // 💰 PAYOUTS API CALL LOGGING
     const authToken = await getStoredAuthToken();
     console.log('💰 Payouts API Call:', {
-      endpoint: 'https://listpayout-nstilwgvua-uc.a.run.app',
+      endpoint: 'LIST_PAYOUT (Supabase)',
       nextPageToken: nextTokenParam,
       networkConnected: netState.isConnected,
       networkReachable: netState.isInternetReachable,
