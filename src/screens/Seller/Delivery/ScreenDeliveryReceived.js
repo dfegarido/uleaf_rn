@@ -286,6 +286,7 @@ const ScreenDeliveryReceived = ({navigation}) => {
 
   return (
     <SafeAreaView
+      edges={['bottom', 'left', 'right']}
       style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">

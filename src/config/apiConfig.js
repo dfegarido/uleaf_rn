@@ -250,6 +250,12 @@ GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single 
   GET_LIVE_STREAMS: `${getSupabaseBaseUrl()}/live-list`,
   GET_LIVE_SELLERS: `${getSupabaseBaseUrl()}/live-sellers`,
   POST_GENERATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/generate-live-session`,
+  CREATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/create-live-session`,
+  UPDATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/update-live-session`,
+  GET_LIVE_LISTINGS_BY_SESSION: `${getSupabaseBaseUrl()}/get-live-listings-by-session`,
+  ADD_VIEWER_TO_LIVE_SESSION: `${getSupabaseBaseUrl()}/add-viewer-to-live-session`,
+  REMOVE_VIEWER_FROM_LIVE_SESSION: `${getSupabaseBaseUrl()}/remove-viewer-from-live-session`,
+  TOGGLE_LOVE_LIVE_SESSION: `${getSupabaseBaseUrl()}/toggle-love-live-session`,
   POST_SUPPLIER_UPDATE: `${getSupabaseBaseUrl()}/supplier-update`,
   POST_REPORT_PROBLEM: `${getSupabaseBaseUrl()}/report-problem`,
   POST_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
@@ -296,6 +302,8 @@ GET_SORT_DROPDOWN: `${getSupabaseBaseUrl()}/sort-store-dropdown`,
 GET_MUTATION_DROPDOWN: `${getSupabaseBaseUrl()}/mutation-dropdown`,
   // Active live listing for seller Sell screen
 GET_ACTIVE_LIVE_LISTING: `${getSupabaseBaseUrl()}/active-live-listing`,
+  // Most Loved listings for the seller Sell screen
+GET_MOST_LOVE_LISTING: `${getSupabaseBaseUrl()}/get-most-love-listing`,
   // Mark a chat as read (remove current user from unreadby)
 POST_CHAT_MARK_READ: `${getSupabaseBaseUrl()}/chat-mark-read`,
   // Find an existing private chat between the current user and another user

@@ -350,6 +350,7 @@ const ScreenForDelivery = ({navigation, route}) => {
 
   return (
     <SafeAreaView
+      edges={['bottom', 'left', 'right']}
       style={{
         flex: 1,
         backgroundColor: '#fff',

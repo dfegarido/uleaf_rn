@@ -20,11 +20,12 @@ const toTimestampShape = (iso) => {
 /** Normalize raw order rows from the edge fn into the screen's expected shape. */
 const normalizeOrderRow = (row) => {
   const normalized = { ...row };
+  // Wrap createdAt only: OrderScreen/ScreenOrderSearch read
+  // `createdAt._seconds`. flightDate MUST stay an ISO string — those same
+  // screens call `moment(item.flightDate)` directly, and moment() of the
+  // Timestamp-shaped object is Invalid, which blanked the Flight: line.
   if (normalized.createdAt && typeof normalized.createdAt === 'string') {
     normalized.createdAt = toTimestampShape(normalized.createdAt);
-  }
-  if (normalized.flightDate && typeof normalized.flightDate === 'string') {
-    normalized.flightDate = toTimestampShape(normalized.flightDate);
   }
   return normalized;
 };

@@ -24,8 +24,7 @@ export const generateAgoraToken = async (channelName, agoraUid=null) => {
 export const createLiveSession = async (data) => {
   try {
     const token = await getStoredAuthToken();
-    // Use the local development URL for now.
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/createLiveSession`;
+    const url = API_ENDPOINTS.CREATE_LIVE_SESSION;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -51,7 +50,7 @@ export const createLiveSession = async (data) => {
 export const updateLiveSession = async (sessionId, data) => {
   try {
     const token = await getStoredAuthToken();
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/updateLiveSession`;
+    const url = API_ENDPOINTS.UPDATE_LIVE_SESSION;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -83,7 +82,7 @@ export const getLiveListingsBySessionApi = async (sessionId, status='Live') => {
     const authToken = await getStoredAuthToken();
     
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveListingsBySession?sessionId=${sessionId}&status=${status}`,
+      `${API_ENDPOINTS.GET_LIVE_LISTINGS_BY_SESSION}?sessionId=${sessionId}&status=${status}`,
       {
         method: 'GET',
         headers: {
@@ -170,7 +169,7 @@ export const updateLiveSessionStatusApi = async (sessionId, newStatus) => {
 export const addViewerToLiveSession = async (sessionId, profilePhotoUrl) => {
   try {
     const token = await getStoredAuthToken();
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/addViewerToLiveSession`;
+    const url = API_ENDPOINTS.ADD_VIEWER_TO_LIVE_SESSION;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -191,7 +190,7 @@ export const addViewerToLiveSession = async (sessionId, profilePhotoUrl) => {
 export const removeViewerFromLiveSession = async (sessionId) => {
   try {
     const token = await getStoredAuthToken();
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/removeViewerFromLiveSession`;
+    const url = API_ENDPOINTS.REMOVE_VIEWER_FROM_LIVE_SESSION;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -212,8 +211,8 @@ export const removeViewerFromLiveSession = async (sessionId) => {
 export const toggleLoveLiveSession = async (sessionId) => {
   try {
     const token = await getStoredAuthToken();
-    
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/toggleLoveLiveSession`;
+
+    const url = API_ENDPOINTS.TOGGLE_LOVE_LIVE_SESSION;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -231,31 +230,3 @@ export const toggleLoveLiveSession = async (sessionId) => {
   }
 };
 
-export const getLiveSessionsApi = async () => {
-  try {
-    const authToken = await getStoredAuthToken();
-    
-    const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getLiveSessions`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-      },
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.message || errorData.error || `HTTP error! status: ${response.status}`,
-      );
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Get live sessions API error:', error);
-    return { success: false, error: error.message };
-  }
-};

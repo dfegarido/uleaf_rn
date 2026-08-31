@@ -50,8 +50,86 @@ const ensureHttpUrl = (uri) => {
   return null;
 };
 
+// Supabase columns come back lowercase (PostgREST). Map the known order
+// columns to the camelCase field names the screens consume. Additive: the
+// original lowercase keys are preserved so other readers keep working.
+const LOWER_TO_CAMEL = {
+  buyeruid: 'buyerUid',
+  leaftrailstatus: 'leafTrailStatus',
+  plantcode: 'plantCode',
+  plantname: 'plantName',
+  listingid: 'listingId',
+  unitprice: 'unitPrice',
+  orderqty: 'orderQty',
+  potsizevariation: 'potSizeVariation',
+  flightdate: 'flightDate',
+  flightdateformatted: 'flightDateFormatted',
+  plantsourcecountry: 'plantSourceCountry',
+  sellercode: 'sellerCode',
+  sellername: 'sellerName',
+  imageprimary: 'imagePrimary',
+  imageprimarywebp: 'imagePrimaryWebp',
+  subtotal: 'subtotal',
+  finaltotal: 'finalTotal',
+  totalshippingcost: 'totalShippingCost',
+  totalplantcost: 'totalPlantCost',
+  totaldiscount: 'totalDiscount',
+  hasdiscount: 'hasDiscount',
+  discountamount: 'discountAmount',
+  transactionnumber: 'transactionNumber',
+  trxnumber: 'trxNumber',
+  orderdate: 'orderDate',
+  createdat: 'createdAt',
+  updatedat: 'updatedAt',
+  listingtype: 'listingType',
+  localprice: 'localPrice',
+  localpricecurrency: 'localPriceCurrency',
+  localpricecurrencysymbol: 'localPriceCurrencySymbol',
+  approximateheight: 'approximateHeight',
+  paymentmethod: 'paymentMethod',
+  deliverystatus: 'deliveryStatus',
+  payoutstatus: 'payoutStatus',
+  payoutdate: 'payoutDate',
+  payoutworkweek: 'payoutWorkweek',
+  gardenorcompanyname: 'gardenOrCompanyName',
+  isjoinerorder: 'isJoinerOrder',
+  joinerinfo: 'joinerInfo',
+  receiverinfo: 'receiverInfo',
+  flightdatechanged: 'flightDateChanged',
+  shippingdata: 'shippingData',
+  shippeddata: 'shippedData',
+  buyerinfo: 'buyerInfo',
+  creditrequests: 'creditRequests',
+  hubreceiver: 'hubReceiver',
+  hubpackdetails: 'hubPackDetails',
+  hubneedstostay: 'hubNeedsToStay',
+  delivereddate: 'deliveredDate',
+  deliverydetails: 'deliveryDetails',
+  pricing: 'pricing',
+  supplieruid: 'supplierUid',
+  plantstatus: 'plantStatus',
+  variegation: 'variegation',
+};
+
+// Attach camelCase aliases for lowercase Supabase columns (without removing
+// the originals) so legacy call sites and screens both work.
+const withCamelAliases = (order) => {
+  if (!order || typeof order !== 'object' || Array.isArray(order)) return order;
+  const out = {...order};
+  for (const [lower, camel] of Object.entries(LOWER_TO_CAMEL)) {
+    if (lower in out && !(camel in out)) {
+      out[camel] = out[lower];
+    }
+  }
+  return out;
+};
+
 const normalizeOrder = (order) => {
   if (!order || typeof order !== 'object') return order;
+
+  // First attach camelCase aliases for lowercase Supabase columns so both
+  // this normalizer and downstream screens see the legacy field shapes.
+  order = withCamelAliases(order);
 
   const {
     orderDate,
