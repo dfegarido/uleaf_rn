@@ -333,6 +333,7 @@ GET_ORDER_FOR_RECEIVING: `${getSupabaseBaseUrl()}/order-for-receiving`,
 UPDATE_ORDER_SELLER_SCANNED: `${getSupabaseBaseUrl()}/update-order-seller-scanned`,
 GET_SELLER_ORDER_COUNTS: `${getSupabaseBaseUrl()}/seller-order-counts`,
   UPDATE_ORDER_LEAF_TRAIL_STATUS: `${getSupabaseBaseUrl()}/update-order-leaf-trail-status`,
+  UPDATE_ORDER_DELIVERY_STATUS: `${getSupabaseBaseUrl()}/update-order-delivery-status`,
   
   // System APIs
 CHECK_MAINTENANCE: `${getSupabaseBaseUrl()}/check-maintenance`,
@@ -437,7 +438,7 @@ SUBMIT_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/submit-flight-change-requ
   SEND_RECEIVER_BOXES_TO_IN_TRANSIT: `${getSupabaseBaseUrl()}/send-receiver-boxes-in-transit`,
 
   // Delivery Export endpoint
-  DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
+  DELIVERY_EXPORT: `${getSupabaseBaseUrl()}/delivery-export`,
   
   // Order Export endpoints
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
