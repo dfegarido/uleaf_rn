@@ -622,6 +622,12 @@ const BuyerProfileScreen = (props) => {
 
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+            title="Share app to buyers"
+            onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}
+          />
+
+          <MenuItem
+            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="Notification Settings"
             onPress={() => navigation.navigate('NotificationSettingsScreen')}
           />

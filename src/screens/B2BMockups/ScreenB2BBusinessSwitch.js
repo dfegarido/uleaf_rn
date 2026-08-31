@@ -15,6 +15,7 @@ import {
   updateB2BBusinessRequestApi,
 } from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
+import B2BBuyerInviteCard from './B2BBuyerInviteCard';
 
 const PATHS = [
   {
@@ -22,7 +23,8 @@ const PATHS = [
     label: 'US Customer',
     to: 'US Business',
     keeps: 'You keep buying plants as a customer.',
-    selling: 'Live Selling only. Mainstream selling is not in this phase.',
+    selling:
+      'Live Selling only. Mainstream selling is not in this phase. Share your code so Instagram followers download the app and create an account before you go live.',
   },
   {
     key: 'asia',
@@ -254,11 +256,16 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                 </Text>
                 <Text style={styles.resultBody}>
                   {path.key === 'us'
-                    ? 'Shop as a customer is still available. Live Selling is unlocked. Mainstream selling stays off.'
+                    ? 'Shop as a customer is still available. Live Selling is unlocked. Mainstream selling stays off. Share your code so followers can download the app and create an account before you go live.'
                     : 'USD listings and commission payouts are now on. Existing Asia Seller accounts are unchanged.'}
                 </Text>
               </View>
             )}
+            {status === 'approved' && path.key === 'us' ? (
+              <View style={{marginTop: 16}}>
+                <B2BBuyerInviteCard uid={account?.uid} />
+              </View>
+            ) : null}
             {status === 'rejected' && (
               <View style={styles.resultBox}>
                 <Text style={styles.resultTitle}>Request was not approved</Text>

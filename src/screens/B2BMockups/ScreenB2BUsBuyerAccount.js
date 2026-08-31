@@ -11,6 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import {getB2BAccountApi} from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
+import B2BBuyerInviteCard from './B2BBuyerInviteCard';
 
 const ScreenB2BUsBuyerAccount = ({navigation}) => {
   const [account, setAccount] = useState(null);
@@ -160,13 +161,17 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
             </View>
 
             {isBusiness ? (
-              <View style={styles.resultBox}>
-                <Text style={styles.resultTitle}>This account is US Business</Text>
-                <Text style={styles.resultBody}>
-                  Consumer purchasing stays on. Live Selling is allowed. Mainstream
-                  selling is off for Phase 1.
-                </Text>
-              </View>
+              <>
+                <B2BBuyerInviteCard uid={account?.uid} />
+                <View style={styles.resultBox}>
+                  <Text style={styles.resultTitle}>This account is US Business</Text>
+                  <Text style={styles.resultBody}>
+                    Consumer purchasing stays on. Live Selling is allowed. Mainstream
+                    selling is off for Phase 1. Require followers to create an account
+                    with your code before you go live.
+                  </Text>
+                </View>
+              </>
             ) : (
               <>
                 <TouchableOpacity
