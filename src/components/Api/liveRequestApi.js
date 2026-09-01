@@ -164,3 +164,99 @@ export const updateLiveRequestStatusApi = async (data) => {
     };
   }
 };
+
+/** Delete a live session the seller owns (Supabase live-delete). */
+export const deleteLiveSessionApi = async (sessionId) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.LIVE_DELETE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error('deleteLiveSessionApi error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Seller write to liveRequests (create/update/delete) via Supabase live-request-write. */
+export const liveRequestWriteApi = async ({ mode, requestId, ...rest }) => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.LIVE_REQUEST_WRITE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ mode, requestId, ...rest }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error('liveRequestWriteApi error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Wrap an ISO timestamp into a Firestore-Timestamp-shaped object. */
+const toFirestoreTimestamp = (value) => {
+  if (value == null) return null;
+  if (value && typeof value.toDate === 'function') return value;
+  if (value && typeof value === 'object' && value.seconds !== undefined) return value;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return {
+    seconds: Math.floor(d.getTime() / 1000),
+    nanoseconds: (d.getTime() % 1000) * 1e6,
+    toDate: () => new Date(d.getTime()),
+  };
+};
+
+/** Get the seller's own live sessions + live requests (Supabase my-live-sessions). */
+export const getMyLiveSessionsApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.MY_LIVE_SESSIONS, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+    }
+    // Wrap timestamps for the screen's .seconds call sites.
+    const wrap = (r) => ({
+      ...r,
+      createdAt: toFirestoreTimestamp(r.createdAt),
+      updatedAt: toFirestoreTimestamp(r.updatedAt),
+      endedAt: toFirestoreTimestamp(r.endedAt),
+      scheduledAt: toFirestoreTimestamp(r.scheduledAt),
+      requestedAt: toFirestoreTimestamp(r.requestedAt),
+      requestedDate: toFirestoreTimestamp(r.requestedDate),
+    });
+    return {
+      success: true,
+      sessions: (data.sessions || []).map(wrap),
+      pendingRequests: (data.pendingRequests || []).map(wrap),
+    };
+  } catch (error) {
+    console.error('getMyLiveSessionsApi error:', error);
+    return { success: false, sessions: [], pendingRequests: [], error: error.message };
+  }
+};
