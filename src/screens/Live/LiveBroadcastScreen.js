@@ -45,6 +45,7 @@ import {
   getLiveDetailApi,
   getLiveSellersApi,
   getLiveSoldToApi,
+  sendLiveHeartbeatApi,
   updateLiveCommentApi,
   updateLiveCoverApi,
   updateLiveStickyNoteApi,
@@ -386,6 +387,12 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()]);
         setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null);
         setStickyNoteText(data.stickyNote || '');
+
+        // Heartbeat: keep this session visible as "live" to buyers while the
+        // seller is actively broadcasting. Fire only when status is live.
+        if (data.status === 'live') {
+          sendLiveHeartbeatApi(sessionId).catch((e) => console.error('Heartbeat failed:', e?.message));
+        }
       } else {
         console.log('Live session document does not exist.');
       }

@@ -258,3 +258,20 @@ export const getLiveSoldToApi = async (listingId) => {
     return { success: false, soldToUser: null, error: error.message };
   }
 };
+
+/** Send a heartbeat for a live session (seller keeps it visible as live). */
+export const sendLiveHeartbeatApi = async (sessionId) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_HEARTBEAT, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ sessionId }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, ...body };
+  } catch (error) {
+    console.error('sendLiveHeartbeatApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
