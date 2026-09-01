@@ -3,6 +3,7 @@ import {TouchableOpacity, Image, View, ActivityIndicator, StyleSheet} from 'reac
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useAuth} from '../../auth/AuthProvider';
 import {getBuyerProfileApi} from '../Api/getBuyerProfileApi';
+import {toResizedSupabaseUri} from '../../utils/plantListingImage';
 import AvatarIcon from '../../assets/images/avatar.svg';
 import {useNavigation} from '@react-navigation/native';
 
@@ -146,10 +147,12 @@ const Avatar = forwardRef(({size = 40, imageUri, onPress, style, rounded = true}
     style,
   ];
 
-  const content = uri ? (
+  const displayUri = uri ? toResizedSupabaseUri(uri, size * 3) : '';
+
+  const content = displayUri ? (
     <Image
-      key={`avatar-image-${uri}`} 
-      source={{uri}}
+      key={`avatar-image-${displayUri}`} 
+      source={{uri: displayUri}}
       style={{width: size, height: size}}
       resizeMode="cover"
       onError={() => setUri('')}
