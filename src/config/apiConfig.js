@@ -488,6 +488,9 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   LIVE_DELETE: `${getSupabaseBaseUrl()}/live-delete`,
   LIVE_REQUEST_WRITE: `${getSupabaseBaseUrl()}/live-request-write`,
   MY_LIVE_SESSIONS: `${getSupabaseBaseUrl()}/my-live-sessions`,
+  LIVE_COMMENTS: `${getSupabaseBaseUrl()}/live-comments`,
+  LIVE_DETAIL: `${getSupabaseBaseUrl()}/live-detail`,
+  LIVE_SOLD_TO: `${getSupabaseBaseUrl()}/live-sold-to`,
 });
 
 // API Endpoints - Initially generated with default environment

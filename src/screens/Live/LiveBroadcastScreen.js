@@ -1,16 +1,3 @@
-import { addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where
-} from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -31,7 +18,6 @@ import { ChannelProfileType,
   RtcSurfaceView,
 } from 'react-native-agora';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/icons/white/caret-left-regular.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
@@ -47,11 +33,22 @@ import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import RNFS from 'react-native-fs';
 import { AuthContext } from '../../auth/AuthProvider';
-import { generateAgoraToken, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
+import { generateAgoraToken, getActiveLiveListingApi, getLiveListingsBySessionApi, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
 import { getAgoraUid } from '../../utils/getAgoraUid';
 import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
 import { uploadImageToBackend } from '../../components/Api/uploadImageToBackend';
 import { updateListingApi } from '../../components/Api/listingManagementApi';
+import {
+  addLiveCommentApi,
+  deleteLiveCommentApi,
+  getLiveCommentsApi,
+  getLiveDetailApi,
+  getLiveSellersApi,
+  getLiveSoldToApi,
+  updateLiveCommentApi,
+  updateLiveCoverApi,
+  updateLiveStickyNoteApi,
+} from '../../components/Api/liveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
 
@@ -117,11 +114,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       setSellerProfile({ gardenOrCompanyName: currentUserInfo.gardenOrCompanyName, profileImage: currentUserInfo.profileImage });
       return;
     }
-    // Fetch from supplier collection
-    const supplierDocRef = doc(db, 'supplier', userId);
-    getDoc(supplierDocRef).then((docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    // Fetch from supplier via Supabase live-sellers batch lookup
+    getLiveSellersApi([userId]).then((res) => {
+      if (res.success && res.sellers && res.sellers[userId]) {
+        const data = res.sellers[userId];
         setSellerProfile({ alias: data.alias, gardenOrCompanyName: data.gardenOrCompanyName, profileImage: data.profileImage, firstName: data.firstName, lastName: data.lastName });
       }
     }).catch((err) => console.error('Error fetching seller profile:', err));
@@ -372,48 +368,61 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   useEffect(() => {
     if (!sessionId) return;
 
-    const sessionDocRef = doc(db, 'live', sessionId);
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
+    const loadSession = async () => {
+      const res = await getLiveDetailApi(sessionId);
+      if (!active) return;
+      if (res.success && res.session) {
+        const data = res.session;
         setSessionDetails(data);
         setLiveStats({
           viewerCount: data.viewerCount || 0,
           likeCount: data.likeCount || 0,
         });
 
-        const joinNotifications = data?.joiners || [];
-        
-        setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
-        setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
-
+        const joinNotifications = data.joiners || [];
+        setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()]);
+        setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null);
         setStickyNoteText(data.stickyNote || '');
       } else {
         console.log('Live session document does not exist.');
       }
-    });
+    };
 
-    // Cleanup listener on component unmount
-    return () => unsubscribe();
+    loadSession();
+    // Poll for live viewer/like/joiner updates (realtime bridge).
+    pollTimer = setInterval(loadSession, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [sessionId]);
 
   // Effect for fetching comments
   useEffect(() => {
     if (!sessionId) return;
 
-    const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-    const q = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedComments = [];
-      querySnapshot.forEach((doc) => {
-        fetchedComments.push({ id: doc.id, ...doc.data() });
-      });
-      setComments(fetchedComments);
-    });
+    const loadComments = async () => {
+      const res = await getLiveCommentsApi(sessionId);
+      if (!active) return;
+      if (res.success) {
+        setComments(res.comments || []);
+      }
+    };
 
-    return () => unsubscribe();
+    loadComments();
+    pollTimer = setInterval(loadComments, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [sessionId]);
 
   useEffect(() => {
@@ -424,7 +433,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const deleteComment = async (commentId) => {
     try {
-        await deleteDoc(doc(db, 'live', sessionId, 'comments', commentId));
+        await deleteLiveCommentApi({ sessionId, commentId });
     } catch (error) {
         console.error("Error deleting comment: ", error);
         Alert.alert('Error', 'Failed to delete comment');
@@ -482,22 +491,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     setEditingComment(null); // Clear editing state
 
     try {
-      const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-      
       if (editingComment) {
-          const commentDocRef = doc(commentsCollectionRef, editingComment.id);
-          await updateDoc(commentDocRef, {
-              message: commentToSend,
-              updatedAt: serverTimestamp()
-          });
+          await updateLiveCommentApi({ sessionId, commentId: editingComment.id, message: commentToSend });
       } else {
-          await addDoc(commentsCollectionRef, {
-            message: commentToSend,
-            name: userName,
-            avatar: userAvatar,
-            uid: userId,
-            createdAt: serverTimestamp(),
-          });
+          await addLiveCommentApi({ sessionId, message: commentToSend, name: userName, avatar: userAvatar });
       }
     } catch (error) {
       console.error('Error sending comment:', error);
@@ -506,10 +503,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   const handleOpenStickyNote = async () => {
     if (!sessionId) return;
-    const sessionDocRef = doc(db, 'live', sessionId);
-    const docSnap = await getDoc(sessionDocRef);
-    if (docSnap.exists()) {
-      setStickyNoteText(docSnap.data().stickyNote || '');
+    const res = await getLiveDetailApi(sessionId);
+    if (res.success && res.session) {
+      setStickyNoteText(res.session.stickyNote || '');
     }
     setStickyNoteModalVisible(true);
   };
@@ -528,8 +524,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     if (!sessionId) return;
     setIsLoading(true);
     try {
-      const sessionDocRef = doc(db, 'live', sessionId);
-      await updateDoc(sessionDocRef, { stickyNote: stickyNoteText });
+      await updateLiveStickyNoteApi(sessionId, stickyNoteText);
       setStickyNoteModalVisible(false);
     } catch (err) {
       Alert.alert('Error', 'Could not save sticky notes.');
@@ -555,7 +550,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
       const imageUrl = await uploadImageToBackend(fileUri);
       if (!imageUrl) throw new Error('Upload returned empty URL');
-      await updateDoc(doc(db, 'live', sessionId), { coverPhotoUrl: imageUrl });
+      await updateLiveCoverApi(sessionId, imageUrl);
       console.log('[LiveThumb] Updated session coverPhotoUrl:', imageUrl);
     } catch (err) {
       console.error('[LiveThumb] Upload/update failed:', err?.message || err);
@@ -617,54 +612,70 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   //get active listing
   useEffect(() => {
-      // Extract uid properly (handles nested structure for suppliers)
-      const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
-      
-      if (!sessionId || !userId) return;
+      if (!sessionId) return;
 
-      const listingsCollectionRef = collection(db, 'listing');
-      const q = query(
-        listingsCollectionRef,
-        where('isActiveLiveListing', '==', true),
-        where('sellerCode', '==', userId)
-      );
-  
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        if (!querySnapshot.empty) {
-          const activeDoc = querySnapshot.docs[0];
-          console.log('Active listing found:', activeDoc.id, activeDoc.data());
-          
-          setActiveListing({ id: activeDoc.id, ...activeDoc.data() });
+      let active = true;
+      let pollTimer = null;
+
+      const toCamel = (r) => ({
+        id: r.id,
+        plantCode: r.plantcode || r.plantCode || '',
+        imagePrimary: r.imageprimary || r.imagePrimary || null,
+        genus: r.genus || '',
+        species: r.species || '',
+        variegation: r.variegation || '',
+        potSize: r.potsize || r.potSize || '',
+        usdPrice: r.usdprice || r.usdPrice || 0,
+        sellerCode: r.sellercode || r.sellerCode || '',
+        status: r.status || '',
+        sessionId: r.sessionid || r.sessionId || '',
+      });
+
+      const loadActive = async () => {
+        const res = await getActiveLiveListingApi();
+        if (!active) return;
+        if (res && res.success && res.data) {
+          setActiveListing(toCamel(res.data));
         } else {
           setActiveListing(null);
         }
-      });
-  
-      return () => unsubscribe();
-  }, [sessionId, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
+      };
+
+      loadActive();
+      pollTimer = setInterval(loadActive, 10000);
+
+      return () => {
+        active = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
+  }, [sessionId]);
 
   useEffect(() => {
-    const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
-    if (!sessionId || !userId) return;
+    if (!sessionId) return;
 
-    const q = query(
-      collection(db, 'listing'),
-      where('sessionId', '==', sessionId),
-      where('status', '==', 'Live'),
-      orderBy('createdAt', 'asc')
-    );
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const loadListings = async () => {
+      const res = await getLiveListingsBySessionApi(sessionId, 'Live');
+      if (!active) return;
+      const listings = (res && res.data) || [];
       const indexMap = {};
-      snapshot.docs.forEach((docSnap, i) => {
-        indexMap[docSnap.id] = `IG${i + 1}`;
+      listings.forEach((item, i) => {
+        indexMap[item.id] = `IG${i + 1}`;
       });
       setSessionListingIndexMap(indexMap);
-      setSessionListingsCount(snapshot.docs.length);
-    });
+      setSessionListingsCount(listings.length);
+    };
 
-    return () => unsubscribe();
-  }, [sessionId, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
+    loadListings();
+    pollTimer = setInterval(loadListings, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     setSnapshotPreviewUri(null);
@@ -725,32 +736,23 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       setSoldToUser(null); // Reset when there's no active listing
       return;
     }
-console.log('activeListing?.id', activeListing?.id);
 
-    const orderCollectionRef = collection(db, 'order');
-    const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const orderData = querySnapshot.docs[0].data();
-        
-        const buyerQuery = query(
-                          collection(db, 'buyer'),
-                          where('uid', '==', orderData.buyerUid)
-        );
-        const buyerSnapshot = await getDocs(buyerQuery);
-        if (!buyerSnapshot.empty) {
-          const buyerData = buyerSnapshot.docs[0].data();
-          
-          setSoldToUser(`@${buyerData.username}`); 
-        } else {
-          setSoldToUser(null); // Buyer not found
-        }
-      } else {
-        setSoldToUser(null); // No pending payment order found
-      }
-    });
-    return () => unsubscribe();
+    const loadSoldTo = async () => {
+      const res = await getLiveSoldToApi(activeListing.id);
+      if (!active) return;
+      setSoldToUser(res.success ? res.soldToUser : null);
+    };
+
+    loadSoldTo();
+    pollTimer = setInterval(loadSoldTo, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [activeListing]);
 
   return (

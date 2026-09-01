@@ -107,3 +107,154 @@ export const getLiveSellersApi = async (uids) => {
 };
 
 export default { getLiveStreamsApi, getLiveSellersApi };
+
+/** Get a single live session (camelCase + Timestamp-shaped timestamps). */
+export const getLiveDetailApi = async (sessionId) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_DETAIL, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'get', sessionId }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    const s = body.session || {};
+    return {
+      success: true,
+      session: {
+        ...s,
+        scheduledAt: toFirestoreTimestamp(s.scheduledAt),
+        createdAt: toFirestoreTimestamp(s.createdAt),
+        endedAt: toFirestoreTimestamp(s.endedAt),
+        updatedAt: toFirestoreTimestamp(s.updatedAt),
+      },
+    };
+  } catch (error) {
+    console.error('getLiveDetailApi error:', error.message);
+    return { success: false, session: null, error: error.message };
+  }
+};
+
+/** Update a live session's stickyNote (owner only). */
+export const updateLiveStickyNoteApi = async (sessionId, stickyNote) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_DETAIL, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'sticky', sessionId, stickyNote }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, ...body };
+  } catch (error) {
+    console.error('updateLiveStickyNoteApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Update a live session's coverPhotoUrl (owner only). */
+export const updateLiveCoverApi = async (sessionId, coverPhotoUrl) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_DETAIL, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'cover', sessionId, coverPhotoUrl }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, ...body };
+  } catch (error) {
+    console.error('updateLiveCoverApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** List comments for a live session (asc by createdAt). */
+export const getLiveCommentsApi = async (sessionId) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_COMMENTS, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'list', sessionId }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    const comments = (body.comments || []).map((c) => ({
+      ...c,
+      createdAt: toFirestoreTimestamp(c.createdAt),
+      updatedAt: toFirestoreTimestamp(c.updatedAt),
+    }));
+    return { success: true, comments };
+  } catch (error) {
+    console.error('getLiveCommentsApi error:', error.message);
+    return { success: false, comments: [], error: error.message };
+  }
+};
+
+/** Add a comment to a live session. */
+export const addLiveCommentApi = async ({ sessionId, message, name, avatar }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_COMMENTS, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'add', sessionId, message, name, avatar }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, comment: body.comment };
+  } catch (error) {
+    console.error('addLiveCommentApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Edit a comment (owner only). */
+export const updateLiveCommentApi = async ({ sessionId, commentId, message }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_COMMENTS, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'update', sessionId, commentId, message }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, ...body };
+  } catch (error) {
+    console.error('updateLiveCommentApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Delete a comment (owner only). */
+export const deleteLiveCommentApi = async ({ sessionId, commentId }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_COMMENTS, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ mode: 'delete', sessionId, commentId }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, ...body };
+  } catch (error) {
+    console.error('deleteLiveCommentApi error:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+/** Find the buyer who placed a Ready to Fly order on a listing. */
+export const getLiveSoldToApi = async (listingId) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_SOLD_TO, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ listingId }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, soldToUser: body.soldToUser || null };
+  } catch (error) {
+    console.error('getLiveSoldToApi error:', error.message);
+    return { success: false, soldToUser: null, error: error.message };
+  }
+};
