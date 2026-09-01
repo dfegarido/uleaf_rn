@@ -1,8 +1,3 @@
-import { addDoc,
-  collection,
-  doc,
-  getDoc,
-} from 'firebase/firestore';
 import moment from 'moment';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused, useRoute } from '@react-navigation/native';
