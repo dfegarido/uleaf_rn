@@ -226,10 +226,10 @@ const toFirestoreTimestamp = (value) => {
 };
 
 /** Get the seller's own live sessions + live requests (Supabase my-live-sessions). */
-export const getMyLiveSessionsApi = async () => {
+export const getMyLiveSessionsApi = async (liveType = 'live') => {
   try {
     const authToken = await getStoredAuthToken();
-    const response = await fetch(API_ENDPOINTS.MY_LIVE_SESSIONS, {
+    const response = await fetch(`${API_ENDPOINTS.MY_LIVE_SESSIONS}?liveType=${encodeURIComponent(liveType)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
