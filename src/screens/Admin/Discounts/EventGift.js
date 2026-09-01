@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState} from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions, KeyboardAvoidingView, Platform, Alert, Keyboard, Image, InteractionManager } from 'react-native';
@@ -909,7 +911,7 @@ const EventGift = () => {
                 <View key={`${gardenName}-${idx}`} style={[styles.appliesCard, selectedGardens.length > 1 && idx < selectedGardens.length - 1 && {marginBottom: 8}]}>
                   <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                     {gardenSellerAvatar ? (
-                      <Image source={{uri: gardenSellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                      <AppImage source={{uri: gardenSellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                     ) : (
                       <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                         <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
@@ -1015,7 +1017,7 @@ const EventGift = () => {
                     {/* Image */}
                     <View style={styles.imageContainerFull}>
                       {imageUri ? (
-                        <Image source={{uri: imageUri}} style={styles.imageFull} resizeMode="cover" />
+                        <AppImage source={{uri: imageUri}} style={styles.imageFull} resizeMode="cover" />
                       ) : (
                         <View style={[styles.imageFull, {backgroundColor: '#E4E7E9'}]} />
                       )}
@@ -1099,7 +1101,7 @@ const EventGift = () => {
                   <View style={styles.detailsSectionFull}>
                     <View style={styles.userContainerFull}>
                       {sellerAvatar ? (
-                        <Image source={{uri: sellerAvatar}} style={styles.avatarFull} />
+                        <AppImage source={{uri: sellerAvatar}} style={styles.avatarFull} />
                       ) : (
                         <View style={[styles.avatarFull, styles.avatarPlaceholderFull]}>
                           <Text style={styles.avatarTextFull}>
@@ -1157,7 +1159,7 @@ const EventGift = () => {
                     <View key={`${b.id}-${idx}`} style={[styles.appliesCard, selectedBuyers.length > 1 && idx < selectedBuyers.length - 1 && {marginBottom: 8}]}>
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                         {b.avatar ? (
-                          <Image source={{uri: b.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                          <AppImage source={{uri: b.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                         ) : (
                           <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                             <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
@@ -1902,7 +1904,7 @@ const EventGift = () => {
                                 >
                                   <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                                     {garden.sellerAvatar ? (
-                                      <Image source={{uri: garden.sellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461'}} />
+                                      <AppImage source={{uri: garden.sellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461'}} />
                                     ) : (
                                       <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center'}}>
                                         <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
@@ -2118,7 +2120,7 @@ const EventGift = () => {
                               >
                                 <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                                   {buyer.avatar ? (
-                                    <Image source={{uri: buyer.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                                    <AppImage source={{uri: buyer.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                                   ) : (
                                     <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                                       <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>

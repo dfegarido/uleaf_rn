@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import moment from 'moment';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image,
@@ -31,7 +33,7 @@ const DetailRow = ({ label, value, valueBold = false }) => (
 const UserCard = ({ user }) => (
   <View style={styles.userListContainer}>
     <View style={styles.userCard}>
-      <Image source={{uri:user.avatar}} style={styles.userAvatar} />
+      <AppImage source={{uri:user.avatar}} style={styles.userAvatar} />
       <View style={styles.userContent}>
         <View style={styles.userNameRow}>
           <Text style={styles.userName}>{user.name}</Text>
@@ -207,7 +209,7 @@ const ScanQRSellerScreen = ({ navigation, route }) => {
               {/* Plant Card Section */}
               <View style={styles.plantListSection}>
                 <View style={styles.plantCard}>
-                    <Image source={{uri: plantData.imagePrimary}} style={styles.plantImage} />
+                    <AppImage source={{uri: plantData.imagePrimary}} style={styles.plantImage} />
                     <View style={styles.plantDetails}>
                         <View style={styles.plantNameSection}>
                             <View style={styles.plantCodeCountry}>

@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useState, useEffect} from 'react';
 import { View,
   Text,
@@ -673,7 +675,7 @@ const SalesReport = () => {
             <View style={styles.userRow}>
               <View style={styles.avatarContainer}>
                 {plant.userAvatar ? (
-                  <Image source={{uri: plant.userAvatar}} style={styles.avatarImage} />
+                  <AppImage source={{uri: plant.userAvatar}} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatar} />
                 )}
@@ -696,7 +698,7 @@ const SalesReport = () => {
           {/* Image */}
           <View style={styles.plantImageContainer}>
             {plant.plantImage ? (
-              <Image source={{uri: plant.plantImage}} style={styles.plantImage} />
+              <AppImage source={{uri: plant.plantImage}} style={styles.plantImage} />
             ) : (
               <View style={styles.plantImagePlaceholder} />
             )}

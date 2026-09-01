@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useState, useEffect, useRef} from 'react';
 import { View,
   Text,
@@ -226,7 +228,7 @@ const JourneyMishapDetail = () => {
               {/* Plant Image */}
               <View style={styles.plantImageContainer}>
                 {creditRequest.plantImage ? (
-                  <Image 
+                  <AppImage 
                     source={{uri: creditRequest.plantImage}} 
                     style={styles.plantImage}
                     resizeMode="cover"
@@ -351,13 +353,13 @@ const JourneyMishapDetail = () => {
                   <View key={index} style={styles.attachmentItem}>
                     {attachment.type === 'video' ? (
                   <View style={styles.videoContainer}>
-                    <Image source={{uri: attachment.thumbnail}} style={styles.attachmentImage} />
+                    <AppImage source={{uri: attachment.thumbnail}} style={styles.attachmentImage} />
                     <View style={styles.playButton}>
                       <Text style={styles.playText}>▶</Text>
                     </View>
                   </View>
                     ) : (
-                      <Image source={{uri: attachment.url}} style={styles.attachmentImage} />
+                      <AppImage source={{uri: attachment.url}} style={styles.attachmentImage} />
                     )}
                   </View>
                 ))}
@@ -487,7 +489,7 @@ const JourneyMishapDetail = () => {
             <View style={styles.userCard}>
               <View style={styles.userAvatarContainer}>
                 {creditRequest.userAvatar ? (
-                  <Image source={{uri: creditRequest.userAvatar}} style={styles.userAvatar} />
+                  <AppImage source={{uri: creditRequest.userAvatar}} style={styles.userAvatar} />
                 ) : (
                   <View style={styles.userAvatarPlaceholder}>
                     <Text style={styles.avatarPlaceholderText}>{creditRequest.userName?.charAt(0) || 'U'}</Text>
@@ -510,7 +512,7 @@ const JourneyMishapDetail = () => {
               <View style={styles.userCard}>
                 <View style={styles.userAvatarContainer}>
                   {creditRequest.receiverInfo.avatar || creditRequest.receiverInfo.profileImage ? (
-                    <Image 
+                    <AppImage 
                       source={{uri: creditRequest.receiverInfo.avatar || creditRequest.receiverInfo.profileImage}} 
                       style={styles.userAvatar} 
                     />
@@ -545,7 +547,7 @@ const JourneyMishapDetail = () => {
               <View style={styles.userCard}>
                 <View style={styles.userAvatarContainer}>
                   {creditRequest.sellerInfo.profileImage || creditRequest.sellerInfo.avatar ? (
-                    <Image 
+                    <AppImage 
                       source={{uri: creditRequest.sellerInfo.profileImage || creditRequest.sellerInfo.avatar}} 
                       style={styles.userAvatar} 
                     />

@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {
   useLayoutEffect,
   useState,
@@ -1103,7 +1105,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
               keyExtractor={(uri, index) => index.toString()}
               renderItem={({item, index}) => (
                 <View style={styles.imageContainer}>
-                  <Image source={{uri: item}} style={styles.image} />
+                  <AppImage source={{uri: item}} style={styles.image} />
                   <TouchableOpacity
                     style={styles.removeButton}
                     onPress={() => removeImage(index)}>
@@ -1148,7 +1150,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
                       padding: 10,
                       flex: 1,
                     }}>
-                    <Image
+                    <AppImage
                       source={{uri: item.image}}
                       style={{width: 80, height: 80, borderRadius: 10}}
                       resizeMode="cover"
@@ -1346,7 +1348,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
                 data={imagesPotSize}
                 keyExtractor={(uri, index) => index.toString()}
                 renderItem={({item}) => (
-                  <Image source={{uri: item}} style={styles.image} />
+                  <AppImage source={{uri: item}} style={styles.image} />
                 )}
                 horizontal
               />

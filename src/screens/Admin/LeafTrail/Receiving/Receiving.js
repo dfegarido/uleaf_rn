@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import { useFocusEffect } from '@react-navigation/native';
 import moment from 'moment';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
@@ -261,7 +263,7 @@ const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onTogg
         )}
         {type === 'received' && item.user && (
             <View style={styles.receivedUserDetails}>
-                <Image source={{ uri: item.user.avatar }} style={styles.receivedUserAvatar} />
+                <AppImage source={{ uri: item.user.avatar }} style={styles.receivedUserAvatar} />
                 <View>
                     <Text style={styles.receivedUserName}>{item.user.name} <Text style={styles.receivedUserHandle}>{item.user.username}</Text></Text>
                     <Text style={styles.receivedUserHandle}>Hub Receiver</Text>
@@ -294,7 +296,7 @@ const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onTogg
                 enableSwipeDown={true} // Allow swiping down to close
                 onSwipeDown={() => setImageModalVisible(false)}
                 onClick={() => setImageModalVisible(false)}>
-                <Image
+                <AppImage
                   source={{ uri: item.plantImage || '' }}
                   style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
                   resizeMode="contain"
@@ -312,7 +314,7 @@ const PlantListItem = ({ item, type, openTagAs, showCheckbox, isSelected, onTogg
                   onPressOut={handlePressOut}
                   onPress={handlePress}
                   activeOpacity={0.8}>
-                    <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+                    <AppImage source={{ uri: item.plantImage }} style={styles.plantImage} />
             </TouchableOpacity>
             {showCheckbox ? (
                 <TouchableOpacity
@@ -1762,7 +1764,7 @@ const ReceivingScreen = ({navigation, route}) => {
                                             item.plantCode ||
                                             `Label ${index + 1}`}
                                     </Text>
-                                    <Image
+                                    <AppImage
                                         source={{ uri: `data:image/png;base64,${item.base64}` }}
                                         style={styles.labelImage}
                                         resizeMode="contain"

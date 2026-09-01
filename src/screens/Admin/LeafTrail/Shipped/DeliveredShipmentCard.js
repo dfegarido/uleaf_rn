@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
@@ -35,7 +37,7 @@ const DeliveredShipmentCard = ({ shipment, onPress }) => {
       onPress={onPress}>
       <View style={styles.topRow}>
         {shipment?.avatar ? (
-          <Image source={{ uri: shipment.avatar }} style={styles.avatar} />
+          <AppImage source={{ uri: shipment.avatar }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarFallback}>
             <Text style={styles.avatarInitial}>{receiverInitial}</Text>

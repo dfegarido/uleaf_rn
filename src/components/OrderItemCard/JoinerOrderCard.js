@@ -1,3 +1,5 @@
+import AppImage from '../AppImage/AppImage';
+
 import React from 'react';
 import {View, Text, Image, StyleSheet, TouchableOpacity} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
@@ -198,7 +200,7 @@ const JoinerOrderCard = ({
               {/* Avatar */}
               <View style={styles.avatarContainer}>
                 {joinerInfo.profilePhotoUrl ? (
-                  <Image 
+                  <AppImage 
                     source={{ uri: joinerInfo.profilePhotoUrl }} 
                     style={styles.avatar}
                     resizeMode="cover"

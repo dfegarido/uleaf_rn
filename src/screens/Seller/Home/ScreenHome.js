@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useCallback, useContext, useEffect, useState } from 'react';
@@ -399,7 +401,7 @@ const ScreenHome = ({navigation}) => {
               onPress={() => navigation.navigate('ScreenProfile')}>
               {userInfo?.profileImage != '' &&
               userInfo?.profileImage != null ? (
-                <Image
+                <AppImage
                   key={profileImageKey}
                   source={{
                     uri: `${userInfo?.profileImage}${userInfo?.profileImage?.includes('?') ? '&' : '?'}t=${cacheBustTimestamp}`
@@ -653,7 +655,7 @@ const ScreenHome = ({navigation}) => {
                       onPress={() => handleChatShopPress(shop)}
                       activeOpacity={0.7}>
                       {shop.photoUrl ? (
-                        <Image
+                        <AppImage
                           source={{ uri: shop.photoUrl }}
                           style={styles.banner}
                           resizeMode="cover"
@@ -742,7 +744,7 @@ const ScreenHome = ({navigation}) => {
                     // Linking.openURL(item.link);
                   }}
                   style={{width: 316}}>
-                  <Image
+                  <AppImage
                     style={styles.banner}
                     source={{uri: item.image}}
                     resizeMode="cover"

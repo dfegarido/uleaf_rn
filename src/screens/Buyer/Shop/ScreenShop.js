@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 /* eslint-disable react-native/no-inline-styles */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -1587,7 +1589,7 @@ const ScreenShop = ({navigation}) => {
                     onPress={() => handleChatShopPress(shop)}
                     activeOpacity={0.7}>
                     {shop.photoUrl ? (
-                      <Image
+                      <AppImage
                         source={{ uri: shop.photoUrl }}
                         style={{width: 260, height: 120, borderRadius: 16}}
                         resizeMode="cover"

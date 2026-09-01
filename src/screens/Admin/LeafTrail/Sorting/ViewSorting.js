@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import moment from 'moment';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator,
@@ -62,7 +64,7 @@ const Header = ({ title, navigation }) => {
 
 const UserProfile = ({ user }) => (
   <View style={Platform.OS === 'android' ? styles.userContainer : styles.userContainerIos}>
-    <Image source={{ uri: user.avatar }} style={styles.avatar} />
+    <AppImage source={{ uri: user.avatar }} style={styles.avatar} />
     <View>
       <Text style={styles.name}>{user.name}</Text>
       <Text style={styles.username}>@{user.username}</Text>
@@ -140,7 +142,7 @@ const PlantCard = ({ plant, openTagAs, isSelected, onSelect, forSorting=false}) 
     <View>
       {plant?.isJoinerOrder && (
         <View style={styles.joinerUserRow}>
-          <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+          <AppImage source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
           <View>
             <View style={styles.joinerUserNameRow}>
               <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
@@ -152,7 +154,7 @@ const PlantCard = ({ plant, openTagAs, isSelected, onSelect, forSorting=false}) 
       )}
       <View style={styles.card}>
           <View>
-            <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+            <AppImage source={{ uri: plant.plantImage }} style={styles.plantImage} />
             {(plant?.leafTrailStatus === 'Sorted') && (
                       <View style={styles.packedBadgeContainer}>
                         <View style={styles.packedBadge}>

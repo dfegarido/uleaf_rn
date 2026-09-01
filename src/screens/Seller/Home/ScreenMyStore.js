@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useCallback, useEffect, useState, useContext, useRef} from 'react';
 import { View,
   Text,
@@ -641,7 +643,7 @@ const ScreenMyStore = ({navigation}) => {
                       activeOpacity={0.85}
                       onPress={() => handleListingPress(dataparse)}>
                       <View style={styles.card}>
-                        <Image
+                        <AppImage
                           style={styles.cardImage}
                           source={{
                             uri:

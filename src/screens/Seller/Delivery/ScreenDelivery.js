@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 /* eslint-disable react/self-closing-comp */
 /* eslint-disable react-native/no-inline-styles */
 import NetInfo from '@react-native-community/netinfo';
@@ -716,7 +718,7 @@ const ScreenDelivery = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
               {userInfo.profileImage != '' ? (
-                <Image
+                <AppImage
                   source={{uri: userInfo.profileImage}}
                   style={styles.image}
                   resizeMode="cover"

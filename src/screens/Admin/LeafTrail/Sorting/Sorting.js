@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -36,7 +38,7 @@ const ListItem = ({ item, navigation }) => (
     onPress={() => navigation.navigate('LeafTrailSortingDetailsScreen', { item })}>
     <View style={styles.greenhouseList}>
       <View style={styles.card}>
-        <Image source={{ uri: item?.avatar || '' }} style={styles.avatar} />
+        <AppImage source={{ uri: item?.avatar || '' }} style={styles.avatar} />
         <View style={styles.content}>
           <View style={styles.nameRow}>
             <Text style={styles.nameText}>{item.name}</Text>
@@ -95,7 +97,7 @@ const SortingBoxCard = ({ box, onPress }) => {
       onPress={onPress}>
       <View style={styles.receiverBoxTopRow}>
         {box.avatar ? (
-          <Image source={{ uri: box.avatar }} style={styles.receiverAvatar} />
+          <AppImage source={{ uri: box.avatar }} style={styles.receiverAvatar} />
         ) : (
           <View style={styles.receiverAvatarFallback}>
             <Text style={styles.receiverAvatarInitial}>{receiverInitial}</Text>

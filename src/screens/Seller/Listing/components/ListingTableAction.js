@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React, {useState} from 'react';
 import { View,
   Text,
@@ -68,7 +70,7 @@ const ListingTableAction = ({
                 borderColor: '#ccc',
                 borderBottomWidth: 1,
               }}>
-              <Image
+              <AppImage
                 style={styles.image}
                 source={{
                   uri:

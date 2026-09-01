@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import moment from 'moment';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused, useRoute } from '@react-navigation/native';
@@ -1105,7 +1107,7 @@ const MessagesScreen = ({navigation}) => {
                     onPress={() => handleChatShopPress(item)}
                     activeOpacity={0.7}>
                     {item.photoUrl ? (
-                      <Image source={{ uri: item.photoUrl }} style={styles.avatar} />
+                      <AppImage source={{ uri: item.photoUrl }} style={styles.avatar} />
                     ) : (
                       <View style={[styles.avatar, { backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center' }]}>
                         <Text style={{ fontSize: 10, color: '#9AA4A8' }}>Shop</Text>

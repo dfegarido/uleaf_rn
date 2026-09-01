@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState, useContext} from 'react';
 import { View,
   Text,
@@ -332,7 +334,7 @@ const ScreenDeliveryCasualty = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
               {userInfo.profileImage != '' ? (
-                <Image
+                <AppImage
                   source={{uri: userInfo.profileImage}}
                   style={styles.image}
                   resizeMode="cover"

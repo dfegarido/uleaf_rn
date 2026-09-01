@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatList,
   Image,
@@ -123,7 +125,7 @@ const ShopModal = ({
         <TouchableOpacity
           onPress={() => handlePress(item)}
           activeOpacity={0.8}>
-          <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
         </TouchableOpacity>
         {igForListing(item) ? (
           <View style={styles.modalIndexBadge} pointerEvents="none">
@@ -155,7 +157,7 @@ const ShopModal = ({
         <TouchableOpacity
           onPress={() => handlePress(item)}
           activeOpacity={0.8}>
-          <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
         </TouchableOpacity>
         {igForListing(item) ? (
           <View style={styles.modalIndexBadge} pointerEvents="none">
@@ -256,7 +258,7 @@ const ShopModal = ({
             onSwipeDown={() => setSelectedImage(null)}
             onClick={() => setSelectedImage(null)}>
             {selectedImage && (
-              <Image
+              <AppImage
                 source={{ uri: selectedImage }}
                 style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
                 resizeMode="contain"

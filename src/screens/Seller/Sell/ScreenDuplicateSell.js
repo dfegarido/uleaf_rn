@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState, useLayoutEffect} from 'react';
 import { View,
   Text,
@@ -211,7 +213,7 @@ const ScreenDuplicateSell = ({navigation}) => {
                 }}>
                 {/* Image */}
                 <View style={[styles.cell, {width: 120}]}>
-                  <Image
+                  <AppImage
                     style={styles.image}
                     source={{
                       uri:

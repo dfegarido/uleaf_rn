@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useEffect } from 'react';
 import { View,
   Text,
@@ -90,7 +92,7 @@ const UserCard = ({ user, onEdit }) => {
         {/* User Avatar */}
         <View style={styles.avatarContainer}>
           {avatarImage ? (
-            <Image source={{ uri: avatarImage }} style={styles.avatar} />
+            <AppImage source={{ uri: avatarImage }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarText}>

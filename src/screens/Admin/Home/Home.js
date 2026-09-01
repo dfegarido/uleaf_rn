@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 // Add IconTile component for use in LeafTrailGreenhouse and other sections
 const IconTile = ({title, children, onPress, badgeCount = 0, tileStyle}) => {
   const hasBadge = badgeCount > 0;
@@ -75,7 +77,7 @@ const AdminHeader = ({onPressProfile = () => {}, insets, profilePhotoUri}) => {
 
         <TouchableOpacity onPress={onPressProfile} activeOpacity={0.8}>
           {profileImage ? (
-            <Image
+            <AppImage
               source={{uri: profileImage}}
               style={styles.avatarImage}
               resizeMode="cover"

@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import { useIsFocused } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator,
@@ -148,7 +150,7 @@ const LivePurgeScreen = ({navigation, route}) => {
     <View style={styles.card}>
       <TouchableOpacity onPress={() => item.availableQty === 0 ? null : goToPlantDetails(item.plantCode)}>
         <View>
-          <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.cardImage} />
           {item.availableQty === 0 && (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>

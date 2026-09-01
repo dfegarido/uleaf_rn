@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React, { useState } from 'react';
 import { Image,
   ScrollView,
@@ -95,7 +97,7 @@ const ListingTable = ({
                 borderColor: '#ccc',
                 borderBottomWidth: 1,
               }}>
-              <Image
+              <AppImage
                 style={styles.image}
                 source={{
                   uri:

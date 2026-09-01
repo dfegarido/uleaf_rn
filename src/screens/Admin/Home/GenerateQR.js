@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useState, useCallback, useEffect, useRef} from 'react';
 import { View,
   Text,
@@ -114,7 +116,7 @@ const SellerSelectionModal = ({ isVisible, onClose, onSelectSeller, sellers, loa
                                 onPress={() => handleSelect(seller)}
                               >
                                 {avatarUrl ? (
-                                  <Image source={{ uri: avatarUrl }} style={styles.sellerAvatar} />
+                                  <AppImage source={{ uri: avatarUrl }} style={styles.sellerAvatar} />
                                 ) : (
                                   <View style={[styles.sellerAvatar, styles.sellerAvatarPlaceholder]}>
                                     <Text style={styles.sellerAvatarText}>

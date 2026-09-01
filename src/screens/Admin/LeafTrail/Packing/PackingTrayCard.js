@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
@@ -86,7 +88,7 @@ const PackingTrayCard = ({
         {labelPrefix} {tray.sortingTrayNumber}
       </Text>
       <View style={styles.receiverRow}>
-        <Image source={{ uri: tray.avatar || '' }} style={styles.avatar} />
+        <AppImage source={{ uri: tray.avatar || '' }} style={styles.avatar} />
         <View style={styles.receiverTextWrap}>
           <Text style={styles.receiverNameGrid} numberOfLines={1}>
             {tray.name}

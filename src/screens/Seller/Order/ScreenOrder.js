@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
 import React, { useContext, useEffect, useState } from 'react';
@@ -477,7 +479,7 @@ const ScreenOrder = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
               {userInfo.profileImage != '' ? (
-                <Image
+                <AppImage
                   source={{uri: userInfo.profileImage}}
                   style={styles.image}
                   resizeMode="cover"

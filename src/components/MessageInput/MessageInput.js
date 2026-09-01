@@ -1,3 +1,5 @@
+import AppImage from '../AppImage/AppImage';
+
 import React, { useState, useRef } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityIndicator, Image, ScrollView, Keyboard } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -520,7 +522,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
             {/* Thumbnail for images/videos */}
             {replyMediaThumbnail && (
               <View style={styles.replyThumbnailContainer}>
-                <Image 
+                <AppImage 
                   source={{ uri: replyMediaThumbnail }} 
                   style={styles.replyThumbnail}
                   resizeMode="cover"
@@ -604,7 +606,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
           contentContainerStyle={styles.previewScrollContent}>
           {previewImages.map((imageUri, index) => (
             <View key={index} style={styles.previewItem}>
-              <Image 
+              <AppImage 
                 source={{ uri: imageUri }} 
                 style={styles.previewImage} 
                 resizeMode="cover" 

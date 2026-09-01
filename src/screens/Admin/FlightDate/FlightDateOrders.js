@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useEffect, useContext } from 'react';
 import { View,
   Text,
@@ -304,7 +306,7 @@ const UserCard = ({ buyerInfo, currentFlightDate, orders, navigation, flightChan
           <View style={styles.buyerInfo}>
             <View style={styles.buyerAvatarContainer}>
               {buyerInfo.avatar ? (
-                <Image 
+                <AppImage 
                   source={{ uri: buyerInfo.avatar }} 
                   style={styles.buyerAvatar}
                 />

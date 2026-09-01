@@ -1,3 +1,5 @@
+import AppImage from '../AppImage/AppImage';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated,
   ActivityIndicator,
@@ -302,7 +304,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
           delayLongPress={300}
           activeOpacity={0.9}
           style={styles.singleImageContainer}>
-          <Image
+          <AppImage
             source={{ uri: images[0] }}
             style={styles.singleImage}
             resizeMode="cover"
@@ -355,7 +357,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                   zIndex: 10 - index,
                 }
               ]}>
-              <Image
+              <AppImage
                 source={{ uri: imageUri }}
                 style={styles.backgroundCardImage}
                 resizeMode="cover"
@@ -366,7 +368,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
         
         {/* Front card with image */}
         <View style={styles.frontCard}>
-          <Image
+          <AppImage
             source={{ uri: images[0] }}
             style={styles.stackedImage}
             resizeMode="cover"
@@ -461,7 +463,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                 { marginBottom: text && text.trim().length > 0 ? 6 : 0 } // Space between video and text
               ]}>
               {thumbnailUrl ? (
-                <Image
+                <AppImage
                   source={{ uri: thumbnailUrl }}
                   style={styles.videoThumbnail}
                   resizeMode="cover"
@@ -550,7 +552,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
                 {/* Thumbnail for images/videos */}
                 {originalMessageThumbnail && (
                   <View style={styles.replyThumbnailBubble}>
-                    <Image 
+                    <AppImage 
                       source={{ uri: originalMessageThumbnail }} 
                       style={styles.replyThumbnailImage}
                       resizeMode="cover"
@@ -757,7 +759,7 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
           activeOpacity={1}
           onPress={() => setImageModalVisible(false)}>
           <View style={styles.imageModalContainer}>
-            <Image
+            <AppImage
               source={{ uri: images[selectedImageIndex] }}
               style={styles.fullScreenImage}
               resizeMode="contain"

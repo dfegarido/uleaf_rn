@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -841,7 +843,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                         Viewers who joined
                     </Text>)}
                     {!isJoinListExpanded &&(<View style={styles.joinedRow}>
-                          <Image source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
+                          <AppImage source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
                           <View style={styles.joinedContent}>
                             <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
                             <Text style={styles.joinedMessage}>👋 joined</Text>
@@ -859,7 +861,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                         // </Text>
                  
                          <View style={styles.commentRow}>
-                          <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+                          <AppImage source={{ uri: item.photoURL }} style={styles.avatar} />
                           <View style={styles.commentContent}>
                             <Text style={styles.chatName}>{item.displayName}</Text>
                             <Text style={styles.chatMessage}>👋 joined</Text>
@@ -883,7 +885,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                     onLongPress={() => handleLongPressComment(item)}
                     activeOpacity={0.7}
                   >
-                    <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                    <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
                     <View style={styles.commentContent}>
                       <Text style={styles.chatName}>{item.name}</Text>
                       <Text style={styles.chatMessage}>{item.message}</Text>
@@ -931,7 +933,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 <View style={styles.plant}>
                   <View style={styles.plantDetails}>
                     {(snapshotPreviewUri || activeListing.imagePrimary) && (
-                      <Image
+                      <AppImage
                         source={{ uri: snapshotPreviewUri ?? activeListing.imagePrimary }}
                         style={styles.listingThumb}
                       />

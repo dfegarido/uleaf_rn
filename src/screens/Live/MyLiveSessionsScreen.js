@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import { useIsFocused } from '@react-navigation/native';
 import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
@@ -526,11 +528,11 @@ const MyLiveSessionsScreen = ({ navigation }) => {
               <Text style={styles.label}>Cover Photo</Text>
               <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
                 {newCoverPhoto ? (
-                  <Image source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
+                  <AppImage source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
                 ) : selectedSession?.coverPhotoUrl ? (
-                  <Image source={{ uri: selectedSession.coverPhotoUrl }} style={styles.coverImage} />
+                  <AppImage source={{ uri: selectedSession.coverPhotoUrl }} style={styles.coverImage} />
                 ) : selectedSession?.sessionData?.coverPhoto ? (
-                  <Image source={{ uri: selectedSession.sessionData.coverPhoto }} style={styles.coverImage} />
+                  <AppImage source={{ uri: selectedSession.sessionData.coverPhoto }} style={styles.coverImage} />
                 ) : (
                   <>
                     <UploadIcon width={48} height={48} />

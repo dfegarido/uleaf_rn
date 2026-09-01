@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState} from 'react';
 import { View,
   Text,
@@ -344,7 +346,7 @@ const ScreenBatchUpload = ({navigation, route}) => {
                 <View style={styles.imageRow}>
                   {row.image ? (
                     <View style={styles.thumbWrap}>
-                      <Image source={{uri: row.image}} style={styles.thumb} />
+                      <AppImage source={{uri: row.image}} style={styles.thumb} />
                       <TouchableOpacity
                         style={styles.thumbRemove}
                         onPress={() => updateRow(row.id, {image: null})}>

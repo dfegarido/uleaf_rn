@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -478,9 +480,9 @@ const LiveSetup = () => {
                   <Text style={styles.detailLabel}>Cover Photo</Text>
                   <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
                     {editPhoto ? (
-                      <Image source={{ uri: editPhoto.uri }} style={styles.coverImage} />
+                      <AppImage source={{ uri: editPhoto.uri }} style={styles.coverImage} />
                     ) : selectedRequest.sessionData?.coverPhoto ? (
-                      <Image source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImage} />
+                      <AppImage source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImage} />
                     ) : (
                       <View style={styles.imagePickerPlaceholder}>
                         <Text style={styles.imagePickerText}>Tap to select cover photo</Text>
@@ -505,7 +507,7 @@ const LiveSetup = () => {
                 {selectedRequest.sessionData?.coverPhoto ? (
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Cover Photo</Text>
-                    <Image source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImagePreview} />
+                    <AppImage source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImagePreview} />
                   </View>
                 ) : null}
               </>

@@ -1,3 +1,5 @@
+import AppImage from '../AppImage/AppImage';
+
 import React, { useState } from 'react';
 import { Image,
   Modal,
@@ -24,7 +26,7 @@ const JoinerItem = ({ name, avatarUrl, onSelect }) => {
       <View style={styles.avatarWrapper}>
         <View style={styles.avatarContainer}>
           {!imageError && validAvatarUrl ? (
-            <Image 
+            <AppImage 
               source={{ uri: validAvatarUrl }} 
               style={styles.avatar}
               onError={() => setImageError(true)}

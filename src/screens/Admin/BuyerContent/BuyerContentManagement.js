@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -285,7 +287,7 @@ export default function BuyerContentManagement({ navigation, route }) {
       </View>
 
       {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+        <AppImage source={{ uri: item.imageUrl }} style={styles.itemImage} />
       ) : (
         <View style={[styles.itemImage, styles.emptyImagePlaceholder]}>
           <Text style={styles.emptyImageText}>No Image</Text>
@@ -430,7 +432,7 @@ export default function BuyerContentManagement({ navigation, route }) {
                 activeOpacity={0.7}
               >
                 {photo?.uri ? (
-                  <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
+                  <AppImage source={{ uri: photo.uri }} style={styles.photoPreview} />
                 ) : (
                   <View style={styles.photoSizeGuide}>
                     <View style={styles.photoSizeGuideFrame}>

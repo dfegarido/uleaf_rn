@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import { useIsFocused } from '@react-navigation/native';
 import React, { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator,
@@ -207,7 +209,7 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
 
   const renderItem = ({item}) => (
     <View style={styles.card}>
-      <Image source={{uri: item.imagePrimary}} style={styles.cardImage} />
+      <AppImage source={{uri: item.imagePrimary}} style={styles.cardImage} />
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle} numberOfLines={6}>
           {item.genus} {item.species}
@@ -328,9 +330,9 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
               <Text style={styles.label}>Cover Photo</Text>
               <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
                 {newCoverPhoto ? (
-                  <Image source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
+                  <AppImage source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
                 ) : sessionDetails?.coverPhotoUrl ? (
-                  <Image source={{ uri: sessionDetails.coverPhotoUrl }} style={styles.coverImage} />
+                  <AppImage source={{ uri: sessionDetails.coverPhotoUrl }} style={styles.coverImage} />
                 ) : (
                   <>
                     <UploadIcon width={48} height={48} />

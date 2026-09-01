@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import React, { useContext, useEffect, useRef, useState } from 'react';
@@ -903,7 +905,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                           Viewers who joined
                       </Text>)}
                       {!isJoinListExpanded &&(<View style={styles.joinedRow}>
-                            <Image source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
+                            <AppImage source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
                             <View style={styles.joinedContent}>
                               <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
                               <Text style={styles.joinedMessage}>👋 joined</Text>
@@ -921,7 +923,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                           // </Text>
                         
                            <View style={styles.commentRow}>
-                            <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+                            <AppImage source={{ uri: item.photoURL }} style={styles.avatar} />
                             <View style={styles.commentContent}>
                               <Text style={styles.chatName}>{item.displayName}</Text>
                               <Text style={styles.chatMessage}>👋 joined</Text>
@@ -945,7 +947,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                       onLongPress={() => handleLongPressComment(item)}
                       activeOpacity={0.7}
                     >
-                      <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                      <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
                       <View style={styles.commentContent}>
                         <Text style={styles.chatName}>{item.name}</Text>
                         <Text style={styles.chatMessage}>{item.message}</Text>
@@ -974,7 +976,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <View style={styles.commentRow}>
-                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                  <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
                   <View style={styles.commentContent}>
                     <Text style={styles.chatName}>{item.name}</Text>
                     <Text style={styles.chatMessage}>{item.message}</Text>

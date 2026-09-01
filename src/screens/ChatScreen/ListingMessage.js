@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
@@ -157,7 +159,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
           delayLongPress={300}
           activeOpacity={0.8}
           style={styles.imageContainer}>
-          <Image source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
+          <AppImage source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
           {isSoldOut && (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>
@@ -221,7 +223,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
             enableSwipeDown={true}
             onSwipeDown={() => setImageModalVisible(false)}
             onClick={() => setImageModalVisible(false)}>
-            <Image
+            <AppImage
               source={{ uri: listing.imagePrimary }}
               style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
               resizeMode="contain"

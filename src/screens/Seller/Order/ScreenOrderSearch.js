@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { useNavigation } from '@react-navigation/native';
@@ -31,7 +33,7 @@ const OrderResultCard = ({ item, onPress }) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View>
-        <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+        <AppImage source={{ uri: item.plantImage }} style={styles.plantImage} />
       </View>
       <View style={styles.cardContent}>
         <Text style={styles.plantName} numberOfLines={3}>{plantName}</Text>

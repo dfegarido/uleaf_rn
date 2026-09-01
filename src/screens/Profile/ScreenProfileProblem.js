@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, {useState} from 'react';
 import { View,
   Text,
@@ -165,7 +167,7 @@ const ScreenProfileProblem = ({navigation}) => {
                   data={images}
                   keyExtractor={(uri, index) => index.toString()}
                   renderItem={({item}) => (
-                    <Image source={{uri: item}} style={styles.image} />
+                    <AppImage source={{uri: item}} style={styles.image} />
                   )}
                   horizontal
                   contentContainerStyle={styles.imageListContainer}

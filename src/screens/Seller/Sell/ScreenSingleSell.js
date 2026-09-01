@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useLayoutEffect, useState, useEffect, useRef} from 'react';
 import { View,
   Text,
@@ -933,7 +935,7 @@ const ScreenSingleSell = ({navigation, route}) => {
                 horizontal
                 renderItem={({item, index}) => (
                   <View style={styles.imageContainer}>
-                    <Image source={{uri: item}} style={styles.image} />
+                    <AppImage source={{uri: item}} style={styles.image} />
                     <TouchableOpacity
                       style={styles.removeButton}
                       onPress={() => removeImage(index)}>

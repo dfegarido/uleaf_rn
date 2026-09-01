@@ -1,3 +1,5 @@
+import AppImage from '../../../../../components/AppImage/AppImage';
+
 import React, { useEffect } from 'react';
 import { View,
   Text,
@@ -110,7 +112,7 @@ const UserSearchModal = ({
                   ]}>
                   <View style={styles.modalUserAvatar}>
                     {user.profileImage ? (
-                      <Image
+                      <AppImage
                         source={{ uri: user.profileImage }}
                         style={styles.modalAvatarImage}
                       />

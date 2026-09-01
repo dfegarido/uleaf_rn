@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React from 'react';
 import { View,
   Text,
@@ -161,7 +163,7 @@ const JoinerShippingBuddiesScreen = () => {
               {/* Avatar */}
               <View style={styles.buddyAvatar}>
                 {myReceiverRequest.receiver?.profileImage && !imageError ? (
-                  <Image
+                  <AppImage
                     source={{ uri: myReceiverRequest.receiver.profileImage }}
                     style={styles.buddyAvatarImage}
                     resizeMode="cover"

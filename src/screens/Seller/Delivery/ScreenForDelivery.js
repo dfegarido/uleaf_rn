@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 /* eslint-disable react/self-closing-comp */
 /* eslint-disable react-native/no-inline-styles */
 import NetInfo from '@react-native-community/netinfo';
@@ -69,7 +71,7 @@ const PlantCard = ({ orderType, plant, index, openTagAs }) => {
     <Text style={styles.countryText}>{index + 1}.</Text>
     <View style={styles.plantCard}>
       <View>
-        <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+        <AppImage source={{ uri: plant.plantImage }} style={styles.plantImage} />
         {orderType === 'allOrders' && (
           <Text style={styles.plantCode}>{formatCamelCase(leafTrailStatus)}</Text>)}
       </View>

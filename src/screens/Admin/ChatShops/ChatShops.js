@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -375,7 +377,7 @@ export default function ChatShops({ navigation }) {
         </View>
         
         {item.photoUrl ? (
-          <Image source={{ uri: item.photoUrl }} style={styles.shopImage} />
+          <AppImage source={{ uri: item.photoUrl }} style={styles.shopImage} />
         ) : (
           <View style={[styles.shopImage, styles.emptyImagePlaceholder]}>
             <Text style={styles.emptyImageText}>No Image</Text>
@@ -505,7 +507,7 @@ export default function ChatShops({ navigation }) {
                 activeOpacity={0.7}
               >
                 {shopPhoto?.uri ? (
-                  <Image source={{ uri: shopPhoto.uri }} style={styles.photoPreview} />
+                  <AppImage source={{ uri: shopPhoto.uri }} style={styles.photoPreview} />
                 ) : (
                   <Text style={styles.photoPickerText}>Tap to select photo</Text>
                 )}

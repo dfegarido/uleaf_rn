@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useState, useEffect} from 'react';
 import { View,
   Text,
@@ -133,7 +135,7 @@ const EditAdmin = () => {
           <View style={styles.avatarContainer}>
             <View style={styles.avatarWrapper}>
               {formData.profileImage ? (
-                <Image
+                <AppImage
                   source={{uri: formData.profileImage}}
                   style={styles.avatar}
                 />

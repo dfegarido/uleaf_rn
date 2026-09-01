@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { ActivityIndicator } from 'react-native';
@@ -344,7 +346,7 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus 
       {/* Image cell (fixed width matching design) */}
       <View style={styles.plantImage}>
         {selectedUri ? (
-          <Image source={{ uri: selectedUri }} style={styles.plantImageActual} />
+          <AppImage source={{ uri: selectedUri }} style={styles.plantImageActual} />
         ) : loadingImage ? (
           <View style={styles.skeletonImagePlaceholder} />
         ) : (
