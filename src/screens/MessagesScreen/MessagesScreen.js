@@ -628,36 +628,26 @@ const MessagesScreen = ({navigation}) => {
   // creating new chat
 
       try {
-        const addChat = await addDoc(collection(db, 'chats'), chatData);
-  // chat created
-
-        // Also insert the chat into Supabase so message reads (chat-messages
-        // validates participation against the Supabase `chats` table) don't fail
-        // with "Not a participant of this chat". Hybrid write: Firestore keeps the
-        // existing-chat lookup working; Supabase is the message-read source.
+        // Create the chat in Supabase (single source of truth). chatCreateApi
+        // returns the chat id so we can navigate without a Firestore read.
         const chatCreateRes = await chatCreateApi({
-          id: addChat.id,
           participantIds: [currentUserUid, user.uid].filter(Boolean),
           participants: chatData.participants,
           name: chatData.name,
           avatarUrl: chatData.avatarUrl,
+          type: 'private',
         });
         if (!chatCreateRes.success) {
-          console.warn('createChat: Supabase insert failed (Firestore chat still created):', chatCreateRes.error);
+          throw new Error(chatCreateRes.error || 'Failed to create chat');
         }
-
-        const docRef = doc(db, 'chats', addChat.id);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const newChatData = {id: docSnap.id, ...docSnap.data()};
-          navigation.navigate('ChatScreen', newChatData);
-        } else {
-          throw new Error('Failed to get created chat document');
+        const newChatId = chatCreateRes.data?.id || chatCreateRes.data?.chat?.id;
+        if (!newChatId) {
+          throw new Error('Failed to get created chat id');
         }
+        navigation.navigate('ChatScreen', { id: newChatId, ...chatData });
       } catch (firestoreError) {
-        // Log the full Firestore error for debugging (kept out of user alert)
-        console.error('createChat: Firestore error creating chat document:', firestoreError);
+        // Log the full error for debugging (kept out of user alert)
+        console.error('createChat: error creating chat:', firestoreError);
         Alert.alert(
           'Error',
           'Failed to create chat. There might be an issue with the user data.',
@@ -708,11 +698,11 @@ const MessagesScreen = ({navigation}) => {
           lastMessage: '',
         });
 
-        if (!createRes.success || !createRes.chat) {
+        if (!createRes.success || !createRes.data?.chat) {
           throw new Error(createRes.error || 'Failed to create group chat');
         }
 
-        const newChatData = createRes.chat;
+        const newChatData = createRes.data.chat;
         await sendGroupChatNotificationApi(allParticipantIds, name);
         navigation.navigate('ChatScreen', newChatData);
       } catch (firestoreError) {

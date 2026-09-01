@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, Vi
 import { db } from '../../../firebase';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
+import { deleteChatMessageApi } from '../../components/Api/chatApi';
 import { addDoc,
   collection,
   doc,
@@ -116,7 +117,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
               setLoading(true);
               await postListingDeleteApi(listing.plantCode);
               if (messageId) {
-                await deleteDoc(doc(db, 'messages', messageId));
+                await deleteChatMessageApi(messageId);
               }
               setListing(null);
               setLoading(false);
