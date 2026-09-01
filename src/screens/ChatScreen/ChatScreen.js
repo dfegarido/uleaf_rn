@@ -17,6 +17,7 @@ import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
+import { getListingByIdApi } from '../../components/Api/getListingDetails';
 import { sendEveryoneMentionNotificationApi } from '../../components/Api/sendEveryoneMentionNotificationApi';
 import {
   getChatMessagesApi,
@@ -24,6 +25,7 @@ import {
   updateChatMessageApi,
   deleteChatMessageApi,
   getChatMembershipApi,
+  getChatParticipantsBatchApi,
   submitChatJoinRequestApi,
 } from '../../components/Api/chatApi';
 import { subscribeToChatMessages } from '../../utils/realtimeChat';
@@ -802,9 +804,8 @@ const ChatScreen = ({navigation, route}) => {
         
         if (actualMessage.isListing && actualMessage.listingId) {
           // Fetch listing details for a richer reply preview
-          const listingRef = doc(db, 'listing', actualMessage.listingId);
-          getDoc(listingRef).then((listingSnap) => {
-            const listingData = listingSnap.exists() ? listingSnap.data() : {};
+          getListingByIdApi(actualMessage.listingId).then((res) => {
+            const listingData = res?.data || {};
             const listingName = [listingData.genus, listingData.species, listingData.variegation].filter(Boolean).join(' ');
             setReplyingTo({
               ...actualMessage,
@@ -2048,52 +2049,22 @@ const ChatScreen = ({navigation, route}) => {
 
         unresolvedIds.forEach(uid => fetchingRef.current.add(uid));
 
-        const resolved = await Promise.all(
-          unresolvedIds.map(async (uid) => {
-            try {
-              let userDocRef = doc(db, 'buyer', uid);
-              let userSnap = await getDoc(userDocRef);
-
-              if (!userSnap.exists()) {
-                userDocRef = doc(db, 'admin', uid);
-                userSnap = await getDoc(userDocRef);
-              }
-
-              let isSupplierDoc = false;
-              if (!userSnap.exists()) {
-                userDocRef = doc(db, 'supplier', uid);
-                userSnap = await getDoc(userDocRef);
-                if (userSnap.exists()) isSupplierDoc = true;
-              }
-
-              if (!userSnap.exists()) return null;
-
-              const data = userSnap.data();
-              const latestName = isSupplierDoc
-                ? resolveSellerDisplayName(data, isAdminViewer)
-                : (data?.username || data?.gardenOrCompanyName || data?.fullName || data?.email || '');
-              const avatarUrl = data?.profilePhotoUrl || data?.profileImage || null;
-              let cachedAvatarUri = null;
-              if (avatarUrl && typeof avatarUrl === 'string') {
-                cachedAvatarUri = await getCachedImageUri(avatarUrl, PROFILE_CACHE_DAYS);
-                if (!cachedAvatarUri) {
-                  await setCachedImageUri(avatarUrl, avatarUrl, PROFILE_CACHE_DAYS);
-                  cachedAvatarUri = avatarUrl;
-                }
-              }
-
-              return { uid, latestName, avatarUrl, cachedAvatarUri };
-            } catch (err) {
-              return null;
-            }
-          })
-        );
+        const res = await getChatParticipantsBatchApi(unresolvedIds);
+        const participants = res.participants || {};
 
         const updates = {};
         const avatarUpdates = {};
-        resolved.forEach((entry) => {
+        unresolvedIds.forEach((uid) => {
+          const entry = participants[uid];
           if (!entry) return;
-          const { uid, latestName, avatarUrl, cachedAvatarUri } = entry;
+          const latestName = entry.type === 'supplier'
+            ? resolveSellerDisplayName(entry, isAdminViewer)
+            : (entry.name || entry.username || entry.email || '');
+          const avatarUrl = entry.avatarUrl || null;
+          let cachedAvatarUri = null;
+          if (avatarUrl && typeof avatarUrl === 'string') {
+            cachedAvatarUri = avatarUrl;
+          }
           const updateData = {};
           if (latestName) updateData.name = latestName;
           if (cachedAvatarUri && typeof cachedAvatarUri === 'string' && cachedAvatarUri.trim() !== '') {
