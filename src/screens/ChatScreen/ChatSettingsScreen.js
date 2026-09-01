@@ -1,15 +1,10 @@
-import { addDoc,
-  deleteDoc,
+import {
   doc,
   getDoc,
   getDocs,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
   collection,
   query,
   where,
-  Timestamp,
 } from 'firebase/firestore';
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
@@ -40,7 +35,7 @@ import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { listAdminsApi } from '../../components/Api/listAdminsApi';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
-import { chatDeleteApi } from '../../components/Api/chatApi';
+import { chatDeleteApi, chatUpdateApi, submitChatJoinRequestApi } from '../../components/Api/chatApi';
 
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 
@@ -786,9 +781,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
       };
 
       // Add the user to the chat's participants and participantIds
-      await updateDoc(doc(db, 'chats', chatId), {
-        participants: arrayUnion(newParticipant),
-        participantIds: arrayUnion(user.uid),
+      await chatUpdateApi({
+        mode: 'add-participant',
+        chatId,
+        participant: { uid: user.uid, name: user.name, avatarUrl: newParticipant.avatarUrl },
       });
 
       // Refresh the chat document to get the latest data
@@ -837,9 +833,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
       const newParticipantIds = selectedUsersToAdd.map(user => user.uid);
 
       // Add all users to the chat's participants and participantIds
-      await updateDoc(doc(db, 'chats', chatId), {
-        participants: arrayUnion(...newParticipants),
-        participantIds: arrayUnion(...newParticipantIds),
+      await chatUpdateApi({
+        mode: 'add-participant',
+        chatId,
+        participants: newParticipants,
       });
 
       await sendGroupChatNotificationApi(newParticipantIds, name);
@@ -880,9 +877,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
     
     try {
       setUpdatingVisibility(true);
-      const chatDocRef = doc(db, 'chats', chatId);
-      await updateDoc(chatDocRef, {
-        isPublic: newValue
+      await chatUpdateApi({
+        mode: 'toggle-public',
+        chatId,
+        isPublic: newValue,
       });
       setIsPublic(newValue);
       console.log('✅ [ChatSettingsScreen] Updated group visibility to:', newValue ? 'Public' : 'Private');
@@ -909,17 +907,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
         avatarUrl: request.userAvatar || '',
       };
       
-      await updateDoc(doc(db, 'chats', chatId), {
-        participants: arrayUnion(newParticipant),
-        participantIds: arrayUnion(request.userId),
-      });
-      
-      // Update request status to approved
-      const requestRef = doc(db, 'chats', chatId, 'joinRequests', request.id);
-      await updateDoc(requestRef, {
-        status: 'approved',
-        reviewedAt: Timestamp.now(),
-        reviewedBy: currentUserUid,
+      await chatUpdateApi({
+        mode: 'approve-join',
+        chatId,
+        participant: { uid: request.userId, name: request.userName || 'Unknown User', avatarUrl: request.userAvatar || '' },
+        requestId: request.id,
       });
       
       // Remove from join requests list
@@ -962,11 +954,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
               setLoading(true);
               
               // Update request status to rejected
-              const requestRef = doc(db, 'chats', chatId, 'joinRequests', request.id);
-              await updateDoc(requestRef, {
-                status: 'rejected',
-                reviewedAt: Timestamp.now(),
-                reviewedBy: currentUserUid,
+              await chatUpdateApi({
+                mode: 'reject-join',
+                chatId,
+                requestId: request.id,
               });
               
               // Remove from join requests list
@@ -1030,25 +1021,18 @@ const ChatSettingsScreen = ({navigation, route}) => {
       };
       
       // Add user to group participants and create approved join request in one batch
-      await updateDoc(chatDocRef, {
-        participants: arrayUnion(newParticipant),
-        participantIds: arrayUnion(currentUserUid),
+      await chatUpdateApi({
+        mode: 'add-participant',
+        chatId,
+        participant: newParticipant,
       });
       
       // Create join request record with status 'approved' (for tracking)
-      const joinRequestsRef = collection(db, 'chats', chatId, 'joinRequests');
-      const approvedJoinRequest = {
-        userId: currentUserUid,
-        userName: userName,
-        userAvatar: userAvatar,
-        status: 'approved',
-        requestedAt: Timestamp.now(),
-        reviewedAt: Timestamp.now(),
-        reviewedBy: 'auto-approved',
-        autoApproved: true,
-      };
-      
-      await addDoc(joinRequestsRef, approvedJoinRequest);
+      await submitChatJoinRequestApi({
+        chatId,
+        userName,
+        userAvatar,
+      });
       
       // Update local state
       setIsMember(true);
@@ -1113,10 +1097,15 @@ const ChatSettingsScreen = ({navigation, route}) => {
               };
               
               // Update chat document: add to participants and remove from invitedUsers
-              await updateDoc(doc(db, 'chats', chatId), {
-                participants: arrayUnion(newParticipant),
-                participantIds: arrayUnion(currentUserUid),
-                invitedUsers: arrayRemove(currentUserUid),
+              await chatUpdateApi({
+                mode: 'add-participant',
+                chatId,
+                participant: newParticipant,
+              });
+              await chatUpdateApi({
+                mode: 'remove-invited',
+                chatId,
+                userId: currentUserUid,
               });
               
               // Refresh participants
@@ -1161,8 +1150,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               // Remove user from invitedUsers
-              await updateDoc(doc(db, 'chats', chatId), {
-                invitedUsers: arrayRemove(currentUserUid),
+              await chatUpdateApi({
+                mode: 'remove-invited',
+                chatId,
+                userId: currentUserUid,
               });
               
               setIsInvited(false);
@@ -1350,7 +1341,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
     }
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'chats', chatId), { name: trimmed });
+      await chatUpdateApi({
+        mode: 'rename',
+        chatId,
+        name: trimmed,
+      });
       setGroupNameDisplay(trimmed);
       setEditNameModalVisible(false);
       // Navigate back to ChatScreen with updated name so header updates

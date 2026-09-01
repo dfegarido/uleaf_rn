@@ -345,24 +345,44 @@ export const markChatReadApi = async (chatId) => {
 };
 
 /**
- * Create a new private or group chat in Supabase (closes the create-chat gap:
- * the old Firestore-only addDoc produced chats that Supabase message reads
- * rejected with "Not a participant of this chat").
- * @param {Object} opts { id?, participantIds, participants, name?, avatarUrl?, type?, isPublic?, lastMessage? }
- * @returns {Promise<{success, chat: {id, ...}}>}
- */
-export const chatCreateApi = async ({ id, participantIds, participants, name, avatarUrl, type, isPublic, lastMessage }) => {
-  try {
-    const res = await fetch(API_ENDPOINTS.POST_CHAT_CREATE, {
-      method: 'POST',
-      headers: await authHeaders(),
-      body: JSON.stringify({ id, participantIds, participants, name, avatarUrl, type, isPublic, lastMessage }),
-    });
-    const body = await parseJson(res);
-    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-    return normalize(body);
-  } catch (error) {
-    console.error('chatCreateApi error:', error.message);
-    return { success: false, error: error.message };
-  }
-};
+ /** Create a new private or group chat in Supabase (closes the create-chat gap:
+  * the old Firestore-only addDoc produced chats that Supabase message reads
+  * rejected with "Not a participant of this chat").
+  * @param {Object} opts { id?, participantIds, participants, name?, avatarUrl?, type?, isPublic?, lastMessage? }
+  * @returns {Promise<{success, chat: {id, ...}}>}
+  */
+ export const chatCreateApi = async ({ id, participantIds, participants, name, avatarUrl, type, isPublic, lastMessage }) => {
+   try {
+     const res = await fetch(API_ENDPOINTS.POST_CHAT_CREATE, {
+       method: 'POST',
+       headers: await authHeaders(),
+       body: JSON.stringify({ id, participantIds, participants, name, avatarUrl, type, isPublic, lastMessage }),
+     });
+     const body = await parseJson(res);
+     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+     return normalize(body);
+   } catch (error) {
+     console.error('chatCreateApi error:', error.message);
+     return { success: false, error: error.message };
+   }
+ };
+
+ /**
+  * Group-admin chat operations backed by Supabase.
+  * @param {Object} opts { mode: 'add-participant'|'toggle-public'|'approve-join'|'reject-join'|'remove-invited'|'rename', chatId, participant?, isPublic?, requestId?, userId?, name? }
+  */
+ export const chatUpdateApi = async (opts) => {
+   try {
+     const res = await fetch(API_ENDPOINTS.POST_CHAT_UPDATE, {
+       method: 'POST',
+       headers: await authHeaders(),
+       body: JSON.stringify(opts),
+     });
+     const body = await parseJson(res);
+     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+     return normalize(body);
+   } catch (error) {
+     console.error('chatUpdateApi error:', error.message);
+     return { success: false, error: error.message };
+   }
+ };

@@ -246,6 +246,7 @@ GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single 
   GET_CHATS: `${getSupabaseBaseUrl()}/chats`,
   POST_CHAT_DELETE: `${getSupabaseBaseUrl()}/chat-delete`,
   POST_CHAT_CREATE: `${getSupabaseBaseUrl()}/chat-create`,
+  POST_CHAT_UPDATE: `${getSupabaseBaseUrl()}/chat-update`,
   GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
   GET_LIVE_STREAMS: `${getSupabaseBaseUrl()}/live-list`,
   GET_LIVE_SELLERS: `${getSupabaseBaseUrl()}/live-sellers`,
