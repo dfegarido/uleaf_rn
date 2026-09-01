@@ -67,9 +67,9 @@ export const getProfileInfoApi = async () => {
       console.log('Admin endpoint failed, trying supplier endpoint:', adminError.message);
     }
 
-    // If buyer and admin endpoints fail, try supplier endpoint (Firebase fallback)
+    // If buyer and admin endpoints fail, try supplier endpoint
     const supplierResponse = await fetch(
-      API_ENDPOINTS.GET_SUPPLIER_INFO || 'https://getsupplierinfo-nstilwgvua-uc.a.run.app/',
+      API_ENDPOINTS.GET_SUPPLIER_INFO,
       {
         method: 'GET',
         headers: {
