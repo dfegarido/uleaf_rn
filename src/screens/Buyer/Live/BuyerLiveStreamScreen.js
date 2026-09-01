@@ -1,17 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import { addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -36,7 +24,6 @@ import { ChannelProfileType,
 } from 'react-native-agora';
 import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
 import CaretDown from '../../../assets/icons/white/caret-down.svg';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
 import CaretUp from '../../../assets/icons/white/caret-up.svg';
@@ -53,10 +40,20 @@ import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { addViewerToLiveSession,
   generateAgoraToken,
+  getActiveLiveListingApi,
+  getLiveListingsBySessionApi,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
   updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
+import {
+  addLiveCommentApi,
+  deleteLiveCommentApi,
+  getLiveCommentsApi,
+  getLiveDetailApi,
+  getLiveSoldToApi,
+  updateLiveCommentApi,
+} from '../../../components/Api/liveApi';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
@@ -120,36 +117,44 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       
       // Extract uid properly (handles nested structure for suppliers)
       const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
-  
-      const orderCollectionRef = collection(db, 'order');
-      
-      const q = query(orderCollectionRef, where('buyerUid', '==' , userId || null), where('listingId', '==' , activeListing?.id || null));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedOrders = [];
-        querySnapshot.forEach((doc) => {
-          fetchedOrders.push({ id: doc.id, ...doc.data() });
-        });
-        setBuyerPendingPayment(fetchedOrders[0] || {});
-      });
-      
-      return () => unsubscribe();
+
+      let active = true;
+      let pollTimer = null;
+
+      const loadOrder = async () => {
+        const res = await liveOrderLookupApi({ listingId: activeListing?.id, buyerUid: userId || null });
+        if (!active) return;
+        setBuyerPendingPayment(res.order || {});
+      };
+
+      loadOrder();
+      pollTimer = setInterval(loadOrder, 10000);
+
+      return () => {
+        active = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
   }, [sessionId, activeListing, currentUserInfo?.uid, currentUserInfo?.id, currentUserInfo?.user?.uid, currentUserInfo?.user?.id]);
 
   useEffect(() => {
       if (!sessionId) return;
-  
-      const orderCollectionRef = collection(db, 'order');
-      
-      const q = query(orderCollectionRef, where('listingId', '==' , activeListing?.id || null));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedOrders = [];
-        querySnapshot.forEach((doc) => {
-          fetchedOrders.push({ id: doc.id, ...doc.data() });
-        });
-        setOrderStatus(fetchedOrders[0]?.status || null);
-      });
-      
-      return () => unsubscribe();
+
+      let active = true;
+      let pollTimer = null;
+
+      const loadOrderStatus = async () => {
+        const res = await liveOrderLookupApi({ listingId: activeListing?.id });
+        if (!active) return;
+        setOrderStatus(res.order?.status || null);
+      };
+
+      loadOrderStatus();
+      pollTimer = setInterval(loadOrderStatus, 10000);
+
+      return () => {
+        active = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
   }, [sessionId, activeListing]);
 
 
@@ -207,24 +212,30 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     // Effect for fetching comments
   useEffect(() => {
       if (!sessionId) return;
-  
-      const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-      const q = query(commentsCollectionRef, orderBy('createdAt', 'asc'));
-  
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedComments = [];
-        querySnapshot.forEach((doc) => {
-          fetchedComments.push({ id: doc.id, ...doc.data() });
-        });
-        setComments(fetchedComments);
-      });
-  
-      return () => unsubscribe();
+
+      let active = true;
+      let pollTimer = null;
+
+      const loadComments = async () => {
+        const res = await getLiveCommentsApi(sessionId);
+        if (!active) return;
+        if (res.success) {
+          setComments(res.comments || []);
+        }
+      };
+
+      loadComments();
+      pollTimer = setInterval(loadComments, 10000);
+
+      return () => {
+        active = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
     }, [sessionId]);
 
   const deleteComment = async (commentId) => {
     try {
-        await deleteDoc(doc(db, 'live', sessionId, 'comments', commentId));
+        await deleteLiveCommentApi({ sessionId, commentId });
     } catch (error) {
         console.error("Error deleting comment: ", error);
         Alert.alert('Error', 'Failed to delete comment');
@@ -274,21 +285,15 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setEditingComment(null); // Clear editing state
 
       try {
-        const commentsCollectionRef = collection(db, 'live', sessionId, 'comments');
-        
         if (editingComment) {
-            const commentDocRef = doc(commentsCollectionRef, editingComment.id);
-            await updateDoc(commentDocRef, {
-                message: commentToSend,
-                updatedAt: serverTimestamp()
-            });
+            await updateLiveCommentApi({ sessionId, commentId: editingComment.id, message: commentToSend });
         } else {
-            await addDoc(commentsCollectionRef, {
+            await addLiveCommentApi({
+              sessionId,
               message: commentToSend,
               name: userName,
               avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
               uid: userId,
-              createdAt: serverTimestamp(),
             });
         }
         
@@ -367,72 +372,86 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   useEffect(() => {
     if (!sessionId || !brodcasterId) return;
 
-    const listingsCollectionRef = collection(db, 'listing');
-    const q = query(
-      listingsCollectionRef,
-      where('sellerCode', '==', brodcasterId),
-      where('isActiveLiveListing', '==', true)
-    );
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const activeDoc = querySnapshot.docs[0];
-        console.log('Active listing found:', activeDoc.id, activeDoc.data());
-        
-        setActiveListing({ id: activeDoc.id, ...activeDoc.data() });
+    const loadActiveListing = async () => {
+      const res = await getActiveLiveListingApi(brodcasterId);
+      if (!active) return;
+      if (res.success && res.data) {
+        console.log('Active listing found:', res.data.id, res.data);
+        setActiveListing({ id: res.data.id, ...res.data });
       } else {
         setActiveListing(null);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    loadActiveListing();
+    pollTimer = setInterval(loadActiveListing, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [sessionId, brodcasterId]);
 
   // Same IG index ordering as seller (LiveBroadcastScreen): Live listings in session by createdAt
   useEffect(() => {
     if (!sessionId) return;
 
-    const q = query(
-      collection(db, 'listing'),
-      where('sessionId', '==', sessionId),
-      where('status', '==', 'Live'),
-      orderBy('createdAt', 'asc'),
-    );
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const loadIndex = async () => {
+      const res = await getLiveListingsBySessionApi(sessionId, 'Live');
+      if (!active) return;
       const indexMap = {};
-      snapshot.docs.forEach((docSnap, i) => {
-        indexMap[docSnap.id] = `IG${i + 1}`;
+      (res.data || []).forEach((item, i) => {
+        indexMap[item.id] = `IG${i + 1}`;
       });
       setSessionListingIndexMap(indexMap);
-    });
+    };
 
-    return () => unsubscribe();
+    loadIndex();
+    pollTimer = setInterval(loadIndex, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [sessionId]);
 
   useEffect(() => {
      if (!sessionId) return;
- 
-     console.log(`Setting up snapshot listener for live session: ${sessionId}`);
-     const sessionDocRef = doc(db, 'live', sessionId);
- 
-     const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
-       if (doc.exists()) {
-         const data = doc.data();
+
+     console.log(`Setting up poll for live session: ${sessionId}`);
+     let active = true;
+     let pollTimer = null;
+
+     const loadSession = async () => {
+       const res = await getLiveDetailApi(sessionId);
+       if (!active) return;
+       if (res.success && res.session) {
+         const data = res.session;
          console.log('Live session data updated:', data);
          setLiveStats(data);
 
          const joinNotifications = data?.joiners || [];
-        
+
          setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
          setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
        } else {
          console.log('Live session document does not exist.');
        }
-     });
- 
-     // Cleanup listener on component unmount
-     return () => unsubscribe();
+     };
+
+     loadSession();
+     pollTimer = setInterval(loadSession, 10000);
+
+     return () => {
+       active = false;
+       if (pollTimer) clearInterval(pollTimer);
+     };
    }, [sessionId]);
 
   useEffect(() => {
@@ -733,30 +752,27 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setSoldToUser(null); // Reset when there's no active listing
       return;
     }
-  
-    const orderCollectionRef = collection(db, 'order');
-    const q = query(orderCollectionRef, where('listingId', '==', activeListing.id), where('status', '==', 'Ready to Fly'));
-  
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const orderData = querySnapshot.docs[0].data();
 
-        const buyerQuery = query(
-                          collection(db, 'buyer'),
-                          where('uid', '==', orderData.buyerUid)
-        );
-        const buyerSnapshot = await getDocs(buyerQuery);
-        if (!buyerSnapshot.empty) {
-          const buyerData = buyerSnapshot.docs[0].data();
-          setSoldToUser(`@${buyerData.username}`); 
-        } else {
-          setSoldToUser(null); // Buyer not found
-        }
+    let active = true;
+    let pollTimer = null;
+
+    const loadSoldTo = async () => {
+      const res = await liveOrderLookupApi({ listingId: activeListing.id, status: 'Ready to Fly' });
+      if (!active) return;
+      if (res.success && res.order) {
+        setSoldToUser(res.buyerUsername ? `@${res.buyerUsername}` : null);
       } else {
         setSoldToUser(null); // No pending payment order found
       }
-    });
-    return () => unsubscribe();
+    };
+
+    loadSoldTo();
+    pollTimer = setInterval(loadSoldTo, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [activeListing]);
 
   // Effect to keep the screen awake during the live stream

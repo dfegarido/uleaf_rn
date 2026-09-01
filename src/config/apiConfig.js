@@ -493,6 +493,7 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   LIVE_DETAIL: `${getSupabaseBaseUrl()}/live-detail`,
   LIVE_SOLD_TO: `${getSupabaseBaseUrl()}/live-sold-to`,
   LIVE_HEARTBEAT: `${getSupabaseBaseUrl()}/live-heartbeat`,
+  LIVE_ORDER_LOOKUP: `${getSupabaseBaseUrl()}/live-order-lookup`,
 });
 
 // API Endpoints - Initially generated with default environment

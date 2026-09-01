@@ -73,16 +73,20 @@ export const updateLiveSession = async (sessionId, data) => {
   }
 };
 
-export const getLiveListingsBySessionApi = async (sessionId, status='Live') => {
+export const getLiveListingsBySessionApi = async (sessionId, status='Live', sellerCode) => {
   try {
-    if (!sessionId) {
-      throw new Error('Session ID is required');
+    if (!sessionId && !sellerCode) {
+      throw new Error('Session ID or sellerCode is required');
     }
 
     const authToken = await getStoredAuthToken();
+    const params = new URLSearchParams();
+    if (sessionId) params.append('sessionId', sessionId);
+    if (sellerCode) params.append('sellerCode', sellerCode);
+    params.append('status', status);
     
     const response = await fetch(
-      `${API_ENDPOINTS.GET_LIVE_LISTINGS_BY_SESSION}?sessionId=${sessionId}&status=${status}`,
+      `${API_ENDPOINTS.GET_LIVE_LISTINGS_BY_SESSION}?${params.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -125,16 +129,18 @@ export const setLiveListingActiveApi = async ({ plantCode }) => {
   }
 };
 
-export const getActiveLiveListingApi = async () => {
+export const getActiveLiveListingApi = async (sellerId) => {
   try {
     const token = await getStoredAuthToken();
-    const url = API_ENDPOINTS.GET_ACTIVE_LIVE_LISTING;
+    const url = sellerId
+      ? `${API_ENDPOINTS.GET_ACTIVE_LIVE_LISTING}?sellerId=${encodeURIComponent(sellerId)}`
+      : API_ENDPOINTS.GET_ACTIVE_LIVE_LISTING;
 
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: *** ${token}`,
       },
     });
 

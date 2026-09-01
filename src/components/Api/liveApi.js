@@ -259,6 +259,23 @@ export const getLiveSoldToApi = async (listingId) => {
   }
 };
 
+/** Look up order(s) for a live listing (buyer pending payment, status, sold-to). */
+export const liveOrderLookupApi = async ({ listingId, buyerUid, status }) => {
+  try {
+    const res = await fetch(API_ENDPOINTS.LIVE_ORDER_LOOKUP, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ listingId, buyerUid, status }),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, order: body.order || null, buyerUsername: body.buyerUsername || null };
+  } catch (error) {
+    console.error('liveOrderLookupApi error:', error.message);
+    return { success: false, order: null, buyerUsername: null, error: error.message };
+  }
+};
+
 /** Send a heartbeat for a live session (seller keeps it visible as live). */
 export const sendLiveHeartbeatApi = async (sessionId) => {
   try {
