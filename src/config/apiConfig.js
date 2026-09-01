@@ -390,13 +390,7 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   UPLOAD_CHAT_SHOP_PHOTO: `${getSupabaseBaseUrl()}/chat-shop-photo-upload`,
   UPLOAD_BUYER_CONTENT_PHOTO: `${getSupabaseBaseUrl()}/buyer-content-photo-upload`,
   
-  // Shipping Buddy endpoints
-  SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,
-  GET_BUDDY_REQUESTS: `${getBaseUrl()}/getBuddyRequests`,
-  APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
-  GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
-  CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
-
+  // Shipping Buddy endpoints (moved to Supabase block below — see SUBMIT_RECEIVER_REQUEST etc.)
   // Address Book APIs
   GET_ADDRESS_BOOK_ENTRIES: `${getSupabaseBaseUrl()}/address-book`,
   GET_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
@@ -421,9 +415,16 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   
   // Flight Change Request endpoints
 SUBMIT_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/submit-flight-change-request`,
-  GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
+  GET_FLIGHT_CHANGE_REQUESTS: `${getSupabaseBaseUrl()}/buyer-flight-change-requests`,
   GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getSupabaseBaseUrl()}/flight-change-requests`,
   UPDATE_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/flight-change-request-update`,
+
+  // Shipping Buddy endpoints (migrated to Supabase)
+SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
+  GET_BUDDY_REQUESTS: `${getSupabaseBaseUrl()}/buddy-requests`,
+  APPROVE_REJECT_BUDDY_REQUEST: `${getSupabaseBaseUrl()}/approve-reject-buddy-request`,
+  CANCEL_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/cancel-receiver-request`,
+  GET_MY_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/my-receiver-request`,
 
   // Flight Schedule endpoints
   GET_FLIGHT_SCHEDULE: `${getSupabaseBaseUrl()}/flight-schedule`,
