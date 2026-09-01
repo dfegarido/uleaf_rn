@@ -25,6 +25,7 @@ import UploadIcon from '../../assets/live-icon/upload.svg';
 import { updateLiveSession } from '../../components/Api/agoraLiveApi';
 import { deleteLiveSessionApi, getMyLiveSessionsApi, liveRequestWriteApi } from '../../components/Api/liveRequestApi';
 import { InputBox } from '../../components/Input';
+import Toast from '../../components/Toast/Toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MARGIN = 8;
@@ -87,6 +88,15 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false); // For delete/save actions
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
   const isFocused = useIsFocused();
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -218,7 +228,14 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setActionLoading(true);
+            // Optimistic removal: drop the item from the list immediately.
+            if (isRequest) {
+              setPendingRequests(prev => prev.filter(r => r.id !== item.id));
+            } else {
+              setSessions(prev => prev.filter(s => s.id !== item.id));
+            }
+            showToast(`${isRequest ? 'Request' : 'Session'} deleted.`);
+
             try {
               if (isRequest) {
                 await liveRequestWriteApi({ mode: 'delete', requestId: item.id });
@@ -231,9 +248,13 @@ const MyLiveSessionsScreen = ({ navigation }) => {
               }
             } catch (error) {
               console.error(`Error deleting ${isRequest ? 'request' : 'session'}:`, error);
-              Alert.alert('Error', `Could not delete the ${isRequest ? 'request' : 'session'}. Please try again.`);
-            } finally {
-              setActionLoading(false);
+              // Roll back the optimistic removal on failure.
+              if (isRequest) {
+                setPendingRequests(prev => [item, ...prev]);
+              } else {
+                setSessions(prev => [item, ...prev]);
+              }
+              showToast(`Could not delete the ${isRequest ? 'request' : 'session'}. Please try again.`, 'error');
             }
           },
         },
@@ -565,6 +586,14 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         </View>
       </Modal>
 
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        duration={3000}
+        position="bottom"
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 };
