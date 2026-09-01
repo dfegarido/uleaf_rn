@@ -115,6 +115,22 @@ export const deleteChatMessageApi = async (messageId) => {
   }
 };
 
+/** Get a single chat's metadata (chat-detail). */
+export const getChatDetailApi = async (chatId) => {
+  try {
+    const res = await fetch(`${API_ENDPOINTS.GET_CHAT_DETAIL}?id=${encodeURIComponent(chatId)}`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, chat: body.chat || null, data: body };
+  } catch (error) {
+    console.error('getChatDetailApi error:', error.message);
+    return { success: false, chat: null, error: error.message };
+  }
+};
+
 /**
  * Get membership metadata for a chat.
  * @returns {Promise<{success, isPublic, isMember, hasPendingRequest, hasRejectedRequest, participants}>}
@@ -156,6 +172,22 @@ export const submitChatJoinRequestApi = async ({ chatId, userName, userAvatar })
   } catch (error) {
     console.error('submitChatJoinRequestApi error:', error.message);
     return { success: false, error: error.message };
+  }
+};
+
+/** List pending join requests for a chat (admin). */
+export const listChatJoinRequestsApi = async (chatId) => {
+  try {
+    const res = await fetch(`${API_ENDPOINTS.POST_CHAT_JOIN_REQUEST}?mode=list&chatId=${encodeURIComponent(chatId)}`, {
+      method: 'GET',
+      headers: await authHeaders(),
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, requests: body.requests || [], data: body };
+  } catch (error) {
+    console.error('listChatJoinRequestsApi error:', error.message);
+    return { success: false, requests: [], error: error.message };
   }
 };
 
