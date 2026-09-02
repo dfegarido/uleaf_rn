@@ -22,6 +22,7 @@ import { collection,
 } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { isUsBusinessUser } from '../../../utils/b2bShell';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
@@ -59,7 +60,7 @@ const screenHeight = Dimensions.get('window').height;
 
 const ScreenHome = ({navigation}) => {
   const [loading, setLoading] = useState(false);
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, setAppShell} = useContext(AuthContext);
   const { unreadCount } = useUnreadMessageCount();
 
   // Add state to force image refresh
@@ -453,7 +454,9 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
 
           <View style={styles.headerIcons}>
-            {userInfo?.liveFlag === 'Yes'  && (
+            { (userInfo?.liveFlag === 'Yes' ||
+              userInfo?.user?.liveFlag === 'Yes' ||
+              isUsBusinessUser(userInfo)) && (
               <TouchableOpacity
                 onPress={() => navigation.navigate('MyLiveSessionsScreen')}
                 style={styles.iconButton}>
@@ -550,6 +553,24 @@ const ScreenHome = ({navigation}) => {
             </View>
 
             <View style={styles.b2bActionList}>
+              {isUsBusinessUser(userInfo) ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.b2bActionRow}
+                    activeOpacity={0.7}
+                    onPress={() => setAppShell('shop')}>
+                    <View style={styles.b2bActionText}>
+                      <Text style={styles.b2bActionTitle}>Shop as a buyer</Text>
+                      <Text style={styles.b2bActionBody}>
+                        Keep purchasing with the consumer checkout
+                      </Text>
+                    </View>
+                    <RightIcon width={20} height={20} />
+                  </TouchableOpacity>
+                  <View style={styles.b2bActionDivider} />
+                </>
+              ) : (
+                <>
               <TouchableOpacity
                 style={styles.b2bActionRow}
                 activeOpacity={0.7}
@@ -566,6 +587,8 @@ const ScreenHome = ({navigation}) => {
               </TouchableOpacity>
 
               <View style={styles.b2bActionDivider} />
+                </>
+              )}
 
               <TouchableOpacity
                 style={styles.b2bActionRow}

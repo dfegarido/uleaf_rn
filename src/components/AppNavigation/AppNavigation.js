@@ -14,6 +14,7 @@ import { ActivityIndicator,
 import { AuthContext } from '../../auth/AuthProvider';
 import { navigationRef } from '../../navigation/navigationRef';
 import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
+import { isUsBusinessUser } from '../../utils/b2bShell';
 import BuyerTabNavigator from './BuyerTabNavigator';
 import { useSellerOrderCounts } from '../../hooks/useSellerOrderCounts';
 
@@ -977,7 +978,7 @@ function MainTabNavigator() {
 // };
 
 const AppNavigation = () => {
-  const {isLoggedIn, isLoading, userInfo, setIsLoggedIn, setUserInfo} = useContext(AuthContext);
+  const {isLoggedIn, isLoading, userInfo, setIsLoggedIn, setUserInfo, appShell} = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const [fallbackTriggered, setFallbackTriggered] = useState(false);
 
@@ -1008,12 +1009,14 @@ const AppNavigation = () => {
   const userType = currentUserInfo?.user?.userType ?? null;
   const isBuyer = userType === 'buyer';
   const isAdmin = userType === 'admin' || userType === 'sub_admin';
+  const usBusinessSellShell =
+    isBuyer && appShell === 'seller' && isUsBusinessUser(currentUserInfo);
 
   // Create a stable navigation key that changes when login state or user type changes
   // This forces NavigationContainer to remount when switching between auth and app navigators
   const navKey =
     isLoggedIn && currentUserInfo
-      ? `loggedIn_${userType || 'unknown'}`
+      ? `loggedIn_${userType || 'unknown'}_${usBusinessSellShell ? 'sell' : 'shop'}`
       : 'loggedOut';
   const shouldShowAuth = !isLoggedIn || fallbackTriggered;
 
@@ -1532,7 +1535,7 @@ const AppNavigation = () => {
           flushPendingLiveNavigation();
         }}>
         {isLoggedIn && !fallbackTriggered ? (
-          isBuyer ? (
+          isBuyer && !usBusinessSellShell ? (
             <BuyerTabNavigator />
           ) : isAdmin ? (
             <AdminTabNavigator />

@@ -3,8 +3,10 @@ import {
   Alert,
   Animated,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -99,10 +101,53 @@ const computeTotals = items =>
     return acc;
   }, {...emptyTotals});
 
+const csvEscape = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+const payoutsToCsv = items => {
+  const header = [
+    'Order',
+    'Business',
+    'Country',
+    'Live Sale Date',
+    'Order Date',
+    'Scan Date',
+    'Listed Price',
+    'Commission',
+    'Logistics',
+    'Plant Care',
+    'Net Payout',
+    'Payout Status',
+    'Payment Status',
+  ];
+  const rows = items.map(item =>
+    [
+      item.orderId,
+      item.businessName,
+      item.country,
+      item.liveSaleDate,
+      item.orderDate,
+      item.scanDate,
+      item.listedPrice,
+      item.commission,
+      item.logistics,
+      item.plantCare,
+      item.netPayout,
+      item.payoutStatus,
+      item.paymentStatus,
+    ]
+      .map(csvEscape)
+      .join(','),
+  );
+  return [header.join(','), ...rows].join('\n');
+};
+
 const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const isAdmin = route?.params?.audience === 'admin';
   const [groupBy, setGroupBy] = useState('liveSaleDate');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [businessFilter, setBusinessFilter] = useState('');
+  const [countryFilter, setCountryFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [payouts, setPayouts] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -134,11 +179,38 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   }, []);
 
   const filtered = useMemo(() => {
-    if (statusFilter === 'all') {
-      return payouts;
-    }
-    return payouts.filter(item => item.payoutStatus === statusFilter);
-  }, [payouts, statusFilter]);
+    const business = businessFilter.trim().toLowerCase();
+    const country = countryFilter.trim().toLowerCase();
+    const date = dateFilter.trim().toLowerCase();
+    return payouts.filter(item => {
+      if (statusFilter !== 'all' && item.payoutStatus !== statusFilter) {
+        return false;
+      }
+      if (
+        business &&
+        !String(item.businessName || '')
+          .toLowerCase()
+          .includes(business)
+      ) {
+        return false;
+      }
+      if (
+        country &&
+        !String(item.country || '')
+          .toLowerCase()
+          .includes(country)
+      ) {
+        return false;
+      }
+      if (date) {
+        const blob = `${item.liveSaleDate || ''} ${item.orderDate || ''} ${item.scanDate || ''}`.toLowerCase();
+        if (!blob.includes(date)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [payouts, statusFilter, businessFilter, countryFilter, dateFilter]);
 
   const groups = useMemo(() => {
     const map = {};
@@ -277,6 +349,32 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           ))}
         </ScrollView>
 
+        {isAdmin ? (
+          <View style={styles.adminFilters}>
+            <TextInput
+              style={styles.filterInput}
+              placeholder="Business name"
+              placeholderTextColor="#9AA4A8"
+              value={businessFilter}
+              onChangeText={setBusinessFilter}
+            />
+            <TextInput
+              style={styles.filterInput}
+              placeholder="Country"
+              placeholderTextColor="#9AA4A8"
+              value={countryFilter}
+              onChangeText={setCountryFilter}
+            />
+            <TextInput
+              style={styles.filterInput}
+              placeholder="Live sale / order / scan date"
+              placeholderTextColor="#9AA4A8"
+              value={dateFilter}
+              onChangeText={setDateFilter}
+            />
+          </View>
+        ) : null}
+
         <View style={styles.groupBar}>
           <Text style={styles.groupLabel}>Group by</Text>
           <View style={styles.segment}>
@@ -339,12 +437,20 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
         {!loading ? (
           <TouchableOpacity
             style={globalStyles.secondaryButtonAccent}
-            onPress={() =>
-              Alert.alert(
-                'Export',
-                'CSV would include order, scan status, leaf trail, payout status, listed price, fees, cancellation 3.5%, partial/full paid, and proof of transfer.',
-              )
-            }>
+            onPress={async () => {
+              if (!filtered.length) {
+                Alert.alert('Export', 'No payout rows in this filter.');
+                return;
+              }
+              try {
+                await Share.share({
+                  title: 'B2B payouts',
+                  message: payoutsToCsv(filtered),
+                });
+              } catch (error) {
+                Alert.alert('Export failed', error?.message || 'Could not share CSV.');
+              }
+            }}>
             <Text style={globalStyles.secondaryButtonButtonTextAccent}>Export</Text>
           </TouchableOpacity>
         ) : null}
@@ -583,6 +689,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   filterRow: {gap: 8, paddingBottom: 4, marginBottom: 12},
+  adminFilters: {gap: 8, marginBottom: 12},
+  filterInput: {
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#202325',
+    fontSize: 14,
+  },
   filterChip: {
     backgroundColor: '#fff',
     borderWidth: 1,

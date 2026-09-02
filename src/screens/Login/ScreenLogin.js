@@ -44,7 +44,7 @@ const TOKENS = {
 };
 
 const ScreenLogin = ({navigation}) => {
-  const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
+  const {setIsLoggedIn, setUserInfo, setAppShell} = useContext(AuthContext);
   const insets = useSafeAreaInsets();
 
   const safeBottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
@@ -76,6 +76,7 @@ const ScreenLogin = ({navigation}) => {
                 idToken: token,
                 setIsLoggedIn,
                 setUserInfo,
+                setAppShell,
               });
             } else {
               navigation.navigate('LoginOtp');

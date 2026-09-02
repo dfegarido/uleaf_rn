@@ -29,6 +29,7 @@ import DuplicateIcon from '../../../assets/images/duplicate.svg';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { isUsBusinessUser } from '../../../utils/b2bShell';
 const screenWidth = Dimensions.get('window').width;
 
 const ScreenSell = ({navigation}) => {
@@ -58,8 +59,10 @@ const ScreenSell = ({navigation}) => {
     null;
   const [liveFlagResolved, setLiveFlagResolved] = useState(resolvedLiveFlagRaw);
   const canUseLiveSale =
-    typeof liveFlagResolved === 'string' &&
-    liveFlagResolved.trim().toLowerCase() === 'yes';
+    (typeof liveFlagResolved === 'string' &&
+      liveFlagResolved.trim().toLowerCase() === 'yes') ||
+    isUsBusinessUser(userInfo);
+  const usBusinessOnly = isUsBusinessUser(userInfo);
 
   useEffect(() => {
     let cancelled = false;
@@ -266,13 +269,21 @@ const ScreenSell = ({navigation}) => {
             ]}>
             Sell a Plant
           </Text>
-          <TouchableOpacity onPress={() => openSheet(showSheet)}>
-            <Text style={globalStyles.textMDAccent}>Existing Listing</Text>
-          </TouchableOpacity>
+          {!usBusinessOnly ? (
+            <TouchableOpacity onPress={() => openSheet(showSheet)}>
+              <Text style={globalStyles.textMDAccent}>Existing Listing</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={globalStyles.textMDGreyLight}>Live sale only</Text>
+          )}
         </View>
 
         <View style={{paddingTop: 30}}>
-          <Text style={globalStyles.textMDGreyDark}>Start from scratch</Text>
+          <Text style={globalStyles.textMDGreyDark}>
+            {usBusinessOnly ? 'Live sale listings' : 'Start from scratch'}
+          </Text>
+          {!usBusinessOnly ? (
+            <>
           <View
             style={{
               flexDirection: 'row',
@@ -343,6 +354,8 @@ const ScreenSell = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           </View>
+            </>
+          ) : null}
           {canUseLiveSale && (
             <View
               style={{

@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useContext, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,8 +12,12 @@ import {globalStyles} from '../../assets/styles/styles';
 import {getB2BAccountApi} from '../../components/Api/b2bAccountApi';
 import MockupHeader from './MockupHeader';
 import B2BBuyerInviteCard from './B2BBuyerInviteCard';
+import {AuthContext} from '../../auth/AuthProvider';
+import {mergeB2BAccountIntoUserInfo} from '../../utils/b2bShell';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ScreenB2BUsBuyerAccount = ({navigation}) => {
+  const {userInfo, setUserInfo, setAppShell} = useContext(AuthContext);
   const [account, setAccount] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -171,6 +175,21 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
                     with your code before you go live.
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={async () => {
+                    const merged = mergeB2BAccountIntoUserInfo(userInfo, account);
+                    if (merged) {
+                      setUserInfo(merged);
+                      await AsyncStorage.setItem(
+                        'userInfo',
+                        JSON.stringify(merged),
+                      );
+                    }
+                    await setAppShell('seller');
+                  }}>
+                  <Text style={globalStyles.primaryButtonText}>Open live selling</Text>
+                </TouchableOpacity>
               </>
             ) : (
               <>

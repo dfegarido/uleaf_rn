@@ -10,7 +10,13 @@ import { View,
   Linking,
 } from 'react-native';
 import {useSafeAreaInsets, SafeAreaView} from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {AuthContext} from '../../../auth/AuthProvider';
+import {getB2BAccountApi} from '../../../components/Api/b2bAccountApi';
+import {
+  isUsBusinessUser,
+  mergeB2BAccountIntoUserInfo,
+} from '../../../utils/b2bShell';
 import Svg, {Path} from 'react-native-svg';
 import {useIsFocused} from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
@@ -207,7 +213,7 @@ const BuyerProfileScreen = (props) => {
   const safeBottomPadding = Math.max(insets.bottom, 8); // At least 8px padding
   const totalBottomPadding = tabBarHeight + safeBottomPadding + 16; // Extra 16px for spacing
   
-  const {logout, userInfo, isLoggedIn} = useContext(AuthContext);
+  const {logout, userInfo, isLoggedIn, setUserInfo, setAppShell} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState({});
@@ -238,6 +244,18 @@ const BuyerProfileScreen = (props) => {
         loadAddressBookCount(),
         loadProfileStats(profileData),
       ]);
+      try {
+        const b2b = await getB2BAccountApi();
+        if (b2b.success && b2b.data?.account) {
+          const merged = mergeB2BAccountIntoUserInfo(userInfo, b2b.data.account);
+          if (merged) {
+            setUserInfo(merged);
+            await AsyncStorage.setItem('userInfo', JSON.stringify(merged));
+          }
+        }
+      } catch (b2bError) {
+        // Keep profile usable if B2B lookup fails.
+      }
   } catch (error) {
       
       Alert.alert(
@@ -614,11 +632,31 @@ const BuyerProfileScreen = (props) => {
             onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}
           />
 
-          <MenuItem
-            icon={<ProfileIcon width={24} height={24} fill="#556065" />}
-            title="Sell as a Business"
-            onPress={() => navigation.navigate('ScreenB2BBusinessSwitch')}
-          />
+          {isUsBusinessUser(userInfo) ? (
+            <MenuItem
+              icon={<PlantIcon width={24} height={24} fill="#556065" />}
+              title="Live selling"
+              rightText="Open seller tools"
+              onPress={async () => {
+                const result = await getB2BAccountApi();
+                if (result.success && result.data?.account) {
+                  const merged = mergeB2BAccountIntoUserInfo(
+                    userInfo,
+                    result.data.account,
+                  );
+                  setUserInfo(merged);
+                  await AsyncStorage.setItem('userInfo', JSON.stringify(merged));
+                }
+                await setAppShell('seller');
+              }}
+            />
+          ) : (
+            <MenuItem
+              icon={<ProfileIcon width={24} height={24} fill="#556065" />}
+              title="Sell as a Business"
+              onPress={() => navigation.navigate('ScreenB2BBusinessSwitch')}
+            />
+          )}
 
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
