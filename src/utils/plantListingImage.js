@@ -27,7 +27,7 @@ const TRANSFORM_QUALITY = 70;
  * @param {number} width
  * @returns {string}
  */
-export const toResizedSupabaseUri = (uri, width = GRID_IMAGE_WIDTH) => {
+export const toResizedSupabaseUri = (uri, width = GRID_IMAGE_WIDTH, options = {}) => {
   if (!uri || typeof uri !== 'string') return uri;
 
   const trimmed = uri.trim();
@@ -49,6 +49,12 @@ export const toResizedSupabaseUri = (uri, width = GRID_IMAGE_WIDTH) => {
     );
     u.searchParams.set('width', String(width));
     u.searchParams.set('quality', String(TRANSFORM_QUALITY));
+    // Square-crop grid images so a tall original (e.g. 400x4032) does not
+    // decode to a huge bitmap and exhaust memory after many load-more batches.
+    if (options.square) {
+      u.searchParams.set('height', String(width));
+      u.searchParams.set('resize', 'cover');
+    }
 
     return u.toString();
   } catch {
@@ -74,7 +80,7 @@ export const getShopListingImageUri = (plant) => {
     return null;
   }
 
-  return toResizedSupabaseUri(uri.trim(), GRID_IMAGE_WIDTH);
+  return toResizedSupabaseUri(uri.trim(), GRID_IMAGE_WIDTH, { square: true });
 };
 
 /** Plant detail hero — prefer full original so it matches the final image, not WebP first. */
