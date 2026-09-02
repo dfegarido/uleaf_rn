@@ -261,6 +261,7 @@ GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single 
   POST_REPORT_PROBLEM: `${getSupabaseBaseUrl()}/report-problem`,
   POST_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
   POST_PROFILE_PHOTO_UPLOAD: `${getSupabaseBaseUrl()}/profile-photo-upload`,
+  POST_REPORT_PROBLEM_PHOTO_UPLOAD: `${getSupabaseBaseUrl()}/report-problem-photo-upload`,
 SEARCH_DRAFT_LISTINGS: `${getSupabaseBaseUrl()}/search-draft-listings`,
   
   // Listing Management APIs
