@@ -1,12 +1,14 @@
 import React, {useState} from 'react';
 import {View, TextInput, StyleSheet} from 'react-native';
 
-const InputBox = ({placeholder, value, setValue, isNumeric = false}) => {
+const InputBox = ({placeholder, value, setValue, isNumeric = false, keyboardType}) => {
   const [internalValue, setInternalValue] = useState('');
 
   const handleChangeText = text => {
     let newValue = text;
 
+    // Only strip non-digits when isNumeric is explicitly true.
+    // A custom keyboardType (e.g. "decimal-pad") should NOT strip decimals.
     if (isNumeric) {
       newValue = text.replace(/[^0-9]/g, ''); // allow digits only
     }
@@ -27,7 +29,7 @@ const InputBox = ({placeholder, value, setValue, isNumeric = false}) => {
         style={styles.input}
         placeholder={placeholder}
         placeholderTextColor="#888"
-        keyboardType={isNumeric ? 'numeric' : 'default'}
+        keyboardType={keyboardType || (isNumeric ? 'numeric' : 'default')}
         value={displayValue}
         onChangeText={handleChangeText}
       />

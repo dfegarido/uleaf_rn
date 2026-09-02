@@ -46,12 +46,15 @@ const ImagePickerModal = ({onImagePicked, limit = 0}) => {
       return;
     }
 
-    launchCamera({mediaType: 'photo', quality: 1}, response => {
-      setModalVisible(false);
-      if (response.didCancel || response.errorCode) return;
-      const uri = response.assets?.[0]?.uri;
-      onImagePicked([uri]);
-    });
+    launchCamera(
+      {mediaType: 'photo', quality: 0.7, maxWidth: 1600, maxHeight: 1600},
+      response => {
+        setModalVisible(false);
+        if (response.didCancel || response.errorCode) return;
+        const uri = response.assets?.[0]?.uri;
+        onImagePicked([uri]);
+      },
+    );
   };
 
   const handleGallery = async () => {
@@ -65,6 +68,9 @@ const ImagePickerModal = ({onImagePicked, limit = 0}) => {
     launchImageLibrary(
       {
         mediaType: 'photo',
+        quality: 0.7,
+        maxWidth: 1600,
+        maxHeight: 1600,
         selectionLimit: limit, // ✅ use the provided limit (0 means unlimited)
       },
       response => {

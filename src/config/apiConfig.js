@@ -265,6 +265,7 @@ SEARCH_DRAFT_LISTINGS: `${getSupabaseBaseUrl()}/search-draft-listings`,
   
   // Listing Management APIs
   UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
+  POST_LISTING_IMAGE_UPLOAD: `${getSupabaseBaseUrl()}/listing-image-upload`,
   UPLOAD_CHAT_VIDEO: `${getBaseUrl()}/uploadChatVideo`,
 ADD_LISTING: `${getSupabaseBaseUrl()}/add-listing`,
 UPDATE_LISTING: `${getSupabaseBaseUrl()}/update-listing`,
