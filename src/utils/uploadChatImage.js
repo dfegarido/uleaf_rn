@@ -32,7 +32,7 @@ export const uploadChatImage = async (fileUri, chatId) => {
     const mimeType = mimeMap[ext] || 'image/jpeg';
 
     console.log('📤 Uploading chat image to backend:', filename);
-    console.log('🌐 API Endpoint:', API_ENDPOINTS.UPLOAD_LISTING_IMAGE);
+    console.log('🌐 API Endpoint:', API_ENDPOINTS.POST_LISTING_IMAGE_UPLOAD);
 
     // Create FormData with the image file
     const formData = new FormData();
@@ -91,8 +91,8 @@ export const uploadChatImage = async (fileUri, chatId) => {
         reject(new Error('Upload request timed out. Please try again.'));
       };
 
-      // Open and send request
-      xhr.open('POST', API_ENDPOINTS.UPLOAD_LISTING_IMAGE);
+      // Open and send request to the Supabase edge function.
+      xhr.open('POST', API_ENDPOINTS.POST_LISTING_IMAGE_UPLOAD);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       // Don't set Content-Type - let XMLHttpRequest set it with boundary for multipart/form-data
       
