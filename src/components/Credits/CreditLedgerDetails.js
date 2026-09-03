@@ -71,6 +71,9 @@ export default function CreditLedgerDetails({
   const reasonMeta = REASON_TYPE_META[reasonType] || null;
 
   const plants = details.plants || [];
+  const genus = item.genus || plants[0]?.genus || null;
+  const plantName = item.plantName || plants[0]?.plantName || plants[0]?.name || null;
+  const plantCode = item.plantCode || plants[0]?.plantCode;
 
   const amountColor = item.amount < 0 ? '#F04438' : '#12B76A';
   const processedByName = processedBy?.name || null;
@@ -83,6 +86,9 @@ export default function CreditLedgerDetails({
     <Section title="Transaction">
       <LabeledRow label="Type" value={item.title} />
       {item.subtitle || reasonMeta ? <LabeledRow label="Reason" value={item.subtitle || reasonMeta?.label} /> : null}
+      <LabeledRow label="Genus" value={genus} />
+      <LabeledRow label="Plant Name" value={plantName} />
+      <LabeledRow label="Plant Code" value={plantCode} />
       <LabeledRow label="Credit Type" value={creditMeta.label} />
       <LabeledRow
         label="Amount"
@@ -125,13 +131,14 @@ export default function CreditLedgerDetails({
     const visible = plants.slice(0, 3);
     const remaining = plants.length - visible.length;
     const plantRows = visible.map((plant, idx) => {
-      const name = plant.plantName || plant.name || 'Plant';
+      const name = plant.plantName || plant.genus || plant.name || 'Plant';
+      const code = plant.plantCode || '';
       const qty = plant.quantity > 1 || plant.qty ? plant.quantity || plant.qty : null;
       return (
         <View key={idx} style={styles.plantRow}>
           <View style={[styles.plantDot, { backgroundColor: creditMeta.color }]} />
           <View style={styles.flex}>
-            <Text style={styles.plantName}>{name}</Text>
+            <Text style={styles.plantName}>{name}{code ? ` · ${code}` : ''}</Text>
             {qty ? <Text style={styles.plantQty}>Qty {qty}</Text> : null}
           </View>
         </View>

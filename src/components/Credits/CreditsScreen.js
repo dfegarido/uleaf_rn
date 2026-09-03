@@ -160,12 +160,16 @@ export default function CreditsScreen({
   const handleClearCredit = useCallback(async () => {
     const { item, reason } = clearModal;
     if (!item || !reason.trim()) return;
+    const creditId = item.creditId;
+    if (!creditId) {
+      setClearModal(m => ({ ...m, error: 'This credit has no plant record. Clear it from Clear Plant Credit instead.' }));
+      return;
+    }
     setClearModal(m => ({ ...m, clearing: true, error: null }));
     const result = await clearCreditsApi({
       buyerId: buyerUid,
-      creditId: item.creditId || item.id,
+      creditId,
       reason: reason.trim(),
-      amount: item.amount,
       reasonType: 'credit_cleared',
     });
     if (!result.success) {

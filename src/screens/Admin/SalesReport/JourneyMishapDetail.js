@@ -16,7 +16,7 @@ import CalendarIcon from '../../../assets/icons/greylight/calendar-blank-regular
 import QuestionIcon from '../../../assets/icons/greylight/question-regular.svg';
 import CopyIcon from '../../../assets/icons/greylight/copy-regular.svg';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
-import {Linking, Alert, ActivityIndicator} from 'react-native';
+import {Linking, Alert, ActivityIndicator, TextInput} from 'react-native';
 import {updateJourneyMishapStatusApi} from '../../../components/Api/orderManagementApi';
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
@@ -32,6 +32,16 @@ const JourneyMishapDetail = () => {
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const parsePrice = (v) => {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number') return v;
+    const n = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const [creditAmount, setCreditAmount] = useState(() =>
+    String(parsePrice(creditRequest?.approvedAmount) || parsePrice(creditRequest?.price) || '')
+  );
 
   // Debug: Log credit request status
   console.log('📋 Credit Request Status:', {
@@ -69,6 +79,10 @@ const JourneyMishapDetail = () => {
   };
 
   const handleApproveCredit = async () => {
+    if (parsePrice(creditAmount) <= 0) {
+      Alert.alert('Error', 'Enter a credit amount greater than 0');
+      return;
+    }
     setReviewModalVisible(false);
     
     const currentStatus = (creditRequest.status || '')?.toLowerCase();
@@ -80,7 +94,8 @@ const JourneyMishapDetail = () => {
       const response = await updateJourneyMishapStatusApi({
         creditRequestId: creditRequest.id,
         status: 'approved',
-        reviewNotes: isUpdatingDecision ? 'Credit decision updated to approved by admin' : 'Credit approved by admin'
+        reviewNotes: isUpdatingDecision ? 'Credit decision updated to approved by admin' : 'Credit approved by admin',
+        approvedAmount: parsePrice(creditAmount),
       });
 
       setIsUpdating(false);
@@ -624,6 +639,18 @@ const JourneyMishapDetail = () => {
             <View style={styles.sheetContent}>
               {(() => {
                 const status = (creditRequest.status || '')?.toLowerCase();
+                const amountField = status !== 'approved' ? (
+                  <View style={styles.amountEditWrap}>
+                    <Text style={styles.amountEditLabel}>Credit amount (edit if plant was on sale)</Text>
+                    <TextInput
+                      style={styles.amountEditInput}
+                      keyboardType="decimal-pad"
+                      value={creditAmount}
+                      onChangeText={setCreditAmount}
+                      placeholder="0.00"
+                    />
+                  </View>
+                ) : null;
                 
                 // If approved, show reject option only
                 if (status === 'approved') {
@@ -651,6 +678,7 @@ const JourneyMishapDetail = () => {
                 if (status === 'rejected') {
                   return (
                     <>
+                      {amountField}
                       <TouchableOpacity 
                         style={styles.sheetOption}
                         onPress={handleApproveCredit}
@@ -672,6 +700,7 @@ const JourneyMishapDetail = () => {
                 // If pending, show both options
                 return (
                   <>
+                    {amountField}
                     <TouchableOpacity 
                       style={styles.sheetOption}
                       onPress={handleApproveCredit}
@@ -1234,6 +1263,25 @@ const styles = StyleSheet.create({
   },
   sheetContent: {
     paddingTop: 8,
+  },
+  amountEditWrap: {
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+  },
+  amountEditLabel: {
+    fontSize: 13,
+    color: '#667085',
+    marginBottom: 8,
+  },
+  amountEditInput: {
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#101828',
   },
   sheetOption: {
     flexDirection: 'row',
