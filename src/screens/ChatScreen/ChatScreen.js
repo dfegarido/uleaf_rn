@@ -1504,20 +1504,45 @@ const ChatScreen = ({navigation, route}) => {
           updateProgress(30);
         }
         
-        // Step 2: Upload video
+        // Step 2: Generate thumbnail client-side (Supabase Edge Functions can't run FFmpeg).
+        // Generate from the ORIGINAL picked video — AVFoundation often fails to decode the
+        // re-encoded compression temp file (AVFoundation error -17913), so prefer the source.
+        let thumbnailUri = null;
+        const thumbCandidates = [videoData.uri, videoToUpload];
+        try {
+          let thumb = null;
+          for (const candidate of thumbCandidates) {
+            if (!candidate) continue;
+            try {
+              thumb = await generateVideoThumbnail(candidate, 500);
+              break;
+            } catch (candidateErr) {
+              // Best-effort: try the next candidate silently. The video uploads
+              // fine without a thumbnail.
+            }
+          }
+          if (thumb && thumb.path) {
+            thumbnailUri = thumb.path;
+            updateProgress(40);
+          }
+        } catch (thumbError) {
+          // Best-effort: send the video without a thumbnail. No noisy log.
+        }
+
+        // Step 3: Upload video
         const { videoUrl, thumbnailUrl } = await uploadChatVideo(
           videoToUpload,
-          null, // Backend will generate thumbnail
+          thumbnailUri, // Client-generated thumbnail
           (progress) => {
-            // Map upload progress from 30-100%
-            const mappedProgress = 30 + Math.floor(progress * 0.7);
+            // Map upload progress from 40-100%
+            const mappedProgress = 40 + Math.floor(progress * 0.6);
             updateProgress(mappedProgress);
           }
         );
         
         updateProgress(100); // 100% after upload complete
         
-        // Step 3: Send message via the Edge Function
+        // Step 4: Send message via the Edge Function
         const res = await sendChatMessageApi({
           chatId: id,
           text: textToSend,

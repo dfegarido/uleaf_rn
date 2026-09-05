@@ -98,8 +98,8 @@ export const uploadChatVideo = async (videoUri, thumbnailUri, onProgress = null)
         });
       }
 
-      // Send request
-      xhr.open('POST', API_ENDPOINTS.UPLOAD_CHAT_VIDEO);
+      // Send request to the Supabase edge function.
+      xhr.open('POST', API_ENDPOINTS.POST_CHAT_VIDEO_UPLOAD);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       // Note: Don't set Content-Type for multipart/form-data, browser sets it with boundary
       xhr.send(formData);

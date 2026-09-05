@@ -61,7 +61,7 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
+const ScreenSingleSellLive = ({navigation, route, nextIgIndex, sessionId: sessionIdProp}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -377,12 +377,9 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
         status: isPurge ? 'Purge' : 'Live',
         publishType: 'Publish Now',
+        sessionId: sessionId || null,
         isActiveLiveListing: !withActiveLiveListing,
       };
-
-      if (isPurge) {
-        data.sessionId = sessionId;
-      }
 
       const response = await postSellSinglePlantApi(data);
 
@@ -421,7 +418,7 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
     status,
     publishType,
     isPurge = false,
-    sessionId = ''
+    sessionId = sessionIdProp || ''
   } = route?.params ?? {};
 
   useEffect(() => {

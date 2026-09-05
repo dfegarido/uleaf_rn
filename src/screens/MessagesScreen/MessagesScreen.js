@@ -421,21 +421,15 @@ const MessagesScreen = ({navigation}) => {
     loadChatShops();
   }, [selectedTab]);
 
-  const shopGroupIds = useMemo(() => {
-    const ids = new Set();
-    chatShops.forEach(s => { if (s.groupChatId) ids.add(s.groupChatId); });
-    return ids;
-  }, [chatShops]);
-
   // Tab-focused prefetch: when user switches tabs, resolve only currently visible chats.
   useEffect(() => {
     const visibleMessages = messagesRef.current;
     if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) return;
     const visibleChats = selectedTab === 'groups'
-      ? visibleMessages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id))
+      ? visibleMessages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)))
       : visibleMessages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
     fetchAvatarsForChats(visibleChats, { requireUsername: selectedTab !== 'groups' }).catch(() => {});
-  }, [selectedTab, fetchAvatarsForChats, shopGroupIds]);
+  }, [selectedTab, fetchAvatarsForChats]);
 
   // Keep per-group avatar sender selection aligned to latest message senders.
   useEffect(() => {
@@ -980,14 +974,14 @@ const MessagesScreen = ({navigation}) => {
   const filteredMessages = useMemo(() => {
     if (selectedTab === 'groups') {
       return messages.filter(
-        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id),
+        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)),
       );
     }
     if (selectedTab === 'chatshops') {
       return [];
     }
     return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
-  }, [messages, selectedTab, shopGroupIds]);
+  }, [messages, selectedTab]);
 
   const { unreadMessages, unreadGroups } = useMemo(() => {
     const unreadMessagesCount = messages.filter(
@@ -1002,12 +996,11 @@ const MessagesScreen = ({navigation}) => {
       msg =>
         msg.unreadBy &&
         msg.unreadBy.includes(currentUserUid) &&
-        (msg.isGroup || (msg.participants && msg.participants.length > 2)) &&
-        !shopGroupIds.has(msg.id),
+        (msg.isGroup || (msg.participants && msg.participants.length > 2)),
     ).length;
 
     return { unreadMessages: unreadMessagesCount, unreadGroups: unreadGroupsCount };
-  }, [messages, currentUserUid, shopGroupIds]);
+  }, [messages, currentUserUid]);
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["top", "left", "right"]}>
