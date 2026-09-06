@@ -10,9 +10,12 @@ import { ActivityIndicator,
   View,
 } from 'react-native';
 import CloseIcon from '../../assets/live-icon/close-x.svg';
+import { useAuth } from '../../auth/AuthProvider';
 import { getLiveListingsBySessionApi, setLiveListingActiveApi } from '../../components/Api/agoraLiveApi';
+import { attachOrphanLiveListingsToSession, getSellerUid } from '../../utils/attachLiveListingsToSession';
 
-const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet }) => {
+const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, onAddListing }) => {
+  const { userInfo } = useAuth();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -21,6 +24,11 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet }
     if (!sessionId) return;
     setLoading(true);
     try {
+      try {
+        await attachOrphanLiveListingsToSession(getSellerUid(userInfo), sessionId);
+      } catch (attachErr) {
+        console.warn('Attach orphan live listings:', attachErr?.message);
+      }
       const response = await getLiveListingsBySessionApi(sessionId);
       if (response.success) {
         console.log('Fetched listings:', response);
@@ -134,6 +142,14 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet }
           )}
 
           <View style={styles.footer}>
+            {typeof onAddListing === 'function' ? (
+              <TouchableOpacity
+                style={[styles.button, styles.secondaryButton, loading && styles.disabledButton]}
+                onPress={onAddListing}
+                disabled={loading}>
+                <Text style={styles.secondaryButtonText}>Add listing</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               style={[styles.button, loading && styles.disabledButton]}
               onPress={handleSetNewActive}
@@ -168,8 +184,10 @@ const styles = StyleSheet.create({
   indexText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
   activeBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#E7522F', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   activeText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
+  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#E0E0E0', gap: 10 },
   button: { backgroundColor: '#539461', padding: 16, borderRadius: 12, alignItems: 'center' },
+  secondaryButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#539461' },
+  secondaryButtonText: { color: '#539461', fontSize: 18, fontWeight: 'bold' },
   disabledButton: { backgroundColor: '#A9A9A9' },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },

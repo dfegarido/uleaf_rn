@@ -49,6 +49,22 @@ function normalizeApproxHeight(val) {
   return '';
 }
 
+const MAX_QTY = 50;
+
+function parseQuantity(val, rowLabel) {
+  if (val === '' || val === null || val === undefined) {
+    return {ok: true, quantity: 1};
+  }
+  const n = parseInt(String(val).trim(), 10);
+  if (!Number.isFinite(n) || n < 1) {
+    return {ok: false, error: `${rowLabel}: quantity must be a whole number of 1 or more.`};
+  }
+  if (n > MAX_QTY) {
+    return {ok: false, error: `${rowLabel}: quantity cannot exceed ${MAX_QTY}.`};
+  }
+  return {ok: true, quantity: n};
+}
+
 /**
  * @param {string} base64
  * @returns {{ rows: Array<{genus: string, species: string, variegation: string, potSize: string, localPrice: string, approximateHeight: 'below'|'above'}>, error?: string }}
@@ -95,7 +111,12 @@ export function parseLiveListingExcelFromBase64(base64) {
       };
     }
 
-    rows.push({
+    const qtyParsed = parseQuantity(n.quantity ?? n.qty, `Row ${i + 2}`);
+    if (!qtyParsed.ok) {
+      return {rows: [], error: qtyParsed.error};
+    }
+
+    const listing = {
       genus,
       species,
       variegation,
@@ -105,7 +126,10 @@ export function parseLiveListingExcelFromBase64(base64) {
           ? ''
           : String(localPrice).trim(),
       approximateHeight: approximateHeight || 'below',
-    });
+    };
+    for (let q = 0; q < qtyParsed.quantity; q++) {
+      rows.push({...listing});
+    }
   }
 
   if (!rows.length) {
