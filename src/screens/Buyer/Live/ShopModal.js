@@ -1,5 +1,5 @@
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { FlatList,
   Image,
   Modal,
@@ -15,6 +15,13 @@ import { db } from '../../../../firebase';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 
+const SORT_OPTIONS = [
+  {key: 'sequence', label: 'Sequence #'},
+  {key: 'genus', label: 'Genus'},
+  {key: 'priceHigh', label: 'Price High to Low'},
+  {key: 'priceLow', label: 'Price Low to High'},
+];
+
 const createdAtMs = (data) => {
   const ts = data?.createdAt;
   if (!ts) return 0;
@@ -22,6 +29,13 @@ const createdAtMs = (data) => {
   if (ts.seconds != null) return ts.seconds * 1000;
   return 0;
 };
+
+const igSequenceNum = (ig) => {
+  const n = parseInt(String(ig || '').replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+};
+
+const listingPrice = (item) => Number(item?.usdPrice ?? item?.price ?? 0) || 0;
 
 const ShopModal = ({
   isVisible,
@@ -36,6 +50,8 @@ const ShopModal = ({
   const [soldListings, setSoldListings] = useState([]);
   const [localIgIndexMap, setLocalIgIndexMap] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('sequence');
+  const [sortOpen, setSortOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const pressInTimeout = useRef(null);
   const isLongPress = useRef(false);
@@ -114,16 +130,45 @@ const ShopModal = ({
     return () => unsubscribe();
   }, [isVisible, broadcasterId]);
 
-  const filteredAllListings = allListings.filter(
-    (item) =>
-      item.genus.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.species.toLowerCase().includes(searchQuery.toLowerCase()),
+  const igForListing = (item) =>
+    sessionListingIndexMap[item.id] || localIgIndexMap[item.id];
+
+  const sortListings = (list) => {
+    const rows = [...list];
+    rows.sort((a, b) => {
+      if (sortBy === 'genus') {
+        const g = String(a.genus || '').localeCompare(String(b.genus || ''), undefined, {
+          sensitivity: 'base',
+        });
+        if (g !== 0) return g;
+        return String(a.species || '').localeCompare(String(b.species || ''), undefined, {
+          sensitivity: 'base',
+        });
+      }
+      if (sortBy === 'priceHigh') return listingPrice(b) - listingPrice(a);
+      if (sortBy === 'priceLow') return listingPrice(a) - listingPrice(b);
+      return igSequenceNum(igForListing(a)) - igSequenceNum(igForListing(b));
+    });
+    return rows;
+  };
+
+  const matchesSearch = (item) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(item.genus || '').toLowerCase().includes(q) ||
+      String(item.species || '').toLowerCase().includes(q)
+    );
+  };
+
+  const filteredAllListings = useMemo(
+    () => sortListings(allListings.filter(matchesSearch)),
+    [allListings, searchQuery, sortBy, sessionListingIndexMap, localIgIndexMap],
   );
 
-  const filteredSoldListings = soldListings.filter(
-    (item) =>
-      item.genus.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.species.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredSoldListings = useMemo(
+    () => sortListings(soldListings.filter(matchesSearch)),
+    [soldListings, searchQuery, sortBy, sessionListingIndexMap, localIgIndexMap],
   );
 
   const handlePress = (item) => {
@@ -133,9 +178,6 @@ const ShopModal = ({
     }
     setSelectedImage(item.imagePrimary);
   };
-
-  const igForListing = (item) =>
-    sessionListingIndexMap[item.id] || localIgIndexMap[item.id];
 
   const renderListingItem = ({ item }) => (
     <View style={styles.card}>
@@ -153,8 +195,11 @@ const ShopModal = ({
       </View>
 
       <View style={styles.overlayDetailsContainer}>
-        <Text style={styles.plantName} numberOfLines={1}>
-          {item.genus} {item.species}
+        <Text style={styles.plantGenus} numberOfLines={1}>
+          {item.genus}
+        </Text>
+        <Text style={styles.plantSpecies} numberOfLines={2}>
+          {item.species}
         </Text>
         <Text style={styles.priceLabel}>${item.usdPrice}</Text>
         <Text style={styles.quantityText}>Qty: {item.availableQty}</Text>
@@ -184,8 +229,11 @@ const ShopModal = ({
         ) : null}
       </View>
       <View style={styles.overlayDetailsContainer}>
-        <Text style={styles.plantName} numberOfLines={2}>
-          {item.genus} {item.species}
+        <Text style={styles.plantGenus} numberOfLines={1}>
+          {item.genus}
+        </Text>
+        <Text style={styles.plantSpecies} numberOfLines={2}>
+          {item.species}
         </Text>
         <Text style={styles.soldToText}>Sold to @{item.buyerUsername || 'user'}</Text>
       </View>
@@ -207,13 +255,41 @@ const ShopModal = ({
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.searchBar}
-            placeholder="Search by genus or species"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#BDBDBD"
-          />
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchBar}
+              placeholder="Search by genus or species"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#BDBDBD"
+            />
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => setSortOpen(!sortOpen)}>
+              <Text style={styles.sortButtonText}>Sort</Text>
+            </TouchableOpacity>
+          </View>
+          {sortOpen ? (
+            <View style={styles.sortMenu}>
+              {SORT_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={styles.sortOption}
+                  onPress={() => {
+                    setSortBy(opt.key);
+                    setSortOpen(false);
+                  }}>
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      sortBy === opt.key && styles.sortOptionTextActive,
+                    ]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.tabContainer}>
             <TouchableOpacity
@@ -316,15 +392,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Bold',
     color: '#000',
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
   searchBar: {
+    flex: 1,
     height: 40,
     borderColor: '#E0E0E0',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    marginBottom: 16,
     fontFamily: 'Inter',
     color: '#000',
+  },
+  sortButton: {
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#539461',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortButtonText: {
+    color: '#539461',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sortMenu: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  sortOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  sortOptionText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  sortOptionTextActive: {
+    color: '#539461',
+    fontWeight: '700',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -410,12 +527,23 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
   },
-  plantName: {
+  plantGenus: {
     fontSize: 13,
     fontWeight: '800',
     fontFamily: 'Inter-SemiBold',
     textTransform: 'uppercase',
     color: '#FFF',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+  },
+  plantSpecies: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+    textTransform: 'uppercase',
+    color: '#FFF',
+    marginTop: 1,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 2,
