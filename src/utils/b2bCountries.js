@@ -11,7 +11,12 @@ export const BUSINESS_COUNTRIES = [
 export const BUSINESS_COUNTRY_NAMES = BUSINESS_COUNTRIES.map(item => item.name);
 
 export const isBusinessAccountClass = accountClass =>
-  accountClass === 'US Business' || accountClass === 'Asia Business';
+  accountClass === 'US Business' ||
+  accountClass === 'Asia Business' ||
+  accountClass === 'IleafU Inhouse';
+
+export const isIleafuInhouseAccountClass = accountClass =>
+  accountClass === 'IleafU Inhouse';
 
 export const isUsBusinessAccountClass = accountClass =>
   accountClass === 'US Business';
