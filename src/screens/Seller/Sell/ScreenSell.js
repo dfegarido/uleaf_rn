@@ -29,7 +29,8 @@ import DuplicateIcon from '../../../assets/images/duplicate.svg';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { isUsBusinessUser } from '../../../utils/b2bShell';
+import { accountClassFromUserInfo, isUsBusinessUser } from '../../../utils/b2bShell';
+import { isIleafuInhouseAccountClass } from '../../../utils/b2bCountries';
 const screenWidth = Dimensions.get('window').width;
 
 const ScreenSell = ({navigation}) => {
@@ -58,11 +59,12 @@ const ScreenSell = ({navigation}) => {
     userInfo?.data?.id ||
     null;
   const [liveFlagResolved, setLiveFlagResolved] = useState(resolvedLiveFlagRaw);
+  const inhouseOnly = isIleafuInhouseAccountClass(accountClassFromUserInfo(userInfo));
   const canUseLiveSale =
     (typeof liveFlagResolved === 'string' &&
       liveFlagResolved.trim().toLowerCase() === 'yes') ||
-    isUsBusinessUser(userInfo);
-  const usBusinessOnly = isUsBusinessUser(userInfo);
+    isUsBusinessUser(userInfo) ||
+    inhouseOnly;
 
   useEffect(() => {
     let cancelled = false;
@@ -276,21 +278,15 @@ const ScreenSell = ({navigation}) => {
             ]}>
             Sell a Plant
           </Text>
-          {!usBusinessOnly ? (
-            <TouchableOpacity onPress={() => openSheet(showSheet)}>
-              <Text style={globalStyles.textMDAccent}>Existing Listing</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={globalStyles.textMDGreyLight}>Live sale only</Text>
-          )}
+          <TouchableOpacity onPress={() => openSheet(showSheet)}>
+            <Text style={globalStyles.textMDAccent}>Existing Listing</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{paddingTop: 30}}>
           <Text style={globalStyles.textMDGreyDark}>
-            {usBusinessOnly ? 'Live sale listings' : 'Start from scratch'}
+            Start from scratch
           </Text>
-          {!usBusinessOnly ? (
-            <>
           <View
             style={{
               flexDirection: 'row',
@@ -361,8 +357,6 @@ const ScreenSell = ({navigation}) => {
               </Text>
             </TouchableOpacity>
           </View>
-            </>
-          ) : null}
           {canUseLiveSale && (
             <View
               style={{

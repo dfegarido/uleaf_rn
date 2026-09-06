@@ -170,8 +170,8 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
                 <View style={styles.resultBox}>
                   <Text style={styles.resultTitle}>This account is US Business</Text>
                   <Text style={styles.resultBody}>
-                    Consumer purchasing stays on. Live Selling is allowed. Mainstream
-                    selling is off for Phase 1. Require followers to create an account
+                    Consumer purchasing stays on. Live Selling and mainstream shop
+                    selling are both allowed. Require followers to create an account
                     with your code before you go live.
                   </Text>
                 </View>

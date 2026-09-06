@@ -386,7 +386,7 @@ export const SAMPLE_US_BUYER = {
   shippingCredits: 2,
   canBuy: true,
   canLiveSell: false,
-  canMainstreamSell: false,
+  canMainstreamSell: true,
 };
 
 export const formatUsd = value => {
