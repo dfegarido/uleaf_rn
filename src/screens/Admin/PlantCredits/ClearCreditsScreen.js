@@ -70,6 +70,7 @@ export default function ClearCreditsScreen() {
   const [credits, setCredits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const [checkedIds, setCheckedIds] = useState([]);
   const [selectedReasonType, setSelectedReasonType] = useState(REASON_TYPES.MISSING_PLANT);
   const [reason, setReason] = useState('');
   const [clearedIds, setClearedIds] = useState([]);
@@ -119,7 +120,7 @@ export default function ClearCreditsScreen() {
           const tiedShipping = shippingByOrder[d.sourceOrderId || d.orderId] || null;
           list.push({
             id: docSnap.id,
-            plantName: d.plantName || d.plantDetails?.plantName || 'Unknown Plant',
+            plantName: d.plantName || d.genus || d.plantDetails?.plantName || 'Unknown Plant',
             plantCode: d.plantCode || d.plantDetails?.plantCode,
             orderId: d.sourceOrderId || d.orderId,
             amount,
@@ -145,10 +146,17 @@ export default function ClearCreditsScreen() {
 
   const active = credits.filter((c) => c.status !== 'fully_used' && !clearedIds.includes(c.id));
   const hasActive = active.length > 0;
+  const allChecked = hasActive && active.every((c) => checkedIds.includes(c.id));
+  const checkedCredits = active.filter((c) => checkedIds.includes(c.id));
+
+  const toggleChecked = (id) => {
+    setCheckedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   const handleClear = useCallback(
-    async (credit) => {
-      if (!reason.trim()) return;
+    async (creditList) => {
+      const list = Array.isArray(creditList) ? creditList : [creditList];
+      if (!reason.trim() || !list.length) return;
       const adminUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || null;
 
       setClearing(true);
@@ -157,15 +165,16 @@ export default function ClearCreditsScreen() {
           buyerId: buyer?.uid,
           reason: reason.trim(),
           reasonType: selectedReasonType,
-          creditId: credit.id,
+          creditIds: list.map((c) => c.id),
           adminUid,
           creditType: 'plant',
-          clearTiedShipping: !!credit.tiedShipping,
+          clearTiedShipping: list.some((c) => c.tiedShipping),
         });
 
         if (result.success) {
-          setClearedIds((prev) => [...prev, credit.id]);
+          setClearedIds((prev) => [...prev, ...list.map((c) => c.id)]);
           setSelectedId(null);
+          setCheckedIds([]);
           setReason('');
           invalidateCreditManagementCache(queryClient);
           invalidateCreditStatementCache(queryClient, buyer?.uid);
@@ -200,7 +209,19 @@ export default function ClearCreditsScreen() {
       </View>
 
       <View style={styles.instruction}>
-        <Text style={styles.instructionText}>Select the plant credit to clear. Use this when you've paid the buyer directly for a specific plant and need to remove the corresponding store credit.</Text>
+        <Text style={styles.instructionText}>Select plants to clear. Use Select all if you need every remaining credit.</Text>
+        {hasActive && (
+          <TouchableOpacity
+            onPress={() => setCheckedIds(allChecked ? [] : active.map((c) => c.id))}
+            style={styles.selectAllBtn}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, allChecked && styles.checkboxOn]}>
+              {allChecked ? <Text style={styles.checkboxMark}>✓</Text> : null}
+            </View>
+            <Text style={styles.selectAllText}>{allChecked ? 'Unselect all' : 'Select all'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 16 }} showsVerticalScrollIndicator={false}>
@@ -221,11 +242,21 @@ export default function ClearCreditsScreen() {
                 <View key={credit.id}>
                   {i > 0 && <View style={styles.divider} />}
 
-                  <TouchableOpacity
-                    onPress={() => { setSelectedId(isOpen ? null : credit.id); setReason(''); setSelectedReasonType(REASON_TYPES.MISSING_PLANT); }}
-                    activeOpacity={0.75}
-                    style={[styles.recordRow, isOpen && { backgroundColor: '#FFF8F8' }]}
-                  >
+                  <View style={[styles.recordRow, isOpen && { backgroundColor: '#FFF8F8' }]}>
+                    <TouchableOpacity
+                      onPress={() => toggleChecked(credit.id)}
+                      style={styles.checkboxHit}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <View style={[styles.checkbox, checkedIds.includes(credit.id) && styles.checkboxOn]}>
+                        {checkedIds.includes(credit.id) ? <Text style={styles.checkboxMark}>✓</Text> : null}
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setSelectedId(isOpen ? null : credit.id); setReason(''); setSelectedReasonType(REASON_TYPES.MISSING_PLANT); }}
+                      activeOpacity={0.75}
+                      style={styles.recordRowMain}
+                    >
                     <View style={[styles.recordIcon, { backgroundColor: CREDIT_COLORS.plantBg, borderColor: CREDIT_COLORS.plantBorder }]}>
                       <Text style={styles.recordIconText}>🌿</Text>
                     </View>
@@ -250,7 +281,8 @@ export default function ClearCreditsScreen() {
                       <Text style={styles.recordOf}>of {formatCurrency(credit.amount)}</Text>
                       <Text style={[styles.chevron, { transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }]}>›</Text>
                     </View>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  </View>
 
                   {isOpen && (
                     <View style={styles.confirmPanel}>
@@ -342,7 +374,7 @@ export default function ClearCreditsScreen() {
 
                         <TouchableOpacity
                           disabled={!canClear || clearing}
-                          onPress={() => handleClear(credit)}
+                          onPress={() => handleClear([credit])}
                           activeOpacity={0.8}
                           style={[
                             styles.clearBtn,
@@ -393,6 +425,29 @@ export default function ClearCreditsScreen() {
           )}
         </View>
       </ScrollView>
+      {checkedCredits.length > 0 && (
+        <View style={[styles.bulkBar, { paddingBottom: insets.bottom + 12 }]}>
+          <TextInput
+            value={reason}
+            onChangeText={setReason}
+            placeholder={REASON_PLACEHOLDER}
+            placeholderTextColor={CREDIT_COLORS.textMuted}
+            style={styles.bulkReason}
+          />
+          <View style={styles.bulkBarRow}>
+            <Text style={styles.bulkBarText}>{checkedCredits.length} selected</Text>
+            <TouchableOpacity
+              disabled={!reason.trim() || clearing}
+              onPress={() => handleClear(checkedCredits)}
+              style={[styles.bulkClearBtn, { backgroundColor: reason.trim() && !clearing ? CREDIT_COLORS.red : CREDIT_COLORS.border }]}
+            >
+              <Text style={[styles.bulkClearText, { color: reason.trim() && !clearing ? '#fff' : CREDIT_COLORS.textMuted }]}>
+                {clearing ? 'Clearing…' : `Clear selected (${checkedCredits.length})`}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -467,6 +522,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: CREDIT_COLORS.textMuted,
     lineHeight: 18,
+  },
+  selectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  selectAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: CREDIT_COLORS.textSecondary,
+  },
+  checkboxHit: {
+    paddingTop: 4,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: CREDIT_COLORS.border,
+    backgroundColor: CREDIT_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOn: {
+    backgroundColor: CREDIT_COLORS.plantDark,
+    borderColor: CREDIT_COLORS.plantDark,
+  },
+  checkboxMark: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  recordRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  bulkBar: {
+    backgroundColor: CREDIT_COLORS.surface,
+    borderTopWidth: 1,
+    borderTopColor: CREDIT_COLORS.border,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 8,
+  },
+  bulkReason: {
+    borderWidth: 1,
+    borderColor: CREDIT_COLORS.border,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 13,
+    color: CREDIT_COLORS.textPrimary,
+  },
+  bulkBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  bulkBarText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: CREDIT_COLORS.textSecondary,
+  },
+  bulkClearBtn: {
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  bulkClearText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   listCard: {
     backgroundColor: CREDIT_COLORS.surface,

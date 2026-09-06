@@ -284,9 +284,36 @@ const ChatScreen = ({navigation, route}) => {
   // Join request state
   const [isPublicGroup, setIsPublicGroup] = useState(false);
   const [isMember, setIsMember] = useState(true);
+  const [isChatShopGroup, setIsChatShopGroup] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [hasRejectedRequest, setHasRejectedRequest] = useState(false);
   const [requestingJoin, setRequestingJoin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkChatShop = async () => {
+      if (chatType !== 'group' || !id) {
+        setIsChatShopGroup(false);
+        return;
+      }
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'chatShops'), where('groupChatId', '==', id), limit(1)),
+        );
+        if (cancelled) return;
+        const shopType = snap.empty ? '' : String(snap.docs[0].data()?.userType || '').toLowerCase();
+        setIsChatShopGroup(!snap.empty && (shopType === 'supplier' || shopType === ''));
+      } catch (error) {
+        if (!cancelled) setIsChatShopGroup(false);
+      }
+    };
+    checkChatShop();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatType, id]);
+
+  const showAddListing = isSeller && chatType === 'group' && isMember && (canChatListing || isChatShopGroup);
   
   // Active members tracking
   const [activeMembers, setActiveMembers] = useState(0);
@@ -2297,7 +2324,7 @@ const ChatScreen = ({navigation, route}) => {
               </View>
             )}
           </TouchableOpacity>
-          {(isSeller && canChatListing && chatType === 'group') && (
+          {showAddListing && (
             <TouchableOpacity
               style={styles.addListingButton}
               onPress={() => navigation.navigate('ScreenSingleSellGroupChat', {...routeParams, currentUserUid, participantIds})}

@@ -899,6 +899,12 @@ console.log('activeListing?.id', activeListing?.id);
                   <ScreenshotIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Snap</Text>
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
+                  <Text style={styles.sideActionNotesText}>List</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
+                  <Text style={styles.sideActionNotesText}>Add</Text>
+                </TouchableOpacity>
             </View>
           </View>
           {soldToUser && (
@@ -966,7 +972,7 @@ console.log('activeListing?.id', activeListing?.id);
         <CreateLiveListingScreen
           isVisible={isCreateListingModalVisible}
           onClose={() => setCreateListingModalVisible(false)}
-          onListingCreated={() => {}}
+          onListingCreated={() => setLiveListingModalVisible(true)}
           sessionId={sessionId}
           navigation={navigation}
           nextIgIndex={sessionListingsCount + 1}
@@ -977,6 +983,10 @@ console.log('activeListing?.id', activeListing?.id);
           onClose={() => setLiveListingModalVisible(false)}
           sessionId={sessionId}
           onActiveListingSet={() => {}}
+          onAddListing={() => {
+            setLiveListingModalVisible(false);
+            setCreateListingModalVisible(true);
+          }}
         />
 
         <Modal

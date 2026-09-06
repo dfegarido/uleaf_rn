@@ -92,6 +92,16 @@ export default function CreditLedgerCard({ item, isFirstInDay, showDebug, isAdmi
               <Text style={styles.date}>{formatDateTime(item.date)}</Text>
             </View>
 
+            {!!(item.genus || item.plantName || item.plantCode || item.details?.plants?.[0]) && (
+              <Text style={styles.plantIdentity} numberOfLines={2}>
+                {[
+                  item.genus || item.details?.plants?.[0]?.genus,
+                  item.plantName || item.details?.plants?.[0]?.plantName,
+                  item.plantCode || item.details?.plants?.[0]?.plantCode,
+                ].filter(Boolean).join(' · ')}
+              </Text>
+            )}
+
             {item.reconstructed && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>Legacy Record</Text>
@@ -193,6 +203,12 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: '#475467',
+  },
+  plantIdentity: {
+    fontSize: 12,
+    color: '#344054',
+    fontWeight: '500',
+    marginBottom: 8,
   },
   date: {
     fontSize: 12,

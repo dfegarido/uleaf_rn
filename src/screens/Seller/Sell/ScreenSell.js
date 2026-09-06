@@ -178,7 +178,9 @@ const ScreenSell = ({navigation}) => {
 
   const handleLiveSaleExcel = () => {
     setShowLiveSaleSheet(false);
-    navigation.navigate('LiveSaleExcelUploadScreen');
+    navigation.navigate('LiveSaleExcelUploadScreen', {
+      existingLiveCount: liveSaleExistingCount,
+    });
   };
 
   const handleLiveSaleManual = () => {
@@ -186,6 +188,11 @@ const ScreenSell = ({navigation}) => {
     navigation.navigate('BatchUploadScreen', {
       existingLiveCount: liveSaleExistingCount,
     });
+  };
+
+  const handleLiveSaleSingle = () => {
+    setShowLiveSaleSheet(false);
+    navigation.navigate('ScreenSingleSellLive');
   };
 
   const handlePressSingle = () => {
@@ -398,7 +405,7 @@ const ScreenSell = ({navigation}) => {
         <ActionSheet
           visible={showLiveSaleSheet}
           onClose={() => setShowLiveSaleSheet(false)}
-          heightPercent={'32%'}>
+          heightPercent={'42%'}>
           <View style={{padding: 20}}>
             <TouchableOpacity onPress={handleLiveSaleExcel}>
               <View
@@ -413,7 +420,7 @@ const ScreenSell = ({navigation}) => {
                     Excel upload
                   </Text>
                   <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Download a template, fill rows, then upload your file
+                    Download a template. Quantity 6 = 6 identical listings. Uploading again appends.
                   </Text>
                 </View>
               </View>
@@ -432,7 +439,26 @@ const ScreenSell = ({navigation}) => {
                     Manual input
                   </Text>
                   <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Enter multiple listings on the batch upload screen
+                    Enter listings. You can add another batch anytime without replacing.
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLiveSaleSingle}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 10,
+                }}>
+                <View style={{flexDirection: 'column'}}>
+                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
+                    Add one listing
+                  </Text>
+                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
+                    Add a single plant now, including while you are live
                   </Text>
                 </View>
               </View>

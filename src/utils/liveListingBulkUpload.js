@@ -1,7 +1,25 @@
 import {postSellSinglePlantApi, uploadMultipleImagesToBackend} from '../components/Api';
 import {getActiveLiveListingApi} from '../components/Api/agoraLiveApi';
+import { getSellerUid, resolveCurrentLiveSessionId } from './attachLiveListingsToSession';
+import { getStoredUserInfo } from './getStoredUserInfo';
 
 const ALLOWED_POT_SIZES = ['2"', '4"', '6"'];
+const MAX_LIVE_LISTING_QTY = 50;
+
+/** Turn quantity on a row into that many identical listings (qty 6 → 6 rows). */
+export function expandLiveListingRows(rows = []) {
+  const out = [];
+  for (const row of rows) {
+    const raw = row?.quantity;
+    const n = raw === '' || raw == null ? 1 : parseInt(String(raw), 10);
+    const count = Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), MAX_LIVE_LISTING_QTY) : 1;
+    const {quantity, ...rest} = row || {};
+    for (let i = 0; i < count; i++) {
+      out.push({...rest});
+    }
+  }
+  return out;
+}
 
 export function validateLiveListingRow(row) {
   if (!String(row.genus ?? '').trim()) {
@@ -41,6 +59,14 @@ export async function uploadLiveListingRows(rows, options = {}) {
       withActiveLiveListing = true;
     }
   } catch (_) {}
+
+  let sessionId = options.sessionId || null;
+  if (!sessionId) {
+    try {
+      const userInfo = await getStoredUserInfo();
+      sessionId = await resolveCurrentLiveSessionId(getSellerUid(userInfo));
+    } catch (_) {}
+  }
 
   let successCount = 0;
   let failCount = 0;
@@ -87,6 +113,7 @@ export async function uploadLiveListingRows(rows, options = {}) {
         status: 'Live',
         publishType: 'Publish Now',
         isActiveLiveListing: i === 0 && !withActiveLiveListing,
+        ...(sessionId ? {sessionId} : {}),
       };
 
       await postSellSinglePlantApi(data);

@@ -401,7 +401,7 @@ const OrderSummary = ({
                   onChangeText={onDiscountCodeChange}
                   autoCapitalize="characters"
                   autoCorrect={false}
-                  editable={orderSummary.codeDiscount === 0 && !(orderSummary.isFreeShippingDiscount && orderSummary.freeShippingDiscount > 0) && !(orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0)}
+                  editable={true}
                 />
               </View>
             </View>
@@ -428,7 +428,7 @@ const OrderSummary = ({
                   </>
                 ) : (
                   <>
-                    ✓ Discount code <Text style={styles.discountCodeBold}>{discountCode}</Text> applied
+                    ✓ Discount code <Text style={styles.discountCodeBold}>{orderSummary.appliedDiscountCode || discountCode}</Text> applied
                     {(orderSummary.isEventGiftDiscount && orderSummary.eventGiftDiscount > 0) ? (
                       <Text> • Event Gift discount applied • You saved {formatCurrencyFull(orderSummary.eventGiftDiscount)}</Text>
                     ) : orderSummary.codeDiscount > 0 ? (

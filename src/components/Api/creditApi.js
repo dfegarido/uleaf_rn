@@ -92,12 +92,17 @@ export const clearCreditsApi = async (clearData) => {
       adminUid: clearData.adminUid,
     };
 
-    // Single credit clear: pass creditId (preferred) or legacy transactionId.
-    if (clearData.creditId) {
+    if (clearData.creditIds?.length) {
+      body.creditIds = clearData.creditIds;
+    } else if (clearData.creditId) {
       body.creditId = clearData.creditId;
     } else if (clearData.transactionId) {
       body.transactionId = clearData.transactionId;
       body.amount = clearData.amount ?? 0;
+    }
+
+    if (clearData.clearAll) {
+      body.clearAll = true;
     }
 
     if (clearData.reasonType) {
