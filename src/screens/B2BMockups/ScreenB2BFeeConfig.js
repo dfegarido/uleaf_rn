@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,12 +12,15 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
+import {getAllUsersApi} from '../../components/Api/getAllUsersApi';
+import {InputDropdownSearch} from '../../components/Input';
 import {getB2BFeeConfigApi, updateB2BFeeConfigApi} from '../../components/Api/b2bFeeApi';
-import {BUSINESS_COUNTRY_NAMES} from '../../utils/b2bCountries';
+import {BUSINESS_COUNTRIES, BUSINESS_COUNTRY_NAMES} from '../../utils/b2bCountries';
 import MockupHeader from './MockupHeader';
 
 const emptyBusiness = {
   name: '',
+  sellerCode: '',
   country: 'Philippines',
   commissionPercent: 10,
   applyLogistics: true,
@@ -34,6 +37,28 @@ const EMPTY_DEFAULTS = {
   applyPlantCare: true,
 };
 
+const resolveSupplierCountry = supplier => {
+  const raw = String(
+    supplier?.country ||
+      supplier?.countryName ||
+      supplier?.businessCountry ||
+      supplier?.accountCountry ||
+      '',
+  ).trim();
+  if (!raw) {
+    return '';
+  }
+  const upper = raw.toUpperCase();
+  const byCode = BUSINESS_COUNTRIES.find(item => item.code === upper);
+  if (byCode) {
+    return byCode.name;
+  }
+  const byName = BUSINESS_COUNTRIES.find(
+    item => item.name.toLowerCase() === raw.toLowerCase(),
+  );
+  return byName ? byName.name : '';
+};
+
 const ScreenB2BFeeConfig = ({navigation}) => {
   const [defaults, setDefaults] = useState(EMPTY_DEFAULTS);
   const [countries, setCountries] = useState([]);
@@ -43,6 +68,9 @@ const ScreenB2BFeeConfig = ({navigation}) => {
   const [loadError, setLoadError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [gardenOptions, setGardenOptions] = useState([]);
+  const [gardenByName, setGardenByName] = useState({});
+  const [gardenLoading, setGardenLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +94,80 @@ const ScreenB2BFeeConfig = ({navigation}) => {
       setLoading(false);
     };
     load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadGardens = async () => {
+      try {
+        setGardenLoading(true);
+        const gardenMap = new Map();
+        let currentPage = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+          const suppliersResp = await getAllUsersApi({
+            role: 'supplier',
+            limit: 100,
+            page: currentPage,
+          });
+          const suppliers = suppliersResp?.data?.users || suppliersResp?.users || [];
+          suppliers.forEach(supplier => {
+            const gardenName = String(
+              supplier?.gardenOrCompanyName ||
+                supplier?.gardenName ||
+                supplier?.companyName ||
+                '',
+            ).trim();
+            if (!gardenName) {
+              return;
+            }
+            const key = gardenName.toLowerCase();
+            if (gardenMap.has(key)) {
+              return;
+            }
+            gardenMap.set(key, {
+              name: gardenName,
+              sellerCode: supplier.uid || supplier.id || supplier.userId || '',
+              country: resolveSupplierCountry(supplier),
+            });
+          });
+
+          const pagination = suppliersResp?.data?.pagination;
+          hasMore = pagination && currentPage < pagination.totalPages;
+          if (hasMore) {
+            currentPage += 1;
+          }
+        }
+
+        if (!active) {
+          return;
+        }
+        const list = Array.from(gardenMap.values()).sort((a, b) =>
+          a.name.localeCompare(b.name),
+        );
+        const byName = {};
+        list.forEach(item => {
+          byName[item.name] = item;
+        });
+        setGardenOptions(list.map(item => item.name));
+        setGardenByName(byName);
+      } catch (error) {
+        console.warn('B2B fee garden lookup failed:', error?.message);
+        if (active) {
+          setGardenOptions([]);
+          setGardenByName({});
+        }
+      } finally {
+        if (active) {
+          setGardenLoading(false);
+        }
+      }
+    };
+    loadGardens();
     return () => {
       active = false;
     };
@@ -96,14 +198,41 @@ const ScreenB2BFeeConfig = ({navigation}) => {
     );
   };
 
+  const onSelectGarden = gardenName => {
+    const selected = gardenByName[gardenName];
+    setNewBusiness(prev => ({
+      ...prev,
+      name: gardenName,
+      sellerCode: selected?.sellerCode || '',
+      country: selected?.country || prev.country,
+    }));
+  };
+
   const addBusiness = () => {
     if (!newBusiness.name.trim()) {
-      Alert.alert('Business name required', 'Enter a garden / business name.');
+      Alert.alert('Garden required', 'Look up and select a garden / business.');
       return;
     }
-    setBusinesses(prev => [...prev, {...newBusiness, name: newBusiness.name.trim()}]);
+    setBusinesses(prev => [
+      ...prev,
+      {
+        ...newBusiness,
+        name: newBusiness.name.trim(),
+        sellerCode: newBusiness.sellerCode || '',
+      },
+    ]);
     setNewBusiness(emptyBusiness);
   };
+
+  const selectedGardenHint = useMemo(() => {
+    if (!newBusiness.name) {
+      return null;
+    }
+    if (newBusiness.sellerCode) {
+      return `Selected garden · seller ${newBusiness.sellerCode.slice(0, 8)}…`;
+    }
+    return 'Selected garden';
+  }, [newBusiness.name, newBusiness.sellerCode]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -211,7 +340,10 @@ const ScreenB2BFeeConfig = ({navigation}) => {
                   <View style={styles.bizRow}>
                     <View style={{flex: 1}}>
                       <Text style={styles.bizName}>{row.name}</Text>
-                      <Text style={styles.bizCountry}>{row.country}</Text>
+                      <Text style={styles.bizCountry}>
+                        {row.country}
+                        {row.sellerCode ? ` · ${row.sellerCode.slice(0, 8)}…` : ''}
+                      </Text>
                     </View>
                     <TextInput
                       style={styles.smallInput}
@@ -247,12 +379,21 @@ const ScreenB2BFeeConfig = ({navigation}) => {
               ))}
 
               <Text style={styles.addTitle}>Add business override</Text>
-              <Field
-                label="Business / garden name"
-                value={newBusiness.name}
-                onChange={name => setNewBusiness({...newBusiness, name})}
-                keyboardType="default"
-              />
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Business / garden name</Text>
+                <InputDropdownSearch
+                  options={gardenOptions}
+                  selectedOption={newBusiness.name}
+                  onSelect={onSelectGarden}
+                  placeholder={
+                    gardenLoading ? 'Loading gardens…' : 'Search garden'
+                  }
+                  disabled={gardenLoading}
+                />
+                {selectedGardenHint ? (
+                  <Text style={styles.gardenHint}>{selectedGardenHint}</Text>
+                ) : null}
+              </View>
               <Text style={styles.fieldLabel}>Country</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.countryChips}>
                 {BUSINESS_COUNTRY_NAMES.map(country => (
@@ -410,6 +551,7 @@ const styles = StyleSheet.create({
   bizName: {fontWeight: '700', color: '#202325'},
   bizCountry: {color: '#7F8D91', fontSize: 12},
   addTitle: {fontWeight: '700', color: '#202325', marginTop: 8, marginBottom: 10},
+  gardenHint: {marginTop: 6, color: '#7F8D91', fontSize: 12},
   countryChips: {marginBottom: 12, flexGrow: 0},
   chip: {
     paddingHorizontal: 10,
