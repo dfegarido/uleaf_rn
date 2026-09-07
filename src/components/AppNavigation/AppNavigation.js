@@ -1319,10 +1319,7 @@ const AppNavigation = () => {
     };
 
     const pushPlantDetail = (nav, plantCode) => {
-      if (nav?.navigate) {
-        nav.navigate('ScreenPlantDetail', {plantCode});
-        return;
-      }
+      // Always push so a second share/link does not reuse a stale listing (iOS native stack).
       nav.dispatch(StackActions.push('ScreenPlantDetail', {plantCode}));
     };
 
@@ -1465,6 +1462,12 @@ const AppNavigation = () => {
     if (!initialUrlHandledRef.current) {
       initialUrlHandledRef.current = true;
       Linking.getInitialURL().then(handleIncomingUrl);
+      // iOS can deliver the launch URL after the first getInitialURL call.
+      if (Platform.OS === 'ios') {
+        setTimeout(() => {
+          Linking.getInitialURL().then(handleIncomingUrl);
+        }, 700);
+      }
     }
 
     const subscription = Linking.addEventListener('url', event => {
