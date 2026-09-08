@@ -57,7 +57,9 @@ export const getChatShopsApi = async () => {
     const data = await response.json();
     return {
       success: true,
-      data: data.shops || [],
+      // The chat-shops edge returns `shops` for non-admins and `data` for
+      // admins; accept both so the Shops tab works for every role.
+      data: data.shops || data.data || [],
     };
   } catch (error) {
     console.error('Get chat shops API error:', error);
