@@ -291,7 +291,7 @@ export const getDiscountsApi = async (options = {}) => {
     if (options.limit) queryParams.append('limit', options.limit.toString());
     if (options.offset) queryParams.append('offset', options.offset.toString());
 
-    const endpoint = API_ENDPOINTS.GET_DISCOUNTS;
+    let endpoint = API_ENDPOINTS.GET_DISCOUNTS;
 
     // Append query string if there are params
     if (queryParams.toString()) {
