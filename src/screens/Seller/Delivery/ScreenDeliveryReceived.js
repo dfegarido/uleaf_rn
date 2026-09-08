@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState, useContext} from 'react';
 import { View,
   Text,
@@ -286,6 +288,7 @@ const ScreenDeliveryReceived = ({navigation}) => {
 
   return (
     <SafeAreaView
+      edges={['bottom', 'left', 'right']}
       style={{flex: 1, backgroundColor: '#fff', paddingTop: insets.top}}>
       {loading && (
         <Modal transparent animationType="fade">
@@ -330,7 +333,7 @@ const ScreenDeliveryReceived = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
               {userInfo.profileImage != '' ? (
-                <Image
+                <AppImage
                   source={{uri: userInfo.profileImage}}
                   style={styles.image}
                   resizeMode="cover"

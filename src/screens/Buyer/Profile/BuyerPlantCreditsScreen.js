@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useCallback, useEffect, useContext } from 'react';
 import { View,
   Text,
@@ -272,7 +274,7 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
           disabled={!item.plantCode}
         >
           {item.plantImage ? (
-            <Image source={{ uri: item.plantImage }} style={styles.plantImg} resizeMode="cover" />
+            <AppImage source={{ uri: item.plantImage }} style={styles.plantImg} resizeMode="cover" />
           ) : (
             <View style={[styles.plantImg, styles.plantPlaceholder]}>
               <Text style={styles.plantPlaceholderText}>🌿</Text>

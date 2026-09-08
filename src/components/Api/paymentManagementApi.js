@@ -13,7 +13,7 @@ export const getPendingPaymentOrdersApi = async (params) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ data: params }),
+      body: JSON.stringify({ action: 'getPendingPaymentOrders', ...(params || {}) }),
     });
     const result = await response.json();
     return result.result || result;
@@ -32,7 +32,7 @@ export const updateOrderToReadyToFlyApi = async (orderIds) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ data: { orderIds } }),
+      body: JSON.stringify({ action: 'updateOrderToReadyToFly', orderIds }),
     });
     const result = await response.json();
     return result.result || result;
@@ -51,7 +51,7 @@ export const deletePendingOrderApi = async (orderId) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ data: { orderId } }),
+      body: JSON.stringify({ action: 'deletePendingOrder', orderId }),
     });
     const result = await response.json();
     return result.result || result;

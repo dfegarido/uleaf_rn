@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import moment from 'moment';
 import React, { useMemo, useState } from 'react';
 import {
@@ -322,7 +324,7 @@ const OrderSummaryDetail = ({ navigation, route }) => {
         {/* Hero */}
         <View style={styles.heroCard}>
           {orderMeta.imageUrl ? (
-            <Image source={{ uri: orderMeta.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+            <AppImage source={{ uri: orderMeta.imageUrl }} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <View style={[styles.heroImage, styles.heroImagePlaceholder]}>
               <Text style={styles.heroPlaceholderEmoji}>🌿</Text>

@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSellDraftListingApi = async (limit, nextPageToken) => {
   try {
@@ -8,7 +9,7 @@ export const getSellDraftListingApi = async (limit, nextPageToken) => {
     params.append('nextPageToken', nextPageToken);
 
     const response = await fetch(
-      `https://searchdraftlistings-nstilwgvua-uc.a.run.app?${params.toString()}`,
+      `${API_ENDPOINTS.SEARCH_DRAFT_LISTINGS}?${params.toString()}`,
       {
         method: 'GET',
         headers: {

@@ -1,3 +1,5 @@
+import AppImage from '../AppImage/AppImage';
+
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -129,7 +131,7 @@ const ThermalLabelViewerModal = ({
                 <Text style={styles.previewLabel} numberOfLines={1}>
                   {item.labelTitle || item.plantCode || `Label ${index + 1}`}
                 </Text>
-                <Image
+                <AppImage
                   source={{ uri: `data:image/png;base64,${item.base64}` }}
                   style={styles.previewImage}
                   resizeMode="contain"

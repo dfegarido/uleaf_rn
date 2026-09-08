@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postListingApplyDiscountActionApi = async (
   plantCodes,
@@ -7,18 +8,14 @@ export const postListingApplyDiscountActionApi = async (
 ) => {
   try {
     const token = await getStoredAuthToken();
-    console.log(JSON.stringify({plantCodes, discountPrice, discountPercent}));
-    const response = await fetch(
-      'https://updatelistingdiscountbyplantcode-nstilwgvua-uc.a.run.app',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({plantCodes, discountPrice, discountPercent}),
+    const response = await fetch(API_ENDPOINTS.UPDATE_LISTING_DISCOUNT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-    );
+      body: JSON.stringify({plantCodes, discountPrice, discountPercent}),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

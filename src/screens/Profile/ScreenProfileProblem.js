@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, {useState} from 'react';
 import { View,
   Text,
@@ -17,7 +19,7 @@ import {useFocusEffect} from '@react-navigation/native';
 import {globalStyles} from '../../assets/styles/styles';
 import {InputTextArea} from '../../components/Input';
 import {ImagePickerModal} from '../../components/ImagePicker';
-import {uploadImageToFirebase} from '../../utils/uploadImageToFirebase';
+import {uploadReportProblemImage} from '../../utils/uploadReportProblemImage';
 import NetInfo from '@react-native-community/netinfo';
 
 import {postProfileReportProblemApi} from '../../components/Api';
@@ -73,11 +75,11 @@ const ScreenProfileProblem = ({navigation}) => {
         throw new Error('No internet connection.');
       }
 
-      // Upload images to Firebase
+      // Upload images to Supabase Storage
       const uploadedUrls = [];
       for (const uri of images) {
-        const firebaseUrl = await uploadImageToFirebase(uri);
-        uploadedUrls.push(firebaseUrl);
+        const supabaseUrl = await uploadReportProblemImage(uri);
+        uploadedUrls.push(supabaseUrl);
       }
 
       const response = await postProfileReportProblemApi(
@@ -165,7 +167,7 @@ const ScreenProfileProblem = ({navigation}) => {
                   data={images}
                   keyExtractor={(uri, index) => index.toString()}
                   renderItem={({item}) => (
-                    <Image source={{uri: item}} style={styles.image} />
+                    <AppImage source={{uri: item}} style={styles.image} />
                   )}
                   horizontal
                   contentContainerStyle={styles.imageListContainer}

@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useEffect, useRef, useState} from 'react';
 import { View,
   Text,
   StyleSheet,
@@ -16,6 +16,7 @@ import {useIsFocused} from '@react-navigation/native';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
 import { getBuyerProfileApi,
+  getCachedBuyerProfile,
   getAddressBookEntriesApi,
   deactivateBuyerApi,
   getBuddyRequestsApi,
@@ -230,10 +231,31 @@ const BuyerProfileScreen = (props) => {
     }
   }, [isFocused, isLoggedIn]);
 
-  const loadAllProfileData = async () => {
-    setLoading(true);
+  // Seed the profile from cache on mount so the screen renders instantly
+  // instead of flashing a skeleton when the data is already cached.
+  const seededFromCacheRef = useRef(false);
+  useEffect(() => {
+    if (isLoggedIn && !seededFromCacheRef.current) {
+      seededFromCacheRef.current = true;
+      getCachedBuyerProfile().then((cached) => {
+        if (cached) {
+          setData(cached);
+          setLoading(false);
+        }
+      });
+    }
+  }, [isLoggedIn]);
+
+  const loadAllProfileData = async (forceRefresh = false) => {
+    // Only show the skeleton on the very first load (no data yet). On
+    // subsequent accesses, keep the existing data visible and refresh in the
+    // background so the screen doesn't flash a skeleton every time.
+    const hasData = Object.keys(data).length > 0;
+    if (!hasData) {
+      setLoading(true);
+    }
     try {
-      const profileData = await loadProfileData();
+      const profileData = await loadProfileData(forceRefresh);
       await Promise.all([
         loadAddressBookCount(),
         loadProfileStats(profileData),
@@ -256,7 +278,7 @@ const BuyerProfileScreen = (props) => {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadAllProfileData();
+      await loadAllProfileData(true);
   } catch (error) {
       
     } finally {
@@ -264,13 +286,13 @@ const BuyerProfileScreen = (props) => {
     }
   };
 
-  const loadProfileData = async () => {
+  const loadProfileData = async (forceRefresh = false) => {
     let netState = await NetInfo.fetch();
     if (!netState.isConnected || !netState.isInternetReachable) {
       throw new Error('No internet connection.');
     }
 
-    const res = await retryAsync(() => getBuyerProfileApi(), 3, 1000);
+    const res = await retryAsync(() => getBuyerProfileApi(forceRefresh), 3, 1000);
 
     if (!res?.success) {
       throw new Error(res?.message || 'Failed to load profile data');

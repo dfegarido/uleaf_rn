@@ -1,5 +1,6 @@
 // API Configuration for local and production environments
 import { LOCAL_BASE_URL as ENV_LOCAL_BASE_URL } from '@env';
+import { LOCAL_SUPABASE_URL as ENV_LOCAL_SUPABASE_URL } from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
 // This prevents accidentally using local API in production builds
@@ -30,6 +31,11 @@ const LOCAL_BASE_URL = ENV_LOCAL_BASE_URL || 'http://localhost:5001/i-leaf-u/us-
 if (__DEV__ && !ENV_LOCAL_BASE_URL) {
   console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
 }
+
+// Supabase Edge Functions base URL
+const LOCAL_SUPABASE_BASE_URL = ENV_LOCAL_SUPABASE_URL || 'http://localhost:8000/functions/v1';
+const PROD_SUPABASE_BASE_URL = 'https://pjcquavlxknhmuszjmyh.supabase.co/functions/v1';
+const getSupabaseBaseUrl = () => (USE_LOCAL_API ? LOCAL_SUPABASE_BASE_URL : PROD_SUPABASE_BASE_URL);
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -162,140 +168,205 @@ const generateEndpoints = () => ({
   FORCE_LOGOUT: `${getBaseUrl()}/forceLogout`,
   
   // Admin Management APIs
-  CREATE_ADMIN: `${getBaseUrl()}/createAdmin`,
-  ADMIN_LOGIN: `${getBaseUrl()}/adminLogin`,
-  GET_ADMIN_INFO: `${getBaseUrl()}/getAdminInfo`,
+  CREATE_ADMIN: `${getSupabaseBaseUrl()}/create-admin`,
+  ADMIN_LOGIN: `${getSupabaseBaseUrl()}/admin-login`,
+  GET_ADMIN_INFO: `${getSupabaseBaseUrl()}/admin-info`,
   GET_BUYER_INFO: `${getBaseUrl()}/getBuyerInfo`,
-  GET_SUPPLIER_INFO: `${getBaseUrl()}/getSupplierInfo`,
-  LIST_ADMINS: `${getBaseUrl()}/listAdmins`,
-  UPDATE_ADMIN: `${getBaseUrl()}/updateAdmin`,
-  UPDATE_ADMIN_PASSWORD: `${getBaseUrl()}/updateAdminPassword`,
-  DELETE_ADMIN: `${getBaseUrl()}/deleteAdmin`,
-  GET_ALL_USERS: `${getBaseUrl()}/getAllUsers`,
-  UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
-  GET_ADMIN_LISTINGS: `${getBaseUrl()}/getAdminListings`,
-  GET_ADMIN_LISTING_DETAIL: `${getBaseUrl()}/getAdminListingDetail`,
-  GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`, // Admin taxonomy management (genus collection with metadata)
-  GET_GENUS_DROPDOWN: `${getBaseUrl()}/getGenusFromPlantCatalogDropdown`, // Seller dropdown (genus collection, simple list)
+GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
+  LIST_ADMINS: `${getSupabaseBaseUrl()}/admin-list`,
+  UPDATE_ADMIN: `${getSupabaseBaseUrl()}/admin-update`,
+  UPDATE_ADMIN_PASSWORD: `${getSupabaseBaseUrl()}/admin-password-update`,
+  DELETE_ADMIN: `${getSupabaseBaseUrl()}/admin-delete`,
+  GET_ALL_USERS: `${getSupabaseBaseUrl()}/admin-users`,
+  UPDATE_USER_STATUS: `${getSupabaseBaseUrl()}/admin-user-status`,
+  GET_ADMIN_LISTINGS: `${getSupabaseBaseUrl()}/admin-listings`,
+  GET_ADMIN_LISTING_DETAIL: `${getSupabaseBaseUrl()}/admin-listing-detail`,
+  GET_GENUS_LIST: `${getSupabaseBaseUrl()}/genus-list`, // Admin taxonomy management (genus collection with metadata)
+  GET_GENUS_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-genus`, // Seller dropdown (genus collection, simple list)
+  GET_SPECIES_FROM_PLANT_CATALOG: `${getSupabaseBaseUrl()}/get-species-from-plant-catalog`,
   // Taxonomy Management APIs
-  ADD_PLANT_TAXONOMY: `${getBaseUrl()}/addPlantTaxonomy`,
-  UPDATE_PLANT_TAXONOMY: `${getBaseUrl()}/updatePlantTaxonomy`,
-  DELETE_PLANT_TAXONOMY: `${getBaseUrl()}/deletePlantTaxonomy`,
-  GET_SPECIES_FOR_GENUS: `${getBaseUrl()}/getSpeciesForGenus`,
-  IMPORT_TAXONOMY_DATA: `${getBaseUrl()}/importTaxonomyData`,
-  DOWNLOAD_TAXONOMY_TEMPLATE: `${getBaseUrl()}/downloadTaxonomyTemplate`,
+  ADD_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/add-plant-taxonomy`,
+  UPDATE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/update-plant-taxonomy`,
+  DELETE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/delete-plant-taxonomy`,
+  GET_SPECIES_FOR_GENUS: `${getSupabaseBaseUrl()}/species-for-genus`,
+  DELETE_USER: `${getSupabaseBaseUrl()}/admin-user-delete`,
+  IMPORT_TAXONOMY_DATA: `${getSupabaseBaseUrl()}/import-taxonomy-data`,
+  DOWNLOAD_TAXONOMY_TEMPLATE: `${getSupabaseBaseUrl()}/taxonomy-template`,
   DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE: `${getBaseUrl()}/downloadLiveListingBatchTemplate`,
-  MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getBaseUrl()}/migratePlantCatalogToTaxonomy`,
+  MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getSupabaseBaseUrl()}/migrate-plant-catalog-taxonomy`,
   // Genus Request Workflow
-  INSERT_GENUS_REQUEST: `${getBaseUrl()}/insertGenusRequest`,
-  GET_GENUS_REQUESTS: `${getBaseUrl()}/getGenusRequests`,
-  APPROVE_GENUS_REQUEST: `${getBaseUrl()}/approveGenusRequest`,
-  REJECT_GENUS_REQUEST: `${getBaseUrl()}/rejectGenusRequest`,
+  INSERT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
+  GET_GENUS_REQUESTS: `${getSupabaseBaseUrl()}/genus-requests`,
+  APPROVE_GENUS_REQUEST: `${getSupabaseBaseUrl()}/approve-genus-request`,
+  REJECT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/reject-genus-request`,
   
   // QR Code APIs
-  QR_GENERATOR: `${getBaseUrl()}/qrGenerator`,
-  QR_GENERATOR_ORDERS: `${getBaseUrl()}/qrGenerator/orders`,
-  THERMAL_LABEL_GENERATOR: `${getBaseUrl()}/thermalLabelGenerator`,
-  EMAIL_THERMAL_LABELS: `${getBaseUrl()}/emailThermalLabels`,
-  GENERATE_RECEIVER_BOX_LABELS: `${getBaseUrl()}/generateReceiverBoxLabels`,
+  QR_GENERATOR: `${getSupabaseBaseUrl()}/qr-generate`,
+  QR_GENERATOR_ORDERS: `${getSupabaseBaseUrl()}/qr-orders`,
+  THERMAL_LABEL_GENERATOR: `${getSupabaseBaseUrl()}/thermal-label-generator`,
+  EMAIL_THERMAL_LABELS: `${getSupabaseBaseUrl()}/email-thermal-labels`,
+  GENERATE_RECEIVER_BOX_LABELS: `${getSupabaseBaseUrl()}/generate-receiver-box-labels`,
   
   // Cart APIs
-  ADD_TO_CART: `${getBaseUrl()}/addToCart`,
-  GET_CART_ITEMS: `${getBaseUrl()}/getCartItems`,
-  UPDATE_CART_ITEM: `${getBaseUrl()}/updateCartItem`,
-  REMOVE_FROM_CART: `${getBaseUrl()}/removeFromCart`,
+  ADD_TO_CART: `${getSupabaseBaseUrl()}/add-to-cart`,
+  GET_CART_ITEMS: `${getSupabaseBaseUrl()}/cart-items`,
+  UPDATE_CART_ITEM: `${getSupabaseBaseUrl()}/cart-update`,
+  REMOVE_FROM_CART: `${getSupabaseBaseUrl()}/cart-remove`,
   
   // Shop APIs
   GET_SORT: `${getBaseUrl()}/getSort`,
-  GET_GENUS: `${getBaseUrl()}/getGenus`,
-  GET_VARIEGATION: `${getBaseUrl()}/getVariegation`,
-  GET_COUNTRY: `${getBaseUrl()}/getCountryDropdown`,
-  GET_LISTING_TYPE: `${getBaseUrl()}/getListingTypeDropdown`,
-  GET_SHIPPING_INDEX: `${getBaseUrl()}/getShippingIndexDropdown`,
-  GET_ACCLIMATION_INDEX: `${getBaseUrl()}/getAcclimationIndexDropdown`,
+GET_GENUS: `${getSupabaseBaseUrl()}/get-genus`,
+GET_VARIEGATION: `${getSupabaseBaseUrl()}/get-variegation`,
+  GET_VARIEGATION_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-variegation`,
+  GET_COUNTRY: `${getSupabaseBaseUrl()}/dropdown-country`,
+  GET_LISTING_TYPE: `${getSupabaseBaseUrl()}/dropdown-listing-type`,
+  GET_SHIPPING_INDEX: `${getSupabaseBaseUrl()}/dropdown-shipping-index`,
+  GET_ACCLIMATION_INDEX: `${getSupabaseBaseUrl()}/dropdown-acclimation-index`,
   BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
-  BROWSE_PLANTS_BY_GENUS: `${getBaseUrl()}/browsePlantsByGenus`,
+  BROWSE_PLANTS_BY_GENUS: `${getSupabaseBaseUrl()}/browse-plants-by-genus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
-  SEARCH_LISTING: `${getBaseUrl()}/searchListing`,
-  SEARCH_PLANTS: `${getBaseUrl()}/searchPlants`,
-  GET_BUYER_LISTINGS: `${getBaseUrl()}/getBuyerListings`,
-  GET_BUYER_LISTING: `${getBaseUrl()}/getBuyerListing`, // Single plant detail
-  GET_BUYER_LISTING_LIVE: `${getBaseUrl()}/getBuyerListingLive`, // Single plant detail
-  GET_PRICE_DROP_BADGE_LISTINGS: `${getBaseUrl()}/getPriceDropBadgeListings`, // Price Drop badge
-  GET_PLANT_RECOMMENDATIONS: `${getBaseUrl()}/getPlantRecommendations`,
-  SEARCH_DRAFT_LISTINGS: `${getBaseUrl()}/searchDraftListings`,
+SEARCH_LISTING: `${getSupabaseBaseUrl()}/search-listing`,
+  SEARCH_PLANTS: `${getSupabaseBaseUrl()}/plant-search`,
+  GET_BUYER_LISTINGS: `${getSupabaseBaseUrl()}/buyer-listings`,
+  GET_BUYER_LISTING: `${getSupabaseBaseUrl()}/listing-detail`, // Single plant detail
+GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single plant detail
+  GET_PRICE_DROP_BADGE_LISTINGS: `${getSupabaseBaseUrl()}/price-drop-badge`, // Price Drop badge
+  GET_PLANT_RECOMMENDATIONS: `${getSupabaseBaseUrl()}/plant-recommendations`,
+  GET_BUYER_CONTENT: `${getSupabaseBaseUrl()}/buyer-content`,
+  GET_CHAT_SHOPS: `${getSupabaseBaseUrl()}/chat-shops`,
+  GET_CHAT_DETAIL: `${getSupabaseBaseUrl()}/chat-detail`,
+  GET_CHAT_MESSAGES: `${getSupabaseBaseUrl()}/chat-messages`,
+  POST_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
+  PUT_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
+  DELETE_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
+  GET_CHAT_MEMBERSHIP: `${getSupabaseBaseUrl()}/chat-membership`,
+  POST_CHAT_JOIN_REQUEST: `${getSupabaseBaseUrl()}/chat-join-request`,
+  GET_CHAT_PARTICIPANTS: `${getSupabaseBaseUrl()}/chat-participants`,
+  GET_CHAT_PARTICIPANTS_BATCH: `${getSupabaseBaseUrl()}/chat-participants-batch`,
+  GET_CHATS: `${getSupabaseBaseUrl()}/chats`,
+  POST_CHAT_DELETE: `${getSupabaseBaseUrl()}/chat-delete`,
+  POST_CHAT_CREATE: `${getSupabaseBaseUrl()}/chat-create`,
+  POST_CHAT_UPDATE: `${getSupabaseBaseUrl()}/chat-update`,
+  GET_CHAT_REALTIME_TOKEN: `${getSupabaseBaseUrl()}/chat-realtime-token`,
+  GET_LIVE_STREAMS: `${getSupabaseBaseUrl()}/live-list`,
+  GET_LIVE_SELLERS: `${getSupabaseBaseUrl()}/live-sellers`,
+  POST_GENERATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/generate-live-session`,
+  CREATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/create-live-session`,
+  UPDATE_LIVE_SESSION: `${getSupabaseBaseUrl()}/update-live-session`,
+  GET_LIVE_LISTINGS_BY_SESSION: `${getSupabaseBaseUrl()}/get-live-listings-by-session`,
+  ADD_VIEWER_TO_LIVE_SESSION: `${getSupabaseBaseUrl()}/add-viewer-to-live-session`,
+  REMOVE_VIEWER_FROM_LIVE_SESSION: `${getSupabaseBaseUrl()}/remove-viewer-from-live-session`,
+  TOGGLE_LOVE_LIVE_SESSION: `${getSupabaseBaseUrl()}/toggle-love-live-session`,
+  POST_SUPPLIER_UPDATE: `${getSupabaseBaseUrl()}/supplier-update`,
+  POST_REPORT_PROBLEM: `${getSupabaseBaseUrl()}/report-problem`,
+  POST_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
+  POST_PROFILE_PHOTO_UPLOAD: `${getSupabaseBaseUrl()}/profile-photo-upload`,
+  POST_REPORT_PROBLEM_PHOTO_UPLOAD: `${getSupabaseBaseUrl()}/report-problem-photo-upload`,
+SEARCH_DRAFT_LISTINGS: `${getSupabaseBaseUrl()}/search-draft-listings`,
   
   // Listing Management APIs
   UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
+  POST_LISTING_IMAGE_UPLOAD: `${getSupabaseBaseUrl()}/listing-image-upload`,
   UPLOAD_CHAT_VIDEO: `${getBaseUrl()}/uploadChatVideo`,
-  ADD_LISTING: `${getBaseUrl()}/addListing`,
-  UPDATE_LISTING: `${getBaseUrl()}/updateListing`,
-  GET_LISTING: `${getBaseUrl()}/getListing`,
-  SYNC_SELLER_EXPIRED_LISTINGS: `${getBaseUrl()}/syncSellerExpiredListings`,
-  DUPLICATE_LISTING: `${getBaseUrl()}/duplicateListing`,
-  DELETE_LISTING: `${getBaseUrl()}/deleteListingByPlantCode`,
+  POST_CHAT_VIDEO_UPLOAD: `${getSupabaseBaseUrl()}/chat-video-upload`,
+ADD_LISTING: `${getSupabaseBaseUrl()}/add-listing`,
+UPDATE_LISTING: `${getSupabaseBaseUrl()}/update-listing`,
+GET_LISTING: `${getSupabaseBaseUrl()}/get-listing`,
+  SYNC_SELLER_EXPIRED_LISTINGS: `${getSupabaseBaseUrl()}/sync-seller-expired-listings`,
+DUPLICATE_LISTING: `${getSupabaseBaseUrl()}/duplicate-listing`,
+DELETE_LISTING: `${getSupabaseBaseUrl()}/delete-listing`,
+  // Listing action write paths (migrated to Supabase)
+  UPDATE_LISTING_STATUS: `${getSupabaseBaseUrl()}/update-listing-status`,
+  UPDATE_LISTING_DISCOUNT: `${getSupabaseBaseUrl()}/update-listing-discount`,
+  UPDATE_LISTING_VARIATION_QTY: `${getSupabaseBaseUrl()}/update-listing-variation-qty`,
+  PIN_LISTING: `${getSupabaseBaseUrl()}/pin-listing`,
+  PUBLISH_LISTING: `${getSupabaseBaseUrl()}/publish-listing`,
+  SET_ACTIVE_LIVE_LISTING: `${getSupabaseBaseUrl()}/set-active-live-listing`,
   // External listing/reporting service used for business performance charts
-  // Cloud Run endpoint that accepts POST { interval }
-  // Use a local path when running with the emulator so developers can stub the endpoint.
-  GET_LISTING_REPORT: USE_LOCAL_API ? `${getBaseUrl()}/getListingReport` : 'https://getlistingreport-nstilwgvua-uc.a.run.app',
+  // Supabase Edge Function that accepts POST { interval }
+  GET_LISTING_REPORT: `${getSupabaseBaseUrl()}/listing-report`,
   
   // News & Events (buyer announcements)
   GET_NEWS_AND_EVENT: (limit = 10, category = 'announcement') => `${getBaseUrl()}/getNewsAndEvent?limit=${limit}&category=${encodeURIComponent(category)}`,
+  // News & Events for seller home carousel (Supabase)
+GET_NEWS_EVENT: `${getSupabaseBaseUrl()}/news-event`,
+  // Chat Shops for seller home (supplier shops the seller is a member of)
+GET_CHAT_SHOPS_SUPPLIER: `${getSupabaseBaseUrl()}/chat-shops-supplier`,
   // External dashboard statistics (not hosted on our functions base)
-  GET_DASHBOARD_STATISTICS: `${getBaseUrl()}/getDashboardStatistics`,
+GET_DASHBOARD_STATISTICS: `${getSupabaseBaseUrl()}/dashboard-statistics`,
+  // Date period dropdown (Weekly/Monthly) for seller home Business Performance
+GET_DATE_PERIOD_DROPDOWN: `${getSupabaseBaseUrl()}/date-period-dropdown`,
+  // Payout listing for seller Payouts screen
+LIST_PAYOUT: `${getSupabaseBaseUrl()}/list-payout`,
+  // Sort options for seller My Store screen
+GET_SORT_STORE_DROPDOWN: `${getSupabaseBaseUrl()}/sort-store-dropdown`,
+  // Sort options for seller Listing screen (same source)
+GET_SORT_DROPDOWN: `${getSupabaseBaseUrl()}/sort-store-dropdown`,
+  // Mutation dropdown for seller Sell screen
+GET_MUTATION_DROPDOWN: `${getSupabaseBaseUrl()}/mutation-dropdown`,
+  // Active live listing for seller Sell screen
+GET_ACTIVE_LIVE_LISTING: `${getSupabaseBaseUrl()}/active-live-listing`,
+  // Most Loved listings for the seller Sell screen
+GET_MOST_LOVE_LISTING: `${getSupabaseBaseUrl()}/get-most-love-listing`,
+  // Mark a chat as read (remove current user from unreadby)
+POST_CHAT_MARK_READ: `${getSupabaseBaseUrl()}/chat-mark-read`,
+  // Find an existing private chat between the current user and another user
+GET_CHAT_FIND_PRIVATE: `${getSupabaseBaseUrl()}/chat-find-private`,
   // External listing/reporting service used for business performance charts
   // This is an external Cloud Run endpoint that accepts POST { interval }
   
   // Checkout & Payment APIs
   CHECKOUT: `${getBaseUrl()}/checkout`,
   CHECKOUT_JOINER: `${getBaseUrl()}/checkoutJoiner`,
-  CALCULATE_CHECKOUT_SHIPPING: `${getBaseUrl()}/calculateCheckoutShipping`,
+  CALCULATE_CHECKOUT_SHIPPING: `${getSupabaseBaseUrl()}/checkout-shipping`,
   CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
   CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
   CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
 
   // Discount Code APIs
-  VALIDATE_DISCOUNT_CODE: `${getBaseUrl()}/validateDiscountCode`,
-  CREATE_DISCOUNT: `${getBaseUrl()}/createDiscount`,
-  UPDATE_DISCOUNT: `${getBaseUrl()}/updateDiscount`,
-  DELETE_DISCOUNT: `${getBaseUrl()}/deleteDiscount`,
-  GET_DISCOUNTS: `${getBaseUrl()}/getDiscounts`,
-  GET_DISCOUNT: `${getBaseUrl()}/getDiscount`,
+  VALIDATE_DISCOUNT_CODE: `${getSupabaseBaseUrl()}/validate-discount`,
+CREATE_DISCOUNT: `${getSupabaseBaseUrl()}/create-discount`,
+UPDATE_DISCOUNT: `${getSupabaseBaseUrl()}/update-discount`,
+DELETE_DISCOUNT: `${getSupabaseBaseUrl()}/delete-discount`,
+GET_DISCOUNTS: `${getSupabaseBaseUrl()}/get-discounts`,
+GET_DISCOUNT: `${getSupabaseBaseUrl()}/get-discount`,
 
   // Order APIs
-  GET_ORDERS: `${getBaseUrl()}/getOrders`,
-  GET_ORDER_FOR_RECEIVING: `${getBaseUrl()}/getOrderForReceiving`,
-  GET_BUYER_ORDERS: `${getBaseUrl()}/getBuyerOrders`,
-  GET_BUYER_ORDERS_GROUPED: `${getBaseUrl()}/getBuyerOrdersGrouped`,
-  GET_ADMIN_ORDERS: `${getBaseUrl()}/getAdminOrders`,
-  GET_ORDER_DETAIL: `${getBaseUrl()}/getOrderDetail`,
-  GENERATE_INVOICE: `${getBaseUrl()}/generateInvoice`,
+GET_ORDERS: `${getSupabaseBaseUrl()}/get-orders`,
+GET_ORDER_FOR_RECEIVING: `${getSupabaseBaseUrl()}/order-for-receiving`,
+  GET_BUYER_ORDERS: `${getSupabaseBaseUrl()}/buyer-orders`,
+  GET_BUYER_ORDERS_GROUPED: `${getSupabaseBaseUrl()}/buyer-orders-grouped`,
+  GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
+  GET_ADMIN_ORDERS: `${getSupabaseBaseUrl()}/admin-orders`,
+  GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
+  GENERATE_INVOICE: `${getSupabaseBaseUrl()}/generate-invoice`,
   
   // Seller Order APIs
-  UPDATE_ORDER_SELLER_SCANNED: `${getBaseUrl()}/updateOrderSellerScanned`,
-  GET_SELLER_ORDER_COUNTS: `${getBaseUrl()}/getSellerOrderCounts`,
-  UPDATE_ORDER_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateOrderLeafTrailStatus`,
+UPDATE_ORDER_SELLER_SCANNED: `${getSupabaseBaseUrl()}/update-order-seller-scanned`,
+GET_SELLER_ORDER_COUNTS: `${getSupabaseBaseUrl()}/seller-order-counts`,
+  UPDATE_ORDER_LEAF_TRAIL_STATUS: `${getSupabaseBaseUrl()}/update-order-leaf-trail-status`,
+  UPDATE_ORDER_DELIVERY_STATUS: `${getSupabaseBaseUrl()}/update-order-delivery-status`,
   
   // System APIs
-  CHECK_MAINTENANCE: `${getBaseUrl()}/checkMaintenance`,
-  SET_MAINTENANCE: `${getBaseUrl()}/setMaintenance`,
-  GET_APP_VERSION: `${getBaseUrl()}/getAppVersion`,
-  SET_APP_VERSION: `${getBaseUrl()}/setAppVersion`,
+CHECK_MAINTENANCE: `${getSupabaseBaseUrl()}/check-maintenance`,
+SET_MAINTENANCE: `${getSupabaseBaseUrl()}/set-maintenance`,
+GET_APP_VERSION: `${getSupabaseBaseUrl()}/get-app-version`,
+SET_APP_VERSION: `${getSupabaseBaseUrl()}/set-app-version`,
   
   // Credit Request APIs
-  REQUEST_CREDIT: `${getBaseUrl()}/requestCredit`,
-  GET_BUYER_CREDIT_REQUESTS: `${getBaseUrl()}/getBuyerCreditRequests`,
-  GET_CREDIT_REQUEST_DETAIL: `${getBaseUrl()}/getCreditRequestDetail`,
-  GET_JOURNEY_MISHAP_ORDERS: `${getBaseUrl()}/getJourneyMishapOrders`,
-  GET_PLANTS_WITH_CREDIT_REQUESTS: `${getBaseUrl()}/getPlantsWithCreditRequests`,
-  GET_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getJourneyMishapData`,
-  GET_ADMIN_JOURNEY_MISHAP_DATA: `${getBaseUrl()}/getAdminJourneyMishapData`,
-  UPDATE_JOURNEY_MISHAP_STATUS: `${getBaseUrl()}/updateJourneyMishapStatus`,
-  EXPORT_BUYER_ORDERS: `${getBaseUrl()}/exportBuyerOrders`,
-  CLEAR_CREDITS: `${getBaseUrl()}/clearCredits`,
-  GET_PLANT_CREDIT_LEDGER: `${getBaseUrl()}/getPlantCreditLedger`,
-  GET_BUYER_CREDIT_STATEMENT: `${getBaseUrl()}/getBuyerCreditStatement`,
-  MANUAL_ADJUST_CREDITS: `${getBaseUrl()}/manualAdjustCredits`,
+REQUEST_CREDIT: `${getSupabaseBaseUrl()}/request-credit`,
+GET_BUYER_CREDIT_REQUESTS: `${getSupabaseBaseUrl()}/buyer-credit-requests`,
+GET_CREDIT_REQUEST_DETAIL: `${getSupabaseBaseUrl()}/credit-request-detail`,
+GET_JOURNEY_MISHAP_ORDERS: `${getSupabaseBaseUrl()}/journey-mishap-orders`,
+GET_PLANTS_WITH_CREDIT_REQUESTS: `${getSupabaseBaseUrl()}/plants-with-credit-requests`,
+  GET_JOURNEY_MISHAP_DATA: `${getSupabaseBaseUrl()}/journey-mishap-data`,
+GET_ADMIN_JOURNEY_MISHAP_DATA: `${getSupabaseBaseUrl()}/admin-journey-mishap-data`,
+UPDATE_JOURNEY_MISHAP_STATUS: `${getSupabaseBaseUrl()}/update-journey-mishap-status`,
+  EXPORT_BUYER_ORDERS: `${getSupabaseBaseUrl()}/export-buyer-orders`,
+CLEAR_CREDITS: `${getSupabaseBaseUrl()}/clear-credits`,
+GET_PLANT_CREDIT_LEDGER: `${getSupabaseBaseUrl()}/plant-credit-ledger`,
+GET_BUYER_CREDIT_STATEMENT: `${getSupabaseBaseUrl()}/buyer-credit-statement`,
+MANUAL_ADJUST_CREDITS: `${getSupabaseBaseUrl()}/manual-adjust-credits`,
   
   // Dropdown APIs
   GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,
@@ -307,75 +378,97 @@ const generateEndpoints = () => ({
   GET_DELIVERY_OPTIONS: `${getBaseUrl()}/getDeliveryOptions`,
   
   // Location Dropdown APIs
-  GET_DROPDOWN_STATES: `${getBaseUrl()}/getDropdownStates`,
-  GET_DROPDOWN_CITIES: `${getBaseUrl()}/getDropdownCities`,
+GET_DROPDOWN_STATES: `${getSupabaseBaseUrl()}/states-data`,
+GET_DROPDOWN_CITIES: `${getSupabaseBaseUrl()}/cities-data`,
   POPULATE_DROPDOWN_STATES: `${getBaseUrl()}/populateDropdownStates`,
   POPULATE_DROPDOWN_CITIES: `${getBaseUrl()}/populateDropdownCities`,
   TRIGGER_LOCATION_DATA_UPDATE: `${getBaseUrl()}/triggerLocationDataUpdate`,
   // Public (unauthenticated) location endpoints
   PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
   PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
-  GET_CITIES_BY_STATE: `${getBaseUrl()}/getCitiesByState`,
+GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   
   // User related endpoints
-  SEARCH_USER: `${getBaseUrl()}/searchUser`,
+  SEARCH_USER: `${getSupabaseBaseUrl()}/search-user`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
-  UPLOAD_CHAT_SHOP_PHOTO: `${getBaseUrl()}/uploadChatShopPhoto`,
-  UPLOAD_BUYER_CONTENT_PHOTO: `${getBaseUrl()}/uploadBuyerContentPhoto`,
+  UPLOAD_CHAT_SHOP_PHOTO: `${getSupabaseBaseUrl()}/chat-shop-photo-upload`,
+  UPLOAD_BUYER_CONTENT_PHOTO: `${getSupabaseBaseUrl()}/buyer-content-photo-upload`,
   
-  // Shipping Buddy endpoints
-  SUBMIT_RECEIVER_REQUEST: `${getBaseUrl()}/submitReceiverRequest`,
-  GET_BUDDY_REQUESTS: `${getBaseUrl()}/getBuddyRequests`,
-  APPROVE_REJECT_BUDDY_REQUEST: `${getBaseUrl()}/approveRejectBuddyRequest`,
-  GET_MY_RECEIVER_REQUEST: `${getBaseUrl()}/getMyReceiverRequest`,
-  CANCEL_RECEIVER_REQUEST: `${getBaseUrl()}/cancelReceiverRequest`,
+  // Shipping Buddy endpoints (moved to Supabase block below — see SUBMIT_RECEIVER_REQUEST etc.)
+  // Address Book APIs
+  GET_ADDRESS_BOOK_ENTRIES: `${getSupabaseBaseUrl()}/address-book`,
+  GET_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+  CREATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+  UPDATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+  DELETE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
+
+  // Buyer account management (Supabase; password update stays on Firebase — auth domain)
+  BUYER_UPDATE: `${getSupabaseBaseUrl()}/buyer-update`,
+  DEACTIVATE_BUYER: `${getSupabaseBaseUrl()}/deactivate-buyer`,
+  UPDATE_BUYER_PASSWORD: `${getBaseUrl()}/updateBuyerPassword`,
+
+  // Payout detail (Supabase)
+  PAYOUT_DETAIL: `${getSupabaseBaseUrl()}/payout-detail`,
+  PAYOUT_DETAIL_EXPORT: `${getSupabaseBaseUrl()}/payout-detail-export`,
+
+  // Referral APIs
+  REFERRAL_INFO: `${getSupabaseBaseUrl()}/referral-info`,
+  LIST_REFERRAL_REWARDS: `${getSupabaseBaseUrl()}/list-referral-rewards`,
+  CREATE_REFERRAL: `${getSupabaseBaseUrl()}/create-referral`,
+  REDEEM_REFERRAL_REWARD: `${getBaseUrl()}/redeemReferralReward`,
   
   // Flight Change Request endpoints
-  SUBMIT_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/submitFlightChangeRequest`,
-  GET_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getFlightChangeRequests`,
-  GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getBaseUrl()}/getAdminFlightChangeRequests`,
-  UPDATE_FLIGHT_CHANGE_REQUEST: `${getBaseUrl()}/updateFlightChangeRequest`,
+SUBMIT_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/submit-flight-change-request`,
+  GET_FLIGHT_CHANGE_REQUESTS: `${getSupabaseBaseUrl()}/buyer-flight-change-requests`,
+  GET_ADMIN_FLIGHT_CHANGE_REQUESTS: `${getSupabaseBaseUrl()}/flight-change-requests`,
+  UPDATE_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/flight-change-request-update`,
+
+  // Shipping Buddy endpoints (migrated to Supabase)
+SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
+  GET_BUDDY_REQUESTS: `${getSupabaseBaseUrl()}/buddy-requests`,
+  APPROVE_REJECT_BUDDY_REQUEST: `${getSupabaseBaseUrl()}/approve-reject-buddy-request`,
+  CANCEL_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/cancel-receiver-request`,
+  GET_MY_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/my-receiver-request`,
 
   // Flight Schedule endpoints
-  GET_FLIGHT_SCHEDULE: `${getBaseUrl()}/getFlightSchedule`,
-  UPDATE_FLIGHT_DATE_STATUS: `${getBaseUrl()}/updateFlightDateStatus`,
-  UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getBaseUrl()}/updateFlightDateForSchedule`,
-  GET_ACTIVE_FLIGHT_DATES: `${getBaseUrl()}/getActiveFlightDates`,
+  GET_FLIGHT_SCHEDULE: `${getSupabaseBaseUrl()}/flight-schedule`,
+  UPDATE_FLIGHT_DATE_STATUS: `${getSupabaseBaseUrl()}/flight-date-status`,
+  UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getSupabaseBaseUrl()}/flight-date-schedule-update`,
+  GET_ACTIVE_FLIGHT_DATES: `${getSupabaseBaseUrl()}/active-flight-dates`,
 
   // Leaf Trail endpoints
-  UPDATE_LEAF_TRAIL_STATUS: `${getBaseUrl()}/updateLeafTrailStatus`,
-  UPDATE_PLANT_STATUS: `${getBaseUrl()}/updatePlantStatus`,
-  GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getBaseUrl()}/getAdminLeafTrailReceiving`,
-  EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
-  GET_ADMIN_LEAF_TRAIL_SORTING: `${getBaseUrl()}/getAdminLeafTrailSorting`,
-  GET_ADMIN_LEAF_TRAIL_PACKING: `${getBaseUrl()}/getAdminLeafTrailPacking`,
-  GET_ADMIN_LEAF_TRAIL_SHIPPING: `${getBaseUrl()}/getAdminLeafTrailShipping`,
-  GET_ADMIN_LEAF_TRAIL_SHIPPED: `${getBaseUrl()}/getAdminLeafTrailShipped`,
-  GET_ADMIN_LEAF_TRAIL_FILTERS: `${getBaseUrl()}/getAdminFilters`,
-  GET_ADMIN_SCAN_QR: `${getBaseUrl()}/getAdminScanQr`,
-  ADD_LEAF_TRAIL_BOX_NUMBER: `${getBaseUrl()}/addLeafTrailBoxNumber`,
-  ASSIGN_RECEIVER_BOXES: `${getBaseUrl()}/assignReceiverBoxes`,
-  ADD_LEAF_SORT_TRAY: `${getBaseUrl()}/addLeafSortTray`,
-  UPDATE_PLANTS_TO_SORTED: `${getBaseUrl()}/updatePlantsToSorted`,
-  UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getBaseUrl()}/updatePlantsToNeedsToStay`,
-  GET_ORDERS_BY_SORTING_TRAY: `${getBaseUrl()}/getOrdersBySortingTray`,
-  GET_ORDERS_BY_BOX_NUMBER: `${getBaseUrl()}/getOrdersByBoxNumber`,
-  GET_ORDERS_BY_TRACKING_NUMBER: `${getBaseUrl()}/getOrdersByTrackingNumber`,
-  ADD_LEAF_TRAIL_TRACKING_NUMBER: `${getBaseUrl()}/addLeafTrailTrackingNumber`,
-  ADD_LEAF_TRAIL_SHIPPING_DETAILS: `${getBaseUrl()}/addLeafTrailShippingDetails`,
-  SEND_RECEIVER_BOXES_TO_IN_TRANSIT: `${getBaseUrl()}/sendReceiverBoxesToInTransit`,
+  UPDATE_LEAF_TRAIL_STATUS: `${getSupabaseBaseUrl()}/leaf-trail-status`,
+  UPDATE_PLANT_STATUS: `${getSupabaseBaseUrl()}/plant-status`,
+  GET_ADMIN_LEAF_TRAIL_RECEIVING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  EXPORT_ALL_ORDERS_TO_CSV: `${getSupabaseBaseUrl()}/admin-export-orders`,
+  GET_ADMIN_LEAF_TRAIL_SORTING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_PACKING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_SHIPPING: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_SHIPPED: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_LEAF_TRAIL_FILTERS: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ADMIN_SCAN_QR: `${getSupabaseBaseUrl()}/admin-order-details`,
+  ADD_LEAF_TRAIL_BOX_NUMBER: `${getSupabaseBaseUrl()}/leaf-trail-box-number`,
+  ASSIGN_RECEIVER_BOXES: `${getSupabaseBaseUrl()}/assign-receiver-boxes`,
+  ADD_LEAF_SORT_TRAY: `${getSupabaseBaseUrl()}/leaf-trail-sort-tray`,
+  UPDATE_PLANTS_TO_SORTED: `${getSupabaseBaseUrl()}/plants-sorted-needs-stay`,
+  UPDATE_PLANTS_TO_NEEDS_TO_STAY: `${getSupabaseBaseUrl()}/plants-sorted-needs-stay`,
+  GET_ORDERS_BY_SORTING_TRAY: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ORDERS_BY_BOX_NUMBER: `${getSupabaseBaseUrl()}/admin-order-details`,
+  GET_ORDERS_BY_TRACKING_NUMBER: `${getSupabaseBaseUrl()}/admin-order-details`,
+  ADD_LEAF_TRAIL_TRACKING_NUMBER: `${getSupabaseBaseUrl()}/leaf-trail-tracking-number`,
+  ADD_LEAF_TRAIL_SHIPPING_DETAILS: `${getSupabaseBaseUrl()}/leaf-trail-shipping-details`,
+  SEND_RECEIVER_BOXES_TO_IN_TRANSIT: `${getSupabaseBaseUrl()}/send-receiver-boxes-in-transit`,
 
   // Delivery Export endpoint
-  DELIVERY_EXPORT: `${getBaseUrl()}/deliveryExport`,
+  DELIVERY_EXPORT: `${getSupabaseBaseUrl()}/delivery-export`,
   
   // Order Export endpoints
-  EXPORT_ALL_ORDERS_TO_CSV: `${getBaseUrl()}/exportAllOrdersToCsv`,
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
 
   // Payment Management APIs
-  GET_PENDING_PAYMENT_ORDERS: `${getBaseUrl()}/getPendingPaymentOrders`,
-  UPDATE_ORDER_READY_TO_FLY: `${getBaseUrl()}/updateOrderToReadyToFly`,
-  DELETE_PENDING_ORDER: `${getBaseUrl()}/deletePendingOrder`,
+  GET_PENDING_PAYMENT_ORDERS: `${getSupabaseBaseUrl()}/admin-payment-management`,
+  UPDATE_ORDER_READY_TO_FLY: `${getSupabaseBaseUrl()}/admin-payment-management`,
+  DELETE_PENDING_ORDER: `${getSupabaseBaseUrl()}/admin-payment-management`,
 
   // Group Chat Notification
   SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
@@ -387,8 +480,23 @@ const generateEndpoints = () => ({
 
   // Live Stream Requests
   CREATE_LIVE_REQUEST: `${getBaseUrl()}/createLiveRequest`,
+  UPDATE_LIVE_SESSION_STATUS: `${getSupabaseBaseUrl()}/update-live-session-status`,
+  UPDATE_LIVE_REQUEST_STATUS: `${getSupabaseBaseUrl()}/update-live-request-status`,
+  GET_LIVE_REQUESTS_ADMIN: `${getSupabaseBaseUrl()}/get-live-requests`,
+  UPDATE_LIVE_REQUEST: `${getSupabaseBaseUrl()}/update-live-request`,
+  FLIGHT_DATE_ORDERS: `${getSupabaseBaseUrl()}/flight-date-orders`,
+  LEAF_POINTS: `${getSupabaseBaseUrl()}/leaf-points`,
+  CREDIT_BUYERS: `${getSupabaseBaseUrl()}/credit-buyers`,
+  GET_BUYER_CREDITS: `${getSupabaseBaseUrl()}/get-buyer-credits`,
   GET_LIVE_REQUESTS: `${getBaseUrl()}/getLiveRequests`,
-  UPDATE_LIVE_REQUEST_STATUS: `${getBaseUrl()}/updateLiveRequestStatus`,
+  LIVE_DELETE: `${getSupabaseBaseUrl()}/live-delete`,
+  LIVE_REQUEST_WRITE: `${getSupabaseBaseUrl()}/live-request-write`,
+  MY_LIVE_SESSIONS: `${getSupabaseBaseUrl()}/my-live-sessions`,
+  LIVE_COMMENTS: `${getSupabaseBaseUrl()}/live-comments`,
+  LIVE_DETAIL: `${getSupabaseBaseUrl()}/live-detail`,
+  LIVE_SOLD_TO: `${getSupabaseBaseUrl()}/live-sold-to`,
+  LIVE_HEARTBEAT: `${getSupabaseBaseUrl()}/live-heartbeat`,
+  LIVE_ORDER_LOOKUP: `${getSupabaseBaseUrl()}/live-order-lookup`,
 });
 
 // API Endpoints - Initially generated with default environment

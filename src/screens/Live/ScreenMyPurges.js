@@ -1,7 +1,6 @@
 import { useIsFocused } from '@react-navigation/native';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   FlatList,
@@ -13,50 +12,45 @@ import { ActivityIndicator,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
-import { AuthContext } from '../../auth/AuthProvider';
+import { deleteLiveSessionApi, getMyLiveSessionsApi } from '../../components/Api/liveRequestApi';
 
 const ScreenMyPurges = ({ navigation }) => {
-  const { userInfo } = useContext(AuthContext);
   const [purges, setPurges] = useState([]);
   const [loading, setLoading] = useState(true);
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (!isFocused || !userInfo?.uid) {
+    if (!isFocused) {
       return;
     }
 
+    let active = true;
     setLoading(true);
-    const liveCollectionRef = collection(db, 'live');
-    const q = query(
-      liveCollectionRef,
-      where('createdBy', '==', userInfo.uid),
-      where('liveType', '==', 'purge'),
-      orderBy('createdAt', 'desc'),
-    );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const fetchedPurges = [];
-        querySnapshot.forEach((doc) => {
-          fetchedPurges.push({ id: doc.id, ...doc.data() });
-        });
-        setPurges(fetchedPurges);
-        setLoading(false);
-      },
-      (error) => {
+    const load = async () => {
+      try {
+        const res = await getMyLiveSessionsApi('purge');
+        if (!active) return;
+        if (res.success) {
+          setPurges(res.sessions || []);
+        } else {
+          console.error('Error fetching purges:', res.error);
+        }
+      } catch (error) {
         console.error('Error fetching purges:', error);
-        setLoading(false);
-      },
-    );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
 
-    // Cleanup listener on component unmount
-    return () => unsubscribe();
-  }, [isFocused, userInfo?.uid]);
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, [isFocused]);
 
   const handleCardPress = (item) => {
     // Navigate based on purge status
@@ -84,7 +78,7 @@ const ScreenMyPurges = ({ navigation }) => {
           onPress: async () => {
             setLoading(true);
             try {
-              await deleteDoc(doc(db, 'live', item.id));
+              await deleteLiveSessionApi(item.id);
             } catch (error) {
               console.error('Error deleting purge:', error);
               Alert.alert('Error', 'Could not delete the purge. Please try again.');

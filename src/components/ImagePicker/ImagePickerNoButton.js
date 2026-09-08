@@ -46,12 +46,15 @@ const ImagePickerNoButton = ({
       return;
     }
 
-    launchCamera({mediaType: 'photo', quality: 1}, response => {
-      onRequestClose?.();
-      if (response.didCancel || response.errorCode) return;
-      const uri = response.assets?.[0]?.uri;
-      onImagePicked([uri]);
-    });
+    launchCamera(
+      {mediaType: 'photo', quality: 0.7, maxWidth: 1600, maxHeight: 1600},
+      response => {
+        onRequestClose?.();
+        if (response.didCancel || response.errorCode) return;
+        const uri = response.assets?.[0]?.uri;
+        onImagePicked([uri]);
+      },
+    );
   };
 
   const handleGallery = async () => {
@@ -63,7 +66,7 @@ const ImagePickerNoButton = ({
     }
 
     launchImageLibrary(
-      {mediaType: 'photo', selectionLimit: limit},
+      {mediaType: 'photo', quality: 0.7, maxWidth: 1600, maxHeight: 1600, selectionLimit: limit},
       response => {
         onRequestClose?.();
         if (response.didCancel || response.errorCode) return;

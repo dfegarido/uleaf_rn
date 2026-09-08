@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState, useRef} from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -452,7 +454,7 @@ const SelectListingScreen = () => {
                   {/* Image with checkbox */}
                   <View style={styles.imageContainer}>
                     {imageUri ? (
-                      <Image source={{uri: imageUri}} style={styles.image} resizeMode="cover" />
+                      <AppImage source={{uri: imageUri}} style={styles.image} resizeMode="cover" />
                     ) : (
                       <View style={[styles.image, {backgroundColor: '#E4E7E9'}]} />
                     )}
@@ -556,7 +558,7 @@ const SelectListingScreen = () => {
                 <View style={styles.detailsSection}>
                   <View style={styles.userContainer}>
                     {sellerAvatar ? (
-                      <Image source={{uri: sellerAvatar}} style={styles.avatar} />
+                      <AppImage source={{uri: sellerAvatar}} style={styles.avatar} />
                     ) : (
                       <View style={[styles.avatar, styles.avatarPlaceholder]}>
                         <Text style={styles.avatarText}>

@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
 import {globalStyles} from '../../../../assets/styles/styles';
@@ -5,7 +7,7 @@ import {globalStyles} from '../../../../assets/styles/styles';
 const PayoutPlantCard = ({plant}) => {
   return (
     <View style={styles.card}>
-      <Image source={{uri: plant.image}} style={styles.image} />
+      <AppImage source={{uri: plant.image}} style={styles.image} />
       <View style={styles.infoContainer}>
         <View style={styles.titleRow}>
           <Text style={globalStyles.textSMGreyDark}>

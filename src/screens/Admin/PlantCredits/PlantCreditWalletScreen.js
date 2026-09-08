@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -276,7 +278,7 @@ const TransactionRow = ({ transaction, onPress, testID, isExpanded }) => {
               {plants.length > 0 && plants.map((plant, i) => (
                 <View key={plant.productId || plant.plantCode || i} style={styles.plantRow}>
                   {plant.plantImage ? (
-                    <Image source={{ uri: plant.plantImage }} style={styles.plantThumb} resizeMode="cover" />
+                    <AppImage source={{ uri: plant.plantImage }} style={styles.plantThumb} resizeMode="cover" />
                   ) : (
                     <View style={[styles.plantThumb, styles.plantThumbPlaceholder]}>
                       <PlantIcon width={20} height={20} color="#12B76A" />

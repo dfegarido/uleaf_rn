@@ -1,18 +1,8 @@
-import { addDoc,
-  arrayRemove,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
+import AppImage from '../../components/AppImage/AppImage';
+
 import moment from 'moment';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useIsFocused, useRoute } from '@react-navigation/native';
 import { Alert,
   FlatList,
   Image,
@@ -31,6 +21,8 @@ import { AuthContext } from '../../auth/AuthProvider';
 import GroupChatModal from '../../components/GroupChatModal/GroupChatModal';
 import NewMessageModal from '../../components/NewMessageModal/NewMessageModal';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
+import { getChatsApi, getChatParticipantsBatchApi, chatCreateApi, markChatReadApi, findPrivateChatApi, getChatMessagesApi } from '../../components/Api/chatApi';
+import { getChatShopsApi, getChatDetailApi } from '../../components/Api/shopContentApi';
 import { CACHE_CONFIGS, getCachedImageUri, setCachedImageUri } from '../../utils/imageCache';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
 
@@ -124,6 +116,8 @@ const buildChatListSignature = (chats) => {
 
 const MessagesScreen = ({navigation}) => {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const route = useRoute();
   
   // Calculate proper bottom padding for tab bar + safe area
   const tabBarHeight = 80; // Tab bar height (including the prominent center button)
@@ -180,6 +174,10 @@ const MessagesScreen = ({navigation}) => {
   const hasLoadedChatsRef = useRef(false);
   const chatsSignatureRef = useRef('');
   const messagesRef = useRef([]);
+  // Tracks whether the initial chats fetch has resolved. The merge effect runs on
+  // mount with empty arrays and would otherwise clear `loading` before the fetch
+  // completes, hiding the skeleton and flashing "No Messages Yet".
+  const fetchCompletedRef = useRef(false);
 
   useEffect(() => {
     avatarMapRef.current = avatarMap;
@@ -189,7 +187,8 @@ const MessagesScreen = ({navigation}) => {
     usernameMapRef.current = usernameMap;
   }, [usernameMap]);
 
-  // Fetch avatars/usernames from Firestore with cache-first image resolution.
+  // Fetch avatars/usernames from Supabase (chat-participants-batch) with
+  // cache-first image resolution. Replaces the old N+1 Firestore getDoc loop.
   const fetchAvatarsForChats = useCallback(async (chats = [], options = {}) => {
     try {
       if (!Array.isArray(chats) || chats.length === 0) return;
@@ -197,27 +196,32 @@ const MessagesScreen = ({navigation}) => {
 
       // Collect unique other participant UIDs
       const uidsToFetch = new Set();
-      
+
       // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
       const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
-      
+
       chats.forEach(chat => {
         const participants = chat.participants || [];
 
-        participants.forEach(p => {
+        // Only resolve up to 2 participants per chat — the group avatar stack
+        // renders at most 2 avatars, so fetching every participant across every
+        // room is wasteful and can exceed the batch/URL limits. Pick the first 2
+        // non-current-user participants (deterministic; the avatar stack only
+        // needs a couple of images).
+        let picked = 0;
+        for (const p of participants) {
+          if (picked >= 2) break;
           const uid = p && p.uid;
-          if (uid && uid !== currentUserUid ) {
+          if (uid && uid !== currentUserUid) {
             uidsToFetch.add(uid);
+            picked += 1;
           }
-        });
+        }
       });
 
       if (uidsToFetch.size === 0) return;
 
-      // Fetch each user doc from buyer, admin, or supplier collections and update avatarMap and usernameMap
-      const avatarUpdates = {};
-      const usernameUpdates = {};
-      
+      // Filter to UIDs we still need (not already resolved, not in flight)
       const unresolvedUids = Array.from(uidsToFetch).filter(uid => {
         const hasAvatar = !!avatarMapRef.current[uid];
         const hasUsername = !!usernameMapRef.current[uid];
@@ -231,62 +235,52 @@ const MessagesScreen = ({navigation}) => {
       if (unresolvedUids.length === 0) return;
       unresolvedUids.forEach(uid => profileFetchingRef.current.add(uid));
 
-      const resolvedRecords = await Promise.all(
-        unresolvedUids.map(async (uid) => {
-          try {
-            let userDocRef = doc(db, 'buyer', uid);
-            let userSnap = await getDoc(userDocRef);
+      // Single batched request to Supabase (buyer/supplier/admin lookup in one call)
+      const res = await getChatParticipantsBatchApi(unresolvedUids);
+      const participants = (res && res.participants) || {};
 
-            if (!userSnap.exists()) {
-              userDocRef = doc(db, 'admin', uid);
-              userSnap = await getDoc(userDocRef);
-            }
+      const avatarUpdates = {};
+      const usernameUpdates = {};
 
-            let isSupplierDoc = false;
-            if (!userSnap.exists()) {
-              userDocRef = doc(db, 'supplier', uid);
-              userSnap = await getDoc(userDocRef);
-              if (userSnap.exists()) isSupplierDoc = true;
-            }
+      for (const uid of unresolvedUids) {
+        const info = participants[uid];
+        if (!info) {
+          // Not found in any table — mark resolved so we don't retry every render.
+          fetchedProfileRef.current.add(uid);
+          profileFetchingRef.current.delete(uid);
+          continue;
+        }
 
-            if (!userSnap.exists()) {
-              return { uid, avatar: null, username: null, resolved: false };
-            }
-
-            const data = userSnap.data();
-            const url = data?.profilePhotoUrl || data?.profileImage || null;
-            let avatar = null;
-            if (url && typeof url === 'string') {
-              const cachedUri = await getCachedImageUri(url, PROFILE_CACHE_DAYS);
-              avatar = { uri: cachedUri || url };
-              if (!cachedUri) {
-                await setCachedImageUri(url, url, PROFILE_CACHE_DAYS);
-              }
-            }
-            const username = isSupplierDoc
-              ? resolveSellerDisplayName(data, isAdmin)
-              : (data?.username || data?.email || null);
-
-            return { uid, avatar, username, resolved: true };
-          } catch (err) {
-            console.warn(`Error fetching data for ${uid}:`, err);
-            return { uid, avatar: null, username: null, resolved: false };
+        // Avatar: run the raw URL through the image cache (cache-first).
+        const rawUrl = info.avatarUrl;
+        if (rawUrl && typeof rawUrl === 'string') {
+          const cachedUri = await getCachedImageUri(rawUrl, PROFILE_CACHE_DAYS);
+          avatarUpdates[uid] = { uri: cachedUri || rawUrl };
+          if (!cachedUri) {
+            await setCachedImageUri(rawUrl, rawUrl, PROFILE_CACHE_DAYS);
           }
-        })
-      );
+        }
 
-      let defaultAvatarCount = 0;
-      resolvedRecords.forEach(({ uid, avatar, username, resolved }) => {
-        // Never overwrite an existing real avatar with fallback/default/null.
-        if (avatar && avatar !== DefaultAvatar) {
-          avatarUpdates[uid] = avatar;
-        } else if (avatar === DefaultAvatar) {
-          defaultAvatarCount += 1;
+        // Username: preserve supplier alias-masking via resolveSellerDisplayName.
+        let username = null;
+        if (info.type === 'supplier') {
+          username = resolveSellerDisplayName(
+            {
+              alias: info.alias,
+              gardenOrCompanyName: info.gardenOrCompanyName,
+              username: info.username,
+              email: info.email,
+            },
+            isAdmin
+          );
+        } else {
+          username = info.username || info.email || null;
         }
         if (username) usernameUpdates[uid] = username;
-        if (resolved) fetchedProfileRef.current.add(uid);
+
+        fetchedProfileRef.current.add(uid);
         profileFetchingRef.current.delete(uid);
-      });
+      }
 
       if (Object.keys(avatarUpdates).length > 0) {
         setAvatarMap(prev => ({...prev, ...avatarUpdates}));
@@ -312,88 +306,56 @@ const MessagesScreen = ({navigation}) => {
       return;
     }
 
-    if (!hasLoadedChatsRef.current) {
-      setLoading(true);
-    }
+    let cancelled = false;
 
-    const unsubscribers = [];
+    // Always show the skeleton while fetching on access (first load AND every
+    // re-focus). The skeleton only renders when the list is empty, so if data is
+    // already present it stays visible without a flash.
+    setLoading(true);
 
-    try {
-      const memberChatsQuery = query(
-        collection(db, 'chats'),
-        where('participantIds', 'array-contains', currentUserUid),
-        orderBy('timestamp', 'desc'),
-      );
-
-      unsubscribers.push(
-        onSnapshot(
-          memberChatsQuery,
-          (snapshot) => {
-            const chats = snapshot.docs.map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }));
-            setMemberChats(chats);
-          },
-          () => setMemberChats([]),
-        )
-      );
-
-      if (isAdmin) {
-        const adminGroupsQuery = query(
-          collection(db, 'chats'),
-          where('type', '==', 'group'),
-          orderBy('timestamp', 'desc'),
-        );
-        unsubscribers.push(
-          onSnapshot(
-            adminGroupsQuery,
-            (snapshot) => {
-              const chats = snapshot.docs.map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }));
-              setAdminGroupChats(chats);
-            },
-            () => setAdminGroupChats([]),
-          )
-        );
-      } else {
-        setAdminGroupChats([]);
+    const loadChats = async () => {
+      try {
+        const res = await getChatsApi();
+        if (cancelled) return;
+        fetchCompletedRef.current = true;
+        if (!res.success) {
+          setLoading(false);
+          return;
+        }
+        setMemberChats(res.memberChats || []);
+        setAdminGroupChats(res.adminGroupChats || []);
+        setPublicGroupChats(res.publicGroupChats || []);
+      } catch (error) {
+        if (!cancelled) {
+          fetchCompletedRef.current = true;
+          setLoading(false);
+        }
       }
+    };
 
-      if (isBuyer || isSeller) {
-        const publicGroupsQuery = query(
-          collection(db, 'chats'),
-          where('type', '==', 'group'),
-          where('isPublic', '==', true),
-          orderBy('timestamp', 'desc'),
-        );
-        unsubscribers.push(
-          onSnapshot(
-            publicGroupsQuery,
-            (snapshot) => {
-              const chats = snapshot.docs
-                .map(chatDoc => ({ id: chatDoc.id, ...chatDoc.data() }))
-                .filter(chat => {
-                  const participantIds = Array.isArray(chat.participantIds) ? chat.participantIds : [];
-                  const invitedUsers = Array.isArray(chat.invitedUsers) ? chat.invitedUsers : [];
-                  if (participantIds.includes(currentUserUid)) return false;
-                  if (isSeller && !invitedUsers.includes(currentUserUid)) return false;
-                  return true;
-                });
-              setPublicGroupChats(chats);
-            },
-            () => setPublicGroupChats([]),
-          )
-        );
-      } else {
-        setPublicGroupChats([]);
-      }
-    } catch (error) {
-      setLoading(false);
-    }
+    loadChats();
 
     return () => {
-      unsubscribers.forEach(unsub => {
-        try { unsub(); } catch (_) { /* noop */ }
-      });
+      cancelled = true;
     };
-  }, [currentUserUid, isBuyer, isSeller, isAdmin]);
+  }, [currentUserUid, isBuyer, isSeller, isAdmin, isFocused]);
+
+  // Optimistic delete: when returning from ChatSettingsScreen after deleting a
+  // chat, immediately remove it from the list state so it disappears before the
+  // refetch completes. Clear the param so it only applies once.
+  useEffect(() => {
+    const deletedChatId = route?.params?.deletedChatId;
+    if (!deletedChatId) return;
+
+    setMemberChats(prev => prev.filter(c => c.id !== deletedChatId));
+    setAdminGroupChats(prev => prev.filter(c => c.id !== deletedChatId));
+    setPublicGroupChats(prev => prev.filter(c => c.id !== deletedChatId));
+    setMessages(prev => prev.filter(c => c.id !== deletedChatId));
+    messagesRef.current = messagesRef.current.filter(c => c.id !== deletedChatId);
+
+    // Clear the param so a later focus doesn't re-apply the removal.
+    navigation.setParams({ deletedChatId: undefined });
+  }, [route?.params?.deletedChatId, navigation]);
 
   useEffect(() => {
     const allChatsMap = new Map();
@@ -415,8 +377,11 @@ const MessagesScreen = ({navigation}) => {
     if (signature === chatsSignatureRef.current) {
       if (!hasLoadedChatsRef.current) {
         hasLoadedChatsRef.current = true;
-        setLoading(false);
       }
+      // Clear loading once the initial fetch has resolved — including the
+      // zero-chats case (empty signature matches the mount-time signature, so we
+      // must not rely on the signature changing to reach the setLoading below).
+      if (fetchCompletedRef.current) setLoading(false);
       return;
     }
 
@@ -424,34 +389,28 @@ const MessagesScreen = ({navigation}) => {
     hasLoadedChatsRef.current = true;
     setMessages(allChats);
     messagesRef.current = allChats;
-    fetchAvatarsForChats(allChats).catch(() => {});
-    setLoading(false);
+    // Atomic: only resolve avatars for the currently-visible tab (private chats on
+    // the default tab). Group/shop avatar resolution is handled lazily by the
+    // tab-focused prefetch effect when the user switches tabs — avoids an N+1
+    // Firestore read storm across every chat on every screen access.
+    const visibleChats = allChats.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
+    fetchAvatarsForChats(visibleChats).catch(() => {});
+    if (fetchCompletedRef.current) setLoading(false);
   }, [memberChats, adminGroupChats, publicGroupChats, fetchAvatarsForChats]);
 
-  // Fetch chat shops from Firestore
+  // Lazy-load chat shops from Supabase only when the Shops tab is opened.
+  // Avoids an unnecessary network call on every screen access (default tab is Messages).
+  const chatShopsLoadedRef = useRef(false);
   useEffect(() => {
+    if (selectedTab !== 'chatshops' || chatShopsLoadedRef.current) return;
+    chatShopsLoadedRef.current = true;
     const loadChatShops = async () => {
       try {
         setLoadingChatShops(true);
-        const q = query(
-          collection(db, 'chatShops'),
-          where('userType', '==', 'buyer'),
-        );
-        const snapshot = await getDocs(q);
-        const shops = snapshot.docs.map(docSnap => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
-        // Sort by priority asc, then createdAt asc
-        const sorted = shops.sort((a, b) => {
-          const aP = a.priority ?? 999;
-          const bP = b.priority ?? 999;
-          if (aP !== bP) return aP - bP;
-          const aT = a.createdAt?.toDate?.() || new Date(0);
-          const bT = b.createdAt?.toDate?.() || new Date(0);
-          return aT - bT;
-        });
-        setChatShops(sorted);
+        const result = await getChatShopsApi();
+        // getChatShopsApi returns { success, data: [shops], error } — data is already
+        // sorted by priority asc, then createdAt asc by the Edge Function.
+        setChatShops(result.data || []);
       } catch (error) {
         console.error('Error loading chat shops:', error);
         setChatShops([]);
@@ -460,23 +419,17 @@ const MessagesScreen = ({navigation}) => {
       }
     };
     loadChatShops();
-  }, []);
-
-  const shopGroupIds = useMemo(() => {
-    const ids = new Set();
-    chatShops.forEach(s => { if (s.groupChatId) ids.add(s.groupChatId); });
-    return ids;
-  }, [chatShops]);
+  }, [selectedTab]);
 
   // Tab-focused prefetch: when user switches tabs, resolve only currently visible chats.
   useEffect(() => {
     const visibleMessages = messagesRef.current;
     if (!Array.isArray(visibleMessages) || visibleMessages.length === 0) return;
     const visibleChats = selectedTab === 'groups'
-      ? visibleMessages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id))
+      ? visibleMessages.filter(msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)))
       : visibleMessages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
     fetchAvatarsForChats(visibleChats, { requireUsername: selectedTab !== 'groups' }).catch(() => {});
-  }, [selectedTab, fetchAvatarsForChats, shopGroupIds]);
+  }, [selectedTab, fetchAvatarsForChats]);
 
   // Keep per-group avatar sender selection aligned to latest message senders.
   useEffect(() => {
@@ -502,16 +455,11 @@ const MessagesScreen = ({navigation}) => {
 
           groupAvatarFetchInFlightRef.current.add(chatId);
           try {
-            const latestMessagesQuery = query(
-              collection(db, 'messages'),
-              where('chatId', '==', chatId),
-              orderBy('timestamp', 'desc'),
-              limit(20),
-            );
-            const snap = await getDocs(latestMessagesQuery);
+            const res = await getChatMessagesApi(chatId, { limit: 20 });
+            const msgs = res?.messages || [];
             const uniqueSenderUids = [];
-            snap.docs.forEach((d) => {
-              const senderId = d.data()?.senderId;
+            msgs.forEach((m) => {
+              const senderId = m?.senderId;
               if (senderId && !uniqueSenderUids.includes(senderId)) {
                 uniqueSenderUids.push(senderId);
               }
@@ -561,9 +509,7 @@ const MessagesScreen = ({navigation}) => {
       navigation.navigate('ChatScreen', safeParams);
 
       // Mark as read in the background (fire-and-forget)
-      updateDoc(doc(db, 'chats', item.id), {
-        unreadBy: arrayRemove(currentUserUid),
-      }).catch(error => {
+      markChatReadApi(item.id).catch(error => {
         console.error('Error marking chat as read:', error);
         // Silently fail - navigation already happened
       });
@@ -580,13 +526,12 @@ const MessagesScreen = ({navigation}) => {
         Alert.alert('Error', 'No group chat linked to this shop.');
         return;
       }
-      const chatDocRef = doc(db, 'chats', shop.groupChatId);
-      const chatDoc = await getDoc(chatDocRef);
-      if (!chatDoc.exists()) {
+      const result = await getChatDetailApi(shop.groupChatId);
+      if (!result.success || !result.data) {
         Alert.alert('Error', 'Group chat not found. It may have been deleted.');
         return;
       }
-      const chatData = chatDoc.data();
+      const chatData = result.data;
       navigation.navigate('ChatScreen', {
         id: shop.groupChatId,
         ...chatData,
@@ -616,28 +561,29 @@ const MessagesScreen = ({navigation}) => {
       
       // First check if a private chat already exists with this user
       // Only check for private chats with exactly 2 participants
-      const existingChatQuery = query(
-        collection(db, 'chats'),
-        where('participantIds', 'array-contains', currentUserUid),
-        where('type', '==', 'private'),
-      );
-
-      const existingChatsSnapshot = await getDocs(existingChatQuery);
-      let existingChat = null;
-
-      existingChatsSnapshot.forEach(doc => {
-        const chatData = doc.data();
-        // Ensure it's a private chat with exactly 2 participants
-        if (chatData.type === 'private' && 
-            chatData.participantIds && 
-            chatData.participantIds.length === 2 &&
-            chatData.participantIds.includes(user.uid)) {
-          existingChat = {id: doc.id, ...chatData};
-        }
-      });
+      const findRes = await findPrivateChatApi(user.uid);
+      let existingChat = findRes?.success ? findRes.chat : null;
 
       // If chat exists, navigate to it
       if (existingChat) {
+        // Backfill the existing Firestore-only chat into Supabase so message reads
+        // (chat-messages validates participation against the Supabase `chats` table)
+        // don't fail with "Not a participant of this chat". Idempotent upsert.
+        const currentUserAvatar = userInfo?.data?.profileImage || userInfo?.data?.profilePhotoUrl || userInfo?.profileImage || userInfo?.profilePhotoUrl || '';
+        const backfillParticipants = existingChat.participants || [
+          { uid: currentUserUid, avatarUrl: currentUserAvatar || '', name: userName || 'User' },
+          { uid: user.uid, avatarUrl: user.avatarUrl || '', name: user.name || 'Contact' },
+        ];
+        const backfillRes = await chatCreateApi({
+          id: existingChat.id,
+          participantIds: existingChat.participantIds || [currentUserUid, user.uid].filter(Boolean),
+          participants: backfillParticipants,
+          name: existingChat.name || user.name || '',
+          avatarUrl: existingChat.avatarUrl || user.avatarUrl || '',
+        });
+        if (!backfillRes.success) {
+          console.warn('createChat: Supabase backfill failed for existing chat:', backfillRes.error);
+        }
         navigation.navigate('ChatScreen', existingChat);
         return;
       }
@@ -673,21 +619,26 @@ const MessagesScreen = ({navigation}) => {
   // creating new chat
 
       try {
-        const addChat = await addDoc(collection(db, 'chats'), chatData);
-  // chat created
-
-        const docRef = doc(db, 'chats', addChat.id);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const newChatData = {id: docSnap.id, ...docSnap.data()};
-          navigation.navigate('ChatScreen', newChatData);
-        } else {
-          throw new Error('Failed to get created chat document');
+        // Create the chat in Supabase (single source of truth). chatCreateApi
+        // returns the chat id so we can navigate without a Firestore read.
+        const chatCreateRes = await chatCreateApi({
+          participantIds: [currentUserUid, user.uid].filter(Boolean),
+          participants: chatData.participants,
+          name: chatData.name,
+          avatarUrl: chatData.avatarUrl,
+          type: 'private',
+        });
+        if (!chatCreateRes.success) {
+          throw new Error(chatCreateRes.error || 'Failed to create chat');
         }
+        const newChatId = chatCreateRes.data?.id || chatCreateRes.data?.chat?.id;
+        if (!newChatId) {
+          throw new Error('Failed to get created chat id');
+        }
+        navigation.navigate('ChatScreen', { id: newChatId, ...chatData });
       } catch (firestoreError) {
-        // Log the full Firestore error for debugging (kept out of user alert)
-        console.error('createChat: Firestore error creating chat document:', firestoreError);
+        // Log the full error for debugging (kept out of user alert)
+        console.error('createChat: error creating chat:', firestoreError);
         Alert.alert(
           'Error',
           'Failed to create chat. There might be an issue with the user data.',
@@ -727,33 +678,26 @@ const MessagesScreen = ({navigation}) => {
         }))
       ];
 
-      // Prepare group chat data
-      const groupChatData = {
-        participants: allParticipants,
-        participantIds: allParticipantIds,
-        lastMessage: '',
-        timestamp: new Date(),
-        name: name,
-        type: 'group',
-        isPublic: false, // Default to private - only admins can change this in settings
-      };
-
-      // Create the group chat
+      // Create the group chat via Supabase (replaces the Firestore addDoc + getDoc)
       try {
-        const addChat = await addDoc(collection(db, 'chats'), groupChatData);
-        
-        const docRef = doc(db, 'chats', addChat.id);
-        const docSnap = await getDoc(docRef);
+        const createRes = await chatCreateApi({
+          participantIds: allParticipantIds,
+          participants: allParticipants,
+          name,
+          type: 'group',
+          isPublic: false,
+          lastMessage: '',
+        });
 
-        if (docSnap.exists()) {
-          const newChatData = {id: docSnap.id, ...docSnap.data()};
-          await sendGroupChatNotificationApi(allParticipantIds, name);
-          navigation.navigate('ChatScreen', newChatData);
-        } else {
-          throw new Error('Failed to get created chat document');
+        if (!createRes.success || !createRes.data?.chat) {
+          throw new Error(createRes.error || 'Failed to create group chat');
         }
+
+        const newChatData = createRes.data.chat;
+        await sendGroupChatNotificationApi(allParticipantIds, name);
+        navigation.navigate('ChatScreen', newChatData);
       } catch (firestoreError) {
-        console.error('handleCreateGroup: Firestore error creating chat document:', firestoreError);
+        console.error('handleCreateGroup: error creating chat document:', firestoreError);
         Alert.alert(
           'Error',
           'Failed to create group chat. Please try again.',
@@ -1030,14 +974,14 @@ const MessagesScreen = ({navigation}) => {
   const filteredMessages = useMemo(() => {
     if (selectedTab === 'groups') {
       return messages.filter(
-        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)) && !shopGroupIds.has(msg.id),
+        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)),
       );
     }
     if (selectedTab === 'chatshops') {
       return [];
     }
     return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
-  }, [messages, selectedTab, shopGroupIds]);
+  }, [messages, selectedTab]);
 
   const { unreadMessages, unreadGroups } = useMemo(() => {
     const unreadMessagesCount = messages.filter(
@@ -1052,12 +996,11 @@ const MessagesScreen = ({navigation}) => {
       msg =>
         msg.unreadBy &&
         msg.unreadBy.includes(currentUserUid) &&
-        (msg.isGroup || (msg.participants && msg.participants.length > 2)) &&
-        !shopGroupIds.has(msg.id),
+        (msg.isGroup || (msg.participants && msg.participants.length > 2)),
     ).length;
 
     return { unreadMessages: unreadMessagesCount, unreadGroups: unreadGroupsCount };
-  }, [messages, currentUserUid, shopGroupIds]);
+  }, [messages, currentUserUid]);
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["top", "left", "right"]}>
@@ -1071,7 +1014,7 @@ const MessagesScreen = ({navigation}) => {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <BackSolidIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Messages</Text>
+          <Text style={styles.headerTitle}>Chat</Text>
           <View style={styles.headerActions}>
             {isAdmin && (
               <TouchableOpacity
@@ -1157,7 +1100,7 @@ const MessagesScreen = ({navigation}) => {
                     onPress={() => handleChatShopPress(item)}
                     activeOpacity={0.7}>
                     {item.photoUrl ? (
-                      <Image source={{ uri: item.photoUrl }} style={styles.avatar} />
+                      <AppImage source={{ uri: item.photoUrl }} style={styles.avatar} />
                     ) : (
                       <View style={[styles.avatar, { backgroundColor: '#e0e0e0', alignItems: 'center', justifyContent: 'center' }]}>
                         <Text style={{ fontSize: 10, color: '#9AA4A8' }}>Shop</Text>
@@ -1263,7 +1206,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 20,
+    paddingBottom: 12,
     paddingHorizontal: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -1278,7 +1221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 12,
   },
   tab: {
@@ -1323,7 +1266,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   emptyListContainer: {
-    flex: 1,
+    flexGrow: 1,
+    justifyContent: 'center',
     padding: 0,
   },
   chatItem: {

@@ -1,5 +1,6 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import { useIsFocused } from '@react-navigation/native';
-import { doc, onSnapshot } from 'firebase/firestore';
 import React, { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -14,12 +15,12 @@ import { ActivityIndicator,
 import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import EditIcon from '../../assets/icons/greydark/note-edit.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { getLiveListingsBySessionApi, updateLiveSession, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
+import { getLiveDetailApi } from '../../components/Api/liveApi';
 import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
 import { InputBox } from '../../components/Input';
 
@@ -91,10 +92,14 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
   useEffect(() => {
     if (!sessionId) return;
 
-    const sessionDocRef = doc(db, 'live', sessionId);
-    const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
+    let active = true;
+    let pollTimer = null;
+
+    const loadSession = async () => {
+      const res = await getLiveDetailApi(sessionId);
+      if (!active) return;
+      if (res.success && res.session) {
+        const data = res.session;
         setSessionDetails(data);
         setNewTitle(data.title);
         setNewDuration(data.duration?.toString() || '');
@@ -104,9 +109,15 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
       } else {
         console.log('Session document does not exist.');
       }
-    });
+    };
 
-    return () => unsubscribe();
+    loadSession();
+    pollTimer = setInterval(loadSession, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [sessionId]);
 
   useEffect(() => {
@@ -198,7 +209,7 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
 
   const renderItem = ({item}) => (
     <View style={styles.card}>
-      <Image source={{uri: item.imagePrimary}} style={styles.cardImage} />
+      <AppImage source={{uri: item.imagePrimary}} style={styles.cardImage} />
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle} numberOfLines={6}>
           {item.genus} {item.species}
@@ -319,9 +330,9 @@ const SetUpListingsPurgeScreen = ({navigation, route}) => {
               <Text style={styles.label}>Cover Photo</Text>
               <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
                 {newCoverPhoto ? (
-                  <Image source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
+                  <AppImage source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
                 ) : sessionDetails?.coverPhotoUrl ? (
-                  <Image source={{ uri: sessionDetails.coverPhotoUrl }} style={styles.coverImage} />
+                  <AppImage source={{ uri: sessionDetails.coverPhotoUrl }} style={styles.coverImage} />
                 ) : (
                   <>
                     <UploadIcon width={48} height={48} />

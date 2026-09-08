@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -75,7 +77,7 @@ const SortingPlantRow = ({ plant, index, onOpenTagAs }) => {
       <View style={styles.plantIndexWrap}>
         <Text style={styles.plantIndex}>{index + 1}</Text>
       </View>
-      <Image source={{ uri: plant.plantImage }} style={styles.plantImage} />
+      <AppImage source={{ uri: plant.plantImage }} style={styles.plantImage} />
       <View style={styles.plantDetails}>
         <Text style={styles.plantCode}>{plant.plantCode}</Text>
         <Text style={styles.plantName} numberOfLines={2}>

@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { View,
   Text,
@@ -157,7 +159,7 @@ const PaymentManagement = () => {
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.imageContainer}>
-        <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+        <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
         <View style={styles.checkboxContainer}>
           <CheckBox
             isChecked={selectedOrders.includes(item.id)}

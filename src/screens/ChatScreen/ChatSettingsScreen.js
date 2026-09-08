@@ -1,16 +1,3 @@
-import { addDoc,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-  collection,
-  query,
-  where,
-  Timestamp,
-} from 'firebase/firestore';
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { ActivityIndicator,
@@ -40,6 +27,7 @@ import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { listAdminsApi } from '../../components/Api/listAdminsApi';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
+import { chatDeleteApi, chatUpdateApi, getChatDetailApi, getChatMembershipApi, getChatParticipantsBatchApi, listChatJoinRequestsApi, submitChatJoinRequestApi } from '../../components/Api/chatApi';
 
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 
@@ -290,20 +278,14 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
       try {
         console.log('🔄 [ChatSettingsScreen] Fetching latest chat data...');
-        const chatDocRef = doc(db, 'chats', chatId);
-        const chatDocSnap = await getDoc(chatDocRef);
+        const res = await getChatDetailApi(chatId);
         
-        if (chatDocSnap.exists()) {
-          const chatData = chatDocSnap.data();
+        if (res.success && res.chat) {
+          const chatData = res.chat;
           const latestParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-          console.log('📊 [ChatSettingsScreen] Raw participants from Firestore:', latestParticipants.length);
+          console.log('📊 [ChatSettingsScreen] Raw participants:', latestParticipants.length);
           const dedupedParticipants = deduplicateParticipants(latestParticipants);
           console.log('✅ [ChatSettingsScreen] After deduplication:', dedupedParticipants.length);
-          
-          // Check if data is from cache
-          const fromCache = chatDocSnap.metadata.fromCache;
-          const hasPendingWrites = chatDocSnap.metadata.hasPendingWrites;
-          console.log(`📡 [ChatSettingsScreen] Data source - fromCache: ${fromCache}, hasPendingWrites: ${hasPendingWrites}`);
           
           setParticipants(dedupedParticipants);
           
@@ -341,40 +323,18 @@ const ChatSettingsScreen = ({navigation, route}) => {
       }
 
       try {
-        const chatDocRef = doc(db, 'chats', chatId);
-        const chatDocSnap = await getDoc(chatDocRef);
-        
-        if (chatDocSnap.exists()) {
-          const chatData = chatDocSnap.data();
-          const publicStatus = chatData.isPublic === true;
+        const res = await getChatMembershipApi(chatId);
+        if (res.success) {
+          const publicStatus = res.isPublic === true;
           
           if (publicStatus) {
-            // Check if current user is a member
-            const memberIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
-            const userIsMember = memberIds.includes(currentUserUid);
+            const userIsMember = res.isMember === true;
             setIsMember(userIsMember);
             
             // For buyers: check for pending or rejected requests
             if (isBuyer && !userIsMember) {
-              const joinRequestsRef = collection(db, 'chats', chatId, 'joinRequests');
-              
-              // Check for pending request
-              const pendingQuery = query(
-                joinRequestsRef,
-                where('userId', '==', currentUserUid),
-                where('status', '==', 'pending')
-              );
-              const pendingSnapshot = await getDocs(pendingQuery);
-              setHasPendingRequest(!pendingSnapshot.empty);
-              
-              // Check for rejected request
-              const rejectedQuery = query(
-                joinRequestsRef,
-                where('userId', '==', currentUserUid),
-                where('status', '==', 'rejected')
-              );
-              const rejectedSnapshot = await getDocs(rejectedQuery);
-              setHasRejectedRequest(!rejectedSnapshot.empty);
+              setHasPendingRequest(res.hasPendingRequest === true);
+              setHasRejectedRequest(res.hasRejectedRequest === true);
             } else {
               setHasPendingRequest(false);
               setHasRejectedRequest(false);
@@ -382,7 +342,8 @@ const ChatSettingsScreen = ({navigation, route}) => {
             
             // For sellers: check if they are invited
             if (isSeller && !userIsMember) {
-              const invitedUsers = Array.isArray(chatData.invitedUsers) ? chatData.invitedUsers : [];
+              const detailRes = await getChatDetailApi(chatId);
+              const invitedUsers = Array.isArray(detailRes.chat?.invitedUsers) ? detailRes.chat.invitedUsers : [];
               setIsInvited(invitedUsers.includes(currentUserUid));
             } else {
               setIsInvited(false);
@@ -411,16 +372,14 @@ const ChatSettingsScreen = ({navigation, route}) => {
 
       try {
         setLoadingRequests(true);
-        const joinRequestsRef = collection(db, 'chats', chatId, 'joinRequests');
-        const requestsQuery = query(
-          joinRequestsRef,
-          where('status', '==', 'pending')
-        );
-        const requestsSnapshot = await getDocs(requestsQuery);
+        const res = await listChatJoinRequestsApi(chatId);
         
-        const requests = requestsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
+        const requests = (res.requests || []).map(r => ({
+          id: r.id,
+          userId: r.userId,
+          userName: r.userName,
+          userAvatar: r.userAvatar,
+          status: r.status,
         }));
         
         setJoinRequests(requests);
@@ -458,37 +417,20 @@ const ChatSettingsScreen = ({navigation, route}) => {
         }
 
         try {
-          // Try buyer collection first (since only buyers can request to join)
-          let userDocRef = doc(db, 'buyer', userId);
-          let userSnap = await getDoc(userDocRef);
-          
-          // If not found in buyer, try admin collection
-          if (!userSnap.exists()) {
-            userDocRef = doc(db, 'admin', userId);
-            userSnap = await getDoc(userDocRef);
-          }
-          
-          // If not found in admin, try supplier collection
-          if (!userSnap.exists()) {
-            userDocRef = doc(db, 'supplier', userId);
-            userSnap = await getDoc(userDocRef);
-          }
+          const batchRes = await getChatParticipantsBatchApi([userId]);
+          const entry = batchRes.participants?.[userId];
 
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            
+          if (entry) {
             // Get name - use username instead of firstName/lastName
-            const name = data?.username ||
-                        data?.gardenOrCompanyName ||
-                        data?.name ||
-                        data?.email ||
+            const name = entry.name ||
+                        entry.username ||
+                        entry.gardenOrCompanyName ||
                         request.userName || // Fallback to stored name
                         'Unknown User';
             
             // Get avatar
-            const avatarUrl = data?.profilePhotoUrl || 
-                            data?.profileImage || 
-                            request.userAvatar || 
+            const avatarUrl = entry.avatarUrl ||
+                            request.userAvatar ||
                             '';
             
             userDataMap[userId] = { name, avatarUrl };
@@ -499,7 +441,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
               name: request.userName || 'Unknown User',
               avatarUrl: request.userAvatar || ''
             };
-            console.log(`⚠️ [ChatSettingsScreen] User ${userId} not found in Firestore, using stored name: ${request.userName}`);
+            console.log(`⚠️ [ChatSettingsScreen] User ${userId} not found, using stored name: ${request.userName}`);
           }
         } catch (error) {
           console.log(`Error fetching user data for ${userId}:`, error);
@@ -785,17 +727,17 @@ const ChatSettingsScreen = ({navigation, route}) => {
       };
 
       // Add the user to the chat's participants and participantIds
-      await updateDoc(doc(db, 'chats', chatId), {
-        participants: arrayUnion(newParticipant),
-        participantIds: arrayUnion(user.uid),
+      await chatUpdateApi({
+        mode: 'add-participant',
+        chatId,
+        participant: { uid: user.uid, name: user.name, avatarUrl: newParticipant.avatarUrl },
       });
 
       // Refresh the chat document to get the latest data
-      const chatDocRef = doc(db, 'chats', chatId);
-      const chatDocSnap = await getDoc(chatDocRef);
+      const refreshRes = await getChatDetailApi(chatId);
 
-      if (chatDocSnap.exists()) {
-        const chatData = chatDocSnap.data();
+      if (refreshRes.success && refreshRes.chat) {
+        const chatData = refreshRes.chat;
         const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
         setParticipants(deduplicateParticipants(rawParticipants));
       }
@@ -836,19 +778,19 @@ const ChatSettingsScreen = ({navigation, route}) => {
       const newParticipantIds = selectedUsersToAdd.map(user => user.uid);
 
       // Add all users to the chat's participants and participantIds
-      await updateDoc(doc(db, 'chats', chatId), {
-        participants: arrayUnion(...newParticipants),
-        participantIds: arrayUnion(...newParticipantIds),
+      await chatUpdateApi({
+        mode: 'add-participant',
+        chatId,
+        participants: newParticipants,
       });
 
       await sendGroupChatNotificationApi(newParticipantIds, name);
 
       // Refresh the chat document to get the latest data
-      const chatDocRef = doc(db, 'chats', chatId);
-      const chatDocSnap = await getDoc(chatDocRef);
+      const refreshRes = await getChatDetailApi(chatId);
 
-      if (chatDocSnap.exists()) {
-        const chatData = chatDocSnap.data();
+      if (refreshRes.success && refreshRes.chat) {
+        const chatData = refreshRes.chat;
         const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
         setParticipants(deduplicateParticipants(rawParticipants));
       }
@@ -879,9 +821,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
     
     try {
       setUpdatingVisibility(true);
-      const chatDocRef = doc(db, 'chats', chatId);
-      await updateDoc(chatDocRef, {
-        isPublic: newValue
+      await chatUpdateApi({
+        mode: 'toggle-public',
+        chatId,
+        isPublic: newValue,
       });
       setIsPublic(newValue);
       console.log('✅ [ChatSettingsScreen] Updated group visibility to:', newValue ? 'Public' : 'Private');
@@ -908,27 +851,20 @@ const ChatSettingsScreen = ({navigation, route}) => {
         avatarUrl: request.userAvatar || '',
       };
       
-      await updateDoc(doc(db, 'chats', chatId), {
-        participants: arrayUnion(newParticipant),
-        participantIds: arrayUnion(request.userId),
-      });
-      
-      // Update request status to approved
-      const requestRef = doc(db, 'chats', chatId, 'joinRequests', request.id);
-      await updateDoc(requestRef, {
-        status: 'approved',
-        reviewedAt: Timestamp.now(),
-        reviewedBy: currentUserUid,
+      await chatUpdateApi({
+        mode: 'approve-join',
+        chatId,
+        participant: { uid: request.userId, name: request.userName || 'Unknown User', avatarUrl: request.userAvatar || '' },
+        requestId: request.id,
       });
       
       // Remove from join requests list
       setJoinRequests(prev => prev.filter(r => r.id !== request.id));
       
       // Refresh participants
-      const chatDocRef = doc(db, 'chats', chatId);
-      const chatDocSnap = await getDoc(chatDocRef);
-      if (chatDocSnap.exists()) {
-        const chatData = chatDocSnap.data();
+      const refreshRes = await getChatDetailApi(chatId);
+      if (refreshRes.success && refreshRes.chat) {
+        const chatData = refreshRes.chat;
         const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
         setParticipants(deduplicateParticipants(rawParticipants));
       }
@@ -961,11 +897,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
               setLoading(true);
               
               // Update request status to rejected
-              const requestRef = doc(db, 'chats', chatId, 'joinRequests', request.id);
-              await updateDoc(requestRef, {
-                status: 'rejected',
-                reviewedAt: Timestamp.now(),
-                reviewedBy: currentUserUid,
+              await chatUpdateApi({
+                mode: 'reject-join',
+                chatId,
+                requestId: request.id,
               });
               
               // Remove from join requests list
@@ -1007,10 +942,9 @@ const ChatSettingsScreen = ({navigation, route}) => {
                         '';
       
       // Check if user is already a member (double-check)
-      const chatDocRef = doc(db, 'chats', chatId);
-      const chatDocSnap = await getDoc(chatDocRef);
-      if (chatDocSnap.exists()) {
-        const chatData = chatDocSnap.data();
+      const detailRes = await getChatDetailApi(chatId);
+      if (detailRes.success && detailRes.chat) {
+        const chatData = detailRes.chat;
         const memberIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
         if (memberIds.includes(currentUserUid)) {
           setIsMember(true);
@@ -1029,34 +963,27 @@ const ChatSettingsScreen = ({navigation, route}) => {
       };
       
       // Add user to group participants and create approved join request in one batch
-      await updateDoc(chatDocRef, {
-        participants: arrayUnion(newParticipant),
-        participantIds: arrayUnion(currentUserUid),
+      await chatUpdateApi({
+        mode: 'add-participant',
+        chatId,
+        participant: newParticipant,
       });
       
       // Create join request record with status 'approved' (for tracking)
-      const joinRequestsRef = collection(db, 'chats', chatId, 'joinRequests');
-      const approvedJoinRequest = {
-        userId: currentUserUid,
-        userName: userName,
-        userAvatar: userAvatar,
-        status: 'approved',
-        requestedAt: Timestamp.now(),
-        reviewedAt: Timestamp.now(),
-        reviewedBy: 'auto-approved',
-        autoApproved: true,
-      };
-      
-      await addDoc(joinRequestsRef, approvedJoinRequest);
+      await submitChatJoinRequestApi({
+        chatId,
+        userName,
+        userAvatar,
+      });
       
       // Update local state
       setIsMember(true);
       setHasPendingRequest(false);
       
       // Refresh participants list
-      const updatedChatDocSnap = await getDoc(chatDocRef);
-      if (updatedChatDocSnap.exists()) {
-        const updatedChatData = updatedChatDocSnap.data();
+      const updatedRes = await getChatDetailApi(chatId);
+      if (updatedRes.success && updatedRes.chat) {
+        const updatedChatData = updatedRes.chat;
         const updatedParticipants = Array.isArray(updatedChatData.participants) 
           ? updatedChatData.participants 
           : [];
@@ -1112,17 +1039,21 @@ const ChatSettingsScreen = ({navigation, route}) => {
               };
               
               // Update chat document: add to participants and remove from invitedUsers
-              await updateDoc(doc(db, 'chats', chatId), {
-                participants: arrayUnion(newParticipant),
-                participantIds: arrayUnion(currentUserUid),
-                invitedUsers: arrayRemove(currentUserUid),
+              await chatUpdateApi({
+                mode: 'add-participant',
+                chatId,
+                participant: newParticipant,
+              });
+              await chatUpdateApi({
+                mode: 'remove-invited',
+                chatId,
+                userId: currentUserUid,
               });
               
               // Refresh participants
-              const chatDocRef = doc(db, 'chats', chatId);
-              const chatDocSnap = await getDoc(chatDocRef);
-              if (chatDocSnap.exists()) {
-                const chatData = chatDocSnap.data();
+              const refreshRes = await getChatDetailApi(chatId);
+              if (refreshRes.success && refreshRes.chat) {
+                const chatData = refreshRes.chat;
                 const rawParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
                 setParticipants(deduplicateParticipants(rawParticipants));
               }
@@ -1160,8 +1091,10 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               // Remove user from invitedUsers
-              await updateDoc(doc(db, 'chats', chatId), {
-                invitedUsers: arrayRemove(currentUserUid),
+              await chatUpdateApi({
+                mode: 'remove-invited',
+                chatId,
+                userId: currentUserUid,
               });
               
               setIsInvited(false);
@@ -1194,39 +1127,12 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setLoading(true);
-              
-              // Get the current chat document
-              const chatDocRef = doc(db, 'chats', chatId);
-              const chatDocSnap = await getDoc(chatDocRef);
-              
-              if (!chatDocSnap.exists()) {
-                throw new Error('Chat not found');
+
+              const res = await chatDeleteApi({ mode: 'leave', chatId });
+              if (!res.success) {
+                throw new Error(res.error || 'Failed to leave group');
               }
-              
-              const chatData = chatDocSnap.data();
-              const currentParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-              const currentParticipantIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
-              
-              // Find the exact participant object
-              const myParticipant = currentParticipants.find(p => p.uid === currentUserUid);
-              
-              if (myParticipant) {
-                // Remove yourself from the group
-                await updateDoc(chatDocRef, {
-                  participants: arrayRemove(myParticipant),
-                  participantIds: arrayRemove(currentUserUid),
-                });
-              } else {
-                // Fallback: manually filter
-                const updatedParticipants = currentParticipants.filter(p => p.uid !== currentUserUid);
-                const updatedParticipantIds = currentParticipantIds.filter(id => id !== currentUserUid);
-                
-                await updateDoc(chatDocRef, {
-                  participants: updatedParticipants,
-                  participantIds: updatedParticipantIds,
-                });
-              }
-              
+
               setLoading(false);
               // Navigate back to MessagesScreen (list of all chats) after leaving
               // Use a robust navigation approach that works for all user types (buyer, seller, admin)
@@ -1300,42 +1206,15 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             try {
               setLoading(true);
-              
-              // First, get the current chat document to get exact participant objects
-              const chatDocRef = doc(db, 'chats', chatId);
-              const chatDocSnap = await getDoc(chatDocRef);
-              
-              if (!chatDocSnap.exists()) {
-                throw new Error('Chat not found');
+
+              const res = await chatDeleteApi({ mode: 'remove-member', chatId, memberUid: member.uid });
+              if (!res.success) {
+                throw new Error(res.error || 'Failed to remove member');
               }
-              
-              const chatData = chatDocSnap.data();
-              const currentParticipants = Array.isArray(chatData.participants) ? chatData.participants : [];
-              const currentParticipantIds = Array.isArray(chatData.participantIds) ? chatData.participantIds : [];
-              
-              // Find the exact participant object from the document
-              const exactParticipant = currentParticipants.find(p => p.uid === member.uid);
-              
-              if (exactParticipant) {
-                // Remove the exact participant object
-                await updateDoc(chatDocRef, {
-                  participants: arrayRemove(exactParticipant),
-                  participantIds: arrayRemove(member.uid),
-                });
-              } else {
-                // Fallback: manually filter the arrays
-                const updatedParticipants = currentParticipants.filter(p => p.uid !== member.uid);
-                const updatedParticipantIds = currentParticipantIds.filter(id => id !== member.uid);
-                
-                await updateDoc(chatDocRef, {
-                  participants: updatedParticipants,
-                  participantIds: updatedParticipantIds,
-                });
-              }
-              
+
               // Update local state immediately
               setParticipants(prev => prev.filter(p => p.uid !== member.uid));
-              
+
               Alert.alert('Success', `${member.name} has been removed from the group.`);
             } catch (error) {
               console.log('Error removing member:', error);
@@ -1364,15 +1243,17 @@ const ChatSettingsScreen = ({navigation, route}) => {
           onPress: async () => {
             setLoading(true);
             try {
-              await deleteDoc(doc(db, 'chats', chatId));
+              const res = await chatDeleteApi({ mode: 'delete', chatId });
+              if (!res.success) {
+                throw new Error(res.error || 'Failed to delete chat');
+              }
               setLoading(false);
-              // Navigate back to MessagesScreen (list of all chats) after deleting
-              // Use goBack() twice to go back through ChatScreen to MessagesScreen
-              // This works regardless of navigation context (admin, buyer, seller)
-              navigation.goBack(); // Go back from ChatSettingsScreen to ChatScreen
-              setTimeout(() => {
-                navigation.goBack(); // Go back from ChatScreen to MessagesScreen
-              }, 300);
+              // Navigate to MessagesScreen, which pops the stack back to the
+              // existing MessagesScreen and unmounts ChatScreen — so ChatScreen's
+              // focus effect never re-fires loadInitialMessages for the deleted chat.
+              // Pass deletedChatId so MessagesScreen can optimistically remove it
+              // from the list immediately, before the refetch completes.
+              navigation.navigate('MessagesScreen', { deletedChatId: chatId });
             } catch (error) {
               console.log('Error deleting chat:', error);
               Alert.alert('Error', 'Failed to delete chat. Please try again.');
@@ -1401,7 +1282,11 @@ const ChatSettingsScreen = ({navigation, route}) => {
     }
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'chats', chatId), { name: trimmed });
+      await chatUpdateApi({
+        mode: 'rename',
+        chatId,
+        name: trimmed,
+      });
       setGroupNameDisplay(trimmed);
       setEditNameModalVisible(false);
       // Navigate back to ChatScreen with updated name so header updates

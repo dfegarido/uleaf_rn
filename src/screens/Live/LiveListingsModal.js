@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -85,7 +87,7 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet }
           isActive && styles.activeCard,
         ]}
         onPress={() => setSelectedListing(item)}>
-        <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+        <AppImage source={{ uri: item.imagePrimary }} style={styles.cardImage} />
         <View style={styles.indexBadge}>
           <Text style={styles.indexText}>{indexCode}</Text>
         </View>

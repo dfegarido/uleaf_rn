@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useRef, useState, useEffect, useCallback} from 'react';
 import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
@@ -1871,7 +1873,7 @@ const dedupeOrderTableRows = (rows = []) => {
                     {/* Image */}
                     <View style={[styles.tableCell, {width: 116}]}>
                       {order.imageUrl ? (
-                        <Image 
+                        <AppImage 
                           source={{uri: order.imageUrl}} 
                           style={styles.plantImage}
                           resizeMode="cover"

@@ -9,7 +9,14 @@ import {usePlantListingImageLoad} from '../../hooks/usePlantListingImageLoad';
 import {
   PLANT_LISTING_MISSING_IMAGE,
   PLANT_LISTING_SLOW_LOAD_FALLBACK,
+  toResizedSupabaseUri,
 } from '../../utils/plantListingImage';
+
+/**
+ * Default resize width for listing images rendered through this component.
+ * Kept lower for grid cards; screens can override via `resizeWidth`.
+ */
+const DEFAULT_IMAGE_WIDTH = 1000;
 
 const PlantListingImage = ({
   uri,
@@ -19,9 +26,12 @@ const PlantListingImage = ({
   loadingColor = '#7CBD58',
   staticSource = null,
   enableSlowFallback = true,
+  resizeWidth = DEFAULT_IMAGE_WIDTH,
 }) => {
+  const resolvedUri = uri ? toResizedSupabaseUri(uri, resizeWidth) : null;
+
   const {
-    uri: resolvedUri,
+    uri: hookUri,
     hasRemoteUri,
     imageLoaded,
     showSlowFallback,
@@ -30,7 +40,7 @@ const PlantListingImage = ({
     handleLoad,
     handleLoadEnd,
     handleError,
-  } = usePlantListingImageLoad(uri, {enableSlowFallback});
+  } = usePlantListingImageLoad(resolvedUri, {enableSlowFallback});
 
   if (staticSource && !hasRemoteUri) {
     return (

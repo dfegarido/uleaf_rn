@@ -1,5 +1,6 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import { useIsFocused } from '@react-navigation/native';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -12,11 +13,12 @@ import { ActivityIndicator,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { addViewerToLiveSession,
+  getLiveListingsBySessionApi,
   removeViewerFromLiveSession
 } from '../../components/Api/agoraLiveApi';
+import { getLiveDetailApi } from '../../components/Api/liveApi';
 
 const LivePurgeScreen = ({navigation, route}) => {
   const {sessionId} = route.params;
@@ -46,21 +48,30 @@ const LivePurgeScreen = ({navigation, route}) => {
   useEffect(() => {
     if (!sessionId || !isFocused) return;
 
-    const sessionDocRef = doc(db, 'live', sessionId);
-    const unsubscribe = onSnapshot(sessionDocRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setSessionDetails(data);
-        addViewers()
+    let active = true;
+    let pollTimer = null;
+
+    const loadSession = async () => {
+      const res = await getLiveDetailApi(sessionId);
+      if (!active) return;
+      if (res.success && res.session) {
+        setSessionDetails(res.session);
+        addViewers();
       } else {
-        Alert.alert('Error', 'Session not found.', [{ 
-          text: 'OK', 
+        Alert.alert('Error', 'Session not found.', [{
+          text: 'OK',
           onPress: () => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Live')
         }]);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    loadSession();
+    pollTimer = setInterval(loadSession, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [sessionId, isFocused, navigation]);
 
   useEffect(() => {
@@ -95,28 +106,29 @@ const LivePurgeScreen = ({navigation, route}) => {
   useEffect(() => {
     if (!isFocused || !sessionId) return;
 
-    setLoading(true);
-    const listingsCollectionRef = collection(db, 'listing');
-    const q = query(
-      listingsCollectionRef,
-      where('sessionId', '==', sessionId),
-      where('status', '==', 'Purge'),
-    );
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedListings = [];
-      querySnapshot.forEach((doc) => {
-        fetchedListings.push({ id: doc.id, ...doc.data() });
-      });
-      setListings(fetchedListings);
+    const loadListings = async () => {
+      const res = await getLiveListingsBySessionApi(sessionId, 'Purge');
+      if (!active) return;
+      if (res.success) {
+        setListings(res.data || []);
+      } else {
+        console.error('Error fetching listings:', res.error);
+        Alert.alert('Error', 'Failed to fetch listings.');
+      }
       setLoading(false);
-    }, (error) => {
-        console.error("Error fetching listings snapshot: ", error);
-        Alert.alert('Error', 'Failed to fetch listings in real-time.');
-        setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    setLoading(true);
+    loadListings();
+    pollTimer = setInterval(loadListings, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [isFocused, sessionId]);
 
   const formatTime = (milliseconds) => {
@@ -138,7 +150,7 @@ const LivePurgeScreen = ({navigation, route}) => {
     <View style={styles.card}>
       <TouchableOpacity onPress={() => item.availableQty === 0 ? null : goToPlantDetails(item.plantCode)}>
         <View>
-          <Image source={{ uri: item.imagePrimary }} style={styles.cardImage} />
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.cardImage} />
           {item.availableQty === 0 && (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>

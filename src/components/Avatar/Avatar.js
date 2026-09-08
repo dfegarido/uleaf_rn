@@ -2,6 +2,8 @@ import React, {useEffect, useState, useImperativeHandle, forwardRef} from 'react
 import {TouchableOpacity, Image, View, ActivityIndicator, StyleSheet} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useAuth} from '../../auth/AuthProvider';
+import {getBuyerProfileApi} from '../Api/getBuyerProfileApi';
+import {toResizedSupabaseUri} from '../../utils/plantListingImage';
 import AvatarIcon from '../../assets/images/avatar.svg';
 import {useNavigation} from '@react-navigation/native';
 
@@ -98,7 +100,31 @@ const Avatar = forwardRef(({size = 40, imageUri, onPress, style, rounded = true}
           }
         }
 
-        // 5) Fallback to auth user object (if available)
+        // 5) Try the buyer profile (cache-first, then network). The Supabase
+        //    buyer-profile response now returns camelCase profileImage /
+        //    profilePhotoUrl.
+        try {
+          const profile = await getBuyerProfileApi();
+          if (mounted && profile) {
+            const photo =
+              profile?.profilePhotoUrl ||
+              profile?.profileImage ||
+              profile?.user?.profilePhotoUrl ||
+              profile?.user?.profileImage ||
+              null;
+            if (photo) {
+              const timestamp = Date.now();
+              const bustedUrl = `${photo}${photo.includes('?') ? '&' : '?'}cb=${timestamp}`;
+              setUri(bustedUrl);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          // ignore - fall through to auth user object
+        }
+
+        // 6) Fallback to auth user object (if available)
         if (mounted && user && user.profileImage) {
           setUri(user.profileImage);
         }
@@ -121,10 +147,12 @@ const Avatar = forwardRef(({size = 40, imageUri, onPress, style, rounded = true}
     style,
   ];
 
-  const content = uri ? (
+  const displayUri = uri ? toResizedSupabaseUri(uri, size * 3) : '';
+
+  const content = displayUri ? (
     <Image
-      key={`avatar-image-${uri}`} 
-      source={{uri}}
+      key={`avatar-image-${displayUri}`} 
+      source={{uri: displayUri}}
       style={{width: size, height: size}}
       resizeMode="cover"
       onError={() => setUri('')}

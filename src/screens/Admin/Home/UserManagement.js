@@ -462,10 +462,10 @@ const UserManagement = () => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
-      user.name.toLowerCase().includes(query) ||
-      user.username.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query) ||
-      user.role.toLowerCase().includes(query)
+      String(user.name || '').toLowerCase().includes(query) ||
+      String(user.username || '').toLowerCase().includes(query) ||
+      String(user.email || '').toLowerCase().includes(query) ||
+      String(user.role || '').toLowerCase().includes(query)
     );
   });
 

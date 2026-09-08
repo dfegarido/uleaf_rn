@@ -18,7 +18,7 @@ import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import { retryAsync } from '../../../utils/utils';
 import CarouselSell from './components/CarouselSell';
 
-import { getSellMostLove } from '../../../components/Api';
+import { getSellMostLove, getSupplierInfoApi, getManageListingApi } from '../../../components/Api';
 
 import GrowerPlantIcon from '../../../assets/sellicon/growers.svg';
 import SinglePlantIcon from '../../../assets/sellicon/single.svg';
@@ -26,8 +26,6 @@ import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
 import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../../../firebase';
 import { AuthContext } from '../../../auth/AuthProvider';
 const screenWidth = Dimensions.get('window').width;
 
@@ -78,14 +76,13 @@ const ScreenSell = ({navigation}) => {
       }
 
       try {
-        const supplierSnap = await getDoc(doc(db, 'supplier', resolvedUid));
-        if (!cancelled && supplierSnap.exists()) {
-          const supplierData = supplierSnap.data();
+        const supplierData = await getSupplierInfoApi();
+        if (!cancelled && supplierData?.success) {
           setLiveFlagResolved(supplierData?.liveFlag ?? null);
         }
       } catch (e) {
         if (!cancelled) {
-          console.warn('[ScreenSell] Failed to resolve liveFlag from supplier doc:', e?.message);
+          console.warn('[ScreenSell] Failed to resolve liveFlag from supplier info:', e?.message);
           setLiveFlagResolved(null);
         }
       }
@@ -122,14 +119,13 @@ const ScreenSell = ({navigation}) => {
     let existingLiveCount = 0;
     if (liveSellerUid) {
       try {
-        const snap = await getDocs(
-          query(
-            collection(db, 'listing'),
-            where('sellerCode', '==', liveSellerUid),
-            where('status', '==', 'Live'),
-          ),
+        // Count the seller's Live listings via the search-listing edge fn.
+        const res = await retryAsync(
+          () => getManageListingApi(true, '', [], [], [], 'Live', '', 1000, '', false, ''),
+          3,
+          1000,
         );
-        existingLiveCount = snap.size;
+        existingLiveCount = res?.total || 0;
       } catch (e) {
         console.warn('Failed to fetch live listing count:', e?.message);
       }

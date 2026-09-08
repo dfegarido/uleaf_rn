@@ -6,10 +6,12 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const normalizeLocalVideoUri = (uri) => {
   if (!uri || typeof uri !== 'string') return uri;
-  // iOS AVFoundation is happiest with file:// URLs for local files.
-  if (Platform.OS === 'ios') {
-    if (uri.startsWith('file://')) return uri;
-    if (uri.startsWith('/')) return `file://${uri}`;
+  // react-native-create-thumbnail's native module only treats http(s) as a URL
+  // and wraps anything else in fileURLWithPath:. So a `file://` prefix here
+  // produces a double-`file://` path that AVFoundation fails to decode (-17913).
+  // On all platforms pass a plain POSIX path (strip any file:// prefix).
+  if (uri.startsWith('file://')) {
+    return uri.replace(/^file:\/\//, '');
   }
   return uri;
 };
@@ -62,7 +64,7 @@ const waitForFileToStabilize = async (uri, attempts = 6, delayMs = 150) => {
 export const generateVideoThumbnail = async (videoUri, timeMs = 0) => {
   try {
     const normalizedUri = normalizeLocalVideoUri(videoUri);
-    console.log('🎬 Generating thumbnail for video:', normalizedUri);
+    // (thumbnail generation is best-effort; no noisy log here)
 
     // On iOS, thumbnail generation can fail if the file is still being written.
     // Wait briefly for the file to exist and stabilize before attempting.
@@ -101,7 +103,9 @@ export const generateVideoThumbnail = async (videoUri, timeMs = 0) => {
 
     throw lastError || new Error('Unknown thumbnail generation error');
   } catch (error) {
-    console.error('❌ Thumbnail generation error:', error);
+    // Thumbnail generation is best-effort: the video uploads fine without it.
+    // Keep this quiet so a simulator/encoding failure doesn't surface as a
+    // scary console error. The error is still thrown for callers that need it.
     const msg = error?.message ? `Failed to generate video thumbnail: ${error.message}` : 'Failed to generate video thumbnail';
     throw new Error(msg);
   }

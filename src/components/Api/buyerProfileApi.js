@@ -1,15 +1,19 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
-// Base URL for API endpoints
-const BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
+// All buyer profile / address book endpoints are Supabase Edge Functions
+// (migrated from the legacy Firebase Cloud Functions). The password update
+// remains on the Firebase functions base because it manages the Firebase
+// Auth credential itself (auth stays direct-Firebase per project decision).
 
-// Get buyer profile information
+// Get buyer profile information (Supabase buyer-profile edge fn — response
+// shape matches the legacy getBuyerInfo root-level camelCase contract).
 export const getBuyerProfileApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/getBuyerInfo`, {
+    const response = await fetch(API_ENDPOINTS.GET_BUYER_PROFILE, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -47,12 +51,13 @@ export const getBuyerProfileApi = async () => {
   }
 };
 
-// Update buyer profile information
+// Update buyer profile information (Supabase buyer-update edge fn; legacy
+// validation preserved: username/email rejected, protected fields stripped).
 export const updateBuyerProfileApi = async (profileData) => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/updateBuyerInfo`, {
+    const response = await fetch(API_ENDPOINTS.BUYER_UPDATE, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -74,12 +79,13 @@ export const updateBuyerProfileApi = async (profileData) => {
   }
 };
 
-// Update buyer password
+// Update buyer password — stays on the Firebase functions base (AUTH domain:
+// verifies the old password against Firebase Auth and updates the credential).
 export const updateBuyerPasswordApi = async (passwordData) => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/updateBuyerPassword`, {
+    const response = await fetch(API_ENDPOINTS.UPDATE_BUYER_PASSWORD, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -101,12 +107,12 @@ export const updateBuyerPasswordApi = async (passwordData) => {
   }
 };
 
-// Create address book entry
+// Create address book entry (Supabase address-book edge fn)
 export const createAddressBookEntryApi = async (addressData) => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/createAddressBookEntry`, {
+    const response = await fetch(API_ENDPOINTS.CREATE_ADDRESS_BOOK_ENTRY, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -115,15 +121,12 @@ export const createAddressBookEntryApi = async (addressData) => {
       body: JSON.stringify(addressData),
     });
 
-
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
     const json = await response.json();
-
-    
     return json;
   } catch (error) {
     console.log('createAddressBookEntryApi error:', error.message);
@@ -131,12 +134,12 @@ export const createAddressBookEntryApi = async (addressData) => {
   }
 };
 
-// Get all address book entries
+// Get all address book entries (Supabase address-book edge fn)
 export const getAddressBookEntriesApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/getAddressBookEntries`, {
+    const response = await fetch(API_ENDPOINTS.GET_ADDRESS_BOOK_ENTRIES, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -157,18 +160,21 @@ export const getAddressBookEntriesApi = async () => {
   }
 };
 
-// Get specific address book entry
+// Get specific address book entry (Supabase address-book edge fn)
 export const getAddressBookEntryApi = async (entryId) => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/getAddressBookEntry?entryId=${entryId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${API_ENDPOINTS.GET_ADDRESS_BOOK_ENTRY}?entryId=${entryId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -183,34 +189,32 @@ export const getAddressBookEntryApi = async (entryId) => {
   }
 };
 
-// Update address book entry
+// Update address book entry (Supabase address-book edge fn)
 export const updateAddressBookEntryApi = async (entryId, addressData) => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/updateAddressBookEntry?id=${entryId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `${API_ENDPOINTS.UPDATE_ADDRESS_BOOK_ENTRY}?id=${entryId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...addressData,
+        }),
       },
-      body: JSON.stringify({
-        ...addressData,
-      }),
-    });
+    );
 
     const json = await response.json();
-    console.log({json});
-
-
 
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    
-    
     return json;
   } catch (error) {
     console.log('updateAddressBookEntryApi error:', error.message);
@@ -218,18 +222,21 @@ export const updateAddressBookEntryApi = async (entryId, addressData) => {
   }
 };
 
-// Delete address book entry
+// Delete address book entry (Supabase address-book edge fn)
 export const deleteAddressBookEntryApi = async (entryId) => {
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(`${BASE_URL}/deleteAddressBookEntry?id=${entryId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      }
-    });
+    const response = await fetch(
+      `${API_ENDPOINTS.DELETE_ADDRESS_BOOK_ENTRY}?id=${entryId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -244,98 +251,67 @@ export const deleteAddressBookEntryApi = async (entryId) => {
   }
 };
 
-// Toggle love/favorite status for a listing
+// Toggle love/favorite status for a listing — still on the legacy Firebase
+// function (the wishlist feature is not wired to any screen yet; the Supabase
+// schema for per-user loved listings does not exist yet). Unchanged behavior.
 export const toggleLoveListingApi = async (listingId) => {
-  try {
-    const token = await getStoredAuthToken();
-
-    const response = await fetch(`${BASE_URL}/toggleLoveListing`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ listingId }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
-    }
-
-    const json = await response.json();
-    return json; // Returns { isLoved, loveCount, success, timestamp }
-  } catch (error) {
-    console.log('toggleLoveListingApi error:', error.message);
-    throw error;
-  }
+  return legacyAuthedCall(`${'https://us-central1-i-leaf-u.cloudfunctions.net'}/toggleLoveListing`, {
+    method: 'POST',
+    body: JSON.stringify({ listingId }),
+  });
 };
 
-// Get all loved listings for the current user
+// Get all loved listings for the current user — legacy Firebase (unused; see
+// note on toggleLoveListingApi).
 export const getLovedListingsApi = async () => {
-  try {
-    const token = await getStoredAuthToken();
-    
-    // Extract userId from token (JWT decode)
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3) {
-      throw new Error('Invalid token format');
-    }
-    const payload = JSON.parse(atob(tokenParts[1]));
-    const userId = payload.user_id || payload.uid;
-
-    const response = await fetch(`${BASE_URL}/getLovedListings?userId=${userId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
-    }
-
-    const json = await response.json();
-    return json; // Returns { lovedListings: [...], count, success, timestamp }
-  } catch (error) {
-    console.log('getLovedListingsApi error:', error.message);
-    throw error;
-  }
+  return legacyAuthedCall(
+    `${'https://us-central1-i-leaf-u.cloudfunctions.net'}/getLovedListings?userId=${await getUidFromToken()}`,
+    { method: 'GET' },
+  );
 };
 
-// Check if specific listings are loved by the current user
+// Check if specific listings are loved by the current user — legacy Firebase
+// (see note on toggleLoveListingApi).
 export const checkLovedListingsApi = async (listingIds) => {
-  try {
-    const token = await getStoredAuthToken();
-    
-    // Extract userId from token (JWT decode)
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3) {
-      throw new Error('Invalid token format');
-    }
-    const payload = JSON.parse(atob(tokenParts[1]));
-    const userId = payload.user_id || payload.uid;
-
-    const response = await fetch(`${BASE_URL}/checkLovedListings`, {
+  const userId = await getUidFromToken();
+  return legacyAuthedCall(
+    `${'https://us-central1-i-leaf-u.cloudfunctions.net'}/checkLovedListings`,
+    {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify({ userId, listingIds }),
-    });
+    },
+  );
+};
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
-    }
+// --- helpers for the not-yet-migrated loved-listing calls ---
 
-    const json = await response.json();
-    return json; // Returns { lovedStatus: { listingId: true/false, ... }, success, timestamp }
-  } catch (error) {
-    console.log('checkLovedListingsApi error:', error.message);
-    throw error;
+const getUidFromToken = async () => {
+  const token = await getStoredAuthToken();
+  const tokenParts = token.split('.');
+  if (tokenParts.length !== 3) {
+    throw new Error('Invalid token format');
   }
+  const payload = JSON.parse(
+    global.atob ? atob(tokenParts[1]) : Buffer.from(tokenParts[1], 'base64').toString(),
+  );
+  return {token, userId: payload.user_id || payload.uid};
+};
+
+const legacyAuthedCall = async (url, {method = 'GET', body} = {}) => {
+  const {token} = {token: await getStoredAuthToken()};
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    ...(body ? {body} : {}),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error ${response.status}: ${errorText}`);
+  }
+
+  return await response.json();
 };

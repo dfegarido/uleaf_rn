@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Image,
   ScrollView,
@@ -46,7 +48,7 @@ const DetailRow = ({ label, value, valueBold = false }) => (
 const UserCard = ({ user }) => (
   <View style={styles.userListContainer}>
     <View style={styles.userCard}>
-      <Image source={{uri:user.avatar}} style={styles.userAvatar} />
+      <AppImage source={{uri:user.avatar}} style={styles.userAvatar} />
       <View style={styles.userContent}>
         <View style={styles.userNameRow}>
           <Text style={styles.userName}>{user.name}</Text>
@@ -552,7 +554,7 @@ const ScanQRScreen = ({ navigation, route }) => {
                     enableSwipeDown={true} // Allow swiping down to close
                     onSwipeDown={() => setImageModalVisible(false)}
                     onClick={() => setImageModalVisible(false)}>
-                    <Image
+                    <AppImage
                       source={{ uri: plantData?.plantImage || '' }}
                       style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
                       resizeMode="contain"
@@ -591,7 +593,7 @@ const ScanQRScreen = ({ navigation, route }) => {
                               onPressOut={handlePressOut}
                               onPress={handlePress}
                               activeOpacity={0.8}>
-                    <Image source={{uri: plantData?.plantImage || ''}} style={styles.plantImage} />
+                    <AppImage source={{uri: plantData?.plantImage || ''}} style={styles.plantImage} />
                               </TouchableOpacity>
                     <View style={styles.plantDetails}>
                         <View style={styles.plantNameSection}>

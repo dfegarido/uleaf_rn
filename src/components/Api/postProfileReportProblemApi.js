@@ -1,12 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postProfileReportProblemApi = async (description, imageUrl) => {
   try {
     const token = await getStoredAuthToken();
 
-    const status = 'Inactive';
     const response = await fetch(
-      'https://reportproblem-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.POST_REPORT_PROBLEM,
       {
         method: 'POST',
         headers: {

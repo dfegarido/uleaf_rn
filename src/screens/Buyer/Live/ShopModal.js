@@ -1,4 +1,5 @@
-import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useEffect, useState, useRef } from 'react';
 import { FlatList,
   Image,
@@ -11,9 +12,10 @@ import { FlatList,
   Dimensions,
 } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
-import { db } from '../../../../firebase';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
+import { getLiveListingsBySessionApi } from '../../../components/Api/agoraLiveApi';
+import { liveOrderLookupApi } from '../../../components/Api/liveApi';
 
 const createdAtMs = (data) => {
   const ts = data?.createdAt;
@@ -44,18 +46,13 @@ const ShopModal = ({
   useEffect(() => {
     if (!isVisible || !broadcasterId) return;
 
-    const listingsRef = collection(db, 'listing');
-    const q = query(
-      listingsRef,
-      where('sellerCode', '==', broadcasterId),
-      where('status', '==', 'Live'),
-    );
+    let active = true;
+    let pollTimer = null;
 
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      const listings = [];
-      querySnapshot.forEach((doc) => {
-        listings.push({ id: doc.id, ...doc.data() });
-      });
+    const loadListings = async () => {
+      const res = await getLiveListingsBySessionApi(null, 'Live', broadcasterId);
+      if (!active) return;
+      const listings = (res.data || []).map((item) => ({ id: item.id, ...item }));
 
       const sortedForIg = [...listings].sort(
         (a, b) => createdAtMs(a) - createdAtMs(b),
@@ -74,30 +71,9 @@ const ShopModal = ({
       const soldWithBuyerInfo = await Promise.all(
         soldItems.map(async (item) => {
           try {
-            // 1. Fetch order info from 'order' collection
-            
-            const orderQuery = query(
-              collection(db, 'order'),
-              where('listingId', '==', item.id),
-              where('status', '==', 'Ready to Fly')
-            );
-            const orderSnapshot = await getDocs(orderQuery);
-
-            if (!orderSnapshot.empty) {
-              const orderData = orderSnapshot.docs[0].data();
-              // 2. Use buyerInfo from the order
-              if (orderData.buyerUid) {
-                
-                const buyerQuery = query(
-                  collection(db, 'buyer'),
-                  where('uid', '==', orderData.buyerUid)
-                );
-                const buyerSnapshot = await getDocs(buyerQuery);
-                if (!buyerSnapshot.empty) {
-                  const buyerData = buyerSnapshot.docs[0].data();
-                  return { ...item, buyerUsername: buyerData.username };
-                }
-              }
+            const orderRes = await liveOrderLookupApi({ listingId: item.id, status: 'Ready to Fly' });
+            if (orderRes.success && orderRes.order && orderRes.buyerUsername) {
+              return { ...item, buyerUsername: orderRes.buyerUsername };
             }
           } catch (error) {
             console.error("Error fetching buyer info for sold item:", error);
@@ -109,9 +85,15 @@ const ShopModal = ({
 
       setAllListings(unSold);
       setSoldListings(soldWithBuyerInfo);
-    });
+    };
 
-    return () => unsubscribe();
+    loadListings();
+    pollTimer = setInterval(loadListings, 10000);
+
+    return () => {
+      active = false;
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [isVisible, broadcasterId]);
 
   const filteredAllListings = allListings.filter(
@@ -143,7 +125,7 @@ const ShopModal = ({
         <TouchableOpacity
           onPress={() => handlePress(item)}
           activeOpacity={0.8}>
-          <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
         </TouchableOpacity>
         {igForListing(item) ? (
           <View style={styles.modalIndexBadge} pointerEvents="none">
@@ -175,7 +157,7 @@ const ShopModal = ({
         <TouchableOpacity
           onPress={() => handlePress(item)}
           activeOpacity={0.8}>
-          <Image source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
         </TouchableOpacity>
         {igForListing(item) ? (
           <View style={styles.modalIndexBadge} pointerEvents="none">
@@ -276,7 +258,7 @@ const ShopModal = ({
             onSwipeDown={() => setSelectedImage(null)}
             onClick={() => setSelectedImage(null)}>
             {selectedImage && (
-              <Image
+              <AppImage
                 source={{ uri: selectedImage }}
                 style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
                 resizeMode="contain"

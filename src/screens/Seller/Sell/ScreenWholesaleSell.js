@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {
   useLayoutEffect,
   useState,
@@ -105,7 +107,10 @@ const ScreenSingleWholesale = ({navigation, route}) => {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
     // Extract sort option names as label/value pairs
-    let localGenusData = getGenusApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localGenusData = (getGenusApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionGenus(localGenusData);
   };
@@ -126,7 +131,10 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     // Extract sort option names as label/value pairs
     // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
     setSelectedSpecies('');
-    let localSpeciesData = getSpeciesApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localSpeciesData = (getSpeciesApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionSpecies(localSpeciesData);
   };
@@ -149,12 +157,15 @@ const ScreenSingleWholesale = ({navigation, route}) => {
     // let localVariegationData = getVariegationApiData.data.map(
     //   item => item.name,
     // );
-    let localVariegationData = getVariegationApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localVariegationData = (getVariegationApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     setSelectedVariegation('');
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length == 0 ? true : false,
     // );
-    setSelectedVariegation(getVariegationApiData.data[0]);
+    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
   };
@@ -1082,7 +1093,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
               keyExtractor={(uri, index) => index.toString()}
               renderItem={({item, index}) => (
                 <View style={styles.imageContainer}>
-                  <Image source={{uri: item}} style={styles.image} />
+                  <AppImage source={{uri: item}} style={styles.image} />
                   <TouchableOpacity
                     style={styles.removeButton}
                     onPress={() => removeImage(index)}>
@@ -1127,7 +1138,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
                       padding: 10,
                       flex: 1,
                     }}>
-                    <Image
+                    <AppImage
                       source={{uri: item.image}}
                       style={{width: 80, height: 80, borderRadius: 10}}
                       resizeMode="cover"
@@ -1325,7 +1336,7 @@ const ScreenSingleWholesale = ({navigation, route}) => {
                 data={imagesPotSize}
                 keyExtractor={(uri, index) => index.toString()}
                 renderItem={({item}) => (
-                  <Image source={{uri: item}} style={styles.image} />
+                  <AppImage source={{uri: item}} style={styles.image} />
                 )}
                 horizontal
               />

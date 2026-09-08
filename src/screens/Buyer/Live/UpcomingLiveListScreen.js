@@ -1,7 +1,7 @@
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
-import { Dimensions,
+import {
+  Dimensions,
   ImageBackground,
   ScrollView,
   StatusBar,
@@ -11,10 +11,11 @@ import { Dimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../../firebase';
 
 import CalendarWhiteIcon from '../../../assets/buyer-icons/calendar-white.svg';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+import { getLiveStreamsApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const getScreenDimensions = () => {
   const { width: screenWidth } = Dimensions.get('window');
@@ -84,31 +85,79 @@ const UpcomingLiveListScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    const liveCollectionRef = collection(db, 'live');
-    const q = query(
-      liveCollectionRef,
-      where('status', '==', 'draft'),
-      orderBy('scheduledAt', 'asc'),
-    );
+    let active = true;
+    let unsubscribeRealtime = null;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedStreams = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        fetchedStreams.push({
-          id: doc.id,
-          title: data.title || 'Untitled Stream',
-          thumbnail: data.coverPhotoUrl || require('../../../assets/images/plant1.png'),
-          scheduledAt: data.scheduledAt
-            ? moment(data.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA')
-            : 'Date TBD',
-          liveType: data.liveType || 'live',
-        });
-      });
-      setUpcomingStreams(fetchedStreams);
+    // Map a normalized stream row into the UpcomingVideoCard's expected shape.
+    const toCard = (row) => ({
+      id: row.id,
+      title: row.title || 'Untitled Stream',
+      thumbnail: row.coverPhotoUrl || require('../../../assets/images/plant1.png'),
+      scheduledAt: row.scheduledAt
+        ? moment(row.scheduledAt.seconds * 1000).format('MMM DD, YYYY hh:mmA')
+        : 'Date TBD',
+      liveType: row.liveType || 'live',
+      _sortTime: row.scheduledAt?.seconds || 0,
     });
 
-    return () => unsubscribe();
+    const sortByTime = (list) => list.sort((a, b) => a._sortTime - b._sortTime);
+
+    const loadUpcoming = async () => {
+      const res = await getLiveStreamsApi();
+      if (!active) return;
+      if (res.success) {
+        const drafts = res.streams
+          .filter((s) => s.status === 'draft')
+          .sort((a, b) => (a.scheduledAt?.seconds || 0) - (b.scheduledAt?.seconds || 0))
+          .map(toCard);
+        setUpcomingStreams(sortByTime(drafts));
+      } else {
+        console.error('UpcomingLiveListScreen loadUpcoming error:', res.error);
+      }
+    };
+
+    loadUpcoming();
+
+    subscribeToLiveStreams({
+      onInsert: (payload) => {
+        if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        if (row.status !== 'draft') return;
+        setUpcomingStreams((prev) => {
+          const next = [...prev];
+          const idx = next.findIndex((s) => s.id === row.id);
+          if (idx >= 0) next[idx] = toCard(row);
+          else next.push(toCard(row));
+          return sortByTime(next);
+        });
+      },
+      onUpdate: (payload) => {
+        if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        setUpcomingStreams((prev) => {
+          if (row.status !== 'draft') return prev.filter((s) => s.id !== row.id);
+          const idx = prev.findIndex((s) => s.id === row.id);
+          if (idx < 0) return prev;
+          const next = [...prev];
+          next[idx] = toCard(row);
+          return sortByTime(next);
+        });
+      },
+      onDelete: (payload) => {
+        if (!active || !payload?.old) return;
+        setUpcomingStreams((prev) => prev.filter((s) => s.id !== payload.old.id));
+      },
+    })
+      .then((unsub) => {
+        if (active) unsubscribeRealtime = unsub;
+        else unsub();
+      })
+      .catch((e) => console.error('UpcomingLiveListScreen realtime subscribe error:', e));
+
+    return () => {
+      active = false;
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
   return (

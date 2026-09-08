@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 /**
  * @deprecated This file is deprecated and no longer used.
  * 
@@ -693,7 +695,7 @@ const MyShippingBuddiesScreen = () => {
               {/* Avatar */}
               <View style={styles.buddyAvatar}>
                 {myReceiverRequest.receiver.profileImage ? (
-                  <Image
+                  <AppImage
                     source={{uri: myReceiverRequest.receiver.profileImage}}
                     style={styles.buddyAvatarImage}
                   />
@@ -890,7 +892,7 @@ const MyShippingBuddiesScreen = () => {
                   <View style={styles.joinerAvatarContainer}>
                     <View style={styles.joinerAvatar}>
                       {joiner.profileImage ? (
-                        <Image
+                        <AppImage
                           source={{uri: joiner.profileImage}}
                           style={styles.joinerAvatarImage}
                         />
@@ -1151,7 +1153,7 @@ const MyShippingBuddiesScreen = () => {
                     ]}>
                     <View style={styles.modalUserAvatar}>
                       {user.profileImage ? (
-                        <Image
+                        <AppImage
                           source={{uri: user.profileImage}}
                           style={styles.modalAvatarImage}
                         />

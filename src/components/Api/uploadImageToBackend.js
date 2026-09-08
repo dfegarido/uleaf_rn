@@ -107,7 +107,7 @@ export const uploadImageToBackend = async (uri) => {
       };
 
       // Open and send request
-      xhr.open('POST', API_ENDPOINTS.UPLOAD_LISTING_IMAGE);
+      xhr.open('POST', API_ENDPOINTS.POST_LISTING_IMAGE_UPLOAD);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       // Don't set Content-Type - let XMLHttpRequest set it with boundary for multipart/form-data
       

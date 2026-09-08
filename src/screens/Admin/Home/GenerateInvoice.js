@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useState, useCallback, useEffect, useRef} from 'react';
 import { View,
   Text,
@@ -103,7 +105,7 @@ const BuyerSelectionModal = ({ isVisible, onClose, onSelectBuyer, buyers, loadin
                                 onPress={() => handleSelect(buyer)}
                               >
                                 {avatarUrl ? (
-                                  <Image source={{ uri: avatarUrl }} style={styles.buyerAvatar} />
+                                  <AppImage source={{ uri: avatarUrl }} style={styles.buyerAvatar} />
                                 ) : (
                                   <View style={[styles.buyerAvatar, styles.buyerAvatarPlaceholder]}>
                                     <Text style={styles.buyerAvatarText}>
@@ -218,7 +220,7 @@ const InvoiceGenerationModal = ({ isVisible, onClose, buyer, transaction, onGene
                     <View style={styles.selectedBuyerCard}>
                       <View style={styles.selectedBuyerContent}>
                         {buyer.profileImage ? (
-                          <Image source={{ uri: buyer.profileImage }} style={styles.selectedBuyerAvatar} />
+                          <AppImage source={{ uri: buyer.profileImage }} style={styles.selectedBuyerAvatar} />
                         ) : (
                           <View style={[styles.selectedBuyerAvatar, styles.buyerAvatarPlaceholder]}>
                             <Text style={styles.buyerAvatarText}>
@@ -994,7 +996,7 @@ const GenerateInvoice = ({navigation}) => {
                     activeOpacity={0.7}
                   >
                     {avatarUrl ? (
-                      <Image source={{ uri: avatarUrl }} style={styles.buyerCardAvatar} />
+                      <AppImage source={{ uri: avatarUrl }} style={styles.buyerCardAvatar} />
                     ) : (
                       <View style={[styles.buyerCardAvatar, styles.buyerCardAvatarPlaceholder]}>
                         <Text style={styles.buyerCardAvatarText}>

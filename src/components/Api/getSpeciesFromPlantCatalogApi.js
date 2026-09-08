@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSpeciesFromPlantCatalogApi = async (genus) => {
   try {
@@ -10,7 +11,7 @@ export const getSpeciesFromPlantCatalogApi = async (genus) => {
     }
 
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/getSpeciesFromPlantCatalogDropdown?${queryParams.toString()}`,
+      `${API_ENDPOINTS.GET_SPECIES_FROM_PLANT_CATALOG}?${queryParams.toString()}`,
       {
         method: 'GET',
         headers: {

@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1367,7 +1369,7 @@ const EditDiscount = () => {
                   <View key={`${gardenName}-${idx}`} style={[styles.appliesCard, filteredList.length > 1 && idx < filteredList.length - 1 && {marginBottom: 8}]}>
                     <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                       {gardenSellerAvatar ? (
-                        <Image source={{uri: gardenSellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                        <AppImage source={{uri: gardenSellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                       ) : (
                         <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                           <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
@@ -1485,7 +1487,7 @@ const EditDiscount = () => {
                     {/* Image */}
                     <View style={styles.imageContainerFull}>
                       {imageUri ? (
-                        <Image source={{uri: imageUri}} style={styles.imageFull} resizeMode="cover" />
+                        <AppImage source={{uri: imageUri}} style={styles.imageFull} resizeMode="cover" />
                       ) : (
                         <View style={[styles.imageFull, {backgroundColor: '#E4E7E9'}]} />
                       )}
@@ -1569,7 +1571,7 @@ const EditDiscount = () => {
                   <View style={styles.detailsSectionFull}>
                     <View style={styles.userContainerFull}>
                       {sellerAvatar ? (
-                        <Image source={{uri: sellerAvatar}} style={styles.avatarFull} />
+                        <AppImage source={{uri: sellerAvatar}} style={styles.avatarFull} />
                       ) : (
                         <View style={[styles.avatarFull, styles.avatarPlaceholderFull]}>
                           <Text style={styles.avatarTextFull}>
@@ -1627,7 +1629,7 @@ const EditDiscount = () => {
                     <View key={`${b.id}-${idx}`} style={[styles.appliesCard, selectedBuyers.length > 1 && idx < selectedBuyers.length - 1 && {marginBottom: 8}]}>
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                         {b.avatar ? (
-                          <Image source={{uri: b.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                          <AppImage source={{uri: b.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                         ) : (
                           <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                             <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
@@ -2995,7 +2997,7 @@ const EditDiscount = () => {
                             >
                               <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                                 {gardenSellerAvatar ? (
-                                  <Image source={{uri: gardenSellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461'}} />
+                                  <AppImage source={{uri: gardenSellerAvatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461'}} />
                                 ) : (
                                   <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center'}}>
                                     <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
@@ -3111,7 +3113,7 @@ const EditDiscount = () => {
                               >
                             <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                               {buyer.avatar ? (
-                                <Image source={{uri: buyer.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                                <AppImage source={{uri: buyer.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
                               ) : (
                                 <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
                                   <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>

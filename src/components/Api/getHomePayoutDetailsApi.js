@@ -1,24 +1,18 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getHomePayoutDetailsApi = async workWeek => {
   try {
     const token = await getStoredAuthToken();
-    // const params = new URLSearchParams();
-    // params.append('workWeek', workWeek) ?? '';
 
-    // console.log(params.toString());
-
-    const response = await fetch(
-      `https://listpayoutdetail-nstilwgvua-uc.a.run.app/`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({workWeek}),
+    const response = await fetch(API_ENDPOINTS.PAYOUT_DETAIL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-    );
+      body: JSON.stringify({workWeek}),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

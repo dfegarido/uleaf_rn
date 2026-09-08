@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useState} from 'react';
 import { View,
   Text,
@@ -156,7 +158,7 @@ const ScreenBatchUpload = ({navigation, route}) => {
 
   const pickImageForRow = (rowId) => {
     launchImageLibrary(
-      {mediaType: 'photo', selectionLimit: 1},
+      {mediaType: 'photo', selectionLimit: 1, quality: 0.7, maxWidth: 1600, maxHeight: 1600},
       (response) => {
         if (response.didCancel || response.errorCode || !response.assets?.length) {
           return;
@@ -344,7 +346,7 @@ const ScreenBatchUpload = ({navigation, route}) => {
                 <View style={styles.imageRow}>
                   {row.image ? (
                     <View style={styles.thumbWrap}>
-                      <Image source={{uri: row.image}} style={styles.thumb} />
+                      <AppImage source={{uri: row.image}} style={styles.thumb} />
                       <TouchableOpacity
                         style={styles.thumbRemove}
                         onPress={() => updateRow(row.id, {image: null})}>

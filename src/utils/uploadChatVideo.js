@@ -1,6 +1,7 @@
 import { Alert } from 'react-native';
 import { API_ENDPOINTS } from '../config/apiConfig';
 import { getStoredAuthToken } from './getStoredAuthToken';
+import { isReadableVideoFile } from './videoCompression';
 
 /**
  * Upload Chat Video Utility
@@ -20,6 +21,14 @@ export const uploadChatVideo = async (videoUri, thumbnailUri, onProgress = null)
     console.log('📤 Uploading chat video:', videoUri);
     console.log('📤 Uploading thumbnail:', thumbnailUri);
     
+    // Guard: the video URI must point to a real file with a filename. A bare tmp
+    // directory (e.g. `.../tmp`) from the picker on iOS Simulator would otherwise
+    // make RN fail with "The file "tmp" couldn't be opened because there is no
+    // such file" while building the multipart body.
+    if (!(await isReadableVideoFile(videoUri))) {
+      throw new Error('Selected video file is invalid or unreadable. Please pick the video again.');
+    }
+
     // Get auth token
     const token = await getStoredAuthToken();
     if (!token) {
@@ -98,8 +107,8 @@ export const uploadChatVideo = async (videoUri, thumbnailUri, onProgress = null)
         });
       }
 
-      // Send request
-      xhr.open('POST', API_ENDPOINTS.UPLOAD_CHAT_VIDEO);
+      // Send request to the Supabase edge function.
+      xhr.open('POST', API_ENDPOINTS.POST_CHAT_VIDEO_UPLOAD);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       // Note: Don't set Content-Type for multipart/form-data, browser sets it with boundary
       xhr.send(formData);

@@ -1,7 +1,8 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import { useIsFocused } from '@react-navigation/native';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import moment from 'moment';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,14 +20,14 @@ import {
 import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import EditIcon from '../../assets/icons/greydark/note-edit.svg';
 import TrashIcon from '../../assets/icons/greydark/trash-regular.svg';
 import UploadIcon from '../../assets/live-icon/upload.svg';
-import { AuthContext } from '../../auth/AuthProvider';
 import { updateLiveSession } from '../../components/Api/agoraLiveApi';
+import { deleteLiveSessionApi, getMyLiveSessionsApi, liveRequestWriteApi } from '../../components/Api/liveRequestApi';
 import { InputBox } from '../../components/Input';
+import Toast from '../../components/Toast/Toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MARGIN = 8;
@@ -85,11 +86,19 @@ const getLocalTzAbbr = () => {
 };
 
 const MyLiveSessionsScreen = ({ navigation }) => {
-  const { userInfo } = useContext(AuthContext);
   const [sessions, setSessions] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false); // For delete/save actions
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
+
+  const showToast = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
   const isFocused = useIsFocused();
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -101,82 +110,54 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
-    // Extract uid properly (handles nested structure for suppliers)
-    const uid = userInfo?.uid || userInfo?.id || userInfo?.user?.uid || userInfo?.user?.id;
-
-    if (!isFocused || !uid) {
+    if (!isFocused) {
       return;
     }
 
+    let active = true;
     setLoading(true);
-    const liveCollectionRef = collection(db, 'live');
-    const q = query(
-      liveCollectionRef,
-      where('createdBy', '==', uid),
-      where('liveType', '==', 'live'),
-      orderBy('createdAt', 'desc'),
-    );
 
-    const unsubscribeLive = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const fetchedSessions = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.status !== 'draft') {
-            // Hide ended sessions older than 24 hours
-            if (data.status === 'ended') {
-              const endedTime = data.endedAt?.seconds
-                ? new Date(data.endedAt.seconds * 1000)
-                : (data.updatedAt?.seconds ? new Date(data.updatedAt.seconds * 1000) : null);
-              if (endedTime) {
-                const hoursSinceEnded = (Date.now() - endedTime.getTime()) / (1000 * 60 * 60);
-                if (hoursSinceEnded >= 24) return;
-              }
+    const load = async () => {
+      try {
+        const res = await getMyLiveSessionsApi();
+        if (!active) return;
+        if (!res.success) {
+          console.error('Error fetching my live sessions/requests:', res.error);
+          setLoading(false);
+          return;
+        }
+
+        // Live sessions: hide drafts and ended sessions older than 24 hours.
+        const fetchedSessions = (res.sessions || []).filter((data) => {
+          if (data.status === 'draft') return false;
+          if (data.status === 'ended') {
+            const endedTime = data.endedAt?.seconds
+              ? new Date(data.endedAt.seconds * 1000)
+              : data.updatedAt?.seconds
+                ? new Date(data.updatedAt.seconds * 1000)
+                : null;
+            if (endedTime) {
+              const hoursSinceEnded = (Date.now() - endedTime.getTime()) / (1000 * 60 * 60);
+              if (hoursSinceEnded >= 24) return false;
             }
-            fetchedSessions.push({ id: doc.id, ...data });
           }
+          return true;
         });
         setSessions(fetchedSessions);
-      },
-      (error) => {
-        console.error('Error fetching live sessions:', error);
-      },
-    );
-
-    // Also listen for live requests (pending + approved)
-    const requestsRef = collection(db, 'liveRequests');
-    const qRequests = query(
-      requestsRef,
-      where('sellerUid', '==', uid),
-      orderBy('requestedAt', 'desc'),
-    );
-
-    const unsubscribeRequests = onSnapshot(
-      qRequests,
-      (querySnapshot) => {
-        const fetchedPending = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.status === 'pending' || data.status === 'rejected' || data.status === 'approved') {
-            fetchedPending.push({ id: doc.id, ...data, _isPendingRequest: true });
-          }
-        });
-        setPendingRequests(fetchedPending);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching pending live requests:', error);
-        setLoading(false);
-      },
-    );
-
-    // Cleanup listeners on component unmount
-    return () => {
-      unsubscribeLive();
-      unsubscribeRequests();
+        setPendingRequests(res.pendingRequests || []);
+      } catch (error) {
+        console.error('Error fetching my live sessions/requests:', error);
+      } finally {
+        if (active) setLoading(false);
+      }
     };
-  }, [isFocused, userInfo?.uid, userInfo?.id, userInfo?.user?.uid, userInfo?.user?.id]);
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, [isFocused]);
 
   const handleCardPress = (item) => {
     if (item._isPendingRequest) {
@@ -249,22 +230,33 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setActionLoading(true);
+            // Optimistic removal: drop the item from the list immediately.
+            if (isRequest) {
+              setPendingRequests(prev => prev.filter(r => r.id !== item.id));
+            } else {
+              setSessions(prev => prev.filter(s => s.id !== item.id));
+            }
+            showToast(`${isRequest ? 'Request' : 'Session'} deleted.`);
+
             try {
               if (isRequest) {
-                await deleteDoc(doc(db, 'liveRequests', item.id));
+                await liveRequestWriteApi({ mode: 'delete', requestId: item.id });
                 // Also delete the linked live session so buyers don't see an orphan
                 if (item.liveSessionId) {
-                  await deleteDoc(doc(db, 'live', item.liveSessionId));
+                  await deleteLiveSessionApi(item.liveSessionId);
                 }
               } else {
-                await deleteDoc(doc(db, 'live', item.id));
+                await deleteLiveSessionApi(item.id);
               }
             } catch (error) {
               console.error(`Error deleting ${isRequest ? 'request' : 'session'}:`, error);
-              Alert.alert('Error', `Could not delete the ${isRequest ? 'request' : 'session'}. Please try again.`);
-            } finally {
-              setActionLoading(false);
+              // Roll back the optimistic removal on failure.
+              if (isRequest) {
+                setPendingRequests(prev => [item, ...prev]);
+              } else {
+                setSessions(prev => [item, ...prev]);
+              }
+              showToast(`Could not delete the ${isRequest ? 'request' : 'session'}. Please try again.`, 'error');
             }
           },
         },
@@ -333,7 +325,13 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           // Keep liveSessionId linked so re-approval updates the same doc instead of creating an orphan duplicate
         }
 
-        await updateDoc(doc(db, 'liveRequests', selectedSession.id), updates);
+        await liveRequestWriteApi({
+          mode: 'update',
+          requestId: selectedSession.id,
+          title: updates.title,
+          requestedDate: updates.requestedDate,
+          ...(updates.sessionData ? { sessionData: updates.sessionData } : {}),
+        });
         Alert.alert(
           'Success',
           selectedSession.status === 'approved'
@@ -530,11 +528,11 @@ const MyLiveSessionsScreen = ({ navigation }) => {
               <Text style={styles.label}>Cover Photo</Text>
               <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
                 {newCoverPhoto ? (
-                  <Image source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
+                  <AppImage source={{ uri: newCoverPhoto.uri }} style={styles.coverImage} />
                 ) : selectedSession?.coverPhotoUrl ? (
-                  <Image source={{ uri: selectedSession.coverPhotoUrl }} style={styles.coverImage} />
+                  <AppImage source={{ uri: selectedSession.coverPhotoUrl }} style={styles.coverImage} />
                 ) : selectedSession?.sessionData?.coverPhoto ? (
-                  <Image source={{ uri: selectedSession.sessionData.coverPhoto }} style={styles.coverImage} />
+                  <AppImage source={{ uri: selectedSession.sessionData.coverPhoto }} style={styles.coverImage} />
                 ) : (
                   <>
                     <UploadIcon width={48} height={48} />
@@ -590,6 +588,14 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         </View>
       </Modal>
 
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        duration={3000}
+        position="bottom"
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 };

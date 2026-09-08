@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React, { memo, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -50,7 +52,7 @@ const PlantImagePeek = ({ uri }) => {
         onPressOut={handlePressOut}
         onPress={() => setVisible(true)}
         activeOpacity={0.85}>
-        <Image source={{ uri: uri || '' }} style={styles.plantImage} />
+        <AppImage source={{ uri: uri || '' }} style={styles.plantImage} />
       </TouchableOpacity>
       <Modal
         visible={visible}
@@ -75,7 +77,7 @@ const PlantImagePeek = ({ uri }) => {
             enableSwipeDown
             onSwipeDown={() => setVisible(false)}
             onClick={() => setVisible(false)}>
-            <Image
+            <AppImage
               source={{ uri: uri || '' }}
               style={{
                 width: Dimensions.get('window').width,

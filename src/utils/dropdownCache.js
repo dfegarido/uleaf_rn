@@ -112,6 +112,11 @@ export const preloadAllDropdownData = async (apis) => {
           const res = await apiFunction();
           if (res?.success && res.data) {
             const mappedData = mapFunction ? mapFunction(res.data) : res.data;
+            // Never cache an empty result — an empty cached array would be treated as
+            // truthy downstream and render "No options available" with no refetch.
+            if (Array.isArray(mappedData) && mappedData.length === 0) {
+              return;
+            }
             await setCacheData(cacheKey, mappedData);
           }
         } catch (error) {

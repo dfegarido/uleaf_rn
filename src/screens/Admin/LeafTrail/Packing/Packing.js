@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -68,7 +70,7 @@ const PackingListItem = ({ item, navigation }) => (
           </Text>
         </View>
         <View style={styles.userRow}>
-          <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
+          <AppImage source={{ uri: item.avatar }} style={styles.userAvatar} />
           <View>
             <View style={styles.userNameRow}>
               <Text style={styles.userName}>{item.name}</Text>

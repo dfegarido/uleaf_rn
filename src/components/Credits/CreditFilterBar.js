@@ -9,9 +9,9 @@ const FILTERS = [
   { key: 'expired', label: 'Expired' },
 ];
 
-export default function CreditFilterBar({ activeFilter, onFilterChange, sort, onSortChange }) {
+export default function CreditFilterBar({ activeFilter, onFilterChange, sort, onSortChange, showSort = true }) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, !showSort && styles.containerNoSort]}>
       <View style={styles.chipRow}>
         {FILTERS.map((f) => {
           const active = activeFilter === f.key;
@@ -29,9 +29,11 @@ export default function CreditFilterBar({ activeFilter, onFilterChange, sort, on
         })}
       </View>
 
-      <TouchableOpacity style={styles.sortButton} onPress={onSortChange}>
-        <Text style={styles.sortText}>{sort === 'asc' ? '↑ Oldest' : '↓ Newest'}</Text>
-      </TouchableOpacity>
+      {showSort && (
+        <TouchableOpacity style={styles.sortButton} onPress={onSortChange}>
+          <Text style={styles.sortText}>{sort === 'asc' ? '↑ Oldest' : '↓ Newest'}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -42,6 +44,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 8,
+  },
+  containerNoSort: {
+    justifyContent: 'flex-start',
   },
   chipRow: {
     flexDirection: 'row',

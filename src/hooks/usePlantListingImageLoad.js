@@ -58,15 +58,20 @@ export const usePlantListingImageLoad = (
   }, [uri, slowLoadMs, enableSlowFallback]);
 
   // Continuously prefetch + remount the remote image until it is displayed.
+  // Bounded: stop after MAX_RETRIES so a permanently-failing image (403, empty,
+  // undecodable) does not spin the JS thread forever (thermal/overheating).
   useEffect(() => {
     if (!uri) {
       return undefined;
     }
 
     let cancelled = false;
+    let attempts = 0;
+    const MAX_RETRIES = 5;
 
     const keepFetchingOriginal = async () => {
-      while (!cancelled && !imageLoadedRef.current) {
+      while (!cancelled && !imageLoadedRef.current && attempts < MAX_RETRIES) {
+        attempts += 1;
         await prefetchRemoteImage(uri);
 
         if (cancelled || imageLoadedRef.current) {

@@ -1,3 +1,5 @@
+import AppImage from '../AppImage/AppImage';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   ActivityIndicator,
@@ -46,7 +48,7 @@ const BuyerItem = ({ name, email, username, avatarUrl, isSelected, onToggle }) =
       <View style={styles.avatarWrapper}>
         <View style={[styles.avatarContainer, isSelected && styles.avatarContainerActive]}>
           {!imageError && validAvatarUrl ? (
-            <Image
+            <AppImage
               source={{ uri: validAvatarUrl }}
               style={styles.avatar}
               onError={() => setImageError(true)}

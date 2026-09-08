@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postProfileUpdateInfoApi = async (
   firstName,
@@ -21,9 +22,8 @@ export const postProfileUpdateInfoApi = async (
       }),
     );
 
-    const status = 'Inactive';
     const response = await fetch(
-      'https://updatesupplier-nstilwgvua-uc.a.run.app',
+      API_ENDPOINTS.POST_SUPPLIER_UPDATE,
       {
         method: 'POST',
         headers: {

@@ -1,3 +1,5 @@
+import AppImage from '../../../../../components/AppImage/AppImage';
+
 import React, { useEffect } from 'react';
 import { View,
   Text,
@@ -7,6 +9,8 @@ import { View,
   ScrollView,
   TouchableOpacity,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import styles from './styles/UserSearchModalStyles';
 
@@ -59,6 +63,8 @@ const UserSearchModal = ({
       transparent
       onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.modalHeader}>
@@ -85,13 +91,17 @@ const UserSearchModal = ({
 
           {/* User List */}
           {loading ? (
-            <ScrollView style={styles.modalUserList}>
+            <ScrollView
+              style={styles.modalUserList}
+              keyboardShouldPersistTaps="handled">
               {Array.from({ length: 5 }).map((_, idx) => (
                 <SkeletonUserItem key={idx} index={idx} />
               ))}
             </ScrollView>
           ) : users.length > 0 ? (
-            <ScrollView style={styles.modalUserList}>
+            <ScrollView
+              style={styles.modalUserList}
+              keyboardShouldPersistTaps="handled">
               {users.map((user, index) => (
                 <TouchableOpacity
                   key={user.id || index}
@@ -102,7 +112,7 @@ const UserSearchModal = ({
                   ]}>
                   <View style={styles.modalUserAvatar}>
                     {user.profileImage ? (
-                      <Image
+                      <AppImage
                         source={{ uri: user.profileImage }}
                         style={styles.modalAvatarImage}
                       />
@@ -137,6 +147,7 @@ const UserSearchModal = ({
             </View>
           )}
         </View>
+      </KeyboardAvoidingView>
       </View>
     </Modal>
   );

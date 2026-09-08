@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -237,7 +239,7 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           <Text style={styles.label}>Cover Photo</Text>
           <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
             {coverPhoto ? (
-              <Image source={{ uri: coverPhoto.uri }} style={styles.coverImage} />
+              <AppImage source={{ uri: coverPhoto.uri }} style={styles.coverImage} />
             ) : (
               <>
                 <UploadIcon width={48} height={48} />

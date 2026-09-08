@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,18 +21,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  updateDoc,
-} from 'firebase/firestore';
 import { launchImageLibrary } from 'react-native-image-picker';
 
-import { db } from '../../../../firebase';
 import { uploadBuyerContentPhotoApi } from '../../../components/Api';
+import { getAdminBuyerContentApi, createBuyerContentApi, updateBuyerContentApi, deleteBuyerContentApi } from '../../../components/Api/adminBuyerContentApi';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 
 const SECTIONS = [
@@ -133,9 +127,8 @@ export default function BuyerContentManagement({ navigation, route }) {
   const fetchContent = useCallback(async () => {
     try {
       setLoading(true);
-      const snapshot = await getDocs(collection(db, 'buyerContent'));
-      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setAllItems(sortItems(items));
+      const res = await getAdminBuyerContentApi();
+      setAllItems(sortItems(res.data || []));
     } catch (error) {
       console.error('Error fetching buyer content:', error);
     } finally {
@@ -250,12 +243,11 @@ export default function BuyerContentManagement({ navigation, route }) {
       };
 
       if (editingItem) {
-        await updateDoc(doc(db, 'buyerContent', editingItem.id), itemData);
+        const res = await updateBuyerContentApi(editingItem.id, itemData);
+        if (!res.success) throw new Error(res.error);
       } else {
-        await addDoc(collection(db, 'buyerContent'), {
-          ...itemData,
-          createdAt: new Date(),
-        });
+        const res = await createBuyerContentApi({ ...itemData, createdAt: new Date() });
+        if (!res.success) throw new Error(res.error);
       }
 
       closeModal();
@@ -276,7 +268,8 @@ export default function BuyerContentManagement({ navigation, route }) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteDoc(doc(db, 'buyerContent', itemId));
+            const res = await deleteBuyerContentApi(itemId);
+            if (!res.success) throw new Error(res.error);
             fetchContent();
           } catch (error) {
             console.error('Error deleting buyer content:', error);
@@ -294,7 +287,7 @@ export default function BuyerContentManagement({ navigation, route }) {
       </View>
 
       {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+        <AppImage source={{ uri: item.imageUrl }} style={styles.itemImage} />
       ) : (
         <View style={[styles.itemImage, styles.emptyImagePlaceholder]}>
           <Text style={styles.emptyImageText}>No Image</Text>
@@ -439,7 +432,7 @@ export default function BuyerContentManagement({ navigation, route }) {
                 activeOpacity={0.7}
               >
                 {photo?.uri ? (
-                  <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
+                  <AppImage source={{ uri: photo.uri }} style={styles.photoPreview} />
                 ) : (
                   <View style={styles.photoSizeGuide}>
                     <View style={styles.photoSizeGuideFrame}>

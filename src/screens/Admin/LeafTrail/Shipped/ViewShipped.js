@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import { useFocusEffect } from '@react-navigation/native';
 import moment from 'moment';
 import React, { useCallback, useState } from 'react';
@@ -73,7 +75,7 @@ const TrackingInfo = ({ trackingNumber, label }) => (
 
 const UserInfo = ({ user }) => (
   <View style={styles.userCard}>
-    <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
+    <AppImage source={{ uri: user.avatar }} style={styles.userAvatar} />
     <View style={styles.userDetails}>
       <View style={styles.userNameRow}>
         <Text style={styles.userName}>{user.name}</Text>
@@ -134,7 +136,7 @@ const PlantCard = ({ plant }) => {
   <View style={styles.plantCardContainer}>
     {plant?.isJoinerOrder && (
       <View style={styles.joinerUserRow}>
-        <Image source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+        <AppImage source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
         <View>
           <View style={styles.joinerUserNameRow}>
             <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
@@ -146,7 +148,7 @@ const PlantCard = ({ plant }) => {
     )}
     <View style={styles.plantCard}>
       <View>
-        <Image source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
+        <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
       </View>
       <View style={styles.plantDetails}>
         <View>

@@ -1,11 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import { API_ENDPOINTS } from '../../config/apiConfig';
 
 export const getSortStoreApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      'https://getsortstoredropdown-nstilwgvua-uc.a.run.app/',
+      API_ENDPOINTS.GET_SORT_STORE_DROPDOWN,
       {
         method: 'GET', // or 'POST' if your function expects a body
         headers: {

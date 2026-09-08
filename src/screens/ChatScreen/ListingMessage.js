@@ -1,21 +1,12 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View, Modal, TouchableWithoutFeedback, Dimensions } from 'react-native';
-import { db } from '../../../firebase';
 import ImageZoom from 'react-native-image-pan-zoom';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
-import { addDoc,
-  collection,
-  doc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  where,
-  getDoc,
-  or,
-  deleteDoc
-} from 'firebase/firestore';
+import { deleteChatMessageApi } from '../../components/Api/chatApi';
+import { getListingByIdApi } from '../../components/Api/getListingDetails';
+import { liveOrderLookupApi } from '../../components/Api/liveApi';
 import CloseIcon from '../../assets/icons/white/x-regular.svg';
 
 const formatPrice = (value) => {
@@ -34,42 +25,32 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
 
   useEffect(() => {
       if (!listingId) return;
-    
-      const orderCollectionRef = collection(db, 'order');
-        
-      const q = query(orderCollectionRef, where('listingId', '==' , listingId), where('status', '==' , 'Ready to Fly'));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedOrders = [];
-        querySnapshot.forEach((doc) => {
-          fetchedOrders.push({ id: doc.id, ...doc.data() });
-        });
 
-          const orderData = fetchedOrders[0] || {};
-          
-          if (orderData?.isJoinerOrder) {
-             setSoldTo(orderData?.joinerInfo?.joinerUsername || 'Unknown Buyer');
-          } else {
-            const buyerUid = orderData?.buyerUid;
-            if (buyerUid) {
-              const buyerCollectionRef = collection(db, 'buyer');
-              const buyerDocRef = doc(buyerCollectionRef, buyerUid);
-              getDoc(buyerDocRef).then((buyerDoc) => {
-                if (buyerDoc.exists()) {
-                  const buyerData = buyerDoc.data();
-                  setSoldTo(buyerData.username || 'Unknown Buyer');
-                } else {
-                  setSoldTo('Unknown Buyer');
-                }
-              }).catch((error) => {
-                console.error('Error fetching buyer data:', error);
-                setSoldTo('Unknown Buyer');
-              });
-            }
+      let active = true;
+      let pollTimer = null;
+
+      const loadOrder = async () => {
+        const res = await liveOrderLookupApi({ listingId, status: 'Ready to Fly' });
+        if (!active) return;
+        const orderData = res.order || {};
+
+        if (orderData?.isJoinerOrder) {
+          setSoldTo(orderData?.joinerInfo?.joinerUsername || 'Unknown Buyer');
+        } else {
+          const buyerUid = orderData?.buyerUid;
+          if (buyerUid) {
+            setSoldTo(res.buyerUsername || 'Unknown Buyer');
           }
-          
-        });
-        
-      return () => unsubscribe();
+        }
+      };
+
+      loadOrder();
+      pollTimer = setInterval(loadOrder, 10000);
+
+      return () => {
+        active = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
   }, [listingId]);
 
   useEffect(() => {
@@ -79,11 +60,10 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
         return;
       }
       try {
-        const listingRef = doc(db, 'listing', listingId);
-        const docSnap = await getDoc(listingRef);
-
-        if (docSnap.exists()) {
-          setListing({ id: docSnap.id, ...docSnap.data() });
+        const res = await getListingByIdApi(listingId);
+        const listingData = res?.data || {};
+        if (listingData && Object.keys(listingData).length > 0) {
+          setListing({ id: listingId, ...listingData });
         }
       } catch (error) {
         console.error('Error fetching listing:', error);
@@ -116,7 +96,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
               setLoading(true);
               await postListingDeleteApi(listing.plantCode);
               if (messageId) {
-                await deleteDoc(doc(db, 'messages', messageId));
+                await deleteChatMessageApi(messageId);
               }
               setListing(null);
               setLoading(false);
@@ -179,7 +159,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
           delayLongPress={300}
           activeOpacity={0.8}
           style={styles.imageContainer}>
-          <Image source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
+          <AppImage source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
           {isSoldOut && (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>
@@ -243,7 +223,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
             enableSwipeDown={true}
             onSwipeDown={() => setImageModalVisible(false)}
             onClick={() => setImageModalVisible(false)}>
-            <Image
+            <AppImage
               source={{ uri: listing.imagePrimary }}
               style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
               resizeMode="contain"

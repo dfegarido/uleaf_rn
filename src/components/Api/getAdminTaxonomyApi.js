@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getAdminTaxonomyApi = async (filters = {}) => {
   try {
@@ -6,15 +7,15 @@ export const getAdminTaxonomyApi = async (filters = {}) => {
     console.log('getAdminTaxonomyApi token:', token ? 'Token exists' : 'No token found');
     // Build query parameters
     const params = new URLSearchParams();
-    
+
     if (filters.search) {
       params.append('search', filters.search);
     }
-    
+
     if (filters.page) {
       params.append('page', filters.page);
     }
-    
+
     if (filters.limit) {
       params.append('limit', filters.limit);
     }
@@ -23,17 +24,17 @@ export const getAdminTaxonomyApi = async (filters = {}) => {
     if (filters.variegation) {
       params.append('variegation', filters.variegation);
     }
-    
+
     if (filters.shippingIndex) {
       params.append('shippingIndex', filters.shippingIndex);
     }
-    
+
     if (filters.acclimationIndex) {
       params.append('acclimationIndex', filters.acclimationIndex);
     }
 
-    const url = `https://us-central1-i-leaf-u.cloudfunctions.net/getAdminTaxonomy${params.toString() ? `?${params.toString()}` : ''}`;
-    
+    const url = `${API_ENDPOINTS.GET_GENUS_LIST}${params.toString() ? `?${params.toString()}` : ''}`;
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -60,7 +61,7 @@ export const updateTaxonomyItemApi = async (taxonomyId, data) => {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/updateTaxonomyItem/${taxonomyId}`,
+      `${API_ENDPOINTS.UPDATE_PLANT_TAXONOMY}/${taxonomyId}`,
       {
         method: 'PUT',
         headers: {

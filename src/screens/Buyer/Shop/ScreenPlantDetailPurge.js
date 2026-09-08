@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 /* eslint-disable react-native/no-inline-styles */
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
@@ -714,7 +716,7 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Country:</Text>
               {plantData.countryFlag ? (
-                <Image
+                <AppImage
                   source={{uri: plantData.countryFlag}}
                   style={styles.flagImage}
                 />

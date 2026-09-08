@@ -7,7 +7,7 @@ export const postProfileRequestGenusApi = async (genus, species) => {
 
     const status = 'Inactive';
     const response = await fetch(
-      API_ENDPOINTS.INSERT_GENUS_REQUEST,
+      API_ENDPOINTS.POST_GENUS_REQUEST,
       {
         method: 'POST',
         headers: {

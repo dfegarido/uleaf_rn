@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useEffect, useRef, useState} from 'react';
 import { View,
   Text,
@@ -457,7 +459,7 @@ const ScreenMyStoreDetail = ({navigation, route}) => {
                         marginBottom: 10,
                         padding: 10,
                       }}>
-                      <Image
+                      <AppImage
                         style={styles.image}
                         source={{
                           uri:

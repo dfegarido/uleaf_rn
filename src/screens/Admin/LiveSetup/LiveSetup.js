@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -18,9 +20,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../../firebase';
-import { updateLiveRequestStatusApi } from '../../../components/Api/liveRequestApi';
+import { getLiveRequestsAdminApi, updateLiveRequestApi, updateLiveRequestStatusApi } from '../../../components/Api/liveRequestApi';
 import { updateLiveSessionStatusApi } from '../../../components/Api/agoraLiveApi';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import CalendarIcon from '../../../assets/admin-icons/calendar.svg';
@@ -73,23 +73,14 @@ const LiveSetup = () => {
       }
       console.log('📡 Fetching live stream requests...');
 
-      const q = query(
-        collection(db, 'liveRequests'),
-        orderBy('requestedAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-
-      const allRequests = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        allRequests.push({
-          id: docSnap.id,
-          ...data,
-          requestedAt: data.requestedAt?.toDate ? data.requestedAt.toDate() : data.requestedAt,
-          requestedDate: data.requestedDate?.toDate ? data.requestedDate.toDate() : data.requestedDate,
-          reviewedAt: data.reviewedAt?.toDate ? data.reviewedAt.toDate() : data.reviewedAt,
-        });
-      });
+      const response = await getLiveRequestsAdminApi();
+      if (!response.success) throw new Error(response.error || 'Failed to fetch live requests');
+      const allRequests = (response.data || []).map((data) => ({
+        ...data,
+        requestedAt: data.requestedAt?.toDate ? data.requestedAt.toDate() : data.requestedAt,
+        requestedDate: data.requestedDate?.toDate ? data.requestedDate.toDate() : data.requestedDate,
+        reviewedAt: data.reviewedAt?.toDate ? data.reviewedAt.toDate() : data.reviewedAt,
+      }));
 
       // Calculate stats
       const today = new Date();
@@ -201,8 +192,8 @@ const LiveSetup = () => {
 
     setActionLoading(true);
     try {
-      const requestRef = doc(db, 'liveRequests', selectedRequest.id);
       const updates = {
+        requestId: selectedRequest.id,
         title: editTitle.trim(),
         requestedDate: editDate,
       };
@@ -217,21 +208,8 @@ const LiveSetup = () => {
         };
       }
 
-      await updateDoc(requestRef, updates);
-
-      // If approved and has a live session, update the live doc too
-      if (selectedRequest.status === 'approved' && selectedRequest.liveSessionId) {
-        try {
-          const liveRef = doc(db, 'live', selectedRequest.liveSessionId);
-          const liveUpdates = {
-            title: editTitle.trim(),
-            scheduledAt: editDate,
-          };
-          await updateDoc(liveRef, liveUpdates);
-        } catch (liveError) {
-          console.error('Error updating live session:', liveError);
-        }
-      }
+      const res = await updateLiveRequestApi(updates);
+      if (!res.success) throw new Error(res.error || 'Failed to update live request');
 
       // Optimistic update
       const updated = requests.map(r =>
@@ -502,9 +480,9 @@ const LiveSetup = () => {
                   <Text style={styles.detailLabel}>Cover Photo</Text>
                   <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
                     {editPhoto ? (
-                      <Image source={{ uri: editPhoto.uri }} style={styles.coverImage} />
+                      <AppImage source={{ uri: editPhoto.uri }} style={styles.coverImage} />
                     ) : selectedRequest.sessionData?.coverPhoto ? (
-                      <Image source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImage} />
+                      <AppImage source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImage} />
                     ) : (
                       <View style={styles.imagePickerPlaceholder}>
                         <Text style={styles.imagePickerText}>Tap to select cover photo</Text>
@@ -529,7 +507,7 @@ const LiveSetup = () => {
                 {selectedRequest.sessionData?.coverPhoto ? (
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Cover Photo</Text>
-                    <Image source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImagePreview} />
+                    <AppImage source={{ uri: selectedRequest.sessionData.coverPhoto }} style={styles.coverImagePreview} />
                   </View>
                 ) : null}
               </>

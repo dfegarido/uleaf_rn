@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const postBuyerUpdateInfoApi = async (
   firstName,
@@ -9,22 +10,19 @@ export const postBuyerUpdateInfoApi = async (
   try {
     const token = await getStoredAuthToken();
 
-    const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/updateBuyerInfo',
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          countryCode,
-          contactNumber,
-        }),
+    const response = await fetch(API_ENDPOINTS.BUYER_UPDATE, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-    );
+      body: JSON.stringify({
+        firstName,
+        lastName,
+        countryCode,
+        contactNumber,
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

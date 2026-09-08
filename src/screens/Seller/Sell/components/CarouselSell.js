@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React from 'react';
 import {View, Dimensions, Image, StyleSheet, Text} from 'react-native';
 import Carousel from 'react-native-reanimated-carousel';
@@ -28,7 +30,7 @@ const CarouselSell = ({plantItems = []}) => {
         }}
         renderItem={({item, index}) => (
           <View style={styles.itemContainer}>
-            <Image
+            <AppImage
               source={{uri: item.uri}}
               style={styles.image}
               resizeMode="cover"

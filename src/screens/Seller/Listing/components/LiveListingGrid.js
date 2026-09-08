@@ -1,3 +1,5 @@
+import AppImage from '../../../../components/AppImage/AppImage';
+
 import React, { useEffect } from 'react';
 import { ActivityIndicator,
   Dimensions,
@@ -109,7 +111,7 @@ const LiveListingGrid = ({
         onPress={handleCardPress}>
         <View style={styles.imageWrap}>
           {hasImage ? (
-            <Image
+            <AppImage
               style={styles.image}
               source={{
                 uri: listing.imagePrimary || listing.image,

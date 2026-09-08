@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React from 'react';
 import {
   FlatList,
@@ -65,7 +67,7 @@ const PlantCard = ({ plant, isSelected, onSelect }) => (
   <View style={styles.plantCardContainer}>
     <View style={styles.plantCard}>
       <View>
-        <Image source={{ uri: plant.imageUrl }} style={styles.plantImage} />
+        <AppImage source={{ uri: plant.imageUrl }} style={styles.plantImage} />
         <View style={styles.checkboxContainer}>
           <CheckBox
             isChecked={isSelected}

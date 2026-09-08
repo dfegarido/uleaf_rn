@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import NetInfo from '@react-native-community/netinfo';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
@@ -59,7 +61,7 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
+const ScreenSingleSellLive = ({navigation, route, nextIgIndex, sessionId: sessionIdProp}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -104,7 +106,10 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
     // Extract sort option names as label/value pairs
-    let localGenusData = getGenusApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localGenusData = (getGenusApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
     setDropdownOptionGenus(localGenusData);
   };
@@ -127,9 +132,12 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
     // Extract sort option names as label/value pairs
     // let localSpeciesData = getSpeciesApiData.data.map(item => item.name);
     setSelectedSpecies('');
-    let localSpeciesDatas = getSpeciesApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localSpeciesDatas = (getSpeciesApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     // Set options
-    setDropdownOptionSpecies(getSpeciesApiData.data);
+    setDropdownOptionSpecies(localSpeciesDatas);
   // Caching intentionally disabled for species dropdown
   };
 
@@ -163,12 +171,15 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
     // let localVariegationData = getVariegationApiData.data.map(
     //   item => item.name,
     // );
-    let localVariegationData = getVariegationApiData.data;
+    // InputDropdownSearch expects an array of strings.
+    let localVariegationData = (getVariegationApiData.data || []).map(item =>
+      typeof item === 'string' ? item : item?.name,
+    );
     setSelectedVariegation('');
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length != 0 ? true : false,
     // );
-    setSelectedVariegation(getVariegationApiData.data[0]);
+    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
     // Cache the response for 10 minutes
@@ -366,12 +377,9 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
           selectedMeasure === 'below' ? 'Below 12 inches' : '12 inches & above',
         status: isPurge ? 'Purge' : 'Live',
         publishType: 'Publish Now',
+        sessionId: sessionId || null,
         isActiveLiveListing: !withActiveLiveListing,
       };
-
-      if (isPurge) {
-        data.sessionId = sessionId;
-      }
 
       const response = await postSellSinglePlantApi(data);
 
@@ -410,7 +418,7 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
     status,
     publishType,
     isPurge = false,
-    sessionId = ''
+    sessionId = sessionIdProp || ''
   } = route?.params ?? {};
 
   useEffect(() => {
@@ -727,7 +735,7 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex}) => {
                 horizontal
                 renderItem={({item, index}) => (
                   <View style={styles.imageContainer}>
-                    <Image source={{uri: item}} style={styles.image} />
+                    <AppImage source={{uri: item}} style={styles.image} />
                     <TouchableOpacity
                       style={styles.removeButton}
                       onPress={() => removeImage(index)}>

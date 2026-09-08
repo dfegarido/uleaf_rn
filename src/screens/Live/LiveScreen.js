@@ -1,10 +1,3 @@
-import { collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  where
-} from 'firebase/firestore';
 import React, { useContext, useEffect, useState } from 'react';
 import { Dimensions,
   ImageBackground,
@@ -16,8 +9,9 @@ import { Dimensions,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../../../firebase';
 import { AuthContext } from '../../auth/AuthProvider';
+import { getLiveSellersApi } from '../../components/Api/liveApi';
+import { getMyLiveSessionsApi } from '../../components/Api/liveRequestApi';
 
 // Import SVG icons
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -100,10 +94,9 @@ const LiveSellerScreen = ({navigation}) => {
       }
 
       try {
-        const supplierSnap = await getDoc(doc(db, 'supplier', resolvedUid));
-        if (!cancelled && supplierSnap.exists()) {
-          const supplierData = supplierSnap.data();
-          setLiveFlagResolved(supplierData?.liveFlag ?? null);
+        const res = await getLiveSellersApi([resolvedUid]);
+        if (!cancelled && res.success && res.sellers && res.sellers[resolvedUid]) {
+          setLiveFlagResolved(res.sellers[resolvedUid].liveFlag ?? null);
         }
       } catch (e) {
         if (!cancelled) {
@@ -126,31 +119,26 @@ const LiveSellerScreen = ({navigation}) => {
       return;
     }
 
-    const liveCollectionRef = collection(db, 'live');
+    let active = true;
 
-    // Listener for ongoing sessions
-    const ongoingQuery = query(liveCollectionRef, where('createdBy', '==', resolvedUid), where('liveType', '==', 'live'));
-    const unsubscribeOngoing = onSnapshot(ongoingQuery, (snapshot) => {
-      let count = 0;
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.status !== 'ended') {
-          count++;
-        }
-      });
-      setOngoingCount(count);
-    });
+    const loadCounts = async () => {
+      try {
+        // Ongoing = live-type sessions that are not ended.
+        const liveRes = await getMyLiveSessionsApi('live');
+        const purgeRes = await getMyLiveSessionsApi('purge');
+        if (!active) return;
+        const ongoing = (liveRes.sessions || []).filter((s) => s.status !== 'ended').length;
+        setOngoingCount(ongoing);
+        setUpcomingCount((purgeRes.sessions || []).length);
+      } catch (e) {
+        console.error('[LiveSellerScreen] Failed to load counts:', e?.message);
+      }
+    };
 
-    // Listener for upcoming (scheduled) sessions
-    const upcomingQuery = query(liveCollectionRef, where('createdBy', '==', resolvedUid), where('liveType', '==', 'purge'));
-    const unsubscribeUpcoming = onSnapshot(upcomingQuery, (snapshot) => {
-      setUpcomingCount(snapshot.size);
-    });
+    loadCounts();
 
-    // Cleanup listeners on component unmount
     return () => {
-      unsubscribeOngoing();
-      unsubscribeUpcoming();
+      active = false;
     };
   }, [resolvedUid]);
 

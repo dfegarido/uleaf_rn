@@ -5,10 +5,10 @@ export const getProfileInfoApi = async () => {
   try {
     const token = await getStoredAuthToken();
 
-    // Try buyer endpoint first
+    // Try Supabase buyer-profile first (buyer case).
     try {
       const buyerResponse = await fetch(
-        API_ENDPOINTS.GET_BUYER_INFO || 'https://us-central1-i-leaf-u.cloudfunctions.net/getBuyerInfo',
+        API_ENDPOINTS.GET_BUYER_PROFILE,
         {
           method: 'GET',
           headers: {
@@ -20,20 +20,20 @@ export const getProfileInfoApi = async () => {
 
       if (buyerResponse.ok) {
         const buyerJson = await buyerResponse.json();
-        console.log('✅ Buyer profile fetched successfully');
-        return { 
-          ...buyerJson, 
-          user: { 
-            ...buyerJson.user, 
-            userType: 'buyer' 
-          } 
+        console.log('✅ Buyer profile fetched successfully (Supabase)');
+        return {
+          ...buyerJson,
+          user: {
+            ...buyerJson,
+            userType: 'buyer',
+          },
         };
       }
     } catch (buyerError) {
       console.log('Buyer endpoint failed, trying admin endpoint');
     }
 
-    // Try admin endpoint second
+    // Try admin endpoint second (Firebase fallback)
     try {
       const adminResponse = await fetch(
         API_ENDPOINTS.GET_ADMIN_INFO,
@@ -53,12 +53,12 @@ export const getProfileInfoApi = async () => {
           hasData: !!adminJson.data,
           userType: adminJson.data?.role === 'sub_admin' ? 'sub_admin' : 'admin'
         });
-        return { 
-          ...adminJson, 
-          user: { 
-            ...adminJson.data, 
+        return {
+          ...adminJson,
+          user: {
+            ...adminJson.data,
             userType: adminJson.data?.role === 'sub_admin' ? 'sub_admin' : 'admin'
-          } 
+          }
         };
       } else {
         console.log('Admin endpoint returned non-OK status:', adminResponse.status);
@@ -69,7 +69,7 @@ export const getProfileInfoApi = async () => {
 
     // If buyer and admin endpoints fail, try supplier endpoint
     const supplierResponse = await fetch(
-      API_ENDPOINTS.GET_SUPPLIER_INFO || 'https://getsupplierinfo-nstilwgvua-uc.a.run.app/',
+      API_ENDPOINTS.GET_SUPPLIER_INFO,
       {
         method: 'GET',
         headers: {
@@ -87,12 +87,12 @@ export const getProfileInfoApi = async () => {
 
     const supplierJson = await supplierResponse.json();
     console.log('✅ Supplier profile fetched successfully');
-    return { 
-      ...supplierJson, 
-      user: { 
-        ...supplierJson.user, 
-        userType: 'supplier' 
-      } 
+    return {
+      ...supplierJson,
+      user: {
+        ...supplierJson.user,
+        userType: 'supplier'
+      }
     };
   } catch (error) {
     console.error('❌ getProfileInfoApi error - all endpoints failed:', error.message);

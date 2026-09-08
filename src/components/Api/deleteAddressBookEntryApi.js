@@ -1,11 +1,12 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const deleteAddressBookEntryApi = async (addressId) => {
   try {
     const token = await getStoredAuthToken();
 
     const response = await fetch(
-      `https://us-central1-i-leaf-u.cloudfunctions.net/deleteAddressBookEntry?id=${addressId}`,
+      `${API_ENDPOINTS.DELETE_ADDRESS_BOOK_ENTRY}?id=${addressId}`,
       {
         method: 'DELETE',
         headers: {

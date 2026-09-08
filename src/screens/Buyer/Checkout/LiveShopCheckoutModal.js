@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useEffect, useState } from 'react';
 import { FlatList,
   Image,
@@ -108,7 +110,7 @@ const PlantItemComponent = ({
       <View style={styles.plantImage}>
         <View style={styles.plantImageContainer}>
           {image ? (
-            <Image
+            <AppImage
               source={{ uri: image }}
               style={{ width: 96, height: 128, borderRadius: 6 }}
               resizeMode="cover"

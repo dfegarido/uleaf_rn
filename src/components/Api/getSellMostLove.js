@@ -1,21 +1,18 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 export const getSellMostLove = async () => {
   try {
     const token = await getStoredAuthToken();
-    const params = new URLSearchParams();
-    params.append('limit', '5');
+    const url = API_ENDPOINTS.GET_MOST_LOVE_LISTING;
 
-    const response = await fetch(
-      'https://getmostlovelisting-nstilwgvua-uc.a.run.app',
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // use token from AsyncStorage
-        },
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
-    );
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

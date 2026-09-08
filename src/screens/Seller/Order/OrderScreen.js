@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator,
   FlatList,
@@ -102,7 +104,7 @@ const PlantCard = React.memo(({ item, index, activeTab, isSelected, onSelect }) 
   return (
   <View style={styles.card}>
     <View>
-      <Image source={{ uri: item.plantImage }} style={styles.plantImage} />
+      <AppImage source={{ uri: item.plantImage }} style={styles.plantImage} />
       {showCheckbox && (
         <View style={styles.checkboxContainer}>
           <CheckBox
@@ -597,7 +599,7 @@ const OrderScreen = ({navigation}) => {
               style={styles.iconButton}
               onPress={() => navigation.navigate('ScreenProfile')}>
               {userInfo.profileImage != '' ? (
-                <Image
+                <AppImage
                   source={{uri: userInfo.profileImage}}
                   style={styles.image}
                   resizeMode="cover"

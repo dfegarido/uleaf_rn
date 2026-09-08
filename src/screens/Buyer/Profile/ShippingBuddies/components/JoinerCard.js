@@ -1,3 +1,5 @@
+import AppImage from '../../../../../components/AppImage/AppImage';
+
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -51,7 +53,7 @@ const JoinerCard = ({
         <View style={styles.joinerAvatarContainer}>
           <View style={styles.joinerAvatar}>
             {joiner.profileImage && !imageError ? (
-              <Image
+              <AppImage
                 source={{ uri: joiner.profileImage }}
                 style={styles.joinerAvatarImage}
                 resizeMode="cover"

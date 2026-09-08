@@ -1,0 +1,19 @@
+diff --git a/node_modules/react-native-video/ios/Video/RCTVideoManager.swift b/node_modules/react-native-video/ios/Video/RCTVideoManager.swift
+index b408e96..dbfae2e 100644
+--- a/node_modules/react-native-video/ios/Video/RCTVideoManager.swift
++++ b/node_modules/react-native-video/ios/Video/RCTVideoManager.swift
+@@ -4,7 +4,13 @@ import React
+ @objc(RCTVideoManager)
+ class RCTVideoManager: RCTViewManager {
+     override func view() -> UIView {
+-        return RCTVideo(eventDispatcher: (RCTBridge.current().eventDispatcher() as! RCTEventDispatcher))
++        // On the New Architecture (Fabric) RCTBridge.current() can be nil and
++        // RCTEventDispatcher is not the same runtime type, so the old forced
++        // cast (as!) would trap with a Swift assertion failure / SIGTRAP when
++        // the Video view mounts. Cast safely; RCTVideo tolerates a nil
++        // dispatcher (event dispatch doesn't rely on it in this build).
++        let dispatcher = RCTBridge.current()?.eventDispatcher() as? RCTEventDispatcher
++        return RCTVideo(eventDispatcher: dispatcher)
+     }
+ 
+     func methodQueue() -> DispatchQueue {

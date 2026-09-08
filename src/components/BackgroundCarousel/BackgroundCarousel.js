@@ -20,22 +20,27 @@ const BackgroundCarousel = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef(null);
 
-  const hasImages = images && images.length > 0;
+  // Filter out empty/whitespace URLs — an empty string uri crashes
+  // RCTImageLoader with "No suitable image URL loader found for :".
+  // `images` may be a string (single URL) or an array; coerce to array.
+  const validImages = (Array.isArray(images) ? images : [images])
+    .filter(img => typeof img === 'string' && img.trim() !== '');
+  const hasValidImages = validImages.length > 0;
 
   useEffect(() => {
-    if (!autoSlide || !hasImages) return;
+    if (!autoSlide || !hasValidImages) return;
 
     const slideInterval = setInterval(() => {
       goToNextImage();
     }, interval);
 
     return () => clearInterval(slideInterval);
-  }, [currentIndex, hasImages]);
+  }, [currentIndex, hasValidImages]);
 
   const goToNextImage = () => {
-    if (!hasImages || !flatListRef.current) return;
+    if (!hasValidImages || !flatListRef.current) return;
 
-    const nextIndex = (currentIndex + 1) % images.length;
+    const nextIndex = (currentIndex + 1) % validImages.length;
     flatListRef.current.scrollToIndex({
       index: nextIndex,
       animated: true,
@@ -58,11 +63,11 @@ const BackgroundCarousel = ({
           height: height || screenHeight,
         },
       ]}>
-      {hasImages ? (
+      {hasValidImages ? (
         <>
           <FlatList
             ref={flatListRef}
-            data={images}
+            data={validImages}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}

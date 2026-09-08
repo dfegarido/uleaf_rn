@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import React, {useState, useEffect} from 'react';
 import { View,
   Text,
@@ -14,7 +16,6 @@ import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
 import CalendarIcon from '../../../assets/icons/greylight/calendar-blank-regular.svg';
 import QuestionIcon from '../../../assets/icons/greylight/question-regular.svg';
-import {getSalesReportApi} from '../../../components/Api/reportsApi';
 import {getAdminJourneyMishapDataApi} from '../../../components/Api/orderManagementApi';
 import {getPlantDetailApi} from '../../../components/Api/getPlantDetailApi';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
@@ -102,30 +103,6 @@ const SalesReport = () => {
     {date: 'MAR 10 MAR 16', totalListing: 0, sold: 0},
     {date: 'MAR 03 MAR 09', totalListing: 0, sold: 0},
   ];
-
-  // API call disabled for now
-  // useEffect(() => {
-  //   fetchSalesReport();
-  // }, [selectedPeriod, selectedCountry, selectedSeller, selectedBuyer]);
-
-  // const fetchSalesReport = async () => {
-  //   try {
-  //     setLoading(true);
-  //     const response = await getSalesReportApi({
-  //       period: selectedPeriod,
-  //       country: selectedCountry,
-  //       seller: selectedSeller,
-  //       buyer: selectedBuyer,
-  //     });
-  //     if (response.success) {
-  //       setReportData(response.data);
-  //     }
-  //   } catch (error) {
-  //     console.error('Error fetching sales report:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const formatNumber = (num) => {
     if (num >= 1000) {
@@ -521,7 +498,7 @@ const SalesReport = () => {
             '',
       views: '0', // Views not available in credit request data
       listingType: orderProduct?.listingType || listingDetails?.listingType || 'Single Plant',
-      price: `$${(
+      price: `$${Number(
         plantDetails?.unitPrice ||
         plantDetails?.totalPrice ||
         orderProduct?.price ||
@@ -540,7 +517,19 @@ const SalesReport = () => {
       creditRequestId: creditRequest.requestId || creditRequest.id,
       // Additional fields for detail screen
       description: creditRequest.description || '',
-      attachments: creditRequest.attachments || [],
+      attachments: (() => {
+        const raw = creditRequest.attachments;
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string' && raw.trim()) {
+          try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            return [];
+          }
+        }
+        return [];
+      })(),
       trackingNumber: orderDetails?.trackingNumber || orderDetails?.awbNumber || 'N/A',
       orderDate: (() => {
         // Convert Firestore Timestamp to ISO string
@@ -553,7 +542,7 @@ const SalesReport = () => {
         return dateField;
       })(),
       transactionNumber: orderDetails?.transactionNumber || creditRequest.orderId,
-      shippingCost: `$${(orderDetails?.shippingCost || orderDetails?.totalShippingCost || 0).toFixed(2)}`,
+      shippingCost: `$${Number(orderDetails?.shippingCost || orderDetails?.totalShippingCost || 0).toFixed(2)}`,
       // Supplier/Seller info
       supplierInfo: supplierInfo,
       sellerInfo: supplierInfo, // Using supplierInfo as sellerInfo
@@ -686,7 +675,7 @@ const SalesReport = () => {
             <View style={styles.userRow}>
               <View style={styles.avatarContainer}>
                 {plant.userAvatar ? (
-                  <Image source={{uri: plant.userAvatar}} style={styles.avatarImage} />
+                  <AppImage source={{uri: plant.userAvatar}} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatar} />
                 )}
@@ -709,7 +698,7 @@ const SalesReport = () => {
           {/* Image */}
           <View style={styles.plantImageContainer}>
             {plant.plantImage ? (
-              <Image source={{uri: plant.plantImage}} style={styles.plantImage} />
+              <AppImage source={{uri: plant.plantImage}} style={styles.plantImage} />
             ) : (
               <View style={styles.plantImagePlaceholder} />
             )}

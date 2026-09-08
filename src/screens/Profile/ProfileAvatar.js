@@ -1,3 +1,5 @@
+import AppImage from '../../components/AppImage/AppImage';
+
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import AvatarIcon from '../../assets/images/avatar.svg';
@@ -12,7 +14,7 @@ const ProfileAvatar = ({ imageUri, size = 50, style }) => {
   return (
     <View style={[styles.wrapper, { width: size, height: size }, style]}>
       {hasImage ? (
-        <Image
+        <AppImage
           source={{ uri: imageUri }}
           style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]}
           resizeMode="cover"

@@ -1,3 +1,5 @@
+import AppImage from '../../../components/AppImage/AppImage';
+
 import NetInfo from '@react-native-community/netinfo';
 import { useIsFocused } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
@@ -198,7 +200,7 @@ const ScreenDraftSell = ({navigation}) => {
                 }}>
                 {/* Image */}
                 <View style={[styles.cell, {width: 120}]}>
-                  <Image
+                  <AppImage
                     style={styles.image}
                     source={{
                       uri:

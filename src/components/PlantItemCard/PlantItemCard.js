@@ -13,7 +13,7 @@ import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
 import { formatCurrencyFull } from '../../utils/formatCurrency';
 import PlantListingImage from '../PlantListingImage/PlantListingImage';
 import {
-  getDetailListingImageUri,
+  getShopListingImageUri,
   PLANT_LISTING_MISSING_IMAGE,
 } from '../../utils/plantListingImage';
 
@@ -86,7 +86,7 @@ const PlantItemCard = ({
 
   const plantData = data || {};
   const listingImageUri = data
-    ? getDetailListingImageUri(plantData)
+    ? getShopListingImageUri(plantData)
     : image && typeof image === 'object' && image.uri
       ? String(image.uri).trim()
       : null;
