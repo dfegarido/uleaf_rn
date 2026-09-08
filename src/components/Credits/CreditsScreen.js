@@ -214,6 +214,7 @@ export default function CreditsScreen({
               onFilterChange={setFilter}
               sort={sort}
               onSortChange={toggleSort}
+              showSort={isAdmin}
             />
           </View>
         }
