@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import LiveIcon from '../../../assets/iconnav/live.svg';
 import SocialIcon from '../../../assets/iconnav/social.svg';
-import { getLiveStreamsApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { getLiveStreamsApi, normalizeLiveRow, isVisibleLiveStream } from '../../../components/Api/liveApi';
 import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const getScreenDimensions = () => {
@@ -136,7 +136,7 @@ const OngoingLiveListScreen = ({ navigation }) => {
       if (!active) return;
       if (res.success) {
         const ongoing = res.streams
-          .filter((s) => s.status === 'live' || s.status === 'waiting')
+          .filter(isVisibleLiveStream)
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
           .map(toCard);
         setLiveStreams(ongoing);
@@ -151,7 +151,7 @@ const OngoingLiveListScreen = ({ navigation }) => {
       onInsert: (payload) => {
         if (!active || !payload?.new) return;
         const row = normalizeLiveRow(payload.new);
-        if (row.status !== 'live' && row.status !== 'waiting') return;
+        if (!isVisibleLiveStream(row)) return;
         setLiveStreams((prev) => {
           const next = [...prev];
           const idx = next.findIndex((s) => s.id === row.id);
@@ -164,7 +164,7 @@ const OngoingLiveListScreen = ({ navigation }) => {
         if (!active || !payload?.new) return;
         const row = normalizeLiveRow(payload.new);
         setLiveStreams((prev) => {
-          if (row.status !== 'live' && row.status !== 'waiting') {
+          if (!isVisibleLiveStream(row)) {
             return prev.filter((s) => s.id !== row.id);
           }
           const idx = prev.findIndex((s) => s.id === row.id);

@@ -22,7 +22,7 @@ import Avatar from '../../../components/Avatar/Avatar';
 import SearchHeader from '../../../components/Header/SearchHeader';
 import { resolveSellerDisplayName } from '../../../utils/resolveSellerAlias';
 import { useNavigation } from '@react-navigation/native';
-import { getLiveStreamsApi, getLiveSellersApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { getLiveStreamsApi, getLiveSellersApi, normalizeLiveRow, isVisibleLiveStream } from '../../../components/Api/liveApi';
 import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const getScreenDimensions = () => {
@@ -349,7 +349,7 @@ const LiveScreen = () => {
       const res = await getLiveStreamsApi();
       if (!active) return;
       if (res.success) {
-        setStreams(sortStreams(res.streams));
+        setStreams(sortStreams(res.streams.filter(isVisibleLiveStream)));
       } else {
         console.error('LiveScreen loadStreams error:', res.error);
       }
@@ -362,21 +362,26 @@ const LiveScreen = () => {
     subscribeToLiveStreams({
       onInsert: (payload) => {
         if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        if (!isVisibleLiveStream(row)) return;
         setStreams((prev) => {
-          const next = [...prev];
-          const idx = next.findIndex((s) => s.id === payload.new.id);
-          if (idx >= 0) next[idx] = normalizeLiveRow(payload.new);
-          else next.push(normalizeLiveRow(payload.new));
+          if (prev.some((s) => s.id === row.id)) return prev;
+          const next = [...prev, row];
           return sortStreams(next);
         });
       },
       onUpdate: (payload) => {
         if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
         setStreams((prev) => {
-          const idx = prev.findIndex((s) => s.id === payload.new.id);
-          if (idx < 0) return prev;
+          const idx = prev.findIndex((s) => s.id === row.id);
+          if (idx < 0) return isVisibleLiveStream(row) ? sortStreams([...prev, row]) : prev;
+          if (!isVisibleLiveStream(row)) {
+            // Ended or went stale -> drop from the visible list.
+            return prev.filter((s) => s.id !== row.id);
+          }
           const next = [...prev];
-          next[idx] = normalizeLiveRow(payload.new);
+          next[idx] = row;
           return sortStreams(next);
         });
       },

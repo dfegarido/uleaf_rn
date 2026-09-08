@@ -50,12 +50,42 @@ export const normalizeLiveRow = (row) => ({
   createdAt: toFirestoreTimestamp(row.createdAt ?? row.createdat),
   endedAt: toFirestoreTimestamp(row.endedAt ?? row.endedat),
   updatedAt: toFirestoreTimestamp(row.updatedAt ?? row.updatedat),
+  lastHeartbeat: toFirestoreTimestamp(row.lastHeartbeat ?? row.lastheartbeat),
   duration: row.duration || 0,
   stickyNote: row.stickyNote || row.stickynote || null,
   likeCount: row.likeCount || row.likecount || 0,
   joiners: row.joiners || [],
   lovedByUids: row.lovedByUids || row.lovedbyuids || [],
 });
+
+// Same freshness window the backend `live-list` uses for `live` status. A
+// `live` session only counts as actually-live if the seller's heartbeat is
+// within this window; otherwise it is treated as stale/ended.
+const LIVE_HEARTBEAT_FRESH_MS = 2 * 60 * 1000; // 2 minutes
+
+/**
+ * Decide whether a stream row is still visible to buyers.
+ *
+ * Mirrors the server's filter in `live-list` so Realtime merges (which do NOT
+ * run through the backend query) agree with the initial GET: ended/stale rows
+ * are dropped so a finished session never lingers on the buyer's Live screens.
+ *
+ * @param {Object} row  A normalized live stream row (or raw snake_case row).
+ * @returns {boolean}
+ */
+export const isVisibleLiveStream = (row = {}) => {
+  const status = row.status;
+  // Non-live statuses (draft/waiting/scheduled) always show (upcoming).
+  if (status !== 'live') {
+    return status === 'waiting' || status === 'draft';
+  }
+  // Live requires a fresh heartbeat.
+  const hb = row.lastHeartbeat?.toDate?.() || row.lastHeartbeat || row.lastheartbeat;
+  if (!hb) return false;
+  const t = typeof hb === 'object' && hb.seconds != null ? hb.seconds * 1000 : new Date(hb).getTime();
+  if (isNaN(t)) return false;
+  return Date.now() - t <= LIVE_HEARTBEAT_FRESH_MS;
+};
 
 /**
  * Get the live streams list.

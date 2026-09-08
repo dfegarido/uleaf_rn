@@ -22,7 +22,7 @@ import SocialIcon from '../../../assets/iconnav/social.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
 import XIcon from '../../../assets/icons/greylight/x-regular';
 import { resolveSellerDisplayName } from '../../../utils/resolveSellerAlias';
-import { getLiveStreamsApi, getLiveSellersApi, normalizeLiveRow } from '../../../components/Api/liveApi';
+import { getLiveStreamsApi, getLiveSellersApi, normalizeLiveRow, isVisibleLiveStream } from '../../../components/Api/liveApi';
 import { subscribeToLiveStreams } from '../../../utils/realtimeLive';
 
 const RECENT_SEARCHES_KEY = 'recent_live_searches';
@@ -169,7 +169,7 @@ const ScreenLiveSearch = ({ navigation }) => {
       const res = await getLiveStreamsApi();
       if (!active) return;
       if (res.success) {
-        setStreams(res.streams);
+        setStreams(res.streams.filter(isVisibleLiveStream));
       } else {
         console.error('ScreenLiveSearch loadStreams error:', res.error);
       }
@@ -181,21 +181,26 @@ const ScreenLiveSearch = ({ navigation }) => {
     subscribeToLiveStreams({
       onInsert: (payload) => {
         if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        if (!isVisibleLiveStream(row)) return;
         setStreams((prev) => {
-          const next = [...prev];
-          const idx = next.findIndex((s) => s.id === payload.new.id);
-          if (idx >= 0) next[idx] = normalizeLiveRow(payload.new);
-          else next.push(normalizeLiveRow(payload.new));
+          if (prev.some((s) => s.id === row.id)) return prev;
+          const next = [...prev, row];
           return next;
         });
       },
       onUpdate: (payload) => {
         if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
         setStreams((prev) => {
-          const idx = prev.findIndex((s) => s.id === payload.new.id);
+          const idx = prev.findIndex((s) => s.id === row.id);
           if (idx < 0) return prev;
+          if (!isVisibleLiveStream(row)) {
+            // Ended or went stale -> drop from the list.
+            return prev.filter((s) => s.id !== row.id);
+          }
           const next = [...prev];
-          next[idx] = normalizeLiveRow(payload.new);
+          next[idx] = row;
           return next;
         });
       },

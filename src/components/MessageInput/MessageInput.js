@@ -3,7 +3,7 @@ import AppImage from '../AppImage/AppImage';
 import React, { useState, useRef } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityIndicator, Image, ScrollView, Keyboard } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
-import { validateVideo, formatDuration } from '../../utils/videoCompression';
+import { validateVideo, formatDuration, isReadableVideoFile } from '../../utils/videoCompression';
 import Svg, { Path, G } from 'react-native-svg';
 import UserMentionPicker from './UserMentionPicker';
 
@@ -359,6 +359,25 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     );
   };
 
+  const validatePickedVideo = async (video) => {
+    // Static format/size/duration checks first
+    if (!validateVideo(video)) return false;
+
+    // Guard: ensure the picked URI is a real readable file and not a bare tmp dir
+    // (react-native-image-picker can return `.../tmp` with no filename on the
+    // iOS Simulator, which would otherwise fail at upload).
+    const readable = await isReadableVideoFile(video.uri);
+    if (!readable) {
+      Alert.alert(
+        'Invalid Video',
+        'The selected video could not be read. Please pick the video again.',
+      );
+      return false;
+    }
+
+    return true;
+  };
+
   const openVideoLibrary = () => {
     const options = {
       mediaType: 'video',
@@ -368,7 +387,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       includeBase64: false,
     };
 
-    launchImageLibrary(options, (response) => {
+    launchImageLibrary(options, async (response) => {
       if (response.didCancel) {
         return;
       }
@@ -381,8 +400,8 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       if (response.assets && response.assets[0]) {
         const video = response.assets[0];
         
-        // Validate video
-        if (!validateVideo(video)) {
+        // Validate video (format, size, duration, and real-file check)
+        if (!(await validatePickedVideo(video))) {
           return;
         }
 
@@ -411,7 +430,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       includeBase64: false,
     };
 
-    launchCamera(options, (response) => {
+    launchCamera(options, async (response) => {
       if (response.didCancel) {
         return;
       }
@@ -428,8 +447,8 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       if (response.assets && response.assets[0]) {
         const video = response.assets[0];
         
-        // Validate video
-        if (!validateVideo(video)) {
+        // Validate video (format, size, duration, and real-file check)
+        if (!(await validatePickedVideo(video))) {
           return;
         }
 

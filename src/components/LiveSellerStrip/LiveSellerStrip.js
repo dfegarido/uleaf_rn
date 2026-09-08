@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
-import { getLiveStreamsApi, normalizeLiveRow } from '../Api/liveApi';
+import { getLiveStreamsApi, normalizeLiveRow, isVisibleLiveStream } from '../Api/liveApi';
 import { subscribeToLiveStreams } from '../../utils/realtimeLive';
 
 const formatScheduledTime = (scheduledAt) => {
@@ -151,7 +151,7 @@ const LiveSellerStrip = ({ navigation }) => {
       if (!active) return;
       if (res.success) {
         const streams = res.streams
-          .filter((s) => s.status === 'live' || s.status === 'waiting' || s.status === 'draft')
+          .filter(isVisibleLiveStream)
           .sort((a, b) => {
             const statusOrder = { live: 0, waiting: 1, draft: 2 };
             if (statusOrder[a.status] !== statusOrder[b.status]) {
@@ -174,21 +174,26 @@ const LiveSellerStrip = ({ navigation }) => {
     subscribeToLiveStreams({
       onInsert: (payload) => {
         if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
+        if (!isVisibleLiveStream(row)) return;
         setLiveStreams((prev) => {
-          const next = [...prev];
-          const idx = next.findIndex((s) => s.id === payload.new.id);
-          if (idx >= 0) next[idx] = normalizeLiveRow(payload.new);
-          else next.push(normalizeLiveRow(payload.new));
+          if (prev.some((s) => s.id === row.id)) return prev;
+          const next = [...prev, row];
           return next;
         });
       },
       onUpdate: (payload) => {
         if (!active || !payload?.new) return;
+        const row = normalizeLiveRow(payload.new);
         setLiveStreams((prev) => {
-          const idx = prev.findIndex((s) => s.id === payload.new.id);
+          const idx = prev.findIndex((s) => s.id === row.id);
           if (idx < 0) return prev;
+          if (!isVisibleLiveStream(row)) {
+            // Ended or went stale -> drop from the strip.
+            return prev.filter((s) => s.id !== row.id);
+          }
           const next = [...prev];
-          next[idx] = normalizeLiveRow(payload.new);
+          next[idx] = row;
           return next;
         });
       },

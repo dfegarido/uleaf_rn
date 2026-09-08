@@ -1,5 +1,6 @@
 import { Platform, Alert } from 'react-native';
 import { Video } from 'react-native-compressor';
+import RNFS from 'react-native-fs';
 
 /**
  * Video Compression Utility
@@ -104,6 +105,36 @@ const getFileSize = async (fileUri) => {
     return {
       size: 0,
     };
+  }
+};
+
+/**
+ * Validate that a picked local video URI points to a real, readable file with a
+ * file extension. react-native-image-picker can return a bare app tmp *directory*
+ * (e.g. `.../tmp`) on the iOS Simulator when PHPicker's file-representation copy
+ * drops the filename — feeding that to RN's FormData raises
+ * "The file "tmp" couldn't be opened because there is no such file".
+ *
+ * @param {string|null|undefined} uri
+ * @returns {Promise<boolean>} true if the URI is a local file (exists, size>0, has extension)
+ */
+export const isReadableVideoFile = async (uri) => {
+  if (!uri || typeof uri !== 'string') return false;
+
+  const path = uri.replace(/^file:\/\//, '');
+  // A bare directory (e.g. ends in `/tmp`) has no filename extension at the tail.
+  const tail = path.split('/').pop() || '';
+  if (!tail.includes('.')) {
+    console.warn('[videoCompression] Rejecting video URI with no file extension:', uri);
+    return false;
+  }
+
+  try {
+    const info = await RNFS.stat(path);
+    return info.isFile && Number(info.size) > 0;
+  } catch (e) {
+    console.warn('[videoCompression] Video URI not readable:', uri, e && e.message);
+    return false;
   }
 };
 
