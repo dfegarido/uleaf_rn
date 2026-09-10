@@ -10,18 +10,16 @@ export const searchBuyersApi = async (searchParams) => {
       offset = 0
     } = searchParams;
 
-    if (!query || query.trim().length < 2) {
-      throw new Error('Search query must be at least 2 characters long');
-    }
-
     const token = await getStoredAuthToken();
 
     const params = new URLSearchParams({
-      query: query.trim(),
       userType: 'buyer',
       limit: limit.toString(),
       offset: offset.toString()
     });
+    if (query && query.trim().length >= 2) {
+      params.append('query', query.trim());
+    }
 
     const response = await fetch(`${API_ENDPOINTS.SEARCH_USER}?${params}`, {
       method: 'GET',

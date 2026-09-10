@@ -175,6 +175,7 @@ const generateEndpoints = () => ({
   UPDATE_USER_STATUS: `${getBaseUrl()}/updateUserStatus`,
   GET_ADMIN_LISTINGS: `${getBaseUrl()}/getAdminListings`,
   GET_ADMIN_LISTING_DETAIL: `${getBaseUrl()}/getAdminListingDetail`,
+  ADMIN_PUSH_LISTINGS_TO_CART: `${getBaseUrl()}/adminPushListingsToCart`,
   GET_GENUS_LIST: `${getBaseUrl()}/getGenusList`, // Admin taxonomy management (genus collection with metadata)
   GET_GENUS_DROPDOWN: `${getBaseUrl()}/getGenusFromPlantCatalogDropdown`, // Seller dropdown (genus collection, simple list)
   // Taxonomy Management APIs

@@ -2,11 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { View,
   Text,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   TextInput,
   Image,
+  Modal,
+  TouchableWithoutFeedback,
+  Alert,
+  Keyboard,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../../components/Admin/header';
@@ -34,7 +41,8 @@ import HeartIcon from '../../../assets/buyer-icons/heart.svg';
 import { getAdminListingsApi } from '../../../components/Api/getAdminListingsApi';
 import { postListingDeactivateActionApi } from '../../../components/Api/postListingDeactivateActionApi';
 import { postListingActivateActionApi } from '../../../components/Api/postListingActivateActionApi';
-import { Alert } from 'react-native';
+import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
+import { adminPushListingsToCartApi } from '../../../components/Api/adminPushListingsToCartApi';
 
 const ListingsViewer = ({ navigation }) => {
   // Normalize garden/seller names to reduce mismatches (curly quotes, extra spaces)
@@ -123,6 +131,17 @@ const ListingsViewer = ({ navigation }) => {
     itemsPerPage: 50,
   });
   const [error, setError] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBuyerSheet, setShowBuyerSheet] = useState(false);
+  const [buyerSearch, setBuyerSearch] = useState('');
+  const [buyerOptions, setBuyerOptions] = useState([]);
+  const [buyerLoading, setBuyerLoading] = useState(false);
+  const [pushingCart, setPushingCart] = useState(false);
+  const [buyerKeyboardOffset, setBuyerKeyboardOffset] = useState(0);
+  const buyerSearchDebounceRef = React.useRef(null);
+  const buyerCacheRef = React.useRef([]);
+  const buyerFetchSeqRef = React.useRef(0);
 
   // Filter tabs configuration - following buyer shop pattern
   const filterTabs = [
@@ -1117,7 +1136,235 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   const handleListingPress = (listing) => {
-  // listing click debug log removed
+    if (!selectMode) return;
+    const id = listing.id || listing.plantCode;
+    if (!id) return;
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds([]);
+    setShowBuyerSheet(false);
+    setBuyerSearch('');
+    setBuyerOptions([]);
+  };
+
+  const toggleSelectAllOnPage = () => {
+    const pageIds = listings.map((l) => l.id || l.plantCode).filter(Boolean);
+    const allSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : pageIds);
+  };
+
+  const openAddToCartBuyerPicker = () => {
+    if (selectedIds.length === 0) {
+      Alert.alert('Select listings', 'Mark at least one listing first.');
+      return;
+    }
+    setBuyerSearch('');
+    if (buyerCacheRef.current.length) {
+      setBuyerOptions(rankBuyers(buyerCacheRef.current, ''));
+      setBuyerLoading(false);
+    } else {
+      setBuyerOptions([]);
+      setBuyerLoading(true);
+    }
+    setShowBuyerSheet(true);
+  };
+
+  const normalizeBuyerRow = (b) => ({
+    id: b.id || b.userId || b.uid,
+    firstName: b.firstName || '',
+    lastName: b.lastName || '',
+    username: b.username || '',
+    email: b.email || '',
+    profileImage: b.profileImage || b.avatarUrl || null,
+    name:
+      [b.firstName, b.lastName].filter(Boolean).join(' ') ||
+      b.username ||
+      b.email ||
+      'Unknown',
+  });
+
+  const buyerMatchesQuery = (buyer, q) => {
+    if (!q) return true;
+    const hay = [
+      buyer.name,
+      buyer.firstName,
+      buyer.lastName,
+      buyer.username,
+      buyer.email,
+    ]
+      .map((v) => String(v || '').toLowerCase())
+      .join(' ');
+    return q
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((token) => hay.includes(token));
+  };
+
+  const rankBuyers = (list, q) => {
+    const needle = String(q || '').trim().toLowerCase();
+    const scored = list.map((buyer) => {
+      const name = String(buyer.name || '').toLowerCase();
+      const email = String(buyer.email || '').toLowerCase();
+      const username = String(buyer.username || '').toLowerCase();
+      let score = 80;
+      if (needle) {
+        if (email === needle || name === needle || username === needle) score = 0;
+        else if (email.startsWith(needle) || username.startsWith(needle)) score = 1;
+        else if (name.startsWith(needle)) score = 2;
+        else if (email.includes(needle)) score = 3;
+        else if (username.includes(needle)) score = 4;
+        else if (name.includes(needle)) score = 5;
+        else score = 99;
+      }
+      return { buyer, score, name };
+    });
+    scored.sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
+    return scored.filter((row) => row.score < 99).map((row) => row.buyer);
+  };
+
+  useEffect(() => {
+    if (!showBuyerSheet) {
+      setBuyerKeyboardOffset(0);
+      return undefined;
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e) => {
+      const kbHeight = e?.endCoordinates?.height || 0;
+      setBuyerKeyboardOffset(kbHeight);
+    };
+    const onHide = () => setBuyerKeyboardOffset(0);
+    const subShow = Keyboard.addListener(showEvent, onShow);
+    const subHide = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      subShow?.remove?.();
+      subHide?.remove?.();
+    };
+  }, [showBuyerSheet]);
+
+  useEffect(() => {
+    if (!showBuyerSheet) return undefined;
+
+    const applySearch = (list, q) => {
+      const needle = q.trim();
+      if (needle.length < 1) return rankBuyers(list, '');
+      return rankBuyers(list.filter((b) => buyerMatchesQuery(b, needle)), needle);
+    };
+
+    const q = buyerSearch;
+    if (buyerCacheRef.current.length) {
+      setBuyerOptions(applySearch(buyerCacheRef.current, q));
+      setBuyerLoading(false);
+    }
+
+    if (buyerCacheRef.current.length) return undefined;
+
+    const seq = ++buyerFetchSeqRef.current;
+    setBuyerLoading(true);
+    (async () => {
+      try {
+        const res = await searchBuyersApi({ query: '', limit: 50, offset: 0 });
+        if (seq !== buyerFetchSeqRef.current) return;
+        const buyers = (res?.data?.buyers || []).map(normalizeBuyerRow).filter((x) => x.id);
+        buyerCacheRef.current = buyers;
+        setBuyerOptions(applySearch(buyers, buyerSearch));
+      } catch (e) {
+        if (seq !== buyerFetchSeqRef.current) return;
+        setBuyerOptions([]);
+      } finally {
+        if (seq === buyerFetchSeqRef.current) setBuyerLoading(false);
+      }
+    })();
+
+    return undefined;
+  }, [showBuyerSheet]);
+
+  useEffect(() => {
+    if (!showBuyerSheet) return;
+    if (!buyerCacheRef.current.length) return;
+    const q = buyerSearch.trim();
+    setBuyerOptions(
+      q.length < 1
+        ? rankBuyers(buyerCacheRef.current, '')
+        : rankBuyers(
+            buyerCacheRef.current.filter((b) => buyerMatchesQuery(b, q)),
+            q,
+          ),
+    );
+  }, [buyerSearch, showBuyerSheet]);
+
+  const pushSelectedToBuyer = (buyer) => {
+    const buyerUid = buyer?.id;
+    if (!buyerUid || pushingCart) return;
+    const selectedListings = listings.filter((l) =>
+      selectedIds.includes(l.id || l.plantCode),
+    );
+    if (!selectedListings.length) {
+      Alert.alert('Select listings', 'Mark at least one listing first.');
+      return;
+    }
+    const name =
+      [buyer.firstName, buyer.lastName].filter(Boolean).join(' ') ||
+      buyer.username ||
+      buyer.email ||
+      buyer.name ||
+      'this buyer';
+
+    // Close picker first so Confirm/loading are not behind the sheet
+    setShowBuyerSheet(false);
+    setBuyerSearch('');
+    Keyboard.dismiss();
+
+    Alert.alert(
+      'Add to cart',
+      `Push ${selectedListings.length} listing(s) to ${name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add',
+          onPress: () => {
+            setPushingCart(true);
+            (async () => {
+              try {
+                const res = await adminPushListingsToCartApi({
+                  buyerUid,
+                  items: selectedListings.map((l) => ({
+                    plantCode: l.plantCode,
+                    potSize:
+                      l.potSize ||
+                      l.size ||
+                      l.variations?.[0]?.potSize ||
+                      undefined,
+                    quantity: 1,
+                  })),
+                });
+                if (!res.success && !(res.added > 0)) {
+                  Alert.alert('Failed', res.error || 'Could not add to cart');
+                  return;
+                }
+                Alert.alert(
+                  'Done',
+                  res.message ||
+                    `Added ${res.added || 0} listing(s)${res.failed ? `, ${res.failed} failed` : ''}`,
+                );
+                exitSelectMode();
+              } catch (e) {
+                Alert.alert('Failed', e.message || 'Could not add to cart');
+              } finally {
+                setPushingCart(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   // Reset specific filter
@@ -1375,7 +1622,12 @@ const ListingsViewer = ({ navigation }) => {
         <ScreenHeader
           navigation={navigation}
           title="Listings Viewer"
-          search
+          search={!selectMode}
+          selectionMode={selectMode}
+          selectedCount={selectedIds.length}
+          totalItemsCount={listings.length}
+          onCancelSelection={exitSelectMode}
+          onSelectAll={toggleSelectAllOnPage}
           onSearchPress={() => {
             const next = !headerSearchVisible;
             setHeaderSearchVisible(next);
@@ -1383,13 +1635,38 @@ const ListingsViewer = ({ navigation }) => {
               setTimeout(() => searchInputRef.current.focus(), 60);
             }
           }}
-          searchActive={headerSearchVisible}
+          searchActive={headerSearchVisible && !selectMode}
           searchValue={searchTerm}
           onSearchChange={(text) => setSearchTerm(text || '')}
           onSearchSubmit={() => { setHeaderSearchVisible(false); handleSearch(); }}
           onSearchClear={() => { setSearchTerm(''); loadListings({ page: 1 }); }}
           inputRef={searchInputRef}
         />
+
+        {!selectMode ? (
+          <View style={styles.manageRow}>
+            <TouchableOpacity
+              style={styles.manageBtn}
+              onPress={() => {
+                setSelectMode(true);
+                setSelectedIds([]);
+              }}>
+              <Text style={styles.manageBtnText}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.bulkActionBar}>
+            <TouchableOpacity
+              style={[
+                styles.bulkActionBtn,
+                (selectedIds.length === 0 || pushingCart) && { opacity: 0.4 },
+              ]}
+              disabled={selectedIds.length === 0 || pushingCart}
+              onPress={openAddToCartBuyerPicker}>
+              <Text style={styles.bulkActionBtnText}>Add to cart</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Filter Tabs - following buyer shop pattern */}
         <ScrollView
@@ -1587,6 +1864,8 @@ const ListingsViewer = ({ navigation }) => {
                         onToggleStatus={handleToggleStatus}
                         isProcessing={!!activatingPlantCodes[listing.plantCode]}
                         activeStatusFilter={selectedFilters.status}
+                        selectMode={selectMode}
+                        selected={selectedIds.includes(listing.id || listing.plantCode)}
                       />
                     ))}
                   </ScrollView>
@@ -1598,6 +1877,125 @@ const ListingsViewer = ({ navigation }) => {
         <View style={styles.paginationWrapper}>
           <PaginationControls />
         </View>
+
+        <Modal
+          transparent
+          visible={pushingCart}
+          animationType="fade"
+          presentationStyle="overFullScreen"
+          statusBarTranslucent
+        >
+          <View style={styles.pushingOverlay}>
+            <View style={styles.pushingCard}>
+              <ActivityIndicator size="large" color="#539461" />
+              <Text style={styles.pushingText}>Adding to cart…</Text>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          transparent
+          visible={showBuyerSheet}
+          onRequestClose={() => setShowBuyerSheet(false)}
+          animationType="fade"
+          presentationStyle="overFullScreen"
+          statusBarTranslucent
+        >
+          <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setShowBuyerSheet(false); }}>
+            <View style={[styles.buyerOverlay, { paddingBottom: buyerKeyboardOffset }]}>
+              <TouchableWithoutFeedback>
+                <View
+                  style={[
+                    styles.buyerSheet,
+                    {
+                      height: Math.min(
+                        Dimensions.get('window').height * 0.72,
+                        Math.max(320, Dimensions.get('window').height - buyerKeyboardOffset - 24),
+                      ),
+                    },
+                  ]}>
+                  <View style={styles.buyerSheetHeader}>
+                    <Text style={styles.buyerSheetTitle}>Select customer</Text>
+                    <TouchableOpacity onPress={() => setShowBuyerSheet(false)}>
+                      <Text style={styles.buyerSheetClose}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput
+                    style={styles.buyerSearchInput}
+                    placeholder="Search buyer name, email, username"
+                    placeholderTextColor="#647276"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={buyerSearch}
+                    onChangeText={setBuyerSearch}
+                  />
+                  {buyerLoading && buyerOptions.length === 0 ? (
+                    <View style={{ flex: 1 }}>
+                      {[...Array(6)].map((_, idx) => (
+                        <View key={`buyer-skel-${idx}`} style={styles.buyerSkeletonRow}>
+                          <View style={styles.buyerSkeletonAvatar} />
+                          <View style={styles.buyerSkeletonBars}>
+                            <View style={styles.buyerSkeletonName} />
+                            <View style={styles.buyerSkeletonMeta} />
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={buyerOptions}
+                      keyExtractor={(item, idx) => item.id || String(idx)}
+                      style={{ flex: 1 }}
+                      keyboardShouldPersistTaps="handled"
+                      keyboardDismissMode="on-drag"
+                      initialNumToRender={20}
+                      windowSize={8}
+                      contentContainerStyle={{ paddingBottom: 24 }}
+                      ListEmptyComponent={
+                        <Text style={styles.buyerEmpty}>No buyers found</Text>
+                      }
+                      renderItem={({ item: buyer }) => {
+                        const label =
+                          buyer.name ||
+                          [buyer.firstName, buyer.lastName].filter(Boolean).join(' ') ||
+                          buyer.username ||
+                          buyer.email ||
+                          buyer.id;
+                        return (
+                          <TouchableOpacity
+                            style={styles.buyerRow}
+                            disabled={pushingCart}
+                            onPress={() => pushSelectedToBuyer(buyer)}>
+                            <View style={styles.buyerAvatar}>
+                              <Text style={styles.buyerAvatarText}>
+                                {String(label || 'U').charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.buyerName} numberOfLines={1}>
+                                {label}
+                              </Text>
+                              {buyer.email ? (
+                                <Text style={styles.buyerMeta} numberOfLines={1}>
+                                  {buyer.email}
+                                </Text>
+                              ) : null}
+                              {buyer.username ? (
+                                <Text style={styles.buyerMeta} numberOfLines={1}>
+                                  @{buyer.username}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }}
+                    />
+                  )}
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -1607,6 +2005,175 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  manageRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
+  manageBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#fff',
+  },
+  manageBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B4344',
+  },
+  bulkActionBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  bulkActionBtn: {
+    backgroundColor: '#539461',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  bulkActionBtnText: {
+    color: '#fff',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  buyerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  pushingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  pushingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+    alignItems: 'center',
+    minWidth: 180,
+  },
+  pushingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#202325',
+  },
+  buyerSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  buyerSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  buyerSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  buyerSheetClose: {
+    color: '#539461',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  buyerSearchInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    color: '#202325',
+    backgroundColor: '#fff',
+  },
+  buyerEmpty: {
+    textAlign: 'center',
+    color: '#647276',
+    marginTop: 24,
+    fontSize: 13,
+  },
+  buyerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    gap: 10,
+  },
+  buyerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#48A7F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buyerAvatarText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  buyerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  buyerMeta: {
+    fontSize: 12,
+    color: '#647276',
+    marginTop: 2,
+  },
+  buyerSkeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  buyerSkeletonAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E9ECEF',
+  },
+  buyerSkeletonBars: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  buyerSkeletonName: {
+    height: 14,
+    width: '55%',
+    borderRadius: 6,
+    backgroundColor: '#E9ECEF',
+  },
+  buyerSkeletonMeta: {
+    height: 10,
+    width: '40%',
+    borderRadius: 6,
+    backgroundColor: '#E9ECEF',
+    marginTop: 8,
   },
   // headerBar and headerTitle replaced by shared ScreenHeader component
   backButton: {
