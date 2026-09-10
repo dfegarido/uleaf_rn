@@ -48,10 +48,8 @@ import { isListingPastExpiration } from '../../../utils/listingExpirationUtils';
 import { retryAsync } from '../../../utils/utils';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
-import LiveListingGrid from './components/LiveListingGrid';
 import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
-import LiveListingGridSkeleton from './components/LiveListingGridSkeleton';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -248,6 +246,8 @@ const ScreenListing = ({navigation}) => {
   /** Live tab: batch select mode */
   const [isLiveSelectMode, setIsLiveSelectMode] = useState(false);
   const [liveSelectedIds, setLiveSelectedIds] = useState([]);
+  const [liveSortBy, setLiveSortBy] = useState('sequence');
+  const [liveSortOpen, setLiveSortOpen] = useState(false);
 
   /** Active tab: inline manage / multi-select (same UX pattern as Live tab) */
   const [isActiveSelectMode, setIsActiveSelectMode] = useState(false);
@@ -528,7 +528,7 @@ const ScreenListing = ({navigation}) => {
 
         const fetchId = ++liveFetchIdRef.current;
         const channelFilters = {
-          sortBy: reusableSort,
+          sortBy: liveSortBy || 'sequence',
           genus: reusableGenus,
           variegation: reusableVariegation,
           listingType: reusableListingType,
@@ -559,6 +559,7 @@ const ScreenListing = ({navigation}) => {
           liveAllListingsRef.current = sortedAggregated;
           setDataTable(sortedAggregated.slice(0, LIVE_DISPLAY_PAGE));
           setLiveHasMore(sortedAggregated.length > LIVE_DISPLAY_PAGE);
+          setTotalListings(sortedAggregated.length);
         } catch (liveErr) {
           if (fetchId !== liveFetchIdRef.current) return;
           console.error('[Live tab] Firestore fetch error:', liveErr?.message || liveErr);
@@ -2275,15 +2276,38 @@ const ScreenListing = ({navigation}) => {
         </ScrollView>
         {/* Filter Tabs */}
       </View>
-      {/* Search and Icons — use View for Live tab so FlatList is not inside ScrollView */}
-      {activeTab === 'Live' ? (
-        <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
-          <View style={{ flex: 1, backgroundColor: '#fff' }}>
-            {!loading && dataTable && dataTable.length > 0 && (
+      <ScrollView
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          style={[styles.container]}
+          contentContainerStyle={{
+            paddingBottom: insets.bottom,
+          }}
+          scrollEventThrottle={400}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            const nearBottom =
+              layoutMeasurement.height + contentOffset.y >= contentSize.height - 200;
+            if (!nearBottom) return;
+            if (activeTab === 'Live') {
+              if (!liveLoadingMore && liveHasMore) loadMoreLiveListings();
+              return;
+            }
+            if (!allLoadingMore && allHasMore) {
+              loadMoreAllListings();
+            }
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              minHeight: dataTable.length != 0 && screenHeight * 0.9,
+            }}>
+            {activeTab === 'Live' && !loading && dataTable && dataTable.length > 0 && (
               <View style={[styles.liveToolbar, isLiveSelectMode && styles.liveToolbarSelectMode]}>
                 {isLiveSelectMode ? (
                   <View style={styles.liveSelectModeContainer}>
-                    {/* Row 1: Select All + count + Cancel */}
                     <View style={styles.liveToolbarRow}>
                       <TouchableOpacity onPress={toggleLiveSelectAll} style={styles.liveSelectAllBtn}>
                         <View style={[styles.liveCheckbox, liveSelectedIds.length === dataTable.length && styles.liveCheckboxChecked]}>
@@ -2296,7 +2320,6 @@ const ScreenListing = ({navigation}) => {
                         <Text style={styles.liveCancelBtnText}>Cancel</Text>
                       </TouchableOpacity>
                     </View>
-                    {/* Row 2: Action chips */}
                     <View style={styles.liveActionsRow}>
                       <TouchableOpacity
                         onPress={handleLiveBatchExportToMainstream}
@@ -2329,6 +2352,11 @@ const ScreenListing = ({navigation}) => {
                     <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
                       <RefreshIcon width={18} height={18} />
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setLiveSortOpen(prev => !prev)}
+                      style={styles.liveManageBtn}>
+                      <Text style={styles.liveManageBtnText}>Sort</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity onPress={() => setIsLiveSelectMode(true)} style={styles.liveManageBtn}>
                       <Text style={styles.liveManageBtnText}>Manage</Text>
                     </TouchableOpacity>
@@ -2336,60 +2364,51 @@ const ScreenListing = ({navigation}) => {
                 )}
               </View>
             )}
-            {loading ? (
-              <LiveListingGridSkeleton cardCount={12} />
-            ) : dataTable && dataTable.length > 0 ? (
-              <View style={[styles.contents, { flex: 1 }]}>
-                <LiveListingGrid
-                  data={dataTable}
-                  onNavigateToDetail={onNavigateToDetail}
-                  onPressSetToActive={onPressSetToActive}
-                  onLoadMore={loadMoreLiveListings}
-                  isLoadingMore={liveLoadingMore}
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  prevActivePlantCodes={prevActivePlantCodes}
-                  isSelectMode={isLiveSelectMode}
-                  selectedIds={liveSelectedIds}
-                  onToggleSelect={toggleLiveSelect}
-                />
-              </View>
-            ) : !loading ? (
-              <View style={{ alignItems: 'center', paddingTop: 80, flex: 1 }}>
-                <Image
-                  source={imageMap[normalizeKey(activeTab)]}
-                  style={{ width: 300, height: 300, resizeMode: 'contain' }}
-                />
+            {activeTab === 'Live' && liveSortOpen && !isLiveSelectMode ? (
+              <View style={styles.liveSortMenu}>
+                {[
+                  {key: 'sequence', label: 'Sequence #'},
+                  {key: 'genus', label: 'Genus'},
+                  {key: 'priceHigh', label: 'Price High to Low'},
+                  {key: 'priceLow', label: 'Price Low to High'},
+                ].map(opt => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    style={styles.liveSortOption}
+                    onPress={() => {
+                      setLiveSortBy(opt.key);
+                      setLiveSortOpen(false);
+                      const sortedAggregated = prepareSellerChannelTabListings(
+                        allListingsRef.current,
+                        'Live',
+                        {
+                          sortBy: opt.key,
+                          genus: reusableGenus,
+                          variegation: reusableVariegation,
+                          listingType: reusableListingType,
+                          search,
+                          pinOnly: pinSearch,
+                        },
+                      );
+                      sortedAggregated.forEach((item, i) => {
+                        item._originalIndex = i + 1;
+                      });
+                      liveAllListingsRef.current = sortedAggregated;
+                      setDataTable(sortedAggregated.slice(0, LIVE_DISPLAY_PAGE));
+                      setLiveHasMore(sortedAggregated.length > LIVE_DISPLAY_PAGE);
+                      setTotalListings(sortedAggregated.length);
+                    }}>
+                    <Text
+                      style={[
+                        styles.liveSortOptionText,
+                        liveSortBy === opt.key && styles.liveSortOptionTextActive,
+                      ]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             ) : null}
-          </View>
-        </View>
-      ) : (
-        <ScrollView
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          style={[styles.container]}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom,
-          }}
-          scrollEventThrottle={400}
-          onScroll={({ nativeEvent }) => {
-            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-            if (
-              layoutMeasurement.height + contentOffset.y >= contentSize.height - 200 &&
-              !allLoadingMore &&
-              allHasMore
-            ) {
-              loadMoreAllListings();
-            }
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              minHeight: dataTable.length != 0 && screenHeight * 0.9,
-            }}>
             {showListingManageToolbar && (
               <View style={[styles.liveToolbar, listingManageSelectMode && styles.liveToolbarSelectMode]}>
                 {listingManageSelectMode ? (
@@ -2487,16 +2506,22 @@ const ScreenListing = ({navigation}) => {
                   onNavigateToDetail={onNavigateToDetail}
                   activeTab={activeTab}
                   onPressSetToActive={onPressSetToActive}
-                  manageSelectMode={listingManageSelectMode}
-                  manageSelectedIds={listingManageSelectedIds}
-                  onManageToggleSelect={onListingManageToggleSelect}
+                  manageSelectMode={
+                    activeTab === 'Live' ? isLiveSelectMode : listingManageSelectMode
+                  }
+                  manageSelectedIds={
+                    activeTab === 'Live' ? liveSelectedIds : listingManageSelectedIds
+                  }
+                  onManageToggleSelect={
+                    activeTab === 'Live' ? toggleLiveSelect : onListingManageToggleSelect
+                  }
                 />
-                {allLoadingMore && (
+                {(activeTab === 'Live' ? liveLoadingMore : allLoadingMore) && (
                   <View style={{ paddingVertical: 16, alignItems: 'center' }}>
                     <ActivityIndicator size="small" color="#48A7F8" />
                   </View>
                 )}
-                {!allHasMore && totalListings > 0 && !loading && (
+                {!(activeTab === 'Live' ? liveHasMore : allHasMore) && totalListings > 0 && !loading && (
                   <View style={{ paddingVertical: 12, alignItems: 'center' }}>
                     <Text style={{ fontSize: 12, color: '#9DA5A7' }}>
                       {totalListings} listing{totalListings !== 1 ? 's' : ''} total
@@ -2514,7 +2539,6 @@ const ScreenListing = ({navigation}) => {
             ) : null}
           </View>
         </ScrollView>
-      )}
 
 
       <ReusableActionSheet
@@ -2971,6 +2995,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#3B4344',
+  },
+  liveSortMenu: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+  },
+  liveSortOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  liveSortOptionText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#3B4344',
+  },
+  liveSortOptionTextActive: {
+    color: '#539461',
+    fontWeight: '700',
   },
   liveToolbarSelectMode: {
     flexDirection: 'column',
