@@ -8,11 +8,24 @@ import { deleteChatMessageApi } from '../../components/Api/chatApi';
 import { getListingByIdApi } from '../../components/Api/getListingDetails';
 import { liveOrderLookupApi } from '../../components/Api/liveApi';
 import CloseIcon from '../../assets/icons/white/x-regular.svg';
+import {
+  isSellerListingExpired,
+  resolvePublishYmd,
+} from '../../utils/listingExpirationUtils';
 
 const formatPrice = (value) => {
   const num = Number(value);
   if (isNaN(num)) return '$0';
   return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+
+/** Client mock format: "Listed 8/14/2026" */
+const formatListedDateLabel = (listing) => {
+  const ymd = resolvePublishYmd(listing);
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return `Listed ${month}/${day}/${year}`;
 };
 
 const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress, onMissingListing }) => {
@@ -65,13 +78,13 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
         if (listingData && Object.keys(listingData).length > 0) {
           setListing({ id: listingId, ...listingData });
         }
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching listing:', error);
-      } finally {
+        setListing(null);
         setLoading(false);
       }
     };
-
     fetchListing();
   }, [listingId]);
 
@@ -130,12 +143,15 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
   };
 
   let isSoldOut = listing?.availableQty <= 0;
+  const isExpired = isSellerListingExpired(listing);
+  const listedDateLabel = listing ? formatListedDateLabel(listing) : null;
 
   useEffect(() => {
-    if (!loading && !listing && typeof onMissingListing === 'function') {
+    if (loading) return;
+    if ((!listing || isExpired) && typeof onMissingListing === 'function') {
       onMissingListing();
     }
-  }, [loading, listing, onMissingListing]);
+  }, [loading, listing, isExpired, onMissingListing]);
 
   if (loading) {
     return (
@@ -145,8 +161,8 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
     );
   }
 
-  if (!listing) {
-    // Hide deleted/missing listing messages entirely for all users.
+  if (!listing || isExpired) {
+    // Hide deleted, missing, or expired listing messages entirely for all users.
     return null;
   }
 
@@ -160,6 +176,11 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
           activeOpacity={0.8}
           style={styles.imageContainer}>
           <AppImage source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
+          {listedDateLabel ? (
+            <View style={styles.listedDateBadge} pointerEvents="none">
+              <Text style={styles.listedDateText}>{listedDateLabel}</Text>
+            </View>
+          ) : null}
           {isSoldOut && (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>
@@ -301,6 +322,20 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  listedDateBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  listedDateText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   soldBadge: {
     position: 'absolute',

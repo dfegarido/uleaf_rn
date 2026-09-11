@@ -23,7 +23,8 @@ import { getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
 } from '../../../components/Api';
-import { uploadLiveListingRows,
+import { expandLiveListingRows,
+  uploadLiveListingRows,
   validateLiveListingRow,
 } from '../../../utils/liveListingBulkUpload';
 import {InputDropdownSearch, InputBox} from '../../../components/Input';
@@ -49,6 +50,7 @@ const createBlankRow = () => ({
   variegation: '',
   potSize: '4"',
   localPrice: '',
+  quantity: '1',
   approximateHeight: 'below',
   image: null,
   speciesList: [],
@@ -179,21 +181,26 @@ const ScreenBatchUpload = ({navigation, route}) => {
     }
 
     setUploading(true);
-    const mapped = rows.map((r) => ({
+    const mapped = expandLiveListingRows(rows.map((r) => ({
       genus: r.genus,
       species: r.species,
       variegation: r.variegation,
       potSize: r.potSize,
       localPrice: r.localPrice,
+      quantity: r.quantity,
       approximateHeight: r.approximateHeight,
       image: r.image,
-    }));
+    })));
     try {
       const {successCount, failCount, total} = await uploadLiveListingRows(mapped, {
         onProgress: ({current, total: t}) => setUploadProgress({current, total: t}),
       });
       if (failCount === 0) {
-        showToast(`${successCount} listing(s) uploaded successfully.`);
+        showToast(
+          existingLiveCount > 0
+            ? `Added ${successCount} listing(s). You can add another batch.`
+            : `${successCount} listing(s) uploaded successfully.`,
+        );
         setRows([createBlankRow()]);
       } else {
         showToast(
@@ -302,6 +309,19 @@ const ScreenBatchUpload = ({navigation, route}) => {
                     </TouchableOpacity>
                   ))}
                 </View>
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Quantity</Text>
+                <InputBox
+                  placeholder="1"
+                  value={row.quantity}
+                  setValue={(v) => updateRow(row.id, {quantity: v.replace(/[^0-9]/g, '')})}
+                  keyboardType="number-pad"
+                />
+                <Text style={globalStyles.textXSGreyLight}>
+                  6 creates 6 identical live listings
+                </Text>
               </View>
 
               <View style={styles.field}>

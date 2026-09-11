@@ -49,10 +49,15 @@ export function computeSortingBoxMetrics(plants = []) {
     receivedCount - missingCount - damagedCount - needsToStayCount - othersCount,
   );
 
+  const allReceived =
+    forReceivingCount > 0 && receivedCount >= forReceivingCount;
+  const nothingLeftToFulfill = totalPlantsToFulfill <= 0;
+
   const isComplete =
     forReceivingCount === 0
       ? true
-      : receivedCount >= forReceivingCount && sortedCount >= forReceivingCount;
+      : (allReceived && sortedCount >= forReceivingCount) ||
+        (allReceived && nothingLeftToFulfill);
 
   return {
     forReceivingCount,
@@ -69,6 +74,22 @@ export function computeSortingBoxMetrics(plants = []) {
     isComplete,
     boxColor: isComplete ? SORTING_BOX_COLOR_COMPLETE : SORTING_BOX_COLOR_INCOMPLETE,
   };
+}
+
+/**
+ * Hide receiver boxes from Sorting when every plant is hub-received and none
+ * remain in the fulfill pool (e.g. all tagged Others / Missing / Damaged).
+ */
+export function shouldHideReceiverBoxFromSorting(metrics) {
+  const {
+    forReceivingCount = 0,
+    receivedCount = 0,
+    totalPlantsToFulfill = 0,
+  } = metrics || {};
+
+  if (forReceivingCount <= 0) return false;
+  if (receivedCount < forReceivingCount) return false;
+  return totalPlantsToFulfill <= 0;
 }
 
 /** True when hub sort scan set leafTrailStatus to sorted. */
@@ -249,21 +270,23 @@ export function mergeSortingReceiverBoxesByReceiver(boxes = []) {
     }
   });
 
-  return [...merged.values()].map((box) => {
-    const plants = sortPlantsForSortingBoxList(
-      (box.plants || []).filter(isIncludedInSortingPlantList),
-    );
-    const metrics = computeSortingBoxMetrics(plants);
-    const boxNumber = Number(box.boxNumber) || 0;
-    return {
-      ...box,
-      ...metrics,
-      boxNumber: boxNumber || undefined,
-      sortingTrayNumber: box.sortingTrayNumber || (boxNumber ? String(boxNumber) : ''),
-      plants,
-      joiners: [...(box.joiners || [])].sort((a, b) => a.localeCompare(b)),
-    };
-  });
+  return [...merged.values()]
+    .map((box) => {
+      const plants = sortPlantsForSortingBoxList(
+        (box.plants || []).filter(isIncludedInSortingPlantList),
+      );
+      const metrics = computeSortingBoxMetrics(plants);
+      const boxNumber = Number(box.boxNumber) || 0;
+      return {
+        ...box,
+        ...metrics,
+        boxNumber: boxNumber || undefined,
+        sortingTrayNumber: box.sortingTrayNumber || (boxNumber ? String(boxNumber) : ''),
+        plants,
+        joiners: [...(box.joiners || [])].sort((a, b) => a.localeCompare(b)),
+      };
+    })
+    .filter((box) => !shouldHideReceiverBoxFromSorting(box));
 }
 
 /** Display sort key: genus + species, then plant code. */

@@ -921,6 +921,12 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <ScreenshotIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Snap</Text>
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
+                  <Text style={styles.sideActionNotesText}>List</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
+                  <Text style={styles.sideActionNotesText}>Add</Text>
+                </TouchableOpacity>
             </View>
           </View>
           {soldToUser && (
@@ -988,7 +994,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         <CreateLiveListingScreen
           isVisible={isCreateListingModalVisible}
           onClose={() => setCreateListingModalVisible(false)}
-          onListingCreated={() => {}}
+          onListingCreated={() => setLiveListingModalVisible(true)}
           sessionId={sessionId}
           navigation={navigation}
           nextIgIndex={sessionListingsCount + 1}
@@ -999,6 +1005,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           onClose={() => setLiveListingModalVisible(false)}
           sessionId={sessionId}
           onActiveListingSet={() => {}}
+          onAddListing={() => {
+            setLiveListingModalVisible(false);
+            setCreateListingModalVisible(true);
+          }}
         />
 
         <Modal

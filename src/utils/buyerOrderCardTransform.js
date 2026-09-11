@@ -11,10 +11,27 @@ const FLAG_MAP = {
 
 const VALID_COUNTRY_CODES = ['PH', 'TH', 'ID'];
 
+/** Map full country names (and common aliases) to ISO-style codes used by flags. */
+const COUNTRY_NAME_TO_CODE = {
+  PHILIPPINES: 'PH',
+  THAILAND: 'TH',
+  INDONESIA: 'ID',
+  PH: 'PH',
+  TH: 'TH',
+  ID: 'ID',
+};
+
+/**
+ * Normalize plantSourceCountry values like "Philippines" or "ph" → "PH".
+ * Unknown values fall back to ID only when empty; known names always map correctly.
+ */
 export const validateCountryCode = (code) => {
   if (!code) return 'ID';
-  const upperCode = String(code).toUpperCase();
-  return VALID_COUNTRY_CODES.includes(upperCode) ? upperCode : 'ID';
+  const key = String(code).trim().toUpperCase();
+  if (COUNTRY_NAME_TO_CODE[key]) {
+    return COUNTRY_NAME_TO_CODE[key];
+  }
+  return VALID_COUNTRY_CODES.includes(key) ? key : 'ID';
 };
 
 export const getCountryCode = (record) => {

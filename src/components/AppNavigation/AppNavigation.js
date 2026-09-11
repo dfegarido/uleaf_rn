@@ -14,6 +14,7 @@ import { ActivityIndicator,
 import { AuthContext } from '../../auth/AuthProvider';
 import { navigationRef } from '../../navigation/navigationRef';
 import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
+import { isUsBusinessUser } from '../../utils/b2bShell';
 import BuyerTabNavigator from './BuyerTabNavigator';
 import { useSellerOrderCounts } from '../../hooks/useSellerOrderCounts';
 
@@ -60,6 +61,15 @@ import { ScreenHome,
   ScreenPayout,
   ScreenPayoutDetails,
 } from '../../screens/Seller/Home';
+import { ScreenB2BAdminApproval,
+  ScreenB2BBusinessSwitch,
+  ScreenB2BFeeConfig,
+  ScreenB2BListingEdit,
+  ScreenB2BMockupHub,
+  ScreenB2BPayoutDetail,
+  ScreenB2BPayoutSummary,
+  ScreenB2BUsBuyerAccount,
+} from '../../screens/B2BMockups';
 import { ScreenListing,
   ScreenListingAction,
   ScreenListingDetail,
@@ -788,6 +798,15 @@ const MainStack = () => {
         options={{headerShown: false, animation: 'slide_from_right'}}
       />
 
+      <Stack.Screen name="ScreenB2BMockupHub" component={ScreenB2BMockupHub} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BBusinessSwitch" component={ScreenB2BBusinessSwitch} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BAdminApproval" component={ScreenB2BAdminApproval} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BPayoutSummary" component={ScreenB2BPayoutSummary} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BPayoutDetail" component={ScreenB2BPayoutDetail} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BListingEdit" component={ScreenB2BListingEdit} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BFeeConfig" component={ScreenB2BFeeConfig} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BUsBuyerAccount" component={ScreenB2BUsBuyerAccount} options={{headerShown: false}} />
+
       <Stack.Screen
         name="ScreenTerms"
         component={ScreenTerms}
@@ -959,7 +978,7 @@ function MainTabNavigator() {
 // };
 
 const AppNavigation = () => {
-  const {isLoggedIn, isLoading, userInfo, setIsLoggedIn, setUserInfo} = useContext(AuthContext);
+  const {isLoggedIn, isLoading, userInfo, setIsLoggedIn, setUserInfo, appShell} = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const [fallbackTriggered, setFallbackTriggered] = useState(false);
 
@@ -990,12 +1009,14 @@ const AppNavigation = () => {
   const userType = currentUserInfo?.user?.userType ?? null;
   const isBuyer = userType === 'buyer';
   const isAdmin = userType === 'admin' || userType === 'sub_admin';
+  const usBusinessSellShell =
+    isBuyer && appShell === 'seller' && isUsBusinessUser(currentUserInfo);
 
   // Create a stable navigation key that changes when login state or user type changes
   // This forces NavigationContainer to remount when switching between auth and app navigators
   const navKey =
     isLoggedIn && currentUserInfo
-      ? `loggedIn_${userType || 'unknown'}`
+      ? `loggedIn_${userType || 'unknown'}_${usBusinessSellShell ? 'sell' : 'shop'}`
       : 'loggedOut';
   const shouldShowAuth = !isLoggedIn || fallbackTriggered;
 
@@ -1298,10 +1319,7 @@ const AppNavigation = () => {
     };
 
     const pushPlantDetail = (nav, plantCode) => {
-      if (nav?.navigate) {
-        nav.navigate('ScreenPlantDetail', {plantCode});
-        return;
-      }
+      // Always push so a second share/link does not reuse a stale listing (iOS native stack).
       nav.dispatch(StackActions.push('ScreenPlantDetail', {plantCode}));
     };
 
@@ -1444,6 +1462,12 @@ const AppNavigation = () => {
     if (!initialUrlHandledRef.current) {
       initialUrlHandledRef.current = true;
       Linking.getInitialURL().then(handleIncomingUrl);
+      // iOS can deliver the launch URL after the first getInitialURL call.
+      if (Platform.OS === 'ios') {
+        setTimeout(() => {
+          Linking.getInitialURL().then(handleIncomingUrl);
+        }, 700);
+      }
     }
 
     const subscription = Linking.addEventListener('url', event => {
@@ -1514,7 +1538,7 @@ const AppNavigation = () => {
           flushPendingLiveNavigation();
         }}>
         {isLoggedIn && !fallbackTriggered ? (
-          isBuyer ? (
+          isBuyer && !usBusinessSellShell ? (
             <BuyerTabNavigator />
           ) : isAdmin ? (
             <AdminTabNavigator />

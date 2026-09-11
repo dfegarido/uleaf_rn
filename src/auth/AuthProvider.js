@@ -12,6 +12,7 @@ import React, {
 import { onIdTokenChanged, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { checkMaintenanceApi } from '../components/Api/maintenanceApi';
+import { B2B_APP_SHELL_KEY } from '../utils/b2bShell';
 
 export const AuthContext = createContext();
 
@@ -29,6 +30,7 @@ export const AuthProvider = ({children}) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [loginPhase, setLoginPhase] = useState(null);
+  const [appShell, setAppShellState] = useState('shop');
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -37,6 +39,10 @@ export const AuthProvider = ({children}) => {
         const hasToken = !!token;
         const storedPhase = await AsyncStorage.getItem('loginPhase');
         const storedUserInfo = await AsyncStorage.getItem('userInfo');
+        const storedShell = await AsyncStorage.getItem(B2B_APP_SHELL_KEY);
+        if (storedShell === 'seller' || storedShell === 'shop') {
+          setAppShellState(storedShell);
+        }
 
         // Backward compatibility: if token exists but no loginPhase, assume already fully logged in
         const phase = storedPhase || (hasToken && storedUserInfo ? 'otp_verified' : null);
@@ -73,9 +79,11 @@ export const AuthProvider = ({children}) => {
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userInfo');
       await AsyncStorage.removeItem('loginPhase');
+      await AsyncStorage.setItem(B2B_APP_SHELL_KEY, 'shop');
       setIsLoggedIn(false);
       setLoginPhase(null);
       setUserInfo(null);
+      setAppShellState('shop');
     } catch (e) {
       console.log('Logout error:', e);
     } finally {
@@ -133,6 +141,12 @@ export const AuthProvider = ({children}) => {
     return () => clearInterval(interval);
   }, [isLoggedIn, logout]);
 
+  const setAppShell = useCallback(async shell => {
+    const next = shell === 'seller' ? 'seller' : 'shop';
+    await AsyncStorage.setItem(B2B_APP_SHELL_KEY, next);
+    setAppShellState(next);
+  }, []);
+
   const updateProfileImage = useCallback(async newImage => {
     try {
       setUserInfo(prev => {
@@ -163,8 +177,10 @@ export const AuthProvider = ({children}) => {
       updateProfileImage,
       loginPhase,
       setLoginPhase,
+      appShell,
+      setAppShell,
     }),
-    [isLoggedIn, isLoading, logout, userInfo, updateProfileImage, loginPhase],
+    [isLoggedIn, isLoading, logout, userInfo, updateProfileImage, loginPhase, appShell, setAppShell],
   );
 
   return (

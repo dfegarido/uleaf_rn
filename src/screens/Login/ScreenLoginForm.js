@@ -151,7 +151,7 @@ function FloatingInput({
 // Screen
 // ------------------------------------------------------------------
 const ScreenLoginForm = ({navigation}) => {
-  const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
+  const {setIsLoggedIn, setUserInfo, setAppShell} = useContext(AuthContext);
   const [formData, setFormData] = useState({email: '', password: ''});
   const [loading, setLoading] = useState(false);
   const [validateErrors, setValidateErrors] = useState({});
@@ -299,6 +299,7 @@ const ScreenLoginForm = ({navigation}) => {
               idToken: localIdToken,
               setIsLoggedIn,
               setUserInfo,
+              setAppShell,
             });
           } else {
             await AsyncStorage.setItem('loginPhase', 'credentials_entered');

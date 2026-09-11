@@ -139,6 +139,53 @@ const BusinessPerformance = ({ navigation, pendingWildgoneCount = 0 }) => {
     );
   };
 
+const B2BAsiaSection = ({navigation}) => {
+  return (
+    <View style={[styles.sectionContainer, {paddingTop: 24}]}>
+      <Text style={[globalStyles.textXXLGreyDark, {fontWeight: '700'}]}>B2B Asia</Text>
+      <View style={styles.grid}>
+        <IconTile
+          title="Approvals"
+          onPress={() => navigation.navigate('ScreenB2BAdminApproval')}>
+          <UserManagementIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="B2B Payouts"
+          onPress={() => navigation.navigate('ScreenB2BPayoutSummary', {audience: 'admin'})}>
+          <PayoutsIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="Fee Settings"
+          onPress={() => navigation.navigate('ScreenB2BFeeConfig')}>
+          <DiscountsIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="Listing Edit"
+          onPress={() =>
+            navigation.navigate('ScreenB2BListingEdit', {audience: 'admin'})
+          }>
+          <ListingViewIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="Switch Flow"
+          onPress={() => navigation.navigate('ScreenB2BBusinessSwitch')}>
+          <LiveSetupIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="US Buyer"
+          onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}>
+          <AvatarIcon width={48} height={48} />
+        </IconTile>
+        <IconTile
+          title="All B2B screens"
+          onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
+          <HappeningsIcon width={48} height={48} />
+        </IconTile>
+      </View>
+    </View>
+  );
+};
+
 const LeafTrailGreenhouse = ({navigation}) => {
   return (
     <View style={[styles.sectionContainer, {paddingTop: 24}]}>
@@ -490,6 +537,7 @@ const Home = () => {
           </View>
         </View>
         {isAdmin && <BusinessPerformance navigation={navigation} pendingWildgoneCount={pendingWildgoneCount} />}
+        {isAdmin && <B2BAsiaSection navigation={navigation} />}
         <LeafTrailGreenhouse navigation={navigation} />
         <BehindTheJungle isFullAdmin={isAdmin} />
         <NewsEventsRewards isFullAdmin={isAdmin} />

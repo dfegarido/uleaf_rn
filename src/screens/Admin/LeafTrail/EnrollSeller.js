@@ -8,7 +8,7 @@ import CheckIcon from '../../../assets/admin-icons/checked-box.svg';
 import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
-import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
+import { BUSINESS_COUNTRIES } from '../../../utils/b2bCountries';
 import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
 
 // Skeleton loading component for the country field
@@ -133,26 +133,19 @@ const EnrollSeller = () => {
         // Simulate API call with timeout
         // In a real app, you would fetch from an API
         setTimeout(() => {
-          const availableCountries = [
-            { 
-              name: 'Philippines',
-              code: 'PH',
-              flag: PhFlag,
-              dialCode: '+63'
-            },
-            { 
-              name: 'Thailand',
-              code: 'TH',
-              flag: ThFlag,
-              dialCode: '+66'
-            },
-            { 
-              name: 'Indonesia',
-              code: 'ID',
-              flag: IdFlag, 
-              dialCode: '+62'
-            }
-          ];
+          const availableCountries = BUSINESS_COUNTRIES.map(item => ({
+            name: item.name,
+            code: item.code,
+            flag:
+              item.code === 'PH'
+                ? PhFlag
+                : item.code === 'TH'
+                  ? ThFlag
+                  : item.code === 'ID'
+                    ? IdFlag
+                    : null,
+            dialCode: item.dialCode,
+          }));
           
           setCountryOptions(availableCountries);
           setIsCountryFieldLoading(false);
@@ -355,6 +348,11 @@ const EnrollSeller = () => {
                     {selectedFlag === 'PH' && <PhFlag width={24} height={24} />}
                     {selectedFlag === 'TH' && <ThFlag width={24} height={24} />}
                     {selectedFlag === 'ID' && <IdFlag width={24} height={24} />}
+                    {!['PH', 'TH', 'ID'].includes(selectedFlag) && (
+                      <Text style={{fontSize: 18}}>
+                        {BUSINESS_COUNTRIES.find(item => item.code === selectedFlag)?.flag || '🌍'}
+                      </Text>
+                    )}
                     <Text style={styles.textValue}>{selectedCountry}</Text>
                   </View>
                 ) : (
@@ -540,7 +538,13 @@ const EnrollSeller = () => {
                   onPress={() => handleCountrySelect(item)}
                 >
                   <View style={styles.countryFlag}>
-                    <item.flag width={32} height={32} />
+                    {item.flag ? (
+                      <item.flag width={32} height={32} />
+                    ) : (
+                      <Text style={{fontSize: 24}}>
+                        {BUSINESS_COUNTRIES.find(c => c.code === item.code)?.flag || '🌍'}
+                      </Text>
+                    )}
                   </View>
                   <Text style={styles.countryName}>{item.name}</Text>
                   {selectedCountry === item.name && (

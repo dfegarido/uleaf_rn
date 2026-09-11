@@ -37,9 +37,48 @@ Each Coin or Point is worth about $1 toward future purchases.
 Import Smarter with ileafU.\n\nUse my link: ${inviteUrl}\nOr enter my code: ${inviteCode}`;
 }
 
-export function publishReferralCodeMapping(uid, inviteCode) {
+export function publishReferralCodeMapping(uid, inviteCode, extra = {}) {
   if (!uid || !inviteCode || inviteCode === '------') return Promise.resolve();
-  return setDoc(doc(db, 'referralCodes', inviteCode), { uid }, { merge: true }).catch(() => {});
+  return setDoc(
+    doc(db, 'referralCodes', inviteCode),
+    {uid, ...extra},
+    {merge: true},
+  ).catch(() => {});
+}
+
+export function buildB2BBuyerInviteMessage(inviteCode, inviteUrl) {
+  return `Join me on ileafU and create your account before the live sale.
+
+Download the app, then create your account with my code so you can shop the live.
+
+Your code: ${inviteCode}
+Download / sign up: ${inviteUrl}`;
+}
+
+export function shareB2BBuyerInvite(uid, {onMissingUidAlert = true} = {}) {
+  const inviteCode = getInviteCode(uid);
+  if (!uid || inviteCode === '------') {
+    if (onMissingUidAlert) {
+      Alert.alert('Sign in required', 'Please sign in to share your invite.');
+    }
+    return;
+  }
+  publishReferralCodeMapping(uid, inviteCode, {source: 'usBusiness'});
+  const inviteUrl = buildInviteUrl(inviteCode);
+  const message = buildB2BBuyerInviteMessage(inviteCode, inviteUrl);
+  runShareAfterInteractions(async () => {
+    try {
+      await Share.open({
+        message,
+        url: inviteUrl,
+        title: 'Join ileafU',
+      });
+    } catch (error) {
+      if (error?.message !== 'User did not share') {
+        Alert.alert('Error', 'Could not open share sheet. Please try again.');
+      }
+    }
+  });
 }
 
 /**

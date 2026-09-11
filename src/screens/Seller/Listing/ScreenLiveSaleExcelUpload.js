@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import { View,
   Text,
   StyleSheet,
@@ -22,8 +22,11 @@ import { uploadLiveListingRows,
   validateLiveListingRow,
 } from '../../../utils/liveListingBulkUpload';
 import {parseLiveListingExcelFromBase64} from '../../../utils/parseLiveListingExcel';
+import {getB2BAccountApi} from '../../../components/Api/b2bAccountApi';
+import {isBusinessAccountClass} from '../../../utils/b2bCountries';
 
-const ScreenLiveSaleExcelUpload = ({navigation}) => {
+const ScreenLiveSaleExcelUpload = ({navigation, route}) => {
+  const existingLiveCount = route?.params?.existingLiveCount ?? 0;
   const insets = useSafeAreaInsets();
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -32,6 +35,22 @@ const ScreenLiveSaleExcelUpload = ({navigation}) => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [isBusinessSeller, setIsBusinessSeller] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getB2BAccountApi().then(result => {
+      if (!active) {
+        return;
+      }
+      if (result.success && isBusinessAccountClass(result.data?.account?.accountClass)) {
+        setIsBusinessSeller(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const showToast = (message, type = 'success') => {
     setToastMessage(message);
@@ -42,7 +61,9 @@ const ScreenLiveSaleExcelUpload = ({navigation}) => {
   const handleDownloadTemplate = async () => {
     try {
       setIsDownloading(true);
-      const templateUrl = API_ENDPOINTS.DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE;
+      const templateUrl = isBusinessSeller
+        ? `${API_ENDPOINTS.DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE}?business=true`
+        : API_ENDPOINTS.DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE;
       const timestamp = new Date().getTime();
       const fileName = `live_listing_batch_template_${timestamp}.xlsx`;
       const localPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
@@ -178,7 +199,11 @@ const ScreenLiveSaleExcelUpload = ({navigation}) => {
         onProgress: ({current, total: t}) => setUploadProgress({current, total: t}),
       });
       if (failCount === 0) {
-        showToast(`${successCount} listing(s) uploaded successfully.`);
+        showToast(
+          existingLiveCount > 0
+            ? `Added ${successCount} listing(s) to your live sale.`
+            : `${successCount} listing(s) uploaded successfully.`,
+        );
         setSelectedFile(null);
       } else {
         showToast(
@@ -217,13 +242,16 @@ const ScreenLiveSaleExcelUpload = ({navigation}) => {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.instructionsTitle}>How it works</Text>
         <Text style={styles.instructionsBody}>
-          1. Download the template (header row only).{'\n'}
-          2. Add one row per listing. Columns: genus, species, variegation (optional),
-          pot_size (2&quot;, 4&quot;, or 6&quot;), local_price (number),
-          approximate_height (below or above).{'\n'}
-          3. Images are not supported in this Excel flow; add photos later from your
-          listing list if needed.{'\n'}
-          4. Upload the filled file here.
+          {existingLiveCount > 0
+            ? `You already have ${existingLiveCount} live listing(s). This upload appends — it does not replace them.\n\n`
+            : ''}
+          1. Download the template.{'\n'}
+          {isBusinessSeller
+            ? '2. Columns: genus, species, variegation (optional), pot_size (2", 4", or 6"), usd_price (exact USD, no conversion), approximate_height (below or above), quantity. local_price is still accepted for compatibility.\n'
+            : '2. Columns: genus, species, variegation (optional), pot_size (2", 4", or 6"), local_price, approximate_height (below or above), quantity.\n'}
+          3. Quantity 6 creates 6 identical listings ready for live sale.{'\n'}
+          4. Upload another file anytime to add the next batch.{'\n'}
+          5. Images are not in Excel; add photos later if needed.
         </Text>
 
         <TouchableOpacity
@@ -261,7 +289,9 @@ const ScreenLiveSaleExcelUpload = ({navigation}) => {
           <Text style={globalStyles.primaryButtonText}>
             {uploading
               ? `Uploading ${uploadProgress.current}/${uploadProgress.total}…`
-              : 'Create listings from file'}
+              : existingLiveCount > 0
+                ? 'Add listings from file'
+                : 'Create listings from file'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

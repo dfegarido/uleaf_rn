@@ -27,6 +27,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { accountClassFromUserInfo, isUsBusinessUser } from '../../../utils/b2bShell';
+import { isIleafuInhouseAccountClass } from '../../../utils/b2bCountries';
 const screenWidth = Dimensions.get('window').width;
 
 const ScreenSell = ({navigation}) => {
@@ -55,9 +57,12 @@ const ScreenSell = ({navigation}) => {
     userInfo?.data?.id ||
     null;
   const [liveFlagResolved, setLiveFlagResolved] = useState(resolvedLiveFlagRaw);
+  const inhouseOnly = isIleafuInhouseAccountClass(accountClassFromUserInfo(userInfo));
   const canUseLiveSale =
-    typeof liveFlagResolved === 'string' &&
-    liveFlagResolved.trim().toLowerCase() === 'yes';
+    (typeof liveFlagResolved === 'string' &&
+      liveFlagResolved.trim().toLowerCase() === 'yes') ||
+    isUsBusinessUser(userInfo) ||
+    inhouseOnly;
 
   useEffect(() => {
     let cancelled = false;
@@ -171,7 +176,9 @@ const ScreenSell = ({navigation}) => {
 
   const handleLiveSaleExcel = () => {
     setShowLiveSaleSheet(false);
-    navigation.navigate('LiveSaleExcelUploadScreen');
+    navigation.navigate('LiveSaleExcelUploadScreen', {
+      existingLiveCount: liveSaleExistingCount,
+    });
   };
 
   const handleLiveSaleManual = () => {
@@ -179,6 +186,11 @@ const ScreenSell = ({navigation}) => {
     navigation.navigate('BatchUploadScreen', {
       existingLiveCount: liveSaleExistingCount,
     });
+  };
+
+  const handleLiveSaleSingle = () => {
+    setShowLiveSaleSheet(false);
+    navigation.navigate('ScreenSingleSellLive');
   };
 
   const handlePressSingle = () => {
@@ -268,7 +280,9 @@ const ScreenSell = ({navigation}) => {
         </View>
 
         <View style={{paddingTop: 30}}>
-          <Text style={globalStyles.textMDGreyDark}>Start from scratch</Text>
+          <Text style={globalStyles.textMDGreyDark}>
+            Start from scratch
+          </Text>
           <View
             style={{
               flexDirection: 'row',
@@ -381,7 +395,7 @@ const ScreenSell = ({navigation}) => {
         <ActionSheet
           visible={showLiveSaleSheet}
           onClose={() => setShowLiveSaleSheet(false)}
-          heightPercent={'32%'}>
+          heightPercent={'42%'}>
           <View style={{padding: 20}}>
             <TouchableOpacity onPress={handleLiveSaleExcel}>
               <View
@@ -396,7 +410,7 @@ const ScreenSell = ({navigation}) => {
                     Excel upload
                   </Text>
                   <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Download a template, fill rows, then upload your file
+                    Download a template. Quantity 6 = 6 identical listings. Uploading again appends.
                   </Text>
                 </View>
               </View>
@@ -415,7 +429,26 @@ const ScreenSell = ({navigation}) => {
                     Manual input
                   </Text>
                   <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Enter multiple listings on the batch upload screen
+                    Enter listings. You can add another batch anytime without replacing.
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLiveSaleSingle}>
+              <View
+                style={{
+                  borderColor: '#CDD3D4',
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 10,
+                }}>
+                <View style={{flexDirection: 'column'}}>
+                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
+                    Add one listing
+                  </Text>
+                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
+                    Add a single plant now, including while you are live
                   </Text>
                 </View>
               </View>

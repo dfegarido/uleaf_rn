@@ -377,6 +377,11 @@ export const useCheckoutController = (props) => {
         originalPrice: plantData.originalPrice || plantData.listingDetails?.originalPrice || plantData.listingDetails?.price || null,
         discount: plantData.discount || plantData.discountPercent || plantData.listingDetails?.discountPercent || null,
         listingType: normalizeListingType(plantData.listingType || plantData.listingDetails?.listingType),
+        accountClass: plantData.accountClass || plantData.listingDetails?.accountClass || null,
+        ileafuInhouse:
+          plantData.ileafuInhouse === true ||
+          plantData.listingDetails?.ileafuInhouse === true ||
+          (plantData.accountClass || plantData.listingDetails?.accountClass) === 'IleafU Inhouse',
         country: plantData.country || plantData.listingDetails?.country || 'TH',
         shippingMethod: plantData.shippingMethod || null,
         hasAirCargo: plantData.hasAirCargo || plantData.listingDetails?.hasAirCargo || false,
@@ -502,6 +507,11 @@ export const useCheckoutController = (props) => {
           originalPrice: cartItem.originalPrice || cartItem.listingDetails?.originalPrice || null,
           discount: cartItem.discount || cartItem.listingDetails?.discountPercent || null,
           listingType: normalizeListingType(cartItem.listingType || cartItem.listingDetails?.listingType),
+          accountClass: cartItem.accountClass || cartItem.listingDetails?.accountClass || null,
+          ileafuInhouse:
+            cartItem.ileafuInhouse === true ||
+            cartItem.listingDetails?.ileafuInhouse === true ||
+            (cartItem.accountClass || cartItem.listingDetails?.accountClass) === 'IleafU Inhouse',
           country: cartItem.country || cartItem.listingDetails?.country || 'TH',
           shippingMethod: cartItem.shippingMethod || null,
           hasAirCargo: cartItem.hasAirCargo || cartItem.listingDetails?.hasAirCargo || false,
@@ -815,6 +825,7 @@ export const useCheckoutController = (props) => {
       subtotal: roundToCents(subtotal),
       discount: roundToCents(totalDiscount),
       codeDiscount: roundToCents(codeDiscount),
+      appliedDiscountCode: appliedDiscount.code || null,
       shippingDiscount: roundToCents(shippingDiscount),
       freeShippingDiscount: roundToCents(freeShippingDiscount),
       freeShippingFirstPlantBreakdown: shippingCalculation?.freeShippingFirstPlantBreakdown || null,
@@ -1251,6 +1262,12 @@ export const useCheckoutController = (props) => {
           quantity: quantity,
           listingType: apiListingType,
           price: unitPrice || 0,
+          accountClass: item.accountClass || item.listingDetails?.accountClass || null,
+          ileafuInhouse:
+            item.ileafuInhouse === true ||
+            item.listingDetails?.ileafuInhouse === true ||
+            item.accountClass === 'IleafU Inhouse' ||
+            item.listingDetails?.accountClass === 'IleafU Inhouse',
         };
 
         // Add optional fields if available
@@ -2536,6 +2553,11 @@ export const useCheckoutController = (props) => {
         quantity: item.quantity || 1,
         potSize: item.selectedPotSize || item.potSize || item.listingDetails?.potSize || null,
         listingType: convertListingTypeToApiFormat(item.listingType || item.listingDetails?.listingType || 'Single Plant'),
+        accountClass: item.accountClass || item.listingDetails?.accountClass || null,
+        ileafuInhouse:
+          item.ileafuInhouse === true ||
+          item.listingDetails?.ileafuInhouse === true ||
+          (item.accountClass || item.listingDetails?.accountClass) === 'IleafU Inhouse',
         plantSourceCountry: item.country || item.listingDetails?.country || item.plantSourceCountry || 'ID',
         price: item.price || item.unitPrice || (item.totalAmount && item.quantity ? item.totalAmount / item.quantity : 0),
         notes: item.notes || item.specialInstructions || null,

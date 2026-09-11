@@ -704,11 +704,11 @@ const ScreenPlantDetail = ({navigation, route}) => {
     setShowShareSheet(false);
     const open = async () => {
       try {
-        await Share.open({
-          title: 'ileafU listing',
-          message,
-          url,
-        });
+        await Share.open(
+          Platform.OS === 'ios'
+            ? {title: 'ileafU listing', url}
+            : {title: 'ileafU listing', message, url},
+        );
       } catch (e) {
         const msg = String(e?.message || e || '');
         if (

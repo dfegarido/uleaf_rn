@@ -74,8 +74,10 @@ const ScreenSearch = ({ navigation }) => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchError, setSearchError] = useState(null);
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
+  const searchRequestIdRef = useRef(0);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -127,39 +129,61 @@ const ScreenSearch = ({ navigation }) => {
     if (!query || query.trim().length < 2) {
       setResults([]);
       setHasSearched(false);
+      setSearchError(null);
       return;
     }
 
+    const requestId = ++searchRequestIdRef.current;
     setLoading(true);
     setHasSearched(true);
+    setSearchError(null);
 
     try {
+      // searchPlantsApi returns { success:false } on HTTP errors instead of throwing,
+      // so retry inside the callback or flaky 500s never get retried.
       const res = await retryAsync(
-        () => searchPlantsApi({ query: query.trim(), limit: 20 }),
+        async () => {
+          const apiRes = await searchPlantsApi({ query: query.trim(), limit: 20 });
+          if (!apiRes?.success) {
+            throw new Error(apiRes?.error || 'Search failed');
+          }
+          return apiRes;
+        },
         3,
-        1000,
+        600,
       );
 
-      if (!res?.success) {
-        throw new Error(res?.error || 'Search failed');
+      // Ignore stale responses from older debounced requests
+      if (requestId !== searchRequestIdRef.current) {
+        return;
       }
 
       const rawPlants = (res.data?.plants || []).map(transformSearchResult);
+      // Match browse (ScreenGenusPlants isDisplayableBuyerPlant): don't require
+      // species/variegation — that was dropping valid API hits (e.g. title-only names).
       const validPlants = rawPlants.filter(plant => {
-        const hasPlantCode = plant && typeof plant.plantCode === 'string' && plant.plantCode.trim() !== '';
-        const hasTitle = (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
-                        (typeof plant.plantName === 'string' && plant.plantName.trim() !== '');
-        const hasSubtitle = (typeof plant.species === 'string' && plant.species.trim() !== '') ||
-                           (typeof plant.variegation === 'string' && plant.variegation.trim() !== '');
-        return hasPlantCode && hasTitle && hasSubtitle;
+        if (!plant || typeof plant.plantCode !== 'string' || plant.plantCode.trim() === '') {
+          return false;
+        }
+        return (
+          (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '')
+        );
       });
 
       setResults(validPlants);
+      setSearchError(null);
     } catch (error) {
+      if (requestId !== searchRequestIdRef.current) {
+        return;
+      }
       console.error('Search error:', error);
       setResults([]);
+      setSearchError(error?.message || 'Search failed. Please try again.');
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -177,6 +201,7 @@ const ScreenSearch = ({ navigation }) => {
     } else {
       setResults([]);
       setHasSearched(false);
+      setSearchError(null);
     }
   }, [performSearch]);
 
@@ -213,10 +238,12 @@ const ScreenSearch = ({ navigation }) => {
     setSearchText('');
     setResults([]);
     setHasSearched(false);
+    setSearchError(null);
     inputRef.current?.focus();
   }, []);
 
-  const showEmptyState = hasSearched && !loading && results.length === 0;
+  const showEmptyState = hasSearched && !loading && results.length === 0 && !searchError;
+  const showErrorState = hasSearched && !loading && !!searchError;
   const showResults = hasSearched && results.length > 0;
   const showRecent = !hasSearched && recentSearches.length > 0;
   const showSuggested = !hasSearched;
@@ -351,6 +378,23 @@ const ScreenSearch = ({ navigation }) => {
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {/* Error State */}
+        {showErrorState && (
+          <View style={styles.emptyStateContainer}>
+            <Text style={styles.emptyStateTitle}>Search unavailable</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Something went wrong. Please try again.
+            </Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => performSearch(searchText)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -526,6 +570,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9AA4A8',
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: '#539461',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

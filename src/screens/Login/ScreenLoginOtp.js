@@ -39,7 +39,7 @@ const ScreenLoginOtp = ({navigation}) => {
   const [pin, setPin] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [idToken, setIdToken] = useState('');
-  const {setIsLoggedIn, setUserInfo} = useContext(AuthContext);
+  const {setIsLoggedIn, setUserInfo, setAppShell} = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
@@ -91,6 +91,7 @@ const ScreenLoginOtp = ({navigation}) => {
         idToken: freshIdToken,
         setIsLoggedIn,
         setUserInfo,
+        setAppShell,
         deferLoggedIn: true,
       });
 
@@ -113,7 +114,7 @@ const ScreenLoginOtp = ({navigation}) => {
         Alert.alert('Sign In Failed', error?.message || 'Unable to sign in. Please try again.');
       }
     }
-  }, [pin, currentUser?.email, isSellerAccount, setIsLoggedIn, setUserInfo]);
+  }, [pin, currentUser?.email, isSellerAccount, setIsLoggedIn, setUserInfo, setAppShell]);
 
   const postRequestPinData = async token => {
     // Resend flow must call signInSupplier to generate/send a fresh OTP PIN.

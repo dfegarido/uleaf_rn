@@ -61,7 +61,14 @@ const heightOptions = [
 
 import { useNavigationState } from '@react-navigation/native';
 
-const ScreenSingleSellLive = ({navigation, route, nextIgIndex, sessionId: sessionIdProp}) => {
+const ScreenSingleSellLive = ({
+  navigation,
+  route,
+  nextIgIndex,
+  sessionId: sessionIdProp,
+  onClose,
+  isPurge: isPurgeProp,
+}) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
 
@@ -381,6 +388,10 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex, sessionId: sessio
         isActiveLiveListing: !withActiveLiveListing,
       };
 
+      if (sessionId) {
+        data.sessionId = sessionId;
+      }
+
       const response = await postSellSinglePlantApi(data);
 
       if (!response?.success) {
@@ -398,7 +409,17 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex, sessionId: sessio
         [
           { 
             text: "Ok",
-            onPress: () => isPurge ? navigation.goBack() : navigation.navigate('Sell')
+            onPress: () => {
+              if (typeof onClose === 'function') {
+                onClose();
+                return;
+              }
+              if (isPurge || sessionId) {
+                navigation.goBack();
+                return;
+              }
+              navigation.navigate('Sell');
+            }
           },
         ]
       );
@@ -417,9 +438,11 @@ const ScreenSingleSellLive = ({navigation, route, nextIgIndex, sessionId: sessio
     availableQty,
     status,
     publishType,
-    isPurge = false,
-    sessionId = sessionIdProp || ''
+    isPurge: isPurgeParam = false,
+    sessionId: sessionIdParam = ''
   } = route?.params ?? {};
+  const isPurge = isPurgeProp ?? isPurgeParam;
+  const sessionId = sessionIdProp || sessionIdParam;
 
   useEffect(() => {
     if (!plantCode) return; // Skip if plantCode is not set

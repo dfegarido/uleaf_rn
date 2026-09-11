@@ -65,6 +65,15 @@ import OrderIconSelected from '../../assets/icontabs/clipboard-text-solid.svg';
 import OrderIcon from '../../assets/icontabs/order.svg';
 
 import { ScreenOrders } from '../../screens/Buyer/Orders';
+import { ScreenB2BAdminApproval,
+  ScreenB2BBusinessSwitch,
+  ScreenB2BFeeConfig,
+  ScreenB2BListingEdit,
+  ScreenB2BMockupHub,
+  ScreenB2BPayoutDetail,
+  ScreenB2BPayoutSummary,
+  ScreenB2BUsBuyerAccount,
+} from '../../screens/B2BMockups';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -370,6 +379,14 @@ function BuyerTabNavigator() {
         component={ScreenOrderSearch}
         options={{headerShown: false}}
       />
+      <Stack.Screen name="ScreenB2BMockupHub" component={ScreenB2BMockupHub} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BBusinessSwitch" component={ScreenB2BBusinessSwitch} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BAdminApproval" component={ScreenB2BAdminApproval} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BPayoutSummary" component={ScreenB2BPayoutSummary} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BPayoutDetail" component={ScreenB2BPayoutDetail} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BListingEdit" component={ScreenB2BListingEdit} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BFeeConfig" component={ScreenB2BFeeConfig} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenB2BUsBuyerAccount" component={ScreenB2BUsBuyerAccount} options={{headerShown: false}} />
     </Stack.Navigator>
   );
 }

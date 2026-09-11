@@ -279,7 +279,16 @@ const renderCell = (key, listing, activeStatusFilter = null) => {
 // lightweight in-memory cache for image availability checks
 const imageAvailabilityCache = new Map(); // url -> boolean
 
-const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus = () => {}, isProcessing = false, activeStatusFilter = null }) => {
+const ListingRow = ({
+  listing,
+  onPress = () => {},
+  columns = [],
+  onToggleStatus = () => {},
+  isProcessing = false,
+  activeStatusFilter = null,
+  selectMode = false,
+  selected = false,
+}) => {
   const [selectedUri, setSelectedUri] = useState(null);
   const [loadingImage, setLoadingImage] = useState(true);
   const mountedRef = useRef(true);
@@ -343,6 +352,11 @@ const ListingRow = ({ listing, onPress = () => {}, columns = [], onToggleStatus 
 
   return (
     <TouchableOpacity style={styles.listingRow} activeOpacity={0.8} onPress={() => onPress(listing)}>
+      {selectMode ? (
+        <View style={[styles.selectBox, selected && styles.selectBoxChecked]}>
+          {selected ? <Text style={styles.selectCheck}>✓</Text> : null}
+        </View>
+      ) : null}
       {/* Image cell (fixed width matching design) */}
       <View style={styles.plantImage}>
         {selectedUri ? (
@@ -425,6 +439,27 @@ const styles = StyleSheet.create({
   countryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   deactivateText: { color: '#E74C3C', fontWeight: '600', fontSize: 14, flexShrink: 0 },
   reactivateText: { color: '#27AE60', fontWeight: '600', fontSize: 14, flexShrink: 0 },
+  selectBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#9DA5A7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    marginTop: 4,
+  },
+  selectBoxChecked: {
+    backgroundColor: '#48A7F8',
+    borderColor: '#48A7F8',
+  },
+  selectCheck: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
 });
 
 export default ListingRow;

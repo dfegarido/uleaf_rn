@@ -347,6 +347,8 @@ function normalizeSortValue(sortBy) {
   if (lower.includes('price') && lower.includes('low')) return 'Price Low To High';
   if (lower.includes('price') && lower.includes('high')) return 'Price High To Low';
   if (lower.includes('love') || lower.includes('loved')) return 'Most Loved';
+  if (lower === 'genus') return 'Genus';
+  if (lower.includes('sequence')) return 'Oldest to Newest';
   if (lower.includes('oldest') && lower.includes('newest')) {
     return 'Oldest to Newest';
   }
@@ -444,7 +446,10 @@ export function prepareSellerChannelTabListings(rawListings, channelStatus, filt
     v.toLowerCase(),
   );
   const searchTerm = typeof search === 'string' ? search.trim().toLowerCase() : '';
-  const normalizedSortValue = normalizeSortValue(sortBy);
+  const isLiveChannel = channelStatus === 'Live';
+  const normalizedSortValue = normalizeSortValue(
+    sortBy || (isLiveChannel ? 'Oldest to Newest' : ''),
+  );
 
   const seen = new Set();
   const filtered = (Array.isArray(rawListings) ? rawListings : []).filter(
@@ -509,6 +514,15 @@ export function prepareSellerChannelTabListings(rawListings, channelStatus, filt
         return getListingSortPrice(b) - getListingSortPrice(a);
       case 'Most Loved':
         return getListingLoveCount(b) - getListingLoveCount(a);
+      case 'Genus': {
+        const g = String(a.genus || '').localeCompare(String(b.genus || ''), undefined, {
+          sensitivity: 'base',
+        });
+        if (g !== 0) return g;
+        return String(a.species || '').localeCompare(String(b.species || ''), undefined, {
+          sensitivity: 'base',
+        });
+      }
       case 'Oldest to Newest':
         return (
           toMs(a.createdAt || a.orderDate) - toMs(b.createdAt || b.orderDate)
@@ -522,8 +536,10 @@ export function prepareSellerChannelTabListings(rawListings, channelStatus, filt
   };
 
   sorted.sort((a, b) => {
-    const pinCmp = comparePinned(a, b);
-    if (pinCmp !== 0) return pinCmp;
+    if (!isLiveChannel) {
+      const pinCmp = comparePinned(a, b);
+      if (pinCmp !== 0) return pinCmp;
+    }
     return compareBySort(a, b);
   });
 

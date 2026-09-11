@@ -15,6 +15,7 @@ import { Alert,
   View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { isUsBusinessUser } from '../../../utils/b2bShell';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
@@ -35,6 +36,7 @@ import { getChatDetailApi } from '../../../components/Api/shopContentApi';
 
 
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular';
+import RightIcon from '../../../assets/icons/greylight/caret-right-regular.svg';
 import AvatarIcon from '../../../assets/images/avatar.svg';
 import LiveIcon from '../../../assets/images/live.svg';
 import MessageIcon from '../../../assets/images/messages.svg';
@@ -53,7 +55,7 @@ const screenHeight = Dimensions.get('window').height;
 
 const ScreenHome = ({navigation}) => {
   const [loading, setLoading] = useState(false);
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, setAppShell} = useContext(AuthContext);
   const { unreadCount } = useUnreadMessageCount();
 
   // Add state to force image refresh
@@ -388,7 +390,9 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
 
           <View style={styles.headerIcons}>
-            {userInfo?.liveFlag === 'Yes'  && (
+            { (userInfo?.liveFlag === 'Yes' ||
+              userInfo?.user?.liveFlag === 'Yes' ||
+              isUsBusinessUser(userInfo)) && (
               <TouchableOpacity
                 onPress={() => navigation.navigate('MyLiveSessionsScreen')}
                 style={styles.iconButton}>
@@ -475,6 +479,86 @@ const ScreenHome = ({navigation}) => {
           }}>
           {/* App Update Available Card */}
           <AppUpdateCard style={{marginBottom: 16}} />
+
+          <View style={styles.b2bSection}>
+            <View style={styles.b2bSectionHeader}>
+              <Text style={styles.b2bSectionTitle}>B2B Asia</Text>
+              <Text style={styles.b2bSectionSubtitle}>
+                Business account, payouts & USD listings
+              </Text>
+            </View>
+
+            <View style={styles.b2bActionList}>
+              {isUsBusinessUser(userInfo) ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.b2bActionRow}
+                    activeOpacity={0.7}
+                    onPress={() => setAppShell('shop')}>
+                    <View style={styles.b2bActionText}>
+                      <Text style={styles.b2bActionTitle}>Shop as a buyer</Text>
+                      <Text style={styles.b2bActionBody}>
+                        Keep purchasing with the consumer checkout
+                      </Text>
+                    </View>
+                    <RightIcon width={20} height={20} />
+                  </TouchableOpacity>
+                  <View style={styles.b2bActionDivider} />
+                </>
+              ) : (
+                <>
+              <TouchableOpacity
+                style={styles.b2bActionRow}
+                activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate('ScreenB2BBusinessSwitch', {path: 'asia'})
+                }>
+                <View style={styles.b2bActionText}>
+                  <Text style={styles.b2bActionTitle}>Upgrade to Business</Text>
+                  <Text style={styles.b2bActionBody}>
+                    Switch from Asia Seller — Live Selling required
+                  </Text>
+                </View>
+                <RightIcon width={20} height={20} />
+              </TouchableOpacity>
+
+              <View style={styles.b2bActionDivider} />
+                </>
+              )}
+
+              <TouchableOpacity
+                style={styles.b2bActionRow}
+                activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate('ScreenB2BPayoutSummary', {
+                    audience: 'seller',
+                  })
+                }>
+                <View style={styles.b2bActionText}>
+                  <Text style={styles.b2bActionTitle}>Commission payouts</Text>
+                  <Text style={styles.b2bActionBody}>
+                    Fees, logistics & plant care on paid orders
+                  </Text>
+                </View>
+                <RightIcon width={20} height={20} />
+              </TouchableOpacity>
+
+              <View style={styles.b2bActionDivider} />
+
+              <TouchableOpacity
+                style={styles.b2bActionRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+                <View style={styles.b2bActionText}>
+                  <Text style={styles.b2bActionTitle}>Edit listings in USD</Text>
+                  <Text style={styles.b2bActionBody}>
+                    Inline or bulk update Live & Group Chat
+                  </Text>
+                </View>
+                <RightIcon width={20} height={20} />
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {/* Stats Cards */}
           <ScrollView
@@ -909,6 +993,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  b2bSection: {
+    marginBottom: 20,
+  },
+  b2bSectionHeader: {
+    marginBottom: 10,
+  },
+  b2bSectionTitle: {
+    color: '#202325',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  b2bSectionSubtitle: {
+    color: '#7F8D91',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  b2bActionList: {
+    backgroundColor: '#f2f7f3',
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  b2bActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  b2bActionText: {
+    flex: 1,
+  },
+  b2bActionTitle: {
+    color: '#202325',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  b2bActionBody: {
+    color: '#556065',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  b2bActionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#C0DAC2',
+    marginLeft: 16,
   },
   cardBlack: {
     height: 135,

@@ -56,6 +56,7 @@ export * from './orderManagementApi';
 
 // Payout APIs
 export * from './payoutApi';
+export * from './b2bPayoutApi';
 
 // Referral APIs
 export * from './referralApi';
