@@ -797,10 +797,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
   return (
      <SafeAreaView style={styles.container}>
-      {/* TEMP DIAGNOSTIC BANNER - remove after testing */}
-      <View style={{ position: 'absolute', top: 90, left: 8, right: 8, zIndex: 9999, backgroundColor: '#FFF8DC', padding: 8, borderRadius: 6, borderWidth: 2, borderColor: '#DAA520' }}>
-        <Text style={{ fontSize: 11, color: '#000' }}>{`DIAG channel=${channelName} uid=${myUid} tok=${token ? 'Y' : 'N'} joined=${joined} remote=${remoteUid ?? 'null'} err=${error ?? '-'}`}</Text>
-      </View>
       {isLoading && (
                       <Modal transparent animationType="fade">
                         <View style={styles.loadingOverlay}>

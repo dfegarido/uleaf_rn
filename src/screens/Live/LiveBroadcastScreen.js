@@ -766,10 +766,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
   return (
        <SafeAreaView style={styles.container}>
-        {/* TEMP DIAGNOSTIC BANNER - remove after testing */}
-        <View style={{ position: 'absolute', top: 90, left: 8, right: 8, zIndex: 9999, backgroundColor: '#FFE4E1', padding: 8, borderRadius: 6, borderWidth: 2, borderColor: '#DC143C' }}>
-          <Text style={{ fontSize: 11, color: '#000' }}>{`DIAG channel=${channelName} uid=${uid ?? 'null'} tok=${token ? 'Y' : 'N'} joined=${joined} err=${error ?? '-'}`}</Text>
-        </View>
         {isLoading && (
                 <Modal transparent animationType="fade">
                   <View style={styles.loadingOverlay}>

@@ -1,7 +1,7 @@
 import AppImage from '../../../components/AppImage/AppImage';
 
 import NetInfo from '@react-native-community/netinfo';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   Dimensions,
@@ -68,9 +68,16 @@ const ScreenSingleSellLive = ({
   sessionId: sessionIdProp,
   onClose,
   isPurge: isPurgeProp,
+  publishRef,
 }) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+
+  useImperativeHandle(publishRef, () => ({
+    triggerChildFunction: () => {
+      onPressPublish();
+    },
+  }));
 
   const routes = useNavigationState(state => state.routes);
   const previousRoute = routes[routes.length - 2]; // Previous screen

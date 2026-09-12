@@ -56,8 +56,10 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
   useImperativeHandle(addRef, () => ({
     triggerChildFunction: () => {
       if (childAddRef.current) {
-        childAddRef.current.triggerChildFunction(); // Call the exposed child function
+        childAddRef.current.triggerChildFunction();
+        return;
       }
+      Alert.alert('Choose listing type', 'Select Single Plant or Growers first, then tap Add Listing to Live.');
     },
   }));
 
