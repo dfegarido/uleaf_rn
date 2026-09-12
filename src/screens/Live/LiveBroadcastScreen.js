@@ -1301,12 +1301,11 @@ const styles = StyleSheet.create({
   },
   sideActions: {
     flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 8,
-    gap: 20,
+    gap: 16,
     width: 56,
-    height: 160,
   },
   sideAction: {
     justifyContent: 'center',
