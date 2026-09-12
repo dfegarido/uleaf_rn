@@ -54,6 +54,7 @@ import {
   getLiveCommentsApi,
   getLiveDetailApi,
   getLiveSoldToApi,
+  liveOrderLookupApi,
   updateLiveCommentApi,
 } from '../../../components/Api/liveApi';
 import { addToCartApi } from '../../../components/Api/cartApi';

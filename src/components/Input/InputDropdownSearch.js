@@ -26,9 +26,16 @@ const InputDropdownSearch = ({
     setSearchText('');
   };
 
-  const filteredOptions = options.filter(item =>
-    item.toLowerCase().includes(searchText.toLowerCase()),
-  );
+  const optionLabel = (item) => {
+    if (typeof item === 'string') return item;
+    if (item == null) return '';
+    return String(item.name ?? item.label ?? item.value ?? '');
+  };
+
+  const optionList = Array.isArray(options) ? options : [];
+  const filteredOptions = optionList
+    .map(optionLabel)
+    .filter(label => label && label.toLowerCase().includes(searchText.toLowerCase()));
 
   return (
     <View style={styles.container}>
@@ -70,7 +77,7 @@ const InputDropdownSearch = ({
               onChangeText={setSearchText}
             />
 
-            {options.length === 0 ? (
+            {optionList.length === 0 ? (
               <Text style={styles.noResults}>No options available</Text>
             ) : (
               <FlatList
