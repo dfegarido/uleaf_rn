@@ -4,6 +4,13 @@ import {Image} from 'react-native';
 export const PLANT_IMAGE_SLOW_LOAD_MS = 6000;
 export const PLANT_IMAGE_RETRY_MS = 3000;
 
+/**
+ * Ceiling for the retry backoff. A failing/undecodable image settles into one
+ * attempt per ceiling rather than a tight loop (keeps the earlier overheating
+ * fix intact while still retrying indefinitely).
+ */
+export const PLANT_IMAGE_BACKOFF_MAX_MS = 15000;
+
 const prefetchRemoteImage = async (uri) => {
   if (!uri) {
     return false;
@@ -58,20 +65,24 @@ export const usePlantListingImageLoad = (
   }, [uri, slowLoadMs, enableSlowFallback]);
 
   // Continuously prefetch + remount the remote image until it is displayed.
-  // Bounded: stop after MAX_RETRIES so a permanently-failing image (403, empty,
-  // undecodable) does not spin the JS thread forever (thermal/overheating).
+  //
+  // Retries are capped in RATE, not in total attempts. Previously this stopped
+  // after MAX_RETRIES=5 and gave up permanently, which left genuinely-slow large
+  // originals (e.g. legacy Firebase-hosted listings at 5712x4284 -> ~93MB decoded)
+  // as blank cards with a stuck spinner for the life of the mount. Backing off to
+  // one attempt per PLANT_IMAGE_BACKOFF_MAX_MS keeps the JS thread calm while
+  // still letting a slow decode eventually land.
   useEffect(() => {
     if (!uri) {
       return undefined;
     }
 
     let cancelled = false;
-    let attempts = 0;
-    const MAX_RETRIES = 5;
+    let attempt = 0;
 
     const keepFetchingOriginal = async () => {
-      while (!cancelled && !imageLoadedRef.current && attempts < MAX_RETRIES) {
-        attempts += 1;
+      while (!cancelled && !imageLoadedRef.current) {
+        attempt += 1;
         await prefetchRemoteImage(uri);
 
         if (cancelled || imageLoadedRef.current) {
@@ -80,7 +91,8 @@ export const usePlantListingImageLoad = (
 
         setRetryKey(key => key + 1);
 
-        const waitMs = showSlowFallbackRef.current ? retryMs : retryMs * 2;
+        const base = showSlowFallbackRef.current ? retryMs : retryMs * 2;
+        const waitMs = Math.min(base * attempt, PLANT_IMAGE_BACKOFF_MAX_MS);
         await new Promise(resolve => setTimeout(resolve, waitMs));
       }
     };

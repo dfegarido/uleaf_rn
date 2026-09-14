@@ -284,7 +284,6 @@ const PlantItemCard = ({
             staticSource={staticListingImage}
             style={styles.image}
             resizeMode="cover"
-            enableSlowFallback={false}
           />
           
           {/* Listing Type + Country Overlay */}
