@@ -850,13 +850,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   {isJoinListExpanded && (
                     <FlatList
                       data={uniqueJoinedUsers}
-                      keyExtractor={(item) => item.id}
+                      keyExtractor={(item) => item?.uid || item?.id}
                       renderItem={({ item }) => (
                         // <Text style={styles.joinNotificationText}>
                         //   {item.displayName} joined 👋
                         // </Text>
-                 
-                         <View style={styles.commentRow}>
+                
+                        <View style={styles.commentRow}>
                           <AppImage source={{ uri: item.photoURL }} style={styles.avatar} />
                           <View style={styles.commentContent}>
                             <Text style={styles.chatName}>{item.displayName}</Text>

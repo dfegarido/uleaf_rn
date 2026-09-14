@@ -344,6 +344,7 @@ const LiveScreen = () => {
   useEffect(() => {
     let active = true;
     let unsubscribeRealtime = null;
+    let pollTimer = null;
 
     const loadStreams = async () => {
       const res = await getLiveStreamsApi();
@@ -357,6 +358,13 @@ const LiveScreen = () => {
     };
 
     loadStreams();
+
+    // Safety net: Realtime removes an ended session immediately, but this screen
+    // is a bottom-tab surface that stays mounted for a long time. Re-fetch when
+    // the tab regains focus and every 60s, so a dropped socket or an expired
+    // realtime token can never leave an ended session on screen.
+    pollTimer = setInterval(loadStreams, 60 * 1000);
+    const focusUnsub = navigation.addListener('focus', loadStreams);
 
     // Realtime bridge: subscribe to live-table changes and merge them in.
     subscribeToLiveStreams({
@@ -398,9 +406,11 @@ const LiveScreen = () => {
 
     return () => {
       active = false;
+      if (pollTimer) clearInterval(pollTimer);
+      focusUnsub?.();
       if (unsubscribeRealtime) unsubscribeRealtime();
     };
-  }, []);
+  }, [navigation]);
 
   // Fetch seller info for unique createdBy UIDs (batched via live-sellers Edge).
   useEffect(() => {

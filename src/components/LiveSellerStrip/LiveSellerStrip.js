@@ -145,6 +145,7 @@ const LiveSellerStrip = ({ navigation }) => {
   useEffect(() => {
     let active = true;
     let unsubscribeRealtime = null;
+    let pollTimer = null;
 
     const loadStreams = async () => {
       const res = await getLiveStreamsApi();
@@ -170,6 +171,12 @@ const LiveSellerStrip = ({ navigation }) => {
     };
 
     loadStreams();
+
+    // Safety net: the strip lives on the long-lived Shop screen, so a session
+    // that ends must never be able to linger as a "Live" card. Realtime removes
+    // it immediately; this periodic re-fetch covers a dropped socket or an
+    // expired realtime token.
+    pollTimer = setInterval(loadStreams, 60 * 1000);
 
     subscribeToLiveStreams({
       onInsert: (payload) => {
@@ -210,6 +217,7 @@ const LiveSellerStrip = ({ navigation }) => {
 
     return () => {
       active = false;
+      if (pollTimer) clearInterval(pollTimer);
       if (unsubscribeRealtime) unsubscribeRealtime();
     };
   }, []);

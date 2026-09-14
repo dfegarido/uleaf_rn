@@ -125,6 +125,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       let pollTimer = null;
 
       const loadOrder = async () => {
+        if (!activeListing?.id) return; // no listing yet — don't poll without a listingId
         const res = await liveOrderLookupApi({ listingId: activeListing?.id, buyerUid: userId || null });
         if (!active) return;
         setBuyerPendingPayment(res.order || {});
@@ -146,6 +147,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       let pollTimer = null;
 
       const loadOrderStatus = async () => {
+        if (!activeListing?.id) return; // no listing yet — don't poll without a listingId
         const res = await liveOrderLookupApi({ listingId: activeListing?.id });
         if (!active) return;
         setOrderStatus(res.order?.status || null);
@@ -439,6 +441,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
          console.log('Live session data updated:', data);
          setLiveStats(data);
 
+         // Authoritative broadcaster uid comes from the live session, not the
+         // share URL's ?seller= param — normal navigation and deep links both
+         // end up here, and the active-listing lookup filters on this uid.
+         if (data.createdBy && (data.createdBy !== brodcasterId)) {
+           setBrodcasterId(data.createdBy);
+         }
+
          const joinNotifications = data?.joiners || [];
 
          setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
@@ -455,7 +464,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
        active = false;
        if (pollTimer) clearInterval(pollTimer);
      };
-   }, [sessionId]);
+   }, [sessionId, brodcasterId]);
 
   useEffect(() => {
     if (sessionId) {
@@ -913,7 +922,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     {isJoinListExpanded && (
                       <FlatList
                         data={uniqueJoinedUsers}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item) => item?.uid || item?.id}
                         renderItem={({ item }) => (
                           // <Text style={styles.joinNotificationText}>
                           //   {item.displayName} joined 👋
