@@ -1,0 +1,31 @@
+diff --git a/node_modules/react-native-create-thumbnail/android/src/main/java/com/createthumbnail/CreateThumbnailModule.java b/node_modules/react-native-create-thumbnail/android/src/main/java/com/createthumbnail/CreateThumbnailModule.java
+index ecc91d9..a6ff7a5 100644
+--- a/node_modules/react-native-create-thumbnail/android/src/main/java/com/createthumbnail/CreateThumbnailModule.java
++++ b/node_modules/react-native-create-thumbnail/android/src/main/java/com/createthumbnail/CreateThumbnailModule.java
+@@ -58,7 +58,12 @@ public class CreateThumbnailModule extends ReactContextBaseJavaModule {
+                 handler.post(() -> {
+                     promise.resolve(data);
+                 });
+-            } catch (IOException | IllegalStateException e) {
++            } catch (Exception e) {
++                // Must catch RuntimeException too: MediaMetadataRetriever throws
++                // unchecked exceptions (e.g. "setDataSource failed") and, if they
++                // escape this executor thread, the JVM default handler kills the
++                // whole app. Turning them into a promise rejection lets JS treat
++                // thumbnail generation as the best-effort step it is.
+                 handler.post(() -> {
+                     promise.reject("CreateThumbnail_ERROR", e);
+                 });
+@@ -174,6 +179,12 @@ public class CreateThumbnailModule extends ReactContextBaseJavaModule {
+             retriever.setDataSource(decodedPath.replace("file://", ""));
+         } else if (filePath.contains("content://")) {
+             retriever.setDataSource(context, Uri.parse(filePath));
++        } else if (filePath.startsWith("/")) {
++            // Plain POSIX path (no scheme). Without this branch a local path is
++            // mistaken for a remote URL below, and MediaMetadataRetriever throws
++            // RuntimeException("setDataSource failed: status = 0xFFFFFFEA")
++            // (-EINVAL) on the executor thread, which crashes the whole app.
++            retriever.setDataSource(filePath);
+         } else {
+             if (VERSION.SDK_INT < 14) {
+                 throw new IllegalStateException("Remote videos aren't supported on sdk_version < 14");

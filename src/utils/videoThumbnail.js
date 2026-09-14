@@ -6,10 +6,24 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const normalizeLocalVideoUri = (uri) => {
   if (!uri || typeof uri !== 'string') return uri;
-  // react-native-create-thumbnail's native module only treats http(s) as a URL
-  // and wraps anything else in fileURLWithPath:. So a `file://` prefix here
-  // produces a double-`file://` path that AVFoundation fails to decode (-17913).
-  // On all platforms pass a plain POSIX path (strip any file:// prefix).
+
+  // Android: react-native-create-thumbnail branches on the URI shape
+  // (file:// -> plain path, content:// -> ContentResolver, anything else ->
+  // "remote URL"). A bare POSIX path matches NONE of those, so it falls into the
+  // remote branch and MediaMetadataRetriever throws
+  // `RuntimeException: setDataSource failed: status = 0xFFFFFFEA` (-EINVAL) on a
+  // background executor thread — which kills the whole app, since neither the
+  // module's `catch (IOException | IllegalStateException)` nor any JS try/catch
+  // can intercept it. So pass the URI through UNCHANGED on Android and let the
+  // native module take its own correct branch.
+  if (Platform.OS === 'android') {
+    return uri;
+  }
+
+  // iOS: the native module only treats http(s) as a URL and wraps anything else
+  // in fileURLWithPath:. So a `file://` prefix here produces a double-`file://`
+  // path that AVFoundation fails to decode (-17913). On iOS pass a plain POSIX
+  // path (strip any file:// prefix).
   if (uri.startsWith('file://')) {
     return uri.replace(/^file:\/\//, '');
   }
