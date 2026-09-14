@@ -51,11 +51,12 @@ export const getAllPlantGenusApi = async () => {
     };
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
+    // GET_GENUS_LIST is the ONLY correct source: it reads the authoritative
+    // `genus` table (all 220). /dropdown-genus reads `dropdown_genus`, which holds
+    // only the 8 curated buyer-Shop categories plus a synthetic "OTHERS" bucket —
+    // a fallback to it would silently return 8 genera where 220 are expected.
     const tryEndpoints = [
-      API_ENDPOINTS.GET_GENUS_LIST, // Admin combined list (objects with name, receivedPlants)
-      API_ENDPOINTS.GET_GENUS_DROPDOWN, // dropdown collection (array of objects)
-      API_ENDPOINTS.GET_GENUS_DROPDOWN, // fallback duplicate
-      API_ENDPOINTS.GET_GENUS_LIST, // repeat as safe default
+      API_ENDPOINTS.GET_GENUS_LIST, // authoritative genus table (objects with name, receivedPlants)
     ];
 
     for (const url of tryEndpoints) {

@@ -105,12 +105,18 @@ const ScreenSingleSell = ({navigation, route}) => {
       throw new Error('No internet connection.');
     }
 
+    // Returns the FULL genus list from the authoritative `genus` table.
+    // /dropdown-genus used to be called here, but that table holds only the 8
+    // curated buyer-Shop categories plus a synthetic "OTHERS" bucket — so sellers
+    // saw 8 of 220 genera and a bogus "OTHERS" option. getSellGenusApi now reads
+    // /genus-list and filters "OTHERS"/duplicates, which fixes every seller
+    // listing screen at once.
     const getGenusApiData = await getSellGenusApi();
     // Check if API indicates failure
     if (!getGenusApiData?.success) {
       throw new Error(getGenusApiData?.message || 'Failed to load genus');
     }
-    // Extract sort option names as label/value pairs
+    // Extract names as label/value pairs.
     // InputDropdownSearch expects an array of strings.
     let localGenusData = (getGenusApiData.data || []).map(item =>
       typeof item === 'string' ? item : item?.name,
