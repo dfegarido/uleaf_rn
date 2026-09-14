@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
   View,
   StyleSheet,
   TouchableOpacity,
@@ -34,6 +33,11 @@ const SearchHeader = ({
   readOnly,
   // Animated cycling placeholder text (shown in readOnly mode when searchText is empty)
   animatedPlaceholder,
+  // Let THIS leaf component own the placeholder cycling. The parent screen then
+  // does not have to hold the cycling value in its own state, which otherwise
+  // re-renders the whole (very large) screen on every tick.
+  animatePlaceholders,
+  placeholderIntervalMs = 2000,
   // Container style override
   containerStyle,
   searchContainerStyle,
@@ -41,7 +45,29 @@ const SearchHeader = ({
   // Internal state (used if not controlled)
   const [internalSearchText, setInternalSearchText] = useState('');
   const [internalIsNavigatingFromSearch, setInternalIsNavigatingFromSearch] = useState(false);
-  
+
+  // Self-owned cycling placeholder (see `animatePlaceholders` above).
+  const [cycledPlaceholder, setCycledPlaceholder] = useState(
+    Array.isArray(animatePlaceholders) ? animatePlaceholders[0] : null,
+  );
+
+  useEffect(() => {
+    if (!Array.isArray(animatePlaceholders) || animatePlaceholders.length === 0) return undefined;
+    const interval = setInterval(() => {
+      setCycledPlaceholder(prev => {
+        if (animatePlaceholders.length === 1) return animatePlaceholders[0];
+        let next;
+        do {
+          next = animatePlaceholders[Math.floor(Math.random() * animatePlaceholders.length)];
+        } while (next === prev);
+        return next;
+      });
+    }, placeholderIntervalMs);
+    return () => clearInterval(interval);
+  }, [animatePlaceholders, placeholderIntervalMs]);
+
+  const activeAnimatedPlaceholder = animatedPlaceholder || cycledPlaceholder;
+
   // Ref for TextInput to programmatically focus
   const textInputRef = useRef(null);
 
@@ -52,26 +78,15 @@ const SearchHeader = ({
     : internalIsNavigatingFromSearch;
   const setIsNavigatingFromSearch = externalSetIsNavigatingFromSearch || setInternalIsNavigatingFromSearch;
 
-  // Animated placeholder opacity for readOnly mode
-  const placeholderOpacity = useRef(new Animated.Value(1)).current;
-  const [displayedPlaceholder, setDisplayedPlaceholder] = useState(animatedPlaceholder || placeholder);
-
-  useEffect(() => {
-    if (!animatedPlaceholder) return;
-    // Fade out, swap text, fade in
-    Animated.timing(placeholderOpacity, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setDisplayedPlaceholder(animatedPlaceholder);
-      Animated.timing(placeholderOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    });
-  }, [animatedPlaceholder]);
+  // Placeholder shown in readOnly mode.
+  //
+  // This used to cross-fade on every rotation (200ms fade-out -> setState ->
+  // 300ms fade-in). Being an opacity animation it is composited, so it emitted
+  // a frame at every vsync for the whole animation — measured at a sustained
+  // 27 idle fps / ~15% of a core on its own, purely from the fade. The text now
+  // swaps instantly, which keeps the rotating-placeholder UX without the
+  // per-frame compositing. No animation state is needed any more.
+  const displayedPlaceholder = activeAnimatedPlaceholder || placeholder;
 
   const handleTextChange = (text) => {
     if (onSearchTextChange) {
@@ -130,17 +145,13 @@ const SearchHeader = ({
     <View style={styles.textField}>
       <SearchIcon width={24} height={24} />
       {readOnly ? (
-        animatedPlaceholder ? (
-          <Animated.Text
-            style={[
-              styles.searchInput,
-              styles.searchInputReadOnly,
-              { opacity: placeholderOpacity },
-            ]}
+        activeAnimatedPlaceholder ? (
+          <Text
+            style={[styles.searchInput, styles.searchInputReadOnly]}
             numberOfLines={1}
           >
             {searchText || displayedPlaceholder}
-          </Animated.Text>
+          </Text>
         ) : (
           <Text style={[styles.searchInput, styles.searchInputReadOnly]} numberOfLines={1}>
             {searchText || placeholder}

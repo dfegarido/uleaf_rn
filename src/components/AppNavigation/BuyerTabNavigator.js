@@ -4,8 +4,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { db } from '../../../firebase';
 import { useUnreadMessageCount } from '../../hooks/useUnreadMessageCount';
 
@@ -78,10 +78,19 @@ import { ScreenB2BAdminApproval,
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Animated Live Icon Component
+// Live tab icon.
+//
+// This used to run an infinite `Animated.loop` opacity blink whenever any
+// live/waiting stream existed and the Live tab was unfocused — i.e. on every
+// other screen, since the tab bar is mounted app-wide. `useNativeDriver: true`
+// spares the JS thread, but an OPACITY animation is composited, so it emitted a
+// frame every vsync forever: measured at 102 idle fps and ~51% of a core on its
+// own, which is what made devices hot just from having the app open.
+//
+// The "something is live" signal is preserved with a small static red dot next
+// to the icon, which costs nothing to render when nothing changes.
 const AnimatedLiveIcon = ({ focused, size }) => {
   const [isLive, setIsLive] = useState(false);
-  const blinkAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const liveCollectionRef = collection(db, 'live');
@@ -94,41 +103,16 @@ const AnimatedLiveIcon = ({ focused, size }) => {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(blinkAnim, {
-          toValue: 0.2,
-          duration: 1100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(blinkAnim, {
-          toValue: 1,
-          duration: 1100,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    if (isLive && !focused) {
-      animation.start();
-    } else {
-      animation.stop();
-      blinkAnim.setValue(1);
-    }
-
-    return () => animation.stop();
-  }, [isLive, focused, blinkAnim]);
-
   if (focused) {
     return <LiveIconSelected width={size} height={size} />;
   }
 
   if (isLive) {
     return (
-      <Animated.View style={{ opacity: blinkAnim }}>
+      <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
         <LiveIconSelected width={size} height={size} />
-      </Animated.View>
+        <View style={styles.liveDot} />
+      </View>
     );
   }
 
@@ -512,6 +496,20 @@ const styles = StyleSheet.create({
   },
   customLabel: {
     marginTop: -4,
+  },
+  // Static "a stream is live" dot on the unfocused Live tab icon.
+  // Replaces the old always-on blink animation (see AnimatedLiveIcon) which
+  // composited a frame every vsync and kept the device hot.
+  liveDot: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E7522F',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   tabBar: {
     paddingBottom: 30,

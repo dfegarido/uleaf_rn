@@ -203,7 +203,12 @@ const ScreenShop = ({navigation}) => {
   const NOTIFICATION_PROMPT_DELAY_MS = 2500;
   const NOTIFICATION_PROMPT_SUPPRESS_KEY = 'notificationPermissionPrompt.suppressedUntil';
 
-  // Animated search placeholder
+  // Animated search placeholder.
+  //
+  // The plant list used to cycle through state held HERE, on this very large
+  // screen, which re-rendered the whole subtree every 2s (and retriggered a
+  // fade animation in SearchHeader). SearchHeader now owns the cycling itself
+  // (see its `animatePlaceholders` prop) so only that small leaf re-renders.
   const PLACEHOLDER_PLANTS = [
     'Monstera Deliciosa',
     'Philodendron Pink Princess',
@@ -216,21 +221,8 @@ const ScreenShop = ({navigation}) => {
     'Ficus Lyrata',
     'Calathea Orbifolia',
   ];
-  const [animatedPlaceholder, setAnimatedPlaceholder] = useState(PLACEHOLDER_PLANTS[0]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAnimatedPlaceholder(prev => {
-        let next;
-        do {
-          next = PLACEHOLDER_PLANTS[Math.floor(Math.random() * PLACEHOLDER_PLANTS.length)];
-        } while (next === prev && PLACEHOLDER_PLANTS.length > 1);
-        return next;
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-  
+
   // Refresh state
   const [refreshing, setRefreshing] = useState(false);
 
@@ -1393,7 +1385,7 @@ const ScreenShop = ({navigation}) => {
               onSearchTextChange={setSearchTerm}
               onPress={() => navigation.navigate('ScreenSearch')}
               readOnly
-              animatedPlaceholder={animatedPlaceholder}
+              animatePlaceholders={PLACEHOLDER_PLANTS}
             />
           </View>
 
