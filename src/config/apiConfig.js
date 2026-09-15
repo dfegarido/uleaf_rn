@@ -464,14 +464,19 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   DELIVERY_EXPORT: `${getSupabaseBaseUrl()}/delivery-export`,
   LIST_PAYOUT: `${getBaseUrl()}/listPayout`,
   LIST_PAYOUT_DETAIL: `${getBaseUrl()}/listPayoutDetail`,
-  LIST_B2B_PAYOUT: `${getBaseUrl()}/listB2BPayout`,
-  UPDATE_B2B_PAYOUT: `${getBaseUrl()}/updateB2BPayout`,
-  GET_B2B_ACCOUNT: `${getBaseUrl()}/getB2BAccount`,
-  LIST_B2B_BUSINESS_REQUEST: `${getBaseUrl()}/listB2BBusinessRequest`,
-  UPDATE_B2B_BUSINESS_REQUEST: `${getBaseUrl()}/updateB2BBusinessRequest`,
-  GET_B2B_FEE_CONFIG: `${getBaseUrl()}/getB2BFeeConfig`,
-  UPDATE_B2B_FEE_CONFIG: `${getBaseUrl()}/updateB2BFeeConfig`,
-  UPDATE_B2B_LISTING: `${getBaseUrl()}/updateB2BListing`,
+  // B2B Asia — migrated to Supabase Edge Functions (migration 028).
+  // Under decision A1 Supabase is the system of record for the B2B collections and
+  // is served by the b2b-* Edge Functions. There is NO dual-write, so rollback is
+  // simply repointing these 8 constants back to `${getBaseUrl()}`; the Firestore
+  // B2B collections are deliberately left intact for that window.
+  LIST_B2B_PAYOUT: `${getSupabaseBaseUrl()}/b2b-payouts`,
+  UPDATE_B2B_PAYOUT: `${getSupabaseBaseUrl()}/b2b-payouts`,
+  GET_B2B_ACCOUNT: `${getSupabaseBaseUrl()}/b2b-account`,
+  LIST_B2B_BUSINESS_REQUEST: `${getSupabaseBaseUrl()}/b2b-business-requests`,
+  UPDATE_B2B_BUSINESS_REQUEST: `${getSupabaseBaseUrl()}/b2b-business-requests`,
+  GET_B2B_FEE_CONFIG: `${getSupabaseBaseUrl()}/b2b-fee-config`,
+  UPDATE_B2B_FEE_CONFIG: `${getSupabaseBaseUrl()}/b2b-fee-config`,
+  UPDATE_B2B_LISTING: `${getSupabaseBaseUrl()}/b2b-listing-update`,
   
   // Order Export endpoints
   EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
