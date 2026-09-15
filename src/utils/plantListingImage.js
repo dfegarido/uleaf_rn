@@ -48,13 +48,15 @@ export const toResizedSupabaseUri = (uri, width = GRID_IMAGE_WIDTH, options = {}
       '/storage/v1/render/image/public/',
     );
     u.searchParams.set('width', String(width));
+    // A height MUST accompany the width. Supabase's transform does NOT derive
+    // height from width: `?width=1000` on a 4032x3024 original returns
+    // **1000x4032** -- a stretched, far-too-tall sliver that reads as an extreme
+    // zoom in the detail hero. Square grid cards crop to `width`x`width` with
+    // `cover`; the hero uses `contain` so the aspect ratio is preserved and the
+    // image is only downscaled.
+    u.searchParams.set('height', String(options.height || width));
+    u.searchParams.set('resize', options.square ? 'cover' : 'contain');
     u.searchParams.set('quality', String(TRANSFORM_QUALITY));
-    // Square-crop grid images so a tall original (e.g. 400x4032) does not
-    // decode to a huge bitmap and exhaust memory after many load-more batches.
-    if (options.square) {
-      u.searchParams.set('height', String(width));
-      u.searchParams.set('resize', 'cover');
-    }
 
     return u.toString();
   } catch {

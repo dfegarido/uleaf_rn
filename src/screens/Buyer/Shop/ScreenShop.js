@@ -46,15 +46,10 @@ import scindapsusImage from '../../../assets/buyer-icons/png/scindapsus.jpg';
 import syngoniumImage from '../../../assets/buyer-icons/png/syngonium.jpg';
 
 import NetInfo from '@react-native-community/netinfo';
-import { collection,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  where,
-} from 'firebase/firestore';
-import { db } from '../../../../firebase';
+// NOTE: the Shop screen reads everything through the Supabase Edge Functions
+// (API_ENDPOINTS / getSupabaseBaseUrl). Previous `firebase/firestore` + `db`
+// imports were dead — zero usages — and only made it look like this screen still
+// talked to Firebase. Removed so the data path is unambiguous.
 import { getBuyerContentApi,
   getChatDetailApi,
   getChatShopsApi,
@@ -1736,8 +1731,16 @@ const ScreenShop = ({navigation}) => {
                       height: 110,
                       borderRadius: 12,
                       marginBottom: 6,
+                      // Neutral backdrop: remote listing photos are portrait or
+                      // landscape, so `contain` letterboxes them inside the square.
+                      // Without a background those bars look like a rendering bug.
+                      backgroundColor: '#F1F3F2',
                     }}
-                    resizeMode="cover"
+                    // `contain` fits the WHOLE image inside the square. `cover`
+                    // cropped it to fill, which read as "zoomed in" once the tiles
+                    // switched from the ~square static fallbacks (107x108) to real
+                    // listing photos (representativeImageWebp).
+                    resizeMode="contain"
                     onError={() => {
                       // If remote image fails, mark it as failed and use static fallback
                       if (typeof item.src === 'string' && item.src.startsWith('http')) {
