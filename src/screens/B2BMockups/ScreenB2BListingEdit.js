@@ -14,7 +14,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../auth/AuthProvider';
 import {getAdminListingsApi} from '../../components/Api/getAdminListingsApi';
 import {updateB2BListingApi} from '../../components/Api/b2bListingApi';
-import {fetchSellerListingsFromFirestore} from '../../utils/fetchSellerListingsFromFirestore';
+import {fetchSellerListingsFromSupabase} from '../../utils/fetchSellerListingsFromSupabase';
 import MockupHeader from './MockupHeader';
 
 const POTS = ['2"', '4"', '6"'];
@@ -169,7 +169,7 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
             1,
         );
       } else {
-        const {listings} = await fetchSellerListingsFromFirestore(sellerUid);
+        const {listings} = await fetchSellerListingsFromSupabase(sellerUid);
         const wanted = new Set(
           String(channelConfig.status)
             .split(',')

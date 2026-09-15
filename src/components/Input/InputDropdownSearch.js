@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import { View,
+import {
+  View,
   Text,
   TouchableOpacity,
   Modal,
@@ -9,6 +10,7 @@ import { View,
 } from 'react-native';
 
 import ArrowDownIcon from '../../assets/icons/greylight/caret-down-regular.svg';
+import CloseIcon from '../../assets/icons/greylight/x-regular.svg';
 
 const InputDropdownSearch = ({
   options,
@@ -16,6 +18,7 @@ const InputDropdownSearch = ({
   selectedOption,
   placeholder,
   disabled = false,
+  clearable = false,
 }) => {
   const [visible, setVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -26,7 +29,13 @@ const InputDropdownSearch = ({
     setSearchText('');
   };
 
-  const optionLabel = (item) => {
+  const handleClear = () => {
+    onSelect('');
+    setSearchText('');
+    setVisible(false);
+  };
+
+  const optionLabel = item => {
     if (typeof item === 'string') return item;
     if (item == null) return '';
     return String(item.name ?? item.label ?? item.value ?? '');
@@ -35,29 +44,45 @@ const InputDropdownSearch = ({
   const optionList = Array.isArray(options) ? options : [];
   const filteredOptions = optionList
     .map(optionLabel)
-    .filter(label => label && label.toLowerCase().includes(searchText.toLowerCase()));
+    .filter(
+      label => label && label.toLowerCase().includes(searchText.toLowerCase()),
+    );
+  const showClear = clearable && Boolean(selectedOption) && !disabled;
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.dropdown, disabled && styles.dropdownDisabled]}
-        onPress={() => {
-          if (!disabled) setVisible(true);
-        }}
-        activeOpacity={disabled ? 1 : 0.7}>
-        <Text
-          style={[
-            styles.dropdownText,
-            disabled && styles.dropdownTextDisabled,
-          ]}>
-          {selectedOption || placeholder || 'Select an option'}
-        </Text>
-        <ArrowDownIcon
-          width={20}
-          height={20}
-          style={[styles.icon, disabled && styles.iconDisabled]}
-        />
-      </TouchableOpacity>
+      <View style={[styles.dropdown, disabled && styles.dropdownDisabled]}>
+        <TouchableOpacity
+          style={styles.dropdownMain}
+          onPress={() => {
+            if (!disabled) setVisible(true);
+          }}
+          activeOpacity={disabled ? 1 : 0.7}>
+          <Text
+            style={[
+              styles.dropdownText,
+              disabled && styles.dropdownTextDisabled,
+            ]}
+            numberOfLines={1}>
+            {selectedOption || placeholder || 'Select an option'}
+          </Text>
+        </TouchableOpacity>
+        {showClear ? (
+          <TouchableOpacity
+            style={styles.clearBtn}
+            onPress={handleClear}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+            accessibilityLabel="Clear selection">
+            <CloseIcon width={18} height={18} />
+          </TouchableOpacity>
+        ) : (
+          <ArrowDownIcon
+            width={20}
+            height={20}
+            style={[styles.icon, disabled && styles.iconDisabled]}
+          />
+        )}
+      </View>
 
       <Modal
         transparent
@@ -69,7 +94,6 @@ const InputDropdownSearch = ({
           activeOpacity={1}
           onPress={() => setVisible(false)}>
           <View style={styles.modalContent}>
-            {/* Search bar */}
             <TextInput
               style={styles.searchInput}
               placeholder="Search..."
@@ -115,6 +139,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
   },
+  dropdownMain: {
+    flex: 1,
+    paddingRight: 8,
+  },
   dropdownDisabled: {
     backgroundColor: '#f5f5f5',
     borderColor: '#ddd',
@@ -124,6 +152,9 @@ const styles = StyleSheet.create({
   },
   dropdownTextDisabled: {
     color: '#aaa',
+  },
+  clearBtn: {
+    padding: 2,
   },
   icon: {},
   iconDisabled: {

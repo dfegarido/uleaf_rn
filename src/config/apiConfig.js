@@ -1,6 +1,7 @@
 // API Configuration for local and production environments
 import { LOCAL_BASE_URL as ENV_LOCAL_BASE_URL } from '@env';
 import { LOCAL_SUPABASE_URL as ENV_LOCAL_SUPABASE_URL } from '@env';
+import { USE_LOCAL_SUPABASE as ENV_USE_LOCAL_SUPABASE } from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
 // This prevents accidentally using local API in production builds
@@ -32,10 +33,16 @@ if (__DEV__ && !ENV_LOCAL_BASE_URL) {
   console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
 }
 
-// Supabase Edge Functions base URL
-const LOCAL_SUPABASE_BASE_URL = ENV_LOCAL_SUPABASE_URL || 'http://localhost:8000/functions/v1';
+// Shop/live/profile/B2B all hit this host. A phone cannot reach the Mac LAN
+// URL, so local Supabase is opt-in only (USE_LOCAL_SUPABASE=true in .env).
+const LOCAL_SUPABASE_BASE_URL = ENV_LOCAL_SUPABASE_URL || '';
 const PROD_SUPABASE_BASE_URL = 'https://pjcquavlxknhmuszjmyh.supabase.co/functions/v1';
-const getSupabaseBaseUrl = () => (USE_LOCAL_API ? LOCAL_SUPABASE_BASE_URL : PROD_SUPABASE_BASE_URL);
+const USE_LOCAL_SUPABASE =
+  __DEV__ === true &&
+  String(ENV_USE_LOCAL_SUPABASE || '').toLowerCase() === 'true' &&
+  /^https?:\/\//i.test(LOCAL_SUPABASE_BASE_URL);
+const getSupabaseBaseUrl = () =>
+  USE_LOCAL_SUPABASE ? LOCAL_SUPABASE_BASE_URL.replace(/\/$/, '') : PROD_SUPABASE_BASE_URL;
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -132,7 +139,9 @@ const getBaseUrl = () => {
   if (__DEV__ && !getBaseUrl._logged) {
     console.log('[apiConfig] API Base URL:', {
       USE_LOCAL_API,
+      USE_LOCAL_SUPABASE,
       LOCAL_BASE_URL: LOCAL_BASE_URL || 'NOT SET',
+      supabaseBaseUrl: getSupabaseBaseUrl(),
       selectedBaseUrl: baseUrl,
       environment: USE_LOCAL_API ? 'LOCAL EMULATOR' : 'PRODUCTION CLOUD',
     });

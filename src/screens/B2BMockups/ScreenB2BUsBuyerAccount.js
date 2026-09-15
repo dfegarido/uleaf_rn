@@ -1,48 +1,91 @@
-import React, {useContext, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useContext, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import {getB2BAccountApi} from '../../components/Api/b2bAccountApi';
+import {getAllUsersApi} from '../../components/Api/getAllUsersApi';
 import MockupHeader from './MockupHeader';
 import B2BBuyerInviteCard from './B2BBuyerInviteCard';
 import {AuthContext} from '../../auth/AuthProvider';
 import {mergeB2BAccountIntoUserInfo} from '../../utils/b2bShell';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ScreenB2BUsBuyerAccount = ({navigation}) => {
+const ScreenB2BUsBuyerAccount = ({navigation, route}) => {
   const {userInfo, setUserInfo, setAppShell} = useContext(AuthContext);
+  const nestedUser = userInfo?.user || userInfo?.data || {};
+  const userType =
+    nestedUser.userType || userInfo?.userType || nestedUser.role || userInfo?.role;
+  const isAdminViewer =
+    route?.params?.audience === 'admin' ||
+    userType === 'admin' ||
+    userType === 'sub_admin';
+
+  const [lookupUid, setLookupUid] = useState(route?.params?.uid || null);
+  const [search, setSearch] = useState('');
+  const [matches, setMatches] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [account, setAccount] = useState(null);
   const [loadError, setLoadError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isAdminViewer || Boolean(route?.params?.uid));
+
+  const loadAccount = useCallback(async uid => {
+    setLoading(true);
+    const result = await getB2BAccountApi(uid ? {uid} : {});
+    if (result.success && result.data?.account) {
+      setAccount(result.data.account);
+      setLoadError(null);
+    } else {
+      setAccount(null);
+      setLoadError(result.error || 'Could not load this account.');
+    }
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const result = await getB2BAccountApi();
-      if (!active) {
-        return;
-      }
-      if (result.success && result.data?.account) {
-        setAccount(result.data.account);
-        setLoadError(null);
-      } else {
-        setAccount(null);
-        setLoadError(result.error || 'Could not load this account from Firestore.');
-      }
+    if (isAdminViewer && !lookupUid) {
       setLoading(false);
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
+      setLoadError(null);
+      setAccount(null);
+      return;
+    }
+    loadAccount(isAdminViewer ? lookupUid : undefined);
+  }, [isAdminViewer, lookupUid, loadAccount]);
+
+  const onSearchBuyers = async () => {
+    const query = search.trim();
+    if (!query) {
+      setMatches([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const resp = await getAllUsersApi({
+        role: 'buyer',
+        search: query,
+        limit: 20,
+        page: 1,
+      });
+      const users = resp?.data?.users || resp?.users || [];
+      setMatches(users);
+      if (!users.length) {
+        setLoadError('No buyers matched that search.');
+      } else {
+        setLoadError(null);
+      }
+    } catch (error) {
+      setMatches([]);
+      setLoadError(error?.message || 'Could not search buyers.');
+    }
+    setSearching(false);
+  };
 
   const display = useMemo(() => {
     if (!account) {
@@ -97,21 +140,79 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <MockupHeader navigation={navigation} title={display.accountClass} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <MockupHeader
+        navigation={navigation}
+        title={isAdminViewer ? 'US Buyer account' : display.accountClass}
+      />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        {isAdminViewer ? (
+          <View style={styles.lookupCard}>
+            <Text style={styles.section}>Look up a buyer</Text>
+            <Text style={styles.sourceNote}>
+              Admins are not buyer accounts. Search by email, name, or username.
+            </Text>
+            <TextInput
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search email, name, or username"
+              placeholderTextColor="#A9B3B7"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={onSearchBuyers}
+              returnKeyType="search"
+            />
+            <TouchableOpacity
+              style={[globalStyles.secondaryButtonAccent, searching && {opacity: 0.6}]}
+              disabled={searching}
+              onPress={onSearchBuyers}>
+              <Text style={globalStyles.secondaryButtonButtonTextAccent}>
+                {searching ? 'Searching…' : 'Search'}
+              </Text>
+            </TouchableOpacity>
+            {matches.map(user => {
+              const uid = user.id || user.uid;
+              const label =
+                [user.firstName || user.firstname, user.lastName || user.lastname]
+                  .filter(Boolean)
+                  .join(' ') ||
+                user.username ||
+                user.email ||
+                uid;
+              return (
+                <TouchableOpacity
+                  key={uid}
+                  style={[
+                    styles.matchRow,
+                    lookupUid === uid && styles.matchRowOn,
+                  ]}
+                  onPress={() => {
+                    setLookupUid(uid);
+                    setMatches([]);
+                  }}>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.matchName}>{label}</Text>
+                    <Text style={styles.matchMeta}>{user.email || uid}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null}
+
         <Text style={styles.sourceNote}>
           {loadError
-            ? 'Couldn’t load this account. Try again in a moment.'
-            : 'What this customer can buy and sell.'}
+            ? loadError
+            : isAdminViewer && !account
+              ? 'Pick a buyer to see account type and selling capabilities.'
+              : 'What this customer can buy and sell.'}
         </Text>
 
         {loading ? (
           <ActivityIndicator color="#539461" style={{marginVertical: 24}} />
-        ) : loadError ? (
-          <Text style={styles.sourceNote}>
-            Start the app again after the local server is running.
-          </Text>
-        ) : (
+        ) : !account ? null : (
           <>
             <View style={styles.hero}>
               <View style={styles.avatar}>
@@ -175,23 +276,25 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
                     with your code before you go live.
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={globalStyles.primaryButton}
-                  onPress={async () => {
-                    const merged = mergeB2BAccountIntoUserInfo(userInfo, account);
-                    if (merged) {
-                      setUserInfo(merged);
-                      await AsyncStorage.setItem(
-                        'userInfo',
-                        JSON.stringify(merged),
-                      );
-                    }
-                    await setAppShell('seller');
-                  }}>
-                  <Text style={globalStyles.primaryButtonText}>Open live selling</Text>
-                </TouchableOpacity>
+                {!isAdminViewer ? (
+                  <TouchableOpacity
+                    style={globalStyles.primaryButton}
+                    onPress={async () => {
+                      const merged = mergeB2BAccountIntoUserInfo(userInfo, account);
+                      if (merged) {
+                        setUserInfo(merged);
+                        await AsyncStorage.setItem(
+                          'userInfo',
+                          JSON.stringify(merged),
+                        );
+                      }
+                      await setAppShell('seller');
+                    }}>
+                    <Text style={globalStyles.primaryButtonText}>Open live selling</Text>
+                  </TouchableOpacity>
+                ) : null}
               </>
-            ) : (
+            ) : !isAdminViewer ? (
               <>
                 <TouchableOpacity
                   style={globalStyles.primaryButton}
@@ -203,7 +306,7 @@ const ScreenB2BUsBuyerAccount = ({navigation}) => {
                   Business for Live Selling only.
                 </Text>
               </>
-            )}
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -241,6 +344,38 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 16,
   },
+  lookupCard: {
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    backgroundColor: '#f2f7f3',
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#C0DAC2',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    color: '#202325',
+    marginBottom: 10,
+  },
+  matchRow: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+  },
+  matchRowOn: {
+    borderColor: '#539461',
+    backgroundColor: '#DFECDF',
+  },
+  matchName: {fontWeight: '700', color: '#202325'},
+  matchMeta: {color: '#7F8D91', fontSize: 12, marginTop: 2},
   hero: {alignItems: 'center', marginBottom: 20},
   avatar: {
     width: 72,

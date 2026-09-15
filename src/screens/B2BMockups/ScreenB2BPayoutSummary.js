@@ -2,8 +2,8 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
   Animated,
+  Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import RNFS from 'react-native-fs';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import {globalStyles} from '../../assets/styles/styles';
 import {listB2BPayoutApi} from '../../components/Api/b2bPayoutApi';
@@ -23,6 +24,13 @@ import {
   payoutStatusTone,
 } from './mockData';
 
+let Share;
+try {
+  const ShareModule = require('react-native-share');
+  Share = ShareModule.default || ShareModule;
+} catch {
+  Share = null;
+}
 const GROUP_KEYS = [
   {key: 'liveSaleDate', label: 'Live sale'},
   {key: 'orderDate', label: 'Order'},
@@ -139,6 +147,39 @@ const payoutsToCsv = items => {
       .join(','),
   );
   return [header.join(','), ...rows].join('\n');
+};
+
+const exportPayoutsCsv = async items => {
+  if (!items.length) {
+    Alert.alert('Export', 'No payout rows in this filter.');
+    return;
+  }
+  if (!Share) {
+    Alert.alert('Export unavailable', 'Sharing is not available on this build.');
+    return;
+  }
+
+  const csv = payoutsToCsv(items);
+  const filename = `b2b-payouts-${Date.now()}.csv`;
+  const path = `${RNFS.CachesDirectoryPath}/${filename}`;
+  await RNFS.writeFile(path, csv, 'utf8');
+
+  const fileUrl = Platform.OS === 'android' ? `file://${path}` : path;
+  try {
+    await Share.open({
+      url: fileUrl,
+      type: 'text/csv',
+      filename,
+      title: 'Export B2B payouts',
+      failOnCancel: false,
+    });
+  } catch (error) {
+    const message = String(error?.message || error || '');
+    if (/user did not share|User did not share|cancel/i.test(message)) {
+      return;
+    }
+    throw error;
+  }
 };
 
 const ScreenB2BPayoutSummary = ({navigation, route}) => {
@@ -424,6 +465,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
                     onPress={() =>
                       navigation.navigate('ScreenB2BPayoutDetail', {
                         payout: item,
+                        payoutId: item.orderDocId || item.id,
                         audience: isAdmin ? 'admin' : 'seller',
                       })
                     }
@@ -438,15 +480,8 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           <TouchableOpacity
             style={globalStyles.secondaryButtonAccent}
             onPress={async () => {
-              if (!filtered.length) {
-                Alert.alert('Export', 'No payout rows in this filter.');
-                return;
-              }
               try {
-                await Share.share({
-                  title: 'B2B payouts',
-                  message: payoutsToCsv(filtered),
-                });
+                await exportPayoutsCsv(filtered);
               } catch (error) {
                 Alert.alert('Export failed', error?.message || 'Could not share CSV.');
               }

@@ -89,7 +89,7 @@ const ScreenB2BFeeConfig = ({navigation}) => {
         setLive(false);
         setCountries([]);
         setBusinesses([]);
-        setLoadError(result.error || 'Could not load fee config from Firestore.');
+        setLoadError(result.error || 'Could not load fee config.');
       }
       setLoading(false);
     };
@@ -199,6 +199,10 @@ const ScreenB2BFeeConfig = ({navigation}) => {
   };
 
   const onSelectGarden = gardenName => {
+    if (!gardenName) {
+      setNewBusiness(emptyBusiness);
+      return;
+    }
     const selected = gardenByName[gardenName];
     setNewBusiness(prev => ({
       ...prev,
@@ -385,6 +389,7 @@ const ScreenB2BFeeConfig = ({navigation}) => {
                   options={gardenOptions}
                   selectedOption={newBusiness.name}
                   onSelect={onSelectGarden}
+                  clearable
                   placeholder={
                     gardenLoading ? 'Loading gardens…' : 'Search garden'
                   }

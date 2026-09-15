@@ -1,7 +1,9 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -21,6 +23,7 @@ import MockupHeader from './MockupHeader';
 const FILTERS = ['Pending', 'Approved', 'Rejected', 'All'];
 
 const ScreenB2BAdminApproval = ({navigation}) => {
+  const scrollRef = useRef(null);
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState('Pending');
   const [selectedId, setSelectedId] = useState(null);
@@ -29,6 +32,14 @@ const ScreenB2BAdminApproval = ({navigation}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
+
+  const scrollNotesIntoView = () => {
+    // Notes + actions sit at the bottom of this screen; wait for the keyboard
+    // then bring that section into view.
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({animated: true});
+    }, Platform.OS === 'ios' ? 100 : 250);
+  };
 
   const counts = useMemo(
     () => ({
@@ -109,19 +120,26 @@ const ScreenB2BAdminApproval = ({navigation}) => {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="Business Approvals" />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            tintColor="#539461"
-            onRefresh={() => {
-              setRefreshing(true);
-              loadRequests({silent: true});
-            }}
-          />
-        }>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              tintColor="#539461"
+              onRefresh={() => {
+                setRefreshing(true);
+                loadRequests({silent: true});
+              }}
+            />
+          }>
         <View style={styles.hero}>
           <Text style={styles.heroKicker}>B2B ASIA</Text>
           <Text style={styles.heroTitle}>Review business requests</Text>
@@ -265,6 +283,7 @@ const ScreenB2BAdminApproval = ({navigation}) => {
                         placeholder="Reason or notes for the decision"
                         placeholderTextColor="#A9B3B7"
                         multiline
+                        onFocus={scrollNotesIntoView}
                       />
                     </View>
 
@@ -296,7 +315,8 @@ const ScreenB2BAdminApproval = ({navigation}) => {
             ) : null}
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -357,7 +377,8 @@ const toneStyles = {
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
-  content: {padding: 20, paddingBottom: 48},
+  flex: {flex: 1},
+  content: {padding: 20, paddingBottom: 180},
   hero: {
     backgroundColor: '#f2f7f3',
     borderWidth: 1,

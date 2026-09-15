@@ -102,7 +102,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
         setLoadError(null);
         applyAccount(result.data.account);
       } else {
-        setLoadError(result.error || 'Could not load this account from Firestore.');
+        setLoadError(result.error || 'Could not load this account.');
         setAccount(null);
         setStatus('idle');
         setPathKey(initialPath);

@@ -173,7 +173,9 @@ const B2BAsiaSection = ({navigation}) => {
         </IconTile>
         <IconTile
           title="US Buyer"
-          onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}>
+          onPress={() =>
+            navigation.navigate('ScreenB2BUsBuyerAccount', {audience: 'admin'})
+          }>
           <AvatarIcon width={48} height={48} />
         </IconTile>
         <IconTile
