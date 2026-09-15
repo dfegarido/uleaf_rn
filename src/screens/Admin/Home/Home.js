@@ -340,6 +340,11 @@ const LeafTrailGreenhouse = ({navigation}) => {
             </IconTile>
           )}
           {isFullAdmin && (
+            <IconTile title="Migrate Orders" onPress={() => navigation.navigate('MigrateOrders')}>
+              <OrderSummaryIcon width={48} height={48} />
+            </IconTile>
+          )}
+          {isFullAdmin && (
             <IconTile title="Schedule" onPress={() => navigation.navigate('Schedule')}>
               <ScheduleIcon width={48} height={48} />
             </IconTile>

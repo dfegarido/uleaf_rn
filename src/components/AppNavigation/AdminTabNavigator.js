@@ -25,6 +25,7 @@ import EnrollSeller from '../../screens/Admin/LeafTrail/EnrollSeller';
 import LeafTrail from '../../screens/Admin/LeafTrail/LeafTrail';
 import PackingScreen from '../../screens/Admin/LeafTrail/Packing/Packing';
 import PaymentManagement from '../../screens/Admin/PaymentManagement/PaymentManagement';
+import MigrateOrders from '../../screens/Admin/MigrateOrders/MigrateOrders';
 import ViewPackingScreen from '../../screens/Admin/LeafTrail/Packing/ViewPacking';
 import ReceivingScreen from '../../screens/Admin/LeafTrail/Receiving/Receiving';
 import ScanQRScreen from '../../screens/Admin/LeafTrail/ScanQR/ScanQR';
@@ -228,6 +229,7 @@ function AdminTabs() {
      <Stack.Screen name="LeafTrailSortingDetailsScreen" options={{headerShown: false}} component={SortingDetailsScreen} />
      <Stack.Screen name="ViewPackingScreen" options={{headerShown: false}} component={ViewPackingScreen} />
      <Stack.Screen name="PaymentManagement" options={{headerShown: false}} component={PaymentManagement} />
+     <Stack.Screen name="MigrateOrders" options={{headerShown: false}} component={MigrateOrders} />
      <Stack.Screen name="LeafTrailShippingAdminScreen" options={{headerShown: false}} component={ShippingScreen} />
      <Stack.Screen name="ViewShippingScreen" options={{headerShown: false}} component={ViewShippingScreen} />
      <Stack.Screen name="LeafTrailShippedAdminScreen" options={{headerShown: false}} component={ShippedScreen} />

@@ -494,6 +494,7 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   GET_PENDING_PAYMENT_ORDERS: `${getSupabaseBaseUrl()}/admin-payment-management`,
   UPDATE_ORDER_READY_TO_FLY: `${getSupabaseBaseUrl()}/admin-payment-management`,
   DELETE_PENDING_ORDER: `${getSupabaseBaseUrl()}/admin-payment-management`,
+  ADMIN_MIGRATE_ORDERS: `${getSupabaseBaseUrl()}/admin-migrate-orders`,
 
   // Group Chat Notification
   SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
