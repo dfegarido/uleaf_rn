@@ -1,0 +1,18 @@
+diff --git a/node_modules/@react-native-community/checkbox/android/build.gradle b/node_modules/@react-native-community/checkbox/android/build.gradle
+index 743c7d1..6951ac0 100644
+--- a/node_modules/@react-native-community/checkbox/android/build.gradle
++++ b/node_modules/@react-native-community/checkbox/android/build.gradle
+@@ -48,6 +48,13 @@ android {
+     compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
+     buildToolsVersion getExtOrDefault('buildToolsVersion')
+ 
++    // AGP 9 disables generated BuildConfig by default. This module declares
++    // buildConfigField below, which fails without this opt-in:
++    //   "defaultConfig contains custom BuildConfig fields, but the feature is disabled"
++    buildFeatures {
++        buildConfig true
++    }
++
+     defaultConfig {
+         minSdkVersion getExtOrIntegerDefault('minSdkVersion')
+         targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')

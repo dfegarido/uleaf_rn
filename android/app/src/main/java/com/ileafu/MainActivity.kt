@@ -29,7 +29,9 @@ class MainActivity : ReactActivity() {
     // When entering PiP, keep video rendering active. If additional handling is required
     // (e.g., keep SurfaceView/TextureView visible), do it here.
     try {
-      val reactContext = (application as ReactApplication).reactNativeHost.reactInstanceManager.currentReactContext
+      // RN 0.87: ReactNativeHost is deprecated in the New Architecture, so read
+      // the context from ReactHost (same property name, now the supported API).
+      val reactContext = (application as ReactApplication).reactHost?.currentReactContext
       if (reactContext != null) {
         reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
           .emit("onPipModeChanged", isInPictureInPictureMode)

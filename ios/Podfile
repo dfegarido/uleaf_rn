@@ -365,17 +365,43 @@ fi
       
       Pod::UI.puts "[post_install] Copied RNCSlider files to React-Core headers: #{react_headers_dir}".green
       
-      # Add header search paths to react-native-slider target
+      # Add header search paths to react-native-slider target.
+      #
+      # RN 0.87 also needs these on ReactCodegen: the block below compiles
+      # RNCSlider's native C++ INSIDE the ReactCodegen target, and RN 0.87 emits the
+      # generated RNCSlider headers under build/generated/ios/react/ (lowercase, not
+      # under ReactCodegen/). Without the paths, ReactCodegen fails with
+      #   "'react/renderer/components/RNCSlider/RNCSliderState.h' file not found"
+      # while compiling node_modules/@react-native-community/slider/.../RNCSliderShadowNode.cpp.
       installer.pods_project.targets.each do |target|
-        if target.name == 'react-native-slider'
+        if ['react-native-slider', 'ReactCodegen'].include?(target.name)
           target.build_configurations.each do |config|
             header_search_paths = config.build_settings['HEADER_SEARCH_PATHS'] || []
             header_search_paths = [header_search_paths] unless header_search_paths.is_a?(Array)
+
+            # CRITICAL: assigning HEADER_SEARCH_PATHS in build_settings OVERRIDES the value
+            # CocoaPods generated in the target's xcconfig. Without $(inherited) first, every
+            # pod-provided path (React-Fabric, React-FabricComponents, ReactNativeDependencies,
+            # React-Core-prebuilt, ...) is silently dropped, so ReactCodegen fails to find
+            # core headers one at a time:
+            #   'RCTRequired/RCTRequired.h', 'folly/dynamic.h',
+            #   'react/renderer/core/StateData.h', 'react/renderer/components/view/ViewProps.h'
+            unless header_search_paths.any? { |e| e.to_s.include?('$(inherited)') }
+              header_search_paths.unshift('$(inherited)')
+            end
             
-            # Add generated directories to header search paths
+            # Add generated directories to header search paths.
+            #
+            # RN 0.87 emits third-party component codegen under
+            # build/generated/ios/ReactCodegen/react/renderer/components/<lib>/,
+            # and the generated .cpp files `#include <react/renderer/components/<lib>/States.h>`.
+            # The ReactCodegen subdir must be on the path or those includes fail with
+            #   "'react/renderer/components/<lib>/States.h' file not found"
+            # (seen for rnsvg, safeareacontext and RNCSlider).
             generated_dirs = [
               File.join(app_root, 'build', 'generated', 'ios'),
-              File.join(app_root, 'ios', 'build', 'generated', 'ios')
+              File.join(app_root, 'ios', 'build', 'generated', 'ios'),
+              File.join(app_root, 'ios', 'build', 'generated', 'ios', 'ReactCodegen')
             ]
             
             generated_dirs.each do |gen_dir|
@@ -387,9 +413,15 @@ fi
 
             # RNCSlider C++ uses <react/renderer/components/RNCSlider/...>; with use_frameworks! the
             # podspec's common/cpp path is not always merged into this target — add explicitly.
+            #
+            # Also required on RN 0.87: with the prebuilt React-Core, <RCTRequired/RCTRequired.h>
+            # (included by the generated <lib>-generated.mm) resolves only through
+            # Pods/Headers/Public/React-Core-prebuilt. ReactCodegen's compile unit currently
+            # receives just Headers/Public/React-Core, so add the prebuilt dir explicitly.
             [
               '$(PODS_TARGET_SRCROOT)/common/cpp',
-              '$(PODS_ROOT)/Headers/Public/React-Core'
+              '$(PODS_ROOT)/Headers/Public/React-Core',
+              '$(PODS_ROOT)/Headers/Public/React-Core-prebuilt'
             ].each do |p|
               next if header_search_paths.any? { |e| e.to_s.include?(p) }
 
