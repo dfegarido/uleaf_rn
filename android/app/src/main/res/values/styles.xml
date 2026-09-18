@@ -1,13 +1,22 @@
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- Base application theme.
+         Light-only on purpose: the app's UI is designed light (see the design
+         tokens in src/screens/Login/*), so it must not follow the system dark
+         setting. A DayNight parent made Android (and MIUI's global dark mode)
+         invert the app's colours, and on API 29+ the platform "force dark"
+         feature re-coloured the RN-rendered views too, producing a dark login
+         screen with light text. forceDarkAllowed is disabled explicitly for
+         extra safety on OEM dark modes. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
-    <!-- Allow content to extend into display cutout (notch) short edges -->
-    <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-    <!-- Make navigation bar translucent so app can extend beneath it -->
-    <item name="android:windowTranslucentNavigation">true</item>
+        <!-- Allow content to extend into display cutout (notch) short edges -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <!-- Make navigation bar translucent so app can extend beneath it -->
+        <item name="android:windowTranslucentNavigation">true</item>
+        <!-- Never let the platform re-colour the UI for dark mode -->
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 
 </resources>
