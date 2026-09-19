@@ -3,6 +3,7 @@ import AppImage from '../../components/AppImage/AppImage';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -18,8 +19,9 @@ import { ChannelProfileType,
   ClientRoleType,
   createAgoraRtcEngine,
   RtcSurfaceView,
+  RtcTextureView,
 } from 'react-native-agora';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/icons/white/caret-left-regular.svg';
 import LoveIcon from '../../assets/live-icon/love.svg';
 import MicOffIcon from '../../assets/live-icon/muted.svg';
@@ -56,6 +58,8 @@ import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
 
 const LiveBroadcastScreen = ({navigation, route}) => {
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
   const { userInfo } = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const rtcEngineRef = useRef(null);
@@ -93,6 +97,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [engineReady, setEngineReady] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Starting camera…');
   const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
   const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
@@ -277,96 +283,118 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     fetchToken();
   }, [sessionId]);
 
-  // Initialize Agora engine and start broadcast when all prerequisites are ready
+  // Initialize Agora engine and start broadcast when all prerequisites are ready.
+  // Agora 4.x is a singleton: after release() we MUST initialize again, never skip.
   useEffect(() => {
-    if (!token || !appId || !channelName || !permissionsGranted) {
-      console.log('Waiting for token, appId, channelName, and permissions...');
-      return;
+    if (!token || !appId || !channelName || !permissionsGranted || uid == null) {
+      setStatusMessage('Connecting…');
+      return undefined;
     }
 
-    // Prevent re-initialization if engine is already running
-    if (rtcEngineRef.current) {
-      console.log('Agora engine already initialized, skipping...');
-      return;
-    }
+    let cancelled = false;
+    setStatusMessage('Starting camera…');
+    console.log('🔴 Initializing Agora engine for broadcast…', { channelName, uid });
 
-    const startBroadcast = () => {
-      console.log('🔴 Initializing Agora engine for broadcast...');
-      const rtc = createAgoraRtcEngine();
-      rtcEngineRef.current = rtc;
+    const rtc = createAgoraRtcEngine();
+    rtcEngineRef.current = rtc;
+
+    try {
       rtc.initialize({
-        appId: appId,
+        appId,
         channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
-      rtc.registerEventHandler({
-        onJoinChannelSuccess: () => {
-          console.log('✅ Joined Channel as Broadcaster');
-          setJoined(true);
-        },
-        onTokenPrivilegeWillExpire: () => {
-          console.log('⚠️ Token privilege will expire');
-          fetchTokenAndRejoin();
-        },
-        onConnectionStateChanged: (state, reason) => {
-          console.log('🔌 Connection state changed:', { state, reason });
-        },
-        onError: (err) => {
-          console.error('❌ Agora Error:', err);
-          
-          // Error codes 109 (Token Expired) and 110 (Invalid Token)
-          if (err === 109) {
-            fetchTokenAndRejoin();
-          }
-        },
-        onSnapshotTaken: (_connection, _uid, filePath, width, height, errCode) => {
-          if (errCode !== 0) {
-            console.warn('[Snapshot] Failed, errCode:', errCode);
-            snapshotPendingRef.current = null;
-            thumbnailPendingRef.current = false;
-            return;
-          }
-          console.log(`[Snapshot] Captured ${width}x${height} -> ${filePath}`);
-          const isThumbnail = thumbnailPendingRef.current;
-          thumbnailPendingRef.current = false;
-          if (isThumbnail) {
-            handleLiveThumbnailUpload(filePath);
-            return;
-          }
-          const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
-          setSnapshotPreviewUri(fileUri);
-          const pending = snapshotPendingRef.current;
-          snapshotPendingRef.current = null;
-          if (!pending) return;
-          handleSnapshotUpload(filePath, pending);
-        },
-      });
-      rtc.enableVideo();
-      rtc.enableLocalVideo(true); // Explicitly enable local video capture (critical for Android)
-      rtc.setVideoEncoderConfiguration({
-        dimensions: { width: 720, height: 1280 },
-        frameRate: 15,
-        bitrate: 1130,
-        orientationMode: 0, // Adaptive
-      });
-      rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
-      rtc.setupLocalVideo({ uid: uid ?? 0, renderMode: 1 });
-      rtc.startPreview();
-      
-      console.log('🔴 Starting broadcast with token:', token.substring(0, 20) + '...');
-      console.log('🔄 Channel name:', channelName);
-      
-      rtc.joinChannel(token, channelName, uid ?? 0, {});
-    };
+    } catch (e) {
+      console.warn('Agora initialize (may already be initialized):', e);
+    }
 
-    startBroadcast();
+    rtc.registerEventHandler({
+      onJoinChannelSuccess: () => {
+        if (cancelled) return;
+        console.log('✅ Joined Channel as Broadcaster');
+        try {
+          rtc.enableLocalVideo(true);
+          rtc.startPreview();
+        } catch (e) {
+          console.warn('post-join preview restart failed', e);
+        }
+        setJoined(true);
+        setStatusMessage('');
+      },
+      onLocalVideoStateChanged: (source, state, reason) => {
+        console.log('📹 Local video state:', { source, state, reason });
+        if (state === 3) {
+          setStatusMessage(`Camera error (${reason})`);
+        }
+      },
+      onTokenPrivilegeWillExpire: () => fetchTokenAndRejoin(),
+      onConnectionStateChanged: (state, reason) => {
+        console.log('🔌 Connection state changed:', { state, reason });
+      },
+      onError: (err) => {
+        console.error('❌ Agora Error:', err);
+        setStatusMessage(`Agora error: ${err}`);
+        if (err === 109) fetchTokenAndRejoin();
+      },
+      onSnapshotTaken: (_connection, _uid, filePath, width, height, errCode) => {
+        if (errCode !== 0) {
+          console.warn('[Snapshot] Failed, errCode:', errCode);
+          snapshotPendingRef.current = null;
+          thumbnailPendingRef.current = false;
+          return;
+        }
+        const isThumbnail = thumbnailPendingRef.current;
+        thumbnailPendingRef.current = false;
+        if (isThumbnail) {
+          handleLiveThumbnailUpload(filePath);
+          return;
+        }
+        const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+        setSnapshotPreviewUri(fileUri);
+        const pending = snapshotPendingRef.current;
+        snapshotPendingRef.current = null;
+        if (!pending) return;
+        handleSnapshotUpload(filePath, pending);
+      },
+    });
+
+    rtc.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+    rtc.enableAudio();
+    rtc.enableVideo();
+    rtc.enableLocalVideo(true);
+    rtc.setVideoEncoderConfiguration({
+      dimensions: { width: 720, height: 1280 },
+      frameRate: 15,
+      bitrate: 1130,
+      orientationMode: 0,
+    });
+    rtc.startPreview();
+
+    if (!cancelled) {
+      setEngineReady(true);
+    }
+
+    rtc.joinChannel(token, channelName, uid, {
+      clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+      publishCameraTrack: true,
+      publishMicrophoneTrack: true,
+      autoSubscribeAudio: true,
+      autoSubscribeVideo: false,
+    });
 
     return () => {
-      console.log('🧹 Cleaning up Agora engine...');
-      rtcEngineRef.current?.leaveChannel();
-      rtcEngineRef.current?.release();
+      cancelled = true;
+      console.log('🧹 Leaving live channel (keep Agora engine)');
+      setEngineReady(false);
+      setJoined(false);
+      try {
+        rtc.stopPreview();
+      } catch (_) {}
+      try {
+        rtc.leaveChannel();
+      } catch (_) {}
       rtcEngineRef.current = null;
     };
-  }, [permissionsGranted, appId, channelName]);
+  }, [permissionsGranted, appId, channelName, token, uid]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -764,8 +792,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
   }, [activeListing]);
 
+  const localCanvas = { uid: 0, renderMode: 1, mirrorMode: 0 };
+
   return (
-       <SafeAreaView style={styles.container}>
+       <View style={styles.container}>
         {isLoading && (
                 <Modal transparent animationType="fade">
                   <View style={styles.loadingOverlay}>
@@ -773,42 +803,47 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   </View>
                 </Modal>
               )}
-        <View style={styles.stream}>
-          {joined ? (
-            <RtcSurfaceView
-              style={styles.video}
-              canvas={{
-                uid: 0, // Use uid 0 to render the local user's video
-                renderMode: 1, // FIT mode
-                mirrorMode: 0  // No mirror
-              }}
-              zOrderMediaOverlay={true}
-            />
+        <View
+          pointerEvents="none"
+          style={[styles.stream, { width: windowWidth, height: windowHeight }]}>
+          {engineReady ? (
+            Platform.OS === 'android' ? (
+              <RtcTextureView
+                style={{ width: windowWidth, height: windowHeight }}
+                canvas={localCanvas}
+              />
+            ) : (
+              <RtcSurfaceView
+                style={{ width: windowWidth, height: windowHeight }}
+                canvas={localCanvas}
+              />
+            )
           ) : (
             <View style={styles.connectingContainer}>
               <ActivityIndicator size="large" color="#FFFFFF" />
               <Text style={styles.connectingText}>
-                {error ? 
-                  `Error: ${error}` : 
-                  (joined ? "Waiting for broadcaster to start stream..." : "Connecting to live stream...")}
+                {error || statusMessage || 'Connecting to live stream...'}
               </Text>
             </View>
           )}
         </View>
 
-        {snapshotCountdown > 0 && (
-          <View style={styles.snapshotOverlay}>
-            <Text style={styles.snapshotPrepareText}>Prepare for snapshot</Text>
-            <Text style={styles.snapshotCountdownText}>{snapshotCountdown}</Text>
-            <TouchableOpacity onPress={handleManualSnapshot} style={styles.snapshotSnapNowBtn}>
-              <Text style={styles.snapshotSnapNowText}>Snap Now</Text>
-            </TouchableOpacity>
+        {!!statusMessage && engineReady && (
+          <View style={styles.statusBanner} pointerEvents="none">
+            <Text style={styles.connectingText}>{statusMessage}</Text>
           </View>
         )}
-        
-        {/* Only show UI components when stream is active */}
-        {joined && (
-          <>
+
+        <View
+          collapsable={false}
+          pointerEvents="box-none"
+          style={[
+            styles.overlay,
+            {
+              paddingTop: Math.max(insets.top, 8),
+              paddingBottom: Math.max(insets.bottom, 12),
+            },
+          ]}>
             <View style={styles.topBar}>
               <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.backButton}>
                       <BackSolidIcon width={24} height={24} />
@@ -826,7 +861,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
               </View>
             </View>
-            
+            <View style={styles.overlaySpacer} />
+        {joined && (
         <View style={styles.actionBar}>
           <View style={styles.social}>
             <View style={styles.leftColumn}>
@@ -983,8 +1019,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
             </View>)}
           </View>
-          </>
         )}
+        </View>
 
         {/* Render the CreateLiveListingScreen as a modal */}
         <CreateLiveListingScreen
@@ -1032,7 +1068,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             </View>
           </View>
         </Modal>
-      </SafeAreaView>
+      </View>
     );
 };
 
@@ -1066,17 +1102,34 @@ const styles = StyleSheet.create({
 
   container: { 
     flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 1,
-    paddingBottom: 34,
     backgroundColor: '#000',
   },
   stream: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#444',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 0,
+    elevation: 0,
+    backgroundColor: '#000',
   },
-  video: { flex: 1 },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    elevation: 20,
+    justifyContent: 'flex-start',
+  },
+  overlaySpacer: {
+    flex: 1,
+  },
+  statusBanner: {
+    position: 'absolute',
+    top: 80,
+    left: 16,
+    right: 16,
+    zIndex: 21,
+    elevation: 21,
+    alignItems: 'center',
+  },
   connectingText: {
     ...baseFont,
     fontWeight: '500',
@@ -1097,9 +1150,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 15,
     gap: 2,
-    width: 375,
+    width: '100%',
     height: 58,
-    alignSelf: 'center',
   },
   backButton: {
     flexDirection: 'row',
@@ -1157,9 +1209,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 8,
     gap: 12,
-    width: 375,
-    height: 547,
-    alignSelf: 'center',
+    width: '100%',
   },
   social: {
     flexDirection: 'row',

@@ -263,8 +263,10 @@ const ScreenListing = ({navigation}) => {
   const [isDiscountedSelectMode, setIsDiscountedSelectMode] = useState(false);
   const [discountedSelectedIds, setDiscountedSelectedIds] = useState([]);
 
-  const resetPaginationState = () => {
-    allListingsRef.current = [];
+  const resetPaginationState = (bustCache = false) => {
+    if (bustCache) {
+      allListingsRef.current = [];
+    }
     allDisplayListingsRef.current = [];
     setAllHasMore(false);
     setAllLoadingMore(false);
@@ -525,7 +527,7 @@ const ScreenListing = ({navigation}) => {
         };
 
         try {
-          await syncExpiredListingsForSeller(uid);
+          void syncExpiredListingsForSeller(uid);
 
           if (allListingsRef.current.length === 0) {
             if (__DEV__) console.log('[Live tab] Fetching listings from Supabase…');
@@ -583,7 +585,7 @@ const ScreenListing = ({navigation}) => {
         return;
       }
 
-      await syncExpiredListingsForSeller(uid);
+      void syncExpiredListingsForSeller(uid);
 
       // Only re-fetch from Supabase when cache is empty (first load / after refresh)
       if (allListingsRef.current.length === 0) {
@@ -1005,7 +1007,7 @@ const ScreenListing = ({navigation}) => {
       auth.currentUser?.uid;
     if (activeTab === 'Live') _bustLiveCache(uid);
     setRefreshing(true);
-    resetPaginationState();
+    resetPaginationState(true);
     fetchListingsPage(1);
   };
 
@@ -1353,7 +1355,7 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post stock update failed.');
       }
-      resetPaginationState();
+      resetPaginationState(true);
       await fetchListingsPage(1);
       Alert.alert('Update Listing', 'Listing stocks updated successfully!');
     } catch (error) {
@@ -1415,7 +1417,7 @@ const ScreenListing = ({navigation}) => {
       setDiscountPercentageSheet('');
       setDiscountPriceSheet('');
       setShowSheetDiscount(!showSheetDiscount);
-      resetPaginationState();
+      resetPaginationState(true);
       await fetchListingsPage(1);
     } catch (error) {
       console.log('Error updating discount:', error.message);
@@ -1433,7 +1435,7 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post stock update failed.');
       }
-      resetPaginationState();
+      resetPaginationState(true);
       await fetchListingsPage(1);
     } catch (error) {
       console.log('Error remove discount:', error.message);
@@ -1500,7 +1502,7 @@ const ScreenListing = ({navigation}) => {
 
       if (response.success) {
         showToast('Active listing has been updated.');
-        resetPaginationState();
+        resetPaginationState(true);
         await fetchListingsPage(1);
       } else {
         throw new Error(response.message || 'Failed to set active listing.');
@@ -1523,7 +1525,7 @@ const ScreenListing = ({navigation}) => {
       if (!response?.success) {
         throw new Error(response?.message || 'Post pin failed.');
       }
-      resetPaginationState();
+      resetPaginationState(true);
       await fetchListingsPage(1);
     } catch (error) {
       console.log('Error pin table action:', error.message);
@@ -1610,7 +1612,7 @@ const ScreenListing = ({navigation}) => {
                 throw new Error(res?.message || 'Deactivate failed');
               }
               exitActiveSelectMode();
-              resetPaginationState();
+              resetPaginationState(true);
               await fetchListingsPage(1);
               showToast(`${count} listing${count > 1 ? 's' : ''} deactivated.`);
             } catch (e) {
@@ -1710,7 +1712,7 @@ const ScreenListing = ({navigation}) => {
                 throw new Error(res?.message || 'Deactivate failed');
               }
               exitGroupChatSelectMode();
-              resetPaginationState();
+              resetPaginationState(true);
               await fetchListingsPage(1);
               showToast(`${count} listing${count > 1 ? 's' : ''} deactivated.`);
             } catch (e) {
@@ -1809,7 +1811,7 @@ const ScreenListing = ({navigation}) => {
                 throw new Error(res?.message || 'Activate failed');
               }
               exitInactiveSelectMode();
-              resetPaginationState();
+              resetPaginationState(true);
               await fetchListingsPage(1);
               showToast(`${count} listing${count > 1 ? 's' : ''} activated.`);
             } catch (e) {
@@ -1909,7 +1911,7 @@ const ScreenListing = ({navigation}) => {
                 throw new Error(res?.message || 'Deactivate failed');
               }
               exitDiscountedSelectMode();
-              resetPaginationState();
+              resetPaginationState(true);
               await fetchListingsPage(1);
               showToast(`${count} listing${count > 1 ? 's' : ''} deactivated.`);
             } catch (e) {
