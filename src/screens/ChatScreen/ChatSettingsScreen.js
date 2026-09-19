@@ -778,13 +778,22 @@ const ChatSettingsScreen = ({navigation, route}) => {
       const newParticipantIds = selectedUsersToAdd.map(user => user.uid);
 
       // Add all users to the chat's participants and participantIds
-      await chatUpdateApi({
+      const addRes = await chatUpdateApi({
         mode: 'add-participant',
         chatId,
         participants: newParticipants,
       });
+      if (!addRes?.success) {
+        throw new Error(addRes?.error || 'Failed to add participants');
+      }
 
-      await sendGroupChatNotificationApi(newParticipantIds, name);
+      // Best-effort notify — large bulk adds often time out the email CF.
+      // Do not fail the add if notification fails.
+      try {
+        await sendGroupChatNotificationApi(newParticipantIds, name);
+      } catch (notifyError) {
+        console.log('Group chat notification failed (members were still added):', notifyError);
+      }
 
       // Refresh the chat document to get the latest data
       const refreshRes = await getChatDetailApi(chatId);
