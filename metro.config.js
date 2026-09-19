@@ -13,6 +13,8 @@ module.exports = (() => {
 
   metroConfig.transformer = {
     ...transformer,
+    // RN 0.87 moved this off Libraries/Image/AssetRegistry.
+    assetRegistryPath: 'react-native/asset-registry',
     babelTransformerPath: require.resolve('react-native-svg-transformer'),
   };
   metroConfig.resolver = {
@@ -39,6 +41,18 @@ module.exports = (() => {
     // (which honours the `react-native` field consistently) while the rest of the graph
     // keeps exports resolution (which RN 0.87 requires).
     resolveRequest: (context, moduleName, platform) => {
+      // Stale Metro transforms / older deps still require the pre-0.87 path.
+      if (
+        moduleName === 'react-native/Libraries/Image/AssetRegistry' ||
+        moduleName.endsWith('/Libraries/Image/AssetRegistry')
+      ) {
+        return context.resolveRequest(
+          context,
+          'react-native/asset-registry',
+          platform,
+        );
+      }
+
       const isFirebasePackage =
         moduleName === 'firebase' ||
         moduleName.startsWith('firebase/') ||
