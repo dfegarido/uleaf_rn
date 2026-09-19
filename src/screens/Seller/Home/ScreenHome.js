@@ -66,7 +66,6 @@ const ScreenHome = ({navigation}) => {
     useCallback(() => {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
-        StatusBar.setBackgroundColor('#DFECDF');
       }
       
       // Refresh profile image when screen is focused

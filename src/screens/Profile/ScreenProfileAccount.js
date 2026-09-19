@@ -86,7 +86,6 @@ const ScreenProfileAccount = ({navigation, route}) => {
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
       StatusBar.setBarStyle('dark-content');
-      StatusBar.setBackgroundColor('#fff');
     }
   });
 

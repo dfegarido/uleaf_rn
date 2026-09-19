@@ -36,7 +36,6 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
       StatusBar.setBarStyle('dark-content');
-      StatusBar.setBackgroundColor('#fff');
     }
   });
 

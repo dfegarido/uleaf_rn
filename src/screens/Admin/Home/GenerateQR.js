@@ -1692,7 +1692,6 @@ const GenerateQR = ({navigation}) => {
     React.useCallback(() => {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
-        StatusBar.setBackgroundColor('#fff');
       }
       
       // Only initialize once when screen first mounts

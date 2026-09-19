@@ -869,7 +869,6 @@ const ScreenExportQR = ({navigation}) => {
     React.useCallback(() => {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
-        StatusBar.setBackgroundColor('#fff');
       }
     }, [])
   );

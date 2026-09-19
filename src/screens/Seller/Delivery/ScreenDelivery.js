@@ -370,7 +370,6 @@ const ScreenDelivery = ({navigation}) => {
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
       StatusBar.setBarStyle('dark-content');
-      StatusBar.setBackgroundColor('#fff');
     }
   });
 

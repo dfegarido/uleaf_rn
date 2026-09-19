@@ -62,7 +62,6 @@ const ScreenListingAction = ({navigation, route}) => {
   useFocusEffect(() => {
     if (Platform.OS === 'android') {
       StatusBar.setBarStyle('light-content');
-      StatusBar.setBackgroundColor('#202325');
     }
   });
 

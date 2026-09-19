@@ -198,7 +198,6 @@ const BuyerPlantCreditsScreen = ({ navigation }) => {
     if (isFocused) {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
-        StatusBar.setBackgroundColor('#FFFFFF');
       }
       loadHistory();
     }

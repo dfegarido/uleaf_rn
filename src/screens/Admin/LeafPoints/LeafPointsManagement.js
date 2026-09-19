@@ -46,7 +46,6 @@ const LeafPointsManagement = ({ navigation }) => {
     useCallback(() => {
       if (Platform.OS === 'android') {
         StatusBar.setBarStyle('dark-content');
-        StatusBar.setBackgroundColor('#FFFFFF');
       }
       fetchBuyersWithLeafPoints();
     }, [fetchBuyersWithLeafPoints])
