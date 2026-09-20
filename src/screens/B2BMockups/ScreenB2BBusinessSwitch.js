@@ -22,17 +22,37 @@ const PATHS = [
     key: 'us',
     label: 'US Customer',
     to: 'US Business',
-    keeps: 'You keep buying plants as a customer.',
-    selling:
-      'Live Selling and mainstream shop selling. Share your code so Instagram followers download the app and create an account before you go live.',
+    afterApproval: [
+      {text: 'Keep shopping as a customer.'},
+      {text: 'Sell plants through ileafU Live Shows.'},
+      {
+        text: 'Share your code with your Instagram or Facebook followers so they can download the app and create an account before your Live Show.',
+      },
+      {text: 'List prices are in US Dollars (USD).'},
+      {text: 'Payout = Published Price − Commission − Logistics − Plant Care'},
+      {text: 'Additional details are provided in the Seller’s Terms of Use.'},
+    ],
   },
   {
     key: 'asia',
-    label: 'Asia Seller',
+    label: 'Garden Partner',
     to: 'Asia Business',
-    keeps: 'Asia Seller and Asia Business stay available in parallel.',
-    selling: 'New listings are priced in USD. Commission payout applies.',
-    liveRule: 'Live Selling must be enabled on your seller account before you can upgrade.',
+    afterApproval: [
+      {
+        text: 'Keep selling as a garden partner. List plants in your store and participate in chat shop sales. Plants are listed in local currency.',
+      },
+      {
+        text: 'Sell plants through ileafU Live Shows under B2B Program:',
+        children: [
+          'Share your code with your Instagram or Facebook followers so they can download the app and create an account before your Live Show.',
+          'List prices are in US Dollars (USD).',
+          'Payout = Published Price − Commission − Logistics − Plant Care',
+          'Additional details are provided in the Seller’s Terms of Use.',
+        ],
+      },
+    ],
+    liveRule:
+      'Live Selling must be enabled on your seller account before you can upgrade.',
   },
 ];
 
@@ -59,8 +79,13 @@ const statusFromRequest = request => {
   return 'idle';
 };
 
-const pathFromAccountClass = accountClass => {
-  if (String(accountClass || '').startsWith('Asia')) {
+/** Buyer (US) vs Seller (Asia / Garden Partner) — sellers must not see US copy. */
+const resolvePathKey = ({accountClass, collectionName, routePath}) => {
+  if (routePath === 'asia' || collectionName === 'supplier') {
+    return 'asia';
+  }
+  const cls = String(accountClass || '');
+  if (cls.startsWith('Asia')) {
     return 'asia';
   }
   return 'us';
@@ -86,7 +111,13 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
 
   const applyAccount = nextAccount => {
     setAccount(nextAccount);
-    setPathKey(pathFromAccountClass(nextAccount?.accountClass));
+    setPathKey(
+      resolvePathKey({
+        accountClass: nextAccount?.accountClass,
+        collectionName: nextAccount?.collectionName,
+        routePath: route?.params?.path,
+      }),
+    );
     setStatus(statusFromRequest(nextAccount?.request));
   };
 
@@ -168,7 +199,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
 
         {isSupplierAccount ? (
           <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>Asia Seller account</Text>
+            <Text style={styles.infoTitle}>Garden Partner account</Text>
             <Text style={styles.infoBody}>
               Live Selling flag: {account?.liveFlag || 'No'}
               {account?.liveFlag === 'Yes'
@@ -193,7 +224,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                   setStatus('idle');
                 }}>
                 <Text style={[styles.segText, pathKey === item.key && styles.segTextOn]}>
-                  {item.label}
+                  {item.key === 'asia' ? 'Asia Seller' : item.label}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -214,12 +245,14 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>What changes after approval</Text>
-              <Bullet text={path.keeps} />
-              <Bullet text={path.selling} />
-              {path.liveRule ? <Bullet text={path.liveRule} /> : null}
-              <Bullet text="Listings are entered and shown in exact USD. No $5 rounding." />
-              <Bullet text="Payout = Listed USD − Commission − Logistics − Plant Care." />
+              <Text style={styles.sectionTitle}>After Approval</Text>
+              {(path.afterApproval || []).map((item, index) => (
+                <AfterApprovalItem
+                  key={`${path.key}-${index}`}
+                  index={index + 1}
+                  item={typeof item === 'string' ? {text: item} : item}
+                />
+              ))}
             </View>
 
             {asiaUpgradeBlocked ? (
@@ -238,7 +271,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                 disabled={saving}
                 onPress={onSubmit}>
                 <Text style={globalStyles.primaryButtonText}>
-                  {saving ? 'Submitting…' : 'Submit for admin approval'}
+                  {saving ? 'Submitting…' : 'Submit Application'}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -256,8 +289,8 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                 </Text>
                 <Text style={styles.resultBody}>
                   {path.key === 'us'
-                    ? 'Shop as a customer is still available. Live Selling and mainstream shop selling are unlocked. Share your code so followers can download the app and create an account before you go live.'
-                    : 'USD listings and commission payouts are now on. Existing Asia Seller accounts are unchanged.'}
+                    ? 'Shop as a customer is still available. Live Selling is unlocked. Share your code so followers can download the app and create an account before your Live Show.'
+                    : 'Keep selling as a garden partner in local currency. Live Shows under the B2B Program use USD pricing and commission payouts.'}
                 </Text>
               </View>
             )}
@@ -289,12 +322,21 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
   );
 };
 
-const Bullet = ({text}) => (
-  <View style={styles.bulletRow}>
-    <View style={styles.dot} />
-    <Text style={styles.bulletText}>{text}</Text>
-  </View>
-);
+const AfterApprovalItem = ({index, item}) => {
+  const children = Array.isArray(item.children) ? item.children : [];
+  return (
+    <View style={styles.afterItem}>
+      <Text style={styles.afterItemText}>
+        {index}. {item.text}
+      </Text>
+      {children.map((child, childIndex) => (
+        <Text key={`${index}-${childIndex}`} style={styles.afterChildText}>
+          {String.fromCharCode(97 + childIndex)}. {child}
+        </Text>
+      ))}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
@@ -342,16 +384,15 @@ const styles = StyleSheet.create({
     color: '#202325',
     marginBottom: 12,
   },
-  bulletRow: {flexDirection: 'row', marginBottom: 10, alignItems: 'flex-start'},
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#539461',
-    marginTop: 7,
-    marginRight: 10,
+  afterItem: {marginBottom: 12},
+  afterItemText: {color: '#556065', fontSize: 14, lineHeight: 20},
+  afterChildText: {
+    color: '#556065',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+    marginLeft: 16,
   },
-  bulletText: {flex: 1, color: '#556065', fontSize: 14, lineHeight: 20},
   blockedBox: {
     backgroundColor: '#FDECEC',
     borderRadius: 12,
