@@ -282,18 +282,6 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                 </Text>
               </View>
             )}
-            {status === 'approved' && (
-              <View style={styles.resultBox}>
-                <Text style={styles.resultTitle}>
-                  Account is now {account?.accountClass || path.to}
-                </Text>
-                <Text style={styles.resultBody}>
-                  {path.key === 'us'
-                    ? 'Shop as a customer is still available. Live Selling is unlocked. Share your code so followers can download the app and create an account before your Live Show.'
-                    : 'Keep selling as a garden partner in local currency. Live Shows under the B2B Program use USD pricing and commission payouts.'}
-                </Text>
-              </View>
-            )}
             {status === 'approved' && path.key === 'us' ? (
               <View style={{marginTop: 16}}>
                 <B2BBuyerInviteCard uid={account?.uid} />
