@@ -27,6 +27,7 @@ import {
 } from '../../../components/Api/migrateOrdersApi';
 import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
 import { getAllUsersApi } from '../../../components/Api/getAllUsersApi';
+import { getAllPlantGenusApi } from '../../../components/Api/dropdownApi';
 
 const normalizeBuyer = (b) => ({
   id: b.id || b.userId || b.uid,
@@ -79,10 +80,17 @@ const MigrateOrders = () => {
   const [buyerSearch, setBuyerSearch] = useState('');
   const [buyerOptions, setBuyerOptions] = useState([]);
   const [buyerLoading, setBuyerLoading] = useState(false);
+  const [selectedGenera, setSelectedGenera] = useState([]); // string[]
+  const [draftGenera, setDraftGenera] = useState([]);
+  const [genusModalVisible, setGenusModalVisible] = useState(false);
+  const [genusSearch, setGenusSearch] = useState('');
+  const [genusOptions, setGenusOptions] = useState([]);
+  const [genusLoading, setGenusLoading] = useState(false);
   const fetchingRef = useRef(false);
   const lastDocIdRef = useRef(null);
   const searchQueryRef = useRef('');
   const selectedBuyersRef = useRef([]);
+  const selectedGeneraRef = useRef([]);
   const buyerSearchDebounceRef = useRef(null);
   const fetchRequestIdRef = useRef(0);
   const PAGE_SIZE = 10;
@@ -114,9 +122,9 @@ const MigrateOrders = () => {
     return { plantCode: upper };
   };
 
-  const fetchOrders = async (reset = false, buyerOverride = undefined) => {
+  const fetchOrders = async (reset = false, buyerOverride = undefined, generaOverride = undefined) => {
     // Allow forced refresh (e.g. Apply buyer filter) even if a fetch is in flight.
-    if (fetchingRef.current && buyerOverride === undefined && !reset) return;
+    if (fetchingRef.current && buyerOverride === undefined && generaOverride === undefined && !reset) return;
 
     const requestId = ++fetchRequestIdRef.current;
     fetchingRef.current = true;
@@ -127,8 +135,13 @@ const MigrateOrders = () => {
         buyerOverride !== undefined
           ? (buyerOverride || []).map((b) => (typeof b === 'string' ? b : b.id)).filter(Boolean)
           : (selectedBuyersRef.current || []).map((b) => b.id).filter(Boolean);
+      const genera =
+        generaOverride !== undefined
+          ? (generaOverride || []).map((g) => String(g || '').trim()).filter(Boolean)
+          : (selectedGeneraRef.current || []).map((g) => String(g || '').trim()).filter(Boolean);
+      const hasFilter = buyerUids.length > 0 || genera.length > 0;
       const body = {
-        limit: buyerUids.length > 0 ? BUYER_PAGE_SIZE : PAGE_SIZE,
+        limit: hasFilter ? BUYER_PAGE_SIZE : PAGE_SIZE,
         sort: sortOrder,
         lastDocId: reset ? null : lastDocIdRef.current,
         ...buildSearchParams(searchQueryRef.current),
@@ -137,8 +150,12 @@ const MigrateOrders = () => {
         body.buyerUids = buyerUids;
         if (buyerUids.length === 1) body.buyerUid = buyerUids[0];
       }
+      if (genera.length > 0) {
+        body.genera = genera;
+        if (genera.length === 1) body.genus = genera[0];
+      }
 
-      console.log('[MigrateOrders] fetchOrders', { requestId, reset, buyerUids, body });
+      console.log('[MigrateOrders] fetchOrders', { requestId, reset, buyerUids, genera, body });
       const data = await listPayToBoardOrdersApi(body);
 
       // Ignore stale responses from an older in-flight request.
@@ -160,7 +177,7 @@ const MigrateOrders = () => {
           });
         }
         lastDocIdRef.current = data.lastDocId || null;
-        const pageLimit = buyerUids.length > 0 ? BUYER_PAGE_SIZE : PAGE_SIZE;
+        const pageLimit = hasFilter ? BUYER_PAGE_SIZE : PAGE_SIZE;
         setHasMore(newOrders.length >= pageLimit && !!data.lastDocId);
       } else {
         const msg = data.error || data.message || 'Unknown error';
@@ -237,7 +254,7 @@ const MigrateOrders = () => {
     searchQueryRef.current = '';
     lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true, next);
+    fetchOrders(true, next, undefined);
   };
 
   const clearBuyerFilter = () => {
@@ -248,13 +265,116 @@ const MigrateOrders = () => {
     setBuyerSearch('');
     lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true, []);
+    fetchOrders(true, [], undefined);
   };
 
   const buyerFilterLabel = () => {
     if (!selectedBuyers.length) return 'Filter by Buyer';
     if (selectedBuyers.length === 1) return `Buyer: ${selectedBuyers[0].name}`;
     return `${selectedBuyers.length} buyers selected`;
+  };
+
+  const openGenusModal = () => {
+    setDraftGenera(selectedGenera);
+    setGenusModalVisible(true);
+  };
+
+  const toggleDraftGenus = (label) => {
+    setDraftGenera((prev) =>
+      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label],
+    );
+  };
+
+  const applyGenusFilter = () => {
+    const next = [...draftGenera];
+    setSelectedGenera(next);
+    selectedGeneraRef.current = next;
+    setGenusModalVisible(false);
+    setGenusSearch('');
+    lastDocIdRef.current = null;
+    setSelectedOrders([]);
+    fetchOrders(true, undefined, next);
+  };
+
+  const clearGenusFilter = () => {
+    setSelectedGenera([]);
+    selectedGeneraRef.current = [];
+    setDraftGenera([]);
+    setGenusModalVisible(false);
+    setGenusSearch('');
+    lastDocIdRef.current = null;
+    setSelectedOrders([]);
+    fetchOrders(true, undefined, []);
+  };
+
+  const genusFilterLabel = () => {
+    if (!selectedGenera.length) return 'Filter by Genus';
+    if (selectedGenera.length === 1) return `Genus: ${selectedGenera[0]}`;
+    return `${selectedGenera.length} genera selected`;
+  };
+
+  const loadGenusOptions = useCallback(async () => {
+    try {
+      setGenusLoading(true);
+      const res = await getAllPlantGenusApi();
+      const raw = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res?.genus)
+          ? res.genus
+          : Array.isArray(res)
+            ? res
+            : [];
+      const genusList = raw
+        .map((item) => {
+          if (typeof item === 'string') return item.trim();
+          if (item && typeof item === 'object') {
+            return (
+              item.name ||
+              item.genus_name ||
+              item.genusName ||
+              item.genus ||
+              ''
+            )
+              .toString()
+              .trim();
+          }
+          return '';
+        })
+        .filter(Boolean);
+      setGenusOptions([...new Set(genusList)].sort((a, b) => a.localeCompare(b)));
+    } catch (e) {
+      console.error('Failed to load genus:', e);
+      setGenusOptions([]);
+    } finally {
+      setGenusLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!genusModalVisible) {
+      setGenusSearch('');
+      return;
+    }
+    setGenusSearch('');
+    loadGenusOptions();
+  }, [genusModalVisible, loadGenusOptions]);
+
+  const filteredGenusOptions = genusOptions.filter((label) =>
+    label.toLowerCase().includes(genusSearch.trim().toLowerCase()),
+  );
+
+  const allVisibleSelected =
+    orders.length > 0 && orders.every((order) => selectedOrders.includes(order.id));
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      const visibleIds = new Set(orders.map((order) => order.id));
+      setSelectedOrders((prev) => prev.filter((id) => !visibleIds.has(id)));
+      return;
+    }
+    setSelectedOrders((prev) => [
+      ...new Set([...prev, ...orders.map((order) => order.id).filter(Boolean)]),
+    ]);
   };
 
   const loadInitialBuyers = useCallback(async () => {
@@ -537,6 +657,40 @@ const MigrateOrders = () => {
         )}
       </View>
 
+      <View style={styles.buyerFilterRow}>
+        <TouchableOpacity
+          style={[styles.buyerFilterChip, selectedGenera.length > 0 && styles.buyerFilterChipActive]}
+          onPress={openGenusModal}
+        >
+          <Text
+            style={[styles.buyerFilterChipText, selectedGenera.length > 0 && styles.buyerFilterChipTextActive]}
+            numberOfLines={1}
+          >
+            {genusFilterLabel()}
+          </Text>
+        </TouchableOpacity>
+        {selectedGenera.length > 0 && (
+          <TouchableOpacity onPress={clearGenusFilter} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.clearText}>Clear genus</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {orders.length > 0 && (
+        <View style={styles.selectAllRow}>
+          <TouchableOpacity style={styles.selectAllButton} onPress={toggleSelectAll} activeOpacity={0.7}>
+            <CheckBox
+              isChecked={allVisibleSelected}
+              onToggle={toggleSelectAll}
+              checkedColor="#539461"
+            />
+            <Text style={styles.selectAllText}>
+              {allVisibleSelected ? 'Deselect all' : 'Select all'} ({orders.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {selectedBuyers.length > 0 && (
         <Text style={styles.hintText}>
           Showing pending Pay to Board orders for {selectedBuyers.length === 1 ? 'this buyer' : 'these buyers'}. Clear them so they can check out again.
@@ -710,6 +864,122 @@ const MigrateOrders = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={genusModalVisible}
+        onRequestClose={() => setGenusModalVisible(false)}
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+      >
+        <TouchableWithoutFeedback onPress={() => setGenusModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.actionSheetContainer}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select Genus</Text>
+                  <TouchableOpacity
+                    onPress={() => setGenusModalVisible(false)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M4.71967 4.71967C5.01256 4.42678 5.48744 4.42678 5.78033 4.71967L12 10.9393L18.2197 4.71967C18.5126 4.42678 18.9874 4.42678 19.2803 4.71967C19.5732 5.01256 19.5732 5.48744 19.2803 5.78033L13.0607 12L19.2803 18.2197C19.5732 18.5126 19.5732 18.9874 19.2803 19.2803C18.9874 19.5732 18.5126 19.5732 18.2197 19.2803L12 13.0607L5.78033 19.2803C5.48744 19.5732 5.01256 19.5732 4.71967 19.2803C4.42678 18.9874 4.42678 18.5126 4.71967 18.2197L10.9393 12L4.71967 5.78033C4.42678 5.48744 4.42678 5.01256 4.71967 4.71967Z"
+                        fill="#7F8D91"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalContentContainer}>
+                  <View style={styles.buyerSearchField}>
+                    <SearchIcon width={20} height={20} />
+                    <TextInput
+                      style={styles.buyerSearchInput}
+                      placeholder="Search genus..."
+                      placeholderTextColor="#647276"
+                      value={genusSearch}
+                      onChangeText={setGenusSearch}
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  {draftGenera.length > 0 && (
+                    <Text style={styles.draftCountText}>
+                      {draftGenera.length} selected
+                    </Text>
+                  )}
+
+                  {genusLoading ? (
+                    <View style={styles.buyerLoadingContainer}>
+                      <ActivityIndicator size="small" color="#539461" />
+                      <Text style={styles.buyerLoadingText}>Loading genus...</Text>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      style={styles.buyerListContainer}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {filteredGenusOptions.length === 0 ? (
+                        <View style={styles.buyerEmptyContainer}>
+                          <Text style={styles.buyerEmptyText}>No genus found</Text>
+                        </View>
+                      ) : (
+                        filteredGenusOptions.map((label, index) => {
+                          const isChecked = draftGenera.includes(label);
+                          return (
+                            <View key={`${label}-${index}`}>
+                              <TouchableOpacity
+                                style={styles.buyerItemContainer}
+                                onPress={() => toggleDraftGenus(label)}
+                                activeOpacity={0.7}
+                              >
+                                <View style={styles.buyerInfo}>
+                                  <Text style={styles.buyerRowName}>{label}</Text>
+                                </View>
+                                <CheckBox
+                                  isChecked={isChecked}
+                                  onToggle={() => toggleDraftGenus(label)}
+                                  checkedColor="#539461"
+                                />
+                              </TouchableOpacity>
+                              {index < filteredGenusOptions.length - 1 && (
+                                <View style={styles.buyerDivider} />
+                              )}
+                            </View>
+                          );
+                        })
+                      )}
+                    </ScrollView>
+                  )}
+
+                  <View style={[styles.buyerModalActions, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+                    <TouchableOpacity
+                      style={styles.buyerModalClearBtn}
+                      onPress={() => setDraftGenera([])}
+                    >
+                      <Text style={styles.buyerModalClearBtnText}>Clear</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.buyerModalApplyBtn}
+                      onPress={applyGenusFilter}
+                    >
+                      <Text style={styles.buyerModalApplyBtnText}>
+                        Apply{draftGenera.length > 0 ? ` (${draftGenera.length})` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -734,6 +1004,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     gap: 12,
+  },
+  selectAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  selectAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  selectAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#202325',
   },
   buyerFilterChip: {
     flex: 1,
