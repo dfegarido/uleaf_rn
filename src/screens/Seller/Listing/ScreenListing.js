@@ -16,6 +16,8 @@ import { ActivityIndicator,
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import { AuthContext } from '../../../auth/AuthProvider';
+import { canEditListingsInUsd, accountClassFromUserInfo } from '../../../utils/b2bShell';
+import { getB2BAccountApi } from '../../../components/Api/b2bAccountApi';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import { getAllPlantGenusApi,
   getListingTypeApi,
@@ -209,6 +211,34 @@ const ScreenListing = ({navigation}) => {
   const [dataTable, setDataTable] = useState([]);
   const [loading, setLoading] = useState(false);
   const {userInfo} = useContext(AuthContext);
+  // USD editor is for Asia Business / US Business only — not Asia Seller.
+  const [showB2bUsdBanner, setShowB2bUsdBanner] = useState(
+    canEditListingsInUsd(accountClassFromUserInfo(userInfo)),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const localClass = accountClassFromUserInfo(userInfo);
+      if (canEditListingsInUsd(localClass)) {
+        setShowB2bUsdBanner(true);
+      }
+      (async () => {
+        const result = await getB2BAccountApi();
+        if (!active) {
+          return;
+        }
+        const serverClass =
+          result?.data?.account?.accountClass ||
+          result?.data?.accountClass ||
+          localClass;
+        setShowB2bUsdBanner(canEditListingsInUsd(serverClass));
+      })();
+      return () => {
+        active = false;
+      };
+    }, [userInfo]),
+  );
 
   const normalizeKey = key => key.toLowerCase().replace(/\s+/g, '');
 
@@ -2156,16 +2186,18 @@ const ScreenListing = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.b2bListingBanner}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
-          <Text style={styles.b2bListingKicker}>B2B ASIA</Text>
-          <Text style={styles.b2bListingTitle}>Inline edit + bulk update</Text>
-          <Text style={styles.b2bListingBody}>
-            Listing editor is not wired to Firestore yet. Use existing listing screens for live edits.
-          </Text>
-        </TouchableOpacity>
+        {showB2bUsdBanner ? (
+          <TouchableOpacity
+            style={styles.b2bListingBanner}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+            <Text style={styles.b2bListingKicker}>B2B ASIA</Text>
+            <Text style={styles.b2bListingTitle}>Edit listings in USD</Text>
+            <Text style={styles.b2bListingBody}>
+              Tap to inline-edit or bulk-update prices for Live, Group Chat, and Active listings.
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         {/* Filter Tabs */}
         <TabFilter
           tabFilters={userInfo?.liveFlag != 'No' ? FilterLiveTabs : FilterTabs}

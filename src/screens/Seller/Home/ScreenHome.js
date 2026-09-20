@@ -15,7 +15,7 @@ import { Alert,
   View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { isUsBusinessUser } from '../../../utils/b2bShell';
+import { isUsBusinessUser, isB2BBusinessUser } from '../../../utils/b2bShell';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
@@ -542,20 +542,23 @@ const ScreenHome = ({navigation}) => {
                 <RightIcon width={20} height={20} />
               </TouchableOpacity>
 
-              <View style={styles.b2bActionDivider} />
-
-              <TouchableOpacity
-                style={styles.b2bActionRow}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
-                <View style={styles.b2bActionText}>
-                  <Text style={styles.b2bActionTitle}>Edit listings in USD</Text>
-                  <Text style={styles.b2bActionBody}>
-                    Inline or bulk update Live & Group Chat
-                  </Text>
-                </View>
-                <RightIcon width={20} height={20} />
-              </TouchableOpacity>
+              {isB2BBusinessUser(userInfo) ? (
+                <>
+                  <View style={styles.b2bActionDivider} />
+                  <TouchableOpacity
+                    style={styles.b2bActionRow}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
+                    <View style={styles.b2bActionText}>
+                      <Text style={styles.b2bActionTitle}>Edit listings in USD</Text>
+                      <Text style={styles.b2bActionBody}>
+                        Inline or bulk update Live, Group Chat & Active
+                      </Text>
+                    </View>
+                    <RightIcon width={20} height={20} />
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </View>
           </View>
 

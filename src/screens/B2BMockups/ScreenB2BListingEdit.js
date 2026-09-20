@@ -19,14 +19,15 @@ import MockupHeader from './MockupHeader';
 
 const POTS = ['2"', '4"', '6"'];
 const HEIGHTS = ['Below', 'Above'];
-const STATUSES = ['Live', 'Inactive'];
+const STATUSES = ['Active', 'Live', 'Inactive'];
 const TYPES = ['Live', 'Group Chat'];
 const PAGE_SIZE = 20;
 
 const CHANNELS = [
   {key: 'live', label: 'Live', status: 'Live'},
   {key: 'group', label: 'Group Chat', status: 'GroupChatListing'},
-  {key: 'all', label: 'All', status: 'Live,GroupChatListing'},
+  {key: 'active', label: 'Active', status: 'Active'},
+  {key: 'all', label: 'All', status: 'Live,GroupChatListing,Active'},
 ];
 
 const cycle = (options, value) => {
@@ -41,19 +42,31 @@ const mapHeight = value =>
     ? 'Above'
     : 'Below';
 
-const mapChannelType = listing =>
-  String(listing?.status || '')
+const mapChannelType = listing => {
+  const status = String(listing?.status || '')
     .trim()
-    .toLowerCase() === 'groupchatlisting'
-    ? 'Group Chat'
-    : 'Live';
+    .toLowerCase();
+  if (status === 'groupchatlisting') {
+    return 'Group Chat';
+  }
+  return 'Live';
+};
 
-const mapStatus = listing =>
-  String(listing?.status || '')
+const mapStatus = listing => {
+  const status = String(listing?.status || '')
     .trim()
-    .toLowerCase() === 'inactive'
-    ? 'Inactive'
-    : 'Live';
+    .toLowerCase();
+  if (status === 'inactive') {
+    return 'Inactive';
+  }
+  if (status === 'live') {
+    return 'Live';
+  }
+  if (status === 'groupchatlisting') {
+    return 'Live';
+  }
+  return 'Active';
+};
 
 const listingToRow = listing => ({
   id: listing.id,
@@ -148,7 +161,9 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
               ? 'live'
               : channel === 'group'
                 ? 'group_chat'
-                : 'all',
+                : channel === 'active'
+                  ? 'active'
+                  : 'all',
           sort: 'latest',
           limit: PAGE_SIZE,
           page,
@@ -374,7 +389,7 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
           <Chip
             label="Status"
             value={row.status}
-            tone={row.status === 'Live' ? 'live' : 'off'}
+            tone={row.status === 'Inactive' ? 'off' : 'live'}
             onPress={() => updateRow(row.id, {status: cycle(STATUSES, row.status)})}
           />
           <Chip
@@ -399,7 +414,7 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <MockupHeader navigation={navigation} title="Live listings" />
+      <MockupHeader navigation={navigation} title="Edit listings (USD)" />
 
       <View style={styles.channelRow}>
         {CHANNELS.map(item => (
