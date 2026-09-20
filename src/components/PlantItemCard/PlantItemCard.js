@@ -148,25 +148,40 @@ const PlantItemCard = ({
     (plantData.species || plantData.variegation || 'Plant Details') :
     subtitle;
     
-  // Pricing logic (updated to always prioritize usdPriceNew)
-  // Always use usdPriceNew as the primary displayed price when available
-  const displayPrice = data ? (
-    plantData.usdPriceNew != null ? formatCurrencyFull(plantData.usdPriceNew) :
-    plantData.finalPrice != null ? formatCurrencyFull(plantData.finalPrice) :
-    plantData.usdPrice != null ? formatCurrencyFull(plantData.usdPrice) :
-    plantData.localPriceNew != null ? formatCurrencyFull(plantData.localPriceNew) :
-    plantData.localPrice != null ? formatCurrencyFull(plantData.localPrice) :
-    'Price N/A'
-  ) : price;
+  // Pricing: sale price prefers usdPriceNew, then discounted finalPrice, then list price
+  const salePriceNum = data
+    ? Number(
+        plantData.usdPriceNew ??
+          (plantData.discountPercent > 0 || plantData.hasDiscount
+            ? plantData.finalPrice
+            : null) ??
+          plantData.finalPrice ??
+          plantData.usdPrice ??
+          plantData.localPriceNew ??
+          plantData.localPrice,
+      )
+    : NaN;
 
-  // Determine strike-through (original) price for discounted items
-  // Prefer originalPrice from API, but ensure we're showing a valid comparison
-  const rawOriginal = data ? (
-    plantData.originalPrice != null && plantData.usdPriceNew != null ? plantData.originalPrice : 
-    plantData.usdPrice != null && plantData.usdPriceNew != null ? plantData.usdPrice : 
-    null
-  ) : null;
-  const showStrikethrough = data && rawOriginal != null && plantData.usdPriceNew != null && rawOriginal > plantData.usdPriceNew;
+  const displayPrice = data
+    ? Number.isFinite(salePriceNum)
+      ? formatCurrencyFull(salePriceNum)
+      : 'Price N/A'
+    : price;
+
+  // Strike-through original when we have a higher pre-discount price
+  const originalPriceNum = data
+    ? Number(
+        plantData.originalPrice ??
+          (plantData.usdPriceNew != null ? plantData.usdPrice : null) ??
+          null,
+      )
+    : NaN;
+  const showStrikethrough =
+    data &&
+    Number.isFinite(originalPriceNum) &&
+    Number.isFinite(salePriceNum) &&
+    originalPriceNum > salePriceNum;
+  const rawOriginal = showStrikethrough ? originalPriceNum : null;
     
   // Use local love count if available (from recent toggle), otherwise use data from API
   const displayLikes = data ? 
@@ -186,33 +201,29 @@ const PlantItemCard = ({
     // Legacy support: Use provided flightDate prop or fallback to 'N/A'
     (flightDate || 'N/A');
 
-  // Determine if discounted for badge (prioritizing usdPriceNew for all discount calculations)
+  // Discounted if percent/flag set, or original > sale
   const hasDiscount = !!(data && (
     (plantData.discountPercent && plantData.discountPercent > 0) ||
-    (plantData.originalPrice && plantData.usdPriceNew && plantData.originalPrice > plantData.usdPriceNew) ||
-    (plantData.usdPrice && plantData.usdPriceNew && plantData.usdPrice > plantData.usdPriceNew)
+    plantData.hasDiscount === true ||
+    (Number.isFinite(originalPriceNum) &&
+      Number.isFinite(salePriceNum) &&
+      originalPriceNum > salePriceNum)
   ));
 
-  // Compute discount percent (prefer backend discountPercent, else derive from originalPrice/usdPriceNew)
+  // Compute discount percent (prefer backend discountPercent, else derive)
   let derivedDiscountPercent = null;
   if (hasDiscount) {
     if (plantData.discountPercent && plantData.discountPercent > 0) {
-      // Use backend-provided discount percent if available
       derivedDiscountPercent = Math.round(plantData.discountPercent);
-    } else if (plantData.originalPrice && plantData.usdPriceNew && plantData.originalPrice > plantData.usdPriceNew) {
-      // Calculate discount from originalPrice and usdPriceNew
-      const original = parseFloat(plantData.originalPrice);
-      const current = parseFloat(plantData.usdPriceNew);
-      if (original > 0 && current < original) {
-        derivedDiscountPercent = Math.round(((original - current) / original) * 100);
-      }
-    } else if (plantData.usdPrice && plantData.usdPriceNew && plantData.usdPrice > plantData.usdPriceNew) {
-      // Calculate discount from usdPrice and usdPriceNew
-      const original = parseFloat(plantData.usdPrice);
-      const current = parseFloat(plantData.usdPriceNew);
-      if (original > 0 && current < original) {
-        derivedDiscountPercent = Math.round(((original - current) / original) * 100);
-      }
+    } else if (
+      Number.isFinite(originalPriceNum) &&
+      Number.isFinite(salePriceNum) &&
+      originalPriceNum > 0 &&
+      salePriceNum < originalPriceNum
+    ) {
+      derivedDiscountPercent = Math.round(
+        ((originalPriceNum - salePriceNum) / originalPriceNum) * 100,
+      );
     }
   }
 
