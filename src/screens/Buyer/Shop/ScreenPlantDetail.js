@@ -252,6 +252,20 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const detailImageUri =
     getDetailListingImageUri(plantData) || previewImageUri || null;
 
+  // The hero image and the info card both live inside two stacked SafeAreaViews,
+  // so the scroll content starts at 2x the top inset. The card must therefore
+  // start at `target - 2 * insets.top` to sit at TARGET_TOP_RATIO of the screen
+  // instead of a fixed 400pt offset that lands past the photo on tall devices.
+  const TARGET_TOP_RATIO = 0.47;
+  const contentTopOffset = Math.round(
+    Dimensions.get('window').height * TARGET_TOP_RATIO - 2 * insets.top,
+  );
+  // Keep the hero photo taller than the card start so it fills the area behind it.
+  const heroImageHeight = Math.max(
+    contentTopOffset + Math.round(insets.top * 2) + 40,
+    320,
+  );
+
   useEffect(() => {
     if (plantData?.loveCount !== undefined) {
       setLoveCount(plantData.loveCount || 0);
@@ -863,7 +877,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
             />
           </View>
         ) : (
-          <View style={styles.skeletonBackgroundImage} />
+          <View style={[styles.skeletonBackgroundImage, {height: heroImageHeight}]} />
         )}
         
         
@@ -878,7 +892,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
           <ScrollView style={styles.scrollContainer}>
             {/* Skeleton Content */}
-            <View style={styles.content}>
+            <View style={[styles.content, {marginTop: contentTopOffset}]}>
               {/* Skeleton Title */}
               <View style={styles.skeletonTitle} />
               
@@ -961,7 +975,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Background Plant Image */}
-      <View style={styles.backgroundImageWrapper}>
+      <View style={[styles.backgroundImageWrapper, {height: heroImageHeight}]}>
         <PlantListingImage
           uri={detailImageUri}
           style={styles.backgroundImage}
@@ -1013,7 +1027,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
 
           {/* Content */}
-          <View style={styles.content}>
+          <View style={[styles.content, {marginTop: contentTopOffset}]}>
           {/* Title */}
           <Text style={styles.title}>
             {plantData.genus} {plantData.species}
@@ -1702,7 +1716,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     width: '100%',
-    height: 440,
     zIndex: 0,
   },
   backgroundImage: {
@@ -1824,7 +1837,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    marginTop: 400,
     paddingBottom: 106,
     zIndex: 5,
     minHeight: '70%',
