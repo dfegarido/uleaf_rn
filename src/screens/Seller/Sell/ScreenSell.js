@@ -26,6 +26,10 @@ import WholeSalePlantIcon from '../../../assets/sellicon/wholesale.svg';
 import { useFocusEffect } from '@react-navigation/native';
 import DraftIcon from '../../../assets/images/draft.svg';
 import DuplicateIcon from '../../../assets/images/duplicate.svg';
+import CloseIcon from '../../../assets/live-icon/close-x.svg';
+import BatchUploadIcon from '../../../assets/icons/greydark/batch-upload.svg';
+import NoteEditIcon from '../../../assets/icons/greydark/note-edit.svg';
+import CaretRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
 import { accountClassFromUserInfo, isUsBusinessUser } from '../../../utils/b2bShell';
 import { isIleafuInhouseAccountClass } from '../../../utils/b2bCountries';
@@ -185,11 +189,6 @@ const ScreenSell = ({navigation}) => {
     navigation.navigate('BatchUploadScreen', {
       existingLiveCount: liveSaleExistingCount,
     });
-  };
-
-  const handleLiveSaleSingle = () => {
-    setShowLiveSaleSheet(false);
-    navigation.navigate('ScreenSingleSellLive');
   };
 
   const handlePressSingle = () => {
@@ -394,63 +393,49 @@ const ScreenSell = ({navigation}) => {
         <ActionSheet
           visible={showLiveSaleSheet}
           onClose={() => setShowLiveSaleSheet(false)}
-          heightPercent={'42%'}>
-          <View style={{padding: 20}}>
-            <TouchableOpacity onPress={handleLiveSaleExcel}>
-              <View
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                }}>
-                <View style={{flexDirection: 'column'}}>
-                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
-                    Excel upload
-                  </Text>
-                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Download a template. Quantity 6 = 6 identical listings. Uploading again appends.
-                  </Text>
-                </View>
-              </View>
+          heightPercent={'35%'}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Live Sale</Text>
+            <TouchableOpacity
+              onPress={() => setShowLiveSaleSheet(false)}
+              hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}>
+              <CloseIcon width={22} height={22} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLiveSaleManual}>
-              <View
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}>
-                <View style={{flexDirection: 'column'}}>
-                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
-                    Manual input
-                  </Text>
-                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Enter listings. You can add another batch anytime without replacing.
-                  </Text>
-                </View>
+          </View>
+
+          <View style={styles.sheetBody}>
+            <TouchableOpacity
+              style={styles.sheetRow}
+              activeOpacity={0.7}
+              onPress={handleLiveSaleExcel}>
+              <View style={styles.sheetRowIcon}>
+                <BatchUploadIcon width={22} height={22} />
               </View>
+              <View style={styles.sheetRowText}>
+                <Text style={styles.sheetRowTitle}>Excel upload</Text>
+                <Text style={styles.sheetRowSubtitle}>
+                  Download a template. Quantity 6 = 6 identical listings.
+                  Uploading again appends.
+                </Text>
+              </View>
+              <CaretRightIcon width={18} height={18} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLiveSaleSingle}>
-              <View
-                style={{
-                  borderColor: '#CDD3D4',
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}>
-                <View style={{flexDirection: 'column'}}>
-                  <Text style={[globalStyles.textLGGreyDark, {paddingLeft: 4}]}>
-                    Add one listing
-                  </Text>
-                  <Text style={[globalStyles.textMDGreyLight, {paddingLeft: 4, paddingTop: 4}]}>
-                    Add a single plant now, including while you are live
-                  </Text>
-                </View>
+
+            <TouchableOpacity
+              style={[styles.sheetRow, styles.sheetRowDivided]}
+              activeOpacity={0.7}
+              onPress={handleLiveSaleManual}>
+              <View style={styles.sheetRowIcon}>
+                <NoteEditIcon width={22} height={22} />
               </View>
+              <View style={styles.sheetRowText}>
+                <Text style={styles.sheetRowTitle}>Manual input</Text>
+                <Text style={styles.sheetRowSubtitle}>
+                  Enter listings. You can add another batch anytime without
+                  replacing.
+                </Text>
+              </View>
+              <CaretRightIcon width={18} height={18} />
             </TouchableOpacity>
           </View>
         </ActionSheet>
@@ -541,6 +526,57 @@ const styles = StyleSheet.create({
   },
   cardMenu: {padding: 20, width: screenWidth * 0.5 - 25},
   cardMenuFull: {padding: 20},
+
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  sheetTitle: {
+    color: '#202325',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  sheetBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  sheetRowDivided: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEF1F1',
+  },
+  sheetRowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F5F6F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  sheetRowText: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  sheetRowTitle: {
+    color: '#202325',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sheetRowSubtitle: {
+    color: '#7F8D91',
+    fontSize: 13,
+    lineHeight: 18,
+    paddingTop: 3,
+  },
 
   loadingOverlay: {
     flex: 1,
