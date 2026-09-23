@@ -10,10 +10,10 @@ export const BUSINESS_COUNTRIES = [
 
 export const BUSINESS_COUNTRY_NAMES = BUSINESS_COUNTRIES.map(item => item.name);
 
+/** Exact-USD bulk template. IleafU Inhouse uses local_price + conversion. */
 export const isBusinessAccountClass = accountClass =>
   accountClass === 'US Business' ||
-  accountClass === 'Asia Business' ||
-  accountClass === 'IleafU Inhouse';
+  accountClass === 'Asia Business';
 
 export const isIleafuInhouseAccountClass = accountClass =>
   accountClass === 'IleafU Inhouse';
