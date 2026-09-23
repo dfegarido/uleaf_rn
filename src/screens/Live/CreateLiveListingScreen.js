@@ -95,39 +95,42 @@ const CreateLiveListingScreen = ({ navigation, isVisible, onClose, sessionId, on
 
   return (
     <Modal animationType="slide" transparent={true} visible={isVisible} onRequestClose={onClose} statusBarTranslucent={true}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-        {isLoading && ( // This loading indicator will now cover the modal content
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-        )}
-        <TouchableWithoutFeedback>
-          <View style={styles.modalContainer}>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={onClose}>
-                <CloseIcom />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Add Live Listing</Text>
-              <View style={{ width: 24 }} />
-            </View>
-
-        <ScreenSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton} nextIgIndex={nextIgIndex}></ScreenSellLive>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.goLiveButton} onPress={handleParentAddButtonClick}>
-          <Text style={styles.goLiveButtonText}>Add Listing to Live</Text>
-        </TouchableOpacity>
-        {goBackButtonVisible && (<TouchableOpacity style={styles.goBackButton} onPress={handleParentBackButtonClick}>
-          <Text style={styles.goBackButtonText}>Back</Text>
-        </TouchableOpacity>)}
-      </View>
-          </View>
+      <View style={styles.modalOverlay}>
+        {/* Backdrop is a sibling BEHIND the card (not a wrapper around it): a
+            TouchableWithoutFeedback wrapping the card claims the JS responder on
+            touch-start, which blocks the native UIScrollView pan and makes the
+            form's ScrollView ignore slow drags. */}
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
+        {isLoading && ( // This loading indicator will now cover the modal content
+          <Modal transparent animationType="fade">
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#699E73" />
+            </View>
+          </Modal>
+        )}
+        <View style={styles.modalContainer}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose}>
+              <CloseIcom />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Add Live Listing</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScreenSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} addRef={childAddRef} backRef={childBackRef} navigation={navigation} goBackButton={goBackButton} nextIgIndex={nextIgIndex}></ScreenSellLive>
+
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.goLiveButton} onPress={handleParentAddButtonClick}>
+              <Text style={styles.goLiveButtonText}>Add Listing to Live</Text>
+            </TouchableOpacity>
+            {goBackButtonVisible && (<TouchableOpacity style={styles.goBackButton} onPress={handleParentBackButtonClick}>
+              <Text style={styles.goBackButtonText}>Back</Text>
+            </TouchableOpacity>)}
+          </View>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };

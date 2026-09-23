@@ -4,7 +4,6 @@ import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   Dimensions,
-  Modal,
   Platform,
   StatusBar,
   StyleSheet,
@@ -12,7 +11,6 @@ import { ActivityIndicator,
   TouchableOpacity,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import { retryAsync } from '../../../utils/utils';
@@ -30,7 +28,6 @@ import DuplicateIcon from '../../../assets/images/duplicate.svg';
 const screenWidth = Dimensions.get('window').width;
 
 const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, onClose, onListingCreated, nextIgIndex}) => {
-  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
 
   useFocusEffect(() => {
@@ -40,7 +37,9 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
   });
 
   const [showSheet, setShowSheet] = useState(false);
-  const [isSinglePlant, setIsSinglePlant] = useState(false);
+  // Open straight into the listing form: the "Add" action on the broadcast screen
+  // is a live-listing shortcut, so skip the intermediate chooser.
+  const [isSinglePlant, setIsSinglePlant] = useState(true);
   const [isGrower, setIsGrower] = useState(false);
 
   useImperativeHandle(backRef, () => ({
@@ -131,13 +130,11 @@ const ScreenSellLive = ({navigation, goBackButton, backRef, addRef, sessionId, o
   // Most love
 
   return (
-    <View style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
+    <View style={styles.mainContent}>
       {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#699E73" />
+        </View>
       )}
       
       {isSinglePlant && (<ScreenSingleSellLive onListingCreated={onListingCreated} onClose={onClose} sessionId={sessionId} publishRef={childAddRef} navigation={navigation} nextIgIndex={nextIgIndex} />)}
@@ -296,7 +293,13 @@ const styles = StyleSheet.create({
   cardMenuFull: {padding: 20},
 
   loadingOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+    elevation: 999,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',

@@ -1113,7 +1113,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 20,
     elevation: 20,
     justifyContent: 'flex-start',
@@ -1375,7 +1375,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   snapshotOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

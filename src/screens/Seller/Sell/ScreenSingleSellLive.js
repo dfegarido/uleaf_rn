@@ -8,7 +8,6 @@ import { ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -71,6 +70,9 @@ const ScreenSingleSellLive = ({
   publishRef,
 }) => {
   const insets = useSafeAreaInsets();
+  // Rendered inside the "Add Live Listing" modal (ScreenSellLive passes onClose),
+  // the modal already provides the header + submit button, so render the form bare.
+  const isEmbedded = typeof onClose === 'function';
   const [loading, setLoading] = useState(false);
 
   useImperativeHandle(publishRef, () => ({
@@ -336,7 +338,6 @@ const ScreenSingleSellLive = ({
     // if (!selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
-    if (images.length === 0) errors.push('At least one image is required.');
     if (!localPrice || isNaN(localPrice) || localPrice == 0)
       errors.push('Valid local price is required.');
     if (!selectedPotSize) errors.push('Pot size is required.');
@@ -609,42 +610,39 @@ const ScreenSingleSellLive = ({
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.mainContent, {paddingTop: insets.top + 10}]}>
-      {/* Sticky Header */}
-      <View
-        style={[
-          {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingBottom: 10,
-          },
-        ]}>
-        <TouchableOpacity
-          onPress={() => goBack()}
+      style={[styles.mainContent, !isEmbedded && {paddingTop: insets.top + 10}]}>
+      {!isEmbedded && (
+        /* Sticky Header */
+        <View
           style={[
-            styles.iconButton,
             {
-              borderWidth: 1,
-              borderColor: '#CDD3D4',
-              padding: 5,
-              borderRadius: 10,
-              backgroundColor: '#fff',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingBottom: 10,
             },
           ]}>
-          <LeftIcon width={20} height={20} />
-        </TouchableOpacity>
-        <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
-          {isPurge ? 'Purge Single Plant': 'Live Single Plant'}
-        </Text>
-        {/* {(isFromDuplicateSell || !plantCode || isFromDraftSell) && (
-          <TouchableOpacity onPress={onPressSave} style={styles.iconButton}>
-            <Text style={globalStyles.textLGAccent}>Save</Text>
+          <TouchableOpacity
+            onPress={() => goBack()}
+            style={[
+              styles.iconButton,
+              {
+                borderWidth: 1,
+                borderColor: '#CDD3D4',
+                padding: 5,
+                borderRadius: 10,
+                backgroundColor: '#fff',
+              },
+            ]}>
+            <LeftIcon width={20} height={20} />
           </TouchableOpacity>
-        )} */}
-        <Text>{''}</Text>
-      </View>
+          <Text style={[globalStyles.textXLGreyDark, {fontWeight: 'bold'}]}>
+            {isPurge ? 'Purge Single Plant': 'Live Single Plant'}
+          </Text>
+          <Text>{''}</Text>
+        </View>
+      )}
       <ScrollView
         style={styles.mainContent}
         showsVerticalScrollIndicator={false}
@@ -653,13 +651,6 @@ const ScreenSingleSellLive = ({
         contentContainerStyle={{
           paddingBottom: insets.bottom + 40,
         }}>
-        {loading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
         <View style={styles.formContainer}>
           {nextIgIndex > 0 && (
             <View style={styles.igIndexRow}>
@@ -754,7 +745,7 @@ const ScreenSingleSellLive = ({
         </View>
         <View style={styles.formContainer}>
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
-            Picture/s <Text style={globalStyles.textXSRed}>*</Text>
+            Picture/s
           </Text>
           {images.length > 0 && (
             <>
@@ -821,7 +812,7 @@ const ScreenSingleSellLive = ({
               For shipping costs calculations only.
             </Text>
           </View>
-          <View style={{paddingTop: 30}}>
+          <View style={{paddingTop: isEmbedded ? 0 : 30}}>
             {isFromDuplicateSell == false &&
               !plantCode == false &&
               isFromDraftSell == false && (
@@ -846,22 +837,26 @@ const ScreenSingleSellLive = ({
               </>
             )}
 
-            {isFromDuplicateSell == false &&
+            {!isEmbedded &&
+              isFromDuplicateSell == false &&
               !plantCode &&
               isFromDraftSell == false && (
-                <>
-                  <TouchableOpacity
-                    style={globalStyles.primaryButton}
-                    onPress={onPressPublish}>
-                    <Text style={globalStyles.primaryButtonText}>
-                      Publish Now
-                    </Text>
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity
+                  style={globalStyles.primaryButton}
+                  onPress={onPressPublish}>
+                  <Text style={globalStyles.primaryButtonText}>
+                    Publish Now
+                  </Text>
+                </TouchableOpacity>
               )}
           </View>
         </View>
       </ScrollView>
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#699E73" />
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -937,7 +932,13 @@ const styles = StyleSheet.create({
     width: 0.4 * screenWidth - 25,
   },
   loadingOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+    elevation: 999,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',

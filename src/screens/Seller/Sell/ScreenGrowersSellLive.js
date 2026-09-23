@@ -14,7 +14,6 @@ import { ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -584,13 +583,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
         contentContainerStyle={{
           paddingBottom: insets.bottom,
         }}>
-        {loading && (
-          <Modal transparent animationType="fade">
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#699E73" />
-            </View>
-          </Modal>
-        )}
         {/* ...Genus, Species, Variegation, Request... */}
         <View style={styles.formContainer}>
           <View style={[{paddingBottom: 10}]}>
@@ -920,6 +912,11 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
           </View>
         </ActionSheet>
       </ScrollView>
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#699E73" />
+        </View>
+      )}
     </View>
   );
 };
@@ -980,7 +977,13 @@ const styles = StyleSheet.create({
     width: 0.5 * screenWidth - 25,
   },
   loadingOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+    elevation: 999,
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',

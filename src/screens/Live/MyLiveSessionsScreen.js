@@ -2,7 +2,7 @@ import AppImage from '../../components/AppImage/AppImage';
 
 import { useIsFocused } from '@react-navigation/native';
 import moment from 'moment';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   Image,
   ImageBackground,
   Modal,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -89,6 +90,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [sessions, setSessions] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false); // For delete/save actions
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -109,55 +111,57 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  const loadMyLiveSessions = useCallback(async ({ isRefresh = false } = {}) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const res = await getMyLiveSessionsApi();
+      if (!res.success) {
+        console.error('Error fetching my live sessions/requests:', res.error);
+        return;
+      }
+
+      // Live sessions: hide drafts and ended sessions older than 24 hours.
+      const fetchedSessions = (res.sessions || []).filter((data) => {
+        if (data.status === 'draft') return false;
+        if (data.status === 'ended') {
+          const endedTime = data.endedAt?.seconds
+            ? new Date(data.endedAt.seconds * 1000)
+            : data.updatedAt?.seconds
+              ? new Date(data.updatedAt.seconds * 1000)
+              : null;
+          if (endedTime) {
+            const hoursSinceEnded = (Date.now() - endedTime.getTime()) / (1000 * 60 * 60);
+            if (hoursSinceEnded >= 24) return false;
+          }
+        }
+        return true;
+      });
+      setSessions(fetchedSessions);
+      setPendingRequests(res.pendingRequests || []);
+    } catch (error) {
+      console.error('Error fetching my live sessions/requests:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isFocused) {
       return;
     }
 
-    let active = true;
-    setLoading(true);
+    loadMyLiveSessions();
+  }, [isFocused, loadMyLiveSessions]);
 
-    const load = async () => {
-      try {
-        const res = await getMyLiveSessionsApi();
-        if (!active) return;
-        if (!res.success) {
-          console.error('Error fetching my live sessions/requests:', res.error);
-          setLoading(false);
-          return;
-        }
-
-        // Live sessions: hide drafts and ended sessions older than 24 hours.
-        const fetchedSessions = (res.sessions || []).filter((data) => {
-          if (data.status === 'draft') return false;
-          if (data.status === 'ended') {
-            const endedTime = data.endedAt?.seconds
-              ? new Date(data.endedAt.seconds * 1000)
-              : data.updatedAt?.seconds
-                ? new Date(data.updatedAt.seconds * 1000)
-                : null;
-            if (endedTime) {
-              const hoursSinceEnded = (Date.now() - endedTime.getTime()) / (1000 * 60 * 60);
-              if (hoursSinceEnded >= 24) return false;
-            }
-          }
-          return true;
-        });
-        setSessions(fetchedSessions);
-        setPendingRequests(res.pendingRequests || []);
-      } catch (error) {
-        console.error('Error fetching my live sessions/requests:', error);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      active = false;
-    };
-  }, [isFocused]);
+  const handleRefresh = () => {
+    loadMyLiveSessions({ isRefresh: true });
+  };
 
   const handleCardPress = (item) => {
     if (item._isPendingRequest) {
@@ -476,6 +480,9 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
         ListEmptyComponent={
           !loading && sessions.length === 0 && pendingRequests.length === 0 && (
             <View style={styles.emptyContainer}>
