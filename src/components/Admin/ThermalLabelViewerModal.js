@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   loadingMoreOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 20,
     elevation: 20,
     backgroundColor: 'rgba(17, 24, 20, 0.35)',

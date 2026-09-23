@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     color: '#393D40',
   },
   packedBadgeContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',

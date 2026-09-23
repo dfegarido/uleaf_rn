@@ -957,7 +957,6 @@ const styles = StyleSheet.create({
   },
   genusRow: {
     height: 48,
-    width: 360,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

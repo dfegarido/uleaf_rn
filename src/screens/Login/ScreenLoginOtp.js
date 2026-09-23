@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   successOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: TOKENS.bg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     height: 200,
   },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(36, 48, 36, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',

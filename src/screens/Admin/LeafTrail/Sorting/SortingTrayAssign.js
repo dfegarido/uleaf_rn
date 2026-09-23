@@ -269,7 +269,7 @@ export const SortingTrayAssignSheet = ({
 
 const sheetStyles = StyleSheet.create({
   embeddedRoot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'flex-end',
     zIndex: 110,
     elevation: 110,
@@ -279,7 +279,7 @@ const sheetStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   panel: {

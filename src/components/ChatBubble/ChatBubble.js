@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D1D5DB',
   },
   senderNameSkeletonBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#B8BEC7',
   },
   senderNameSkeletonShimmer: {
@@ -1396,7 +1396,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   videoUploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1426,7 +1426,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   videoPlayOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',

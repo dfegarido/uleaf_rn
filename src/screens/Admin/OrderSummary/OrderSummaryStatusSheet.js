@@ -366,7 +366,7 @@ const OrderSummaryStatusSheet = ({
 
 const styles = StyleSheet.create({
   embeddedRoot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 110,
     elevation: 110,
   },
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   sheet: {

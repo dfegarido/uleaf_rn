@@ -53,7 +53,7 @@ const LeafTrailLabelGeneratingOverlay = ({
 
 const styles = StyleSheet.create({
   embeddedRoot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 200,
     elevation: 200,
   },

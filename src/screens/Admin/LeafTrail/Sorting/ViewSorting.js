@@ -537,7 +537,7 @@ const SortingDetailsScreen = ({ navigation, route }) => {
 // --- Styles for All Components ---
 const styles = StyleSheet.create({
   packedBadgeContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',

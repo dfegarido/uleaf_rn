@@ -197,7 +197,7 @@ const AssignBoxModal = ({
 const styles = StyleSheet.create({
   flex: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {

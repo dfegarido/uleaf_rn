@@ -70,7 +70,7 @@ const BadgeWithTransparentNotch = ({
 
 const styles = StyleSheet.create({
   textWrapper: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,

@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   // --- Overlays & Scanner ---
   overlay: {
-    ...StyleSheet.absoluteFillObject, // This makes the view cover the entire parent
+    ...StyleSheet.absoluteFill, // This makes the view cover the entire parent
     backgroundColor: 'rgba(0, 0, 0, 0.6)', // Semi-transparent black overlay
   },
   scannerFrame: {

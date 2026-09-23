@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     }),
   },
   cardImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
     backgroundColor: '#E4E7E9',

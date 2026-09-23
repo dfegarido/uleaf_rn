@@ -1175,7 +1175,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   stream: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#444',
   },
   video: { flex: 1 },

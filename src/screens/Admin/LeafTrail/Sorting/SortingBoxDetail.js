@@ -953,13 +953,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   finishOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'flex-end',
     zIndex: 110,
     elevation: 110,
   },
   finishBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   finishSheet: {
