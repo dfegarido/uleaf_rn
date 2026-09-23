@@ -1731,16 +1731,19 @@ const ScreenShop = ({navigation}) => {
                       height: 110,
                       borderRadius: 12,
                       marginBottom: 6,
-                      // Neutral backdrop: remote listing photos are portrait or
-                      // landscape, so `contain` letterboxes them inside the square.
-                      // Without a background those bars look like a rendering bug.
+                      // Neutral backdrop while the image decodes. With `cover` the
+                      // photo fills the square, so this is only visible pre-load.
                       backgroundColor: '#F1F3F2',
                     }}
-                    // `contain` fits the WHOLE image inside the square. `cover`
-                    // cropped it to fill, which read as "zoomed in" once the tiles
-                    // switched from the ~square static fallbacks (107x108) to real
-                    // listing photos (representativeImageWebp).
-                    resizeMode="contain"
+                    // `cover` fills the square tile edge-to-edge. The backend now
+                    // serves the remote representative image already cropped to
+                    // 400x400 (`resize=cover`), so this adds no further cropping.
+                    // It matters for the LOCAL static fallbacks, which are
+                    // non-square (alocasia.jpg 1536x2048, begonia.jpg 2048x1152):
+                    // under `contain` those letterboxed into gray bars whenever a
+                    // genus had no listing photo (plantCount 0) or the remote
+                    // image failed.
+                    resizeMode="cover"
                     onError={() => {
                       // If remote image fails, mark it as failed and use static fallback
                       if (typeof item.src === 'string' && item.src.startsWith('http')) {
