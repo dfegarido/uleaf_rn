@@ -52,6 +52,8 @@ import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
+import LiveListingGrid from './components/LiveListingGrid';
+import LiveListingGridSkeleton from './components/LiveListingGridSkeleton';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -1021,7 +1023,16 @@ const ScreenListing = ({navigation}) => {
   useEffect(() => {
     if (!isFocused) return;
     const timer = setTimeout(() => {
-      resetPaginationState();
+      // Bust the shared listing cache on focus, not just on refresh.
+      // All three fetch paths skip the network entirely when the snapshot is
+      // non-empty:
+      //   if (allListingsRef.current.length === 0) { ...await fetch... }
+      // The snapshot outlives a navigation away and back, so after creating a
+      // listing (Sell -> Live, Excel upload, or manual input) the screen
+      // re-rendered the old snapshot and the new listing stayed invisible until
+      // a manual pull-to-refresh. `syncSellerExpiredListingsApi` cannot cover
+      // it: it only clears the snapshot when it actually expired something.
+      resetPaginationState(true);
       fetchListingsPage(1);
     }, 300);
     return () => clearTimeout(timer);
@@ -2303,34 +2314,13 @@ const ScreenListing = ({navigation}) => {
         </ScrollView>
         {/* Filter Tabs */}
       </View>
-      <ScrollView
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          style={[styles.container]}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom,
-          }}
-          scrollEventThrottle={400}
-          onScroll={({ nativeEvent }) => {
-            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-            const nearBottom =
-              layoutMeasurement.height + contentOffset.y >= contentSize.height - 200;
-            if (!nearBottom) return;
-            if (activeTab === 'Live') {
-              if (!liveLoadingMore && liveHasMore) loadMoreLiveListings();
-              return;
-            }
-            if (!allLoadingMore && allHasMore) {
-              loadMoreAllListings();
-            }
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              minHeight: dataTable.length != 0 && screenHeight * 0.9,
-            }}>
+      {/* Live tab renders the card grid in a plain View, NOT this ScrollView: the
+          grid is a FlatList and nesting a VirtualizedList inside a same-orientation
+          ScrollView breaks its virtualization (and warns). Every other tab keeps
+          the row table inside the ScrollView. */}
+      {activeTab === 'Live' ? (
+        <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
+          <View style={{ flex: 1, backgroundColor: '#fff' }}>
             {activeTab === 'Live' && !loading && dataTable && dataTable.length > 0 && (
               <View style={[styles.liveToolbar, isLiveSelectMode && styles.liveToolbarSelectMode]}>
                 {isLiveSelectMode ? (
@@ -2436,6 +2426,60 @@ const ScreenListing = ({navigation}) => {
                 ))}
               </View>
             ) : null}
+            {loading ? (
+              <LiveListingGridSkeleton cardCount={12} />
+            ) : dataTable && dataTable.length > 0 ? (
+              <View style={[styles.contents, { flex: 1 }]}>
+                <LiveListingGrid
+                  data={dataTable}
+                  onNavigateToDetail={onNavigateToDetail}
+                  onPressSetToActive={onPressSetToActive}
+                  onLoadMore={loadMoreLiveListings}
+                  isLoadingMore={liveLoadingMore}
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  prevActivePlantCodes={prevActivePlantCodes}
+                  isSelectMode={isLiveSelectMode}
+                  selectedIds={liveSelectedIds}
+                  onToggleSelect={toggleLiveSelect}
+                />
+              </View>
+            ) : !loading ? (
+              <View style={{ alignItems: 'center', paddingTop: 80, flex: 1 }}>
+                <Image
+                  source={imageMap[normalizeKey(activeTab)]}
+                  style={{ width: 300, height: 300, resizeMode: 'contain' }}
+                />
+              </View>
+            ) : null}
+          </View>
+        </View>
+      ) : (
+        <ScrollView
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          style={[styles.container]}
+          contentContainerStyle={{
+            paddingBottom: insets.bottom,
+          }}
+          scrollEventThrottle={400}
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            if (
+              layoutMeasurement.height + contentOffset.y >= contentSize.height - 200 &&
+              !allLoadingMore &&
+              allHasMore
+            ) {
+              loadMoreAllListings();
+            }
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              minHeight: dataTable.length != 0 && screenHeight * 0.9,
+            }}>
             {showListingManageToolbar && (
               <View style={[styles.liveToolbar, listingManageSelectMode && styles.liveToolbarSelectMode]}>
                 {listingManageSelectMode ? (
@@ -2533,22 +2577,16 @@ const ScreenListing = ({navigation}) => {
                   onNavigateToDetail={onNavigateToDetail}
                   activeTab={activeTab}
                   onPressSetToActive={onPressSetToActive}
-                  manageSelectMode={
-                    activeTab === 'Live' ? isLiveSelectMode : listingManageSelectMode
-                  }
-                  manageSelectedIds={
-                    activeTab === 'Live' ? liveSelectedIds : listingManageSelectedIds
-                  }
-                  onManageToggleSelect={
-                    activeTab === 'Live' ? toggleLiveSelect : onListingManageToggleSelect
-                  }
+                  manageSelectMode={listingManageSelectMode}
+                  manageSelectedIds={listingManageSelectedIds}
+                  onManageToggleSelect={onListingManageToggleSelect}
                 />
-                {(activeTab === 'Live' ? liveLoadingMore : allLoadingMore) && (
+                {allLoadingMore && (
                   <View style={{ paddingVertical: 16, alignItems: 'center' }}>
                     <ActivityIndicator size="small" color="#48A7F8" />
                   </View>
                 )}
-                {!(activeTab === 'Live' ? liveHasMore : allHasMore) && totalListings > 0 && !loading && (
+                {!allHasMore && totalListings > 0 && !loading && (
                   <View style={{ paddingVertical: 12, alignItems: 'center' }}>
                     <Text style={{ fontSize: 12, color: '#9DA5A7' }}>
                       {totalListings} listing{totalListings !== 1 ? 's' : ''} total
@@ -2566,6 +2604,7 @@ const ScreenListing = ({navigation}) => {
             ) : null}
           </View>
         </ScrollView>
+      )}
 
 
       <ReusableActionSheet
