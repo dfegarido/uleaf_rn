@@ -160,6 +160,25 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
   const [reactionsModalVisible, setReactionsModalVisible] = useState(false);
   const [hideMissingListingMessage, setHideMissingListingMessage] = useState(false);
 
+  // Full-screen viewer: the image is a horizontal pager, so the counter/dots
+  // track where the swipe actually landed (not just the arrow taps).
+  const imagePagerRef = useRef(null);
+  const [imagePagerWidth, setImagePagerWidth] = useState(0);
+
+  // Dismiss the viewer with the X only — tapping the backdrop or swiping down
+  // must NOT close it, so the Modal's own onRequestClose is a no-op.
+  const dismissImageModal = () => {
+    setImageModalVisible(false);
+    setSelectedImageIndex(0);
+  };
+
+  const goToImageIndex = (index) => {
+    setSelectedImageIndex(index);
+    if (imagePagerRef.current && imagePagerWidth > 0) {
+      imagePagerRef.current.scrollTo({ x: index * imagePagerWidth, animated: true });
+    }
+  };
+
   // If a listing message points to a deleted/missing listing doc, hide the entire row.
   if (hideMissingListingMessage) {
     return null;
@@ -753,43 +772,81 @@ const ChatBubble = ({ currentUserUid, isSeller=false, isBuyer=false, listingId, 
         visible={imageModalVisible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setImageModalVisible(false)}>
-        <TouchableOpacity
+        // Android back button only. Deliberately does NOT close on backdrop tap.
+        onRequestClose={dismissImageModal}>
+        <View
           style={styles.imageModalOverlay}
-          activeOpacity={1}
-          onPress={() => setImageModalVisible(false)}>
-          <View style={styles.imageModalContainer}>
-            <AppImage
-              source={{ uri: images[selectedImageIndex] }}
-              style={styles.fullScreenImage}
-              resizeMode="contain"
-            />
-            {images.length > 1 && (
-              <View style={styles.imageCounter}>
-                <Text style={styles.imageCounterText}>{selectedImageIndex + 1} / {images.length}</Text>
-              </View>
-            )}
+          onLayout={(e) => setImagePagerWidth(e.nativeEvent.layout.width)}>
+          {imagePagerWidth > 0 ? (
+            <ScrollView
+              ref={imagePagerRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              // Let the image pan/zoom area own vertical drags so a vertical
+              // swipe never dismisses the viewer.
+              directionalLockEnabled
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / imagePagerWidth);
+                setSelectedImageIndex(Math.max(0, Math.min(images.length - 1, idx)));
+              }}
+              style={styles.imagePager}>
+              {images.map((uri, index) => (
+                <View key={`viewer-${index}`} style={[styles.imagePagerPage, { width: imagePagerWidth }]}>
+                  <Image
+                    source={{ uri }}
+                    style={styles.fullScreenImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          ) : null}
+
+          {/* Position counter (kept for the "3 / 7" readout) */}
+          {images.length > 1 && (
+            <View style={styles.imageCounter} pointerEvents="none">
+              <Text style={styles.imageCounterText}>{selectedImageIndex + 1} / {images.length}</Text>
+            </View>
+          )}
+
+          {/* Prev / next arrows (still handy for accessibility) */}
+          {images.length > 1 && selectedImageIndex > 0 && (
             <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setImageModalVisible(false)}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              style={styles.prevButton}
+              onPress={() => goToImageIndex(selectedImageIndex - 1)}>
+              <Text style={styles.navButtonText}>‹</Text>
             </TouchableOpacity>
-            {images.length > 1 && selectedImageIndex > 0 && (
-              <TouchableOpacity
-                style={styles.prevButton}
-                onPress={() => setSelectedImageIndex(selectedImageIndex - 1)}>
-                <Text style={styles.navButtonText}>‹</Text>
-              </TouchableOpacity>
-            )}
-            {images.length > 1 && selectedImageIndex < images.length - 1 && (
-              <TouchableOpacity
-                style={styles.nextButton}
-                onPress={() => setSelectedImageIndex(selectedImageIndex + 1)}>
-                <Text style={styles.navButtonText}>›</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </TouchableOpacity>
+          )}
+          {images.length > 1 && selectedImageIndex < images.length - 1 && (
+            <TouchableOpacity
+              style={styles.nextButton}
+              onPress={() => goToImageIndex(selectedImageIndex + 1)}>
+              <Text style={styles.navButtonText}>›</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Dot indicators — tap a dot to jump to that image */}
+          {images.length > 1 && (
+            <View style={styles.imageDots} pointerEvents="box-none">
+              {images.map((_, index) => (
+                <TouchableOpacity
+                  key={`dot-${index}`}
+                  onPress={() => goToImageIndex(index)}
+                  style={[styles.imageDot, index === selectedImageIndex && styles.imageDotActive]}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Close — the ONLY way to dismiss the viewer */}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={dismissImageModal}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Video Player Modal */}
@@ -1039,10 +1096,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Horizontal pager: each page is exactly one viewport wide so pagingEnabled
+  // and the swipe→index maths line up.
+  imagePager: {
+    flex: 1,
+    width: '100%',
+  },
+  imagePagerPage: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   fullScreenImage: {
     width: '100%',
     height: '100%',
   },
+  // The viewer's controls sit on top of an arbitrary photo, so the chip behind
+  // them must be DARK: a white glyph on a white photo is invisible. Previously
+  // these were `rgba(255,255,255,0.3)` chips with `#fff` glyphs, which sampled
+  // 100% pure white over a light listing card — the ‹ › arrows were fully
+  // functional but could not be seen (verified on iOS: tapping the invisible
+  // › still advanced 1/4 -> 2/4).
   closeButton: {
     position: 'absolute',
     top: 50,
@@ -1050,7 +1124,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -1085,7 +1159,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -1098,7 +1172,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -1107,6 +1181,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 36,
     fontWeight: 'bold',
+  },
+  // Dot indicators, sitting just below the image above the safe area.
+  imageDots: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  imageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+    // Mid-grey reads on both light and dark photos.
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  imageDotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   replyPreviewBubble: {
     flexDirection: 'row',

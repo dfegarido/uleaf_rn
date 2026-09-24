@@ -1,14 +1,31 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase';
 import { AuthContext } from '../auth/AuthProvider';
+import { getChatsApi } from '../components/Api/chatApi';
 
 /**
- * Custom hook to track unread message count for the current user
- * Returns the total number of chats with unread messages
- * Updates in real-time using Firestore listeners
+ * Custom hook to track unread message count for the current user.
+ * Returns the total number of chats with unread messages.
+ *
+ * WHY THIS IS A POLL, NOT A SUBSCRIPTION
+ * This used to be a Firestore `onSnapshot` on the `chats` collection. Chat data
+ * moved to Supabase, and `chats` is deliberately NOT in the Supabase realtime
+ * publication (migration 026: only `messages` needs to stream — adding `chats`
+ * would mean an RLS/publication change for one badge). So the count comes from the
+ * `chats` Edge Function instead.
+ *
+ * Trade-off, stated plainly: the badge updates on an interval rather than in real
+ * time. `messages` still streams live inside an open chat, so conversations are
+ * unaffected — only the tab badge lags by up to UNREAD_POLL_MS.
+ *
+ * The count itself is computed server-side (`unreadChatCount`), BEFORE the
+ * endpoint filters chat-shop groups out of the Rooms list. Counting client-side
+ * from `memberChats` would miss shop groups that carry unread flags.
  */
-/** Coalesce rapid Firestore chat metadata writes → fewer React commits (thermal). */
+
+/** Poll cadence — badge latency is at most this. */
+const UNREAD_POLL_MS = 60000;
+
+/** Coalesce rapid updates -> fewer React commits (thermal). */
 const UNREAD_EMIT_MIN_GAP_MS = 400;
 
 export const useUnreadMessageCount = () => {
@@ -33,6 +50,8 @@ export const useUnreadMessageCount = () => {
       return;
     }
 
+    let cancelled = false;
+
     const scheduleEmitCount = (count) => {
       const now = Date.now();
       const t = emitThrottleRef.current;
@@ -55,66 +74,60 @@ export const useUnreadMessageCount = () => {
       }, UNREAD_EMIT_MIN_GAP_MS);
     };
 
-    try {
-      // Query all chats where the user is a participant
-      const chatsQuery = query(
-        collection(db, 'chats'),
-        where('participantIds', 'array-contains', currentUserUid),
-      );
+    const fetchCount = async () => {
+      try {
+        const res = await getChatsApi();
+        if (cancelled) return;
 
-      // Subscribe to real-time updates
-      const unsubscribe = onSnapshot(
-        chatsQuery,
-        (snapshot) => {
-          try {
-            let count = 0;
-            snapshot.forEach((doc) => {
-              const chatData = doc.data();
-              const unreadBy = chatData.unreadBy || [];
-              
-              // Check if current user is in the unreadBy array
-              if (Array.isArray(unreadBy) && unreadBy.includes(currentUserUid)) {
-                count++;
-              }
-            });
-
-            scheduleEmitCount(count);
-          } catch (error) {
-            console.error('Error processing unread messages:', error);
-            if (emitThrottleRef.current.timer) {
-              clearTimeout(emitThrottleRef.current.timer);
-              emitThrottleRef.current.timer = null;
-            }
-            setUnreadCount(0);
-            setLoading(false);
-          }
-        },
-        (error) => {
-          console.error('Error listening to unread messages:', error);
-          if (emitThrottleRef.current.timer) {
-            clearTimeout(emitThrottleRef.current.timer);
-            emitThrottleRef.current.timer = null;
-          }
-          setUnreadCount(0);
+        if (!res?.success) {
+          // Transient failure: keep the last known count rather than flapping the
+          // badge to 0, which looks like the messages were lost.
           setLoading(false);
+          return;
         }
-      );
 
-      // Cleanup subscription on unmount
-      return () => {
-        if (emitThrottleRef.current.timer) {
-          clearTimeout(emitThrottleRef.current.timer);
-          emitThrottleRef.current.timer = null;
+        // Server-computed, includes chat-shop groups (see the endpoint's note).
+        if (typeof res?.data?.unreadChatCount === 'number') {
+          scheduleEmitCount(res.data.unreadChatCount);
+          return;
         }
-        unsubscribe();
-      };
-    } catch (error) {
-      console.error('Error setting up unread message listener:', error);
-      setUnreadCount(0);
-      setLoading(false);
-    }
+
+        // Defensive fallback if the field is ever absent: count the returned
+        // chats client-side. Under-counts shop groups, but better than 0.
+        const chats = [
+          ...(res.memberChats || []),
+          ...(res.adminGroupChats || []),
+          ...(res.publicGroupChats || []),
+        ];
+        let count = 0;
+        for (const chat of chats) {
+          const unreadBy = chat?.unreadBy;
+          let list = [];
+          if (Array.isArray(unreadBy)) list = unreadBy;
+          else if (typeof unreadBy === 'string') {
+            try { list = JSON.parse(unreadBy) || []; } catch { list = []; }
+          }
+          if (Array.isArray(list) && list.map(String).includes(currentUserUid)) count++;
+        }
+        scheduleEmitCount(count);
+      } catch (error) {
+        console.error('Error computing unread messages:', error);
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, UNREAD_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      if (emitThrottleRef.current.timer) {
+        clearTimeout(emitThrottleRef.current.timer);
+        emitThrottleRef.current.timer = null;
+      }
+    };
   }, [currentUserUid]);
 
   return { unreadCount, loading };
 };
-

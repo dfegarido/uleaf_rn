@@ -401,8 +401,13 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   // User related endpoints
   SEARCH_USER: `${getSupabaseBaseUrl()}/search-user`,
   UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
+  // Chat shop photo upload (Supabase Storage bucket `chat-shops`)
   UPLOAD_CHAT_SHOP_PHOTO: `${getSupabaseBaseUrl()}/chat-shop-photo-upload`,
   UPLOAD_BUYER_CONTENT_PHOTO: `${getSupabaseBaseUrl()}/buyer-content-photo-upload`,
+  // FCM device-token registration (Supabase `buyer.fcmtokens`)
+  FCM_TOKEN: `${getSupabaseBaseUrl()}/fcm-token`,
+  // Chat presence (Supabase `chat_presence`) — replaces the Firestore userPresence
+  CHAT_PRESENCE: `${getSupabaseBaseUrl()}/chat-presence`,
   
   // Shipping Buddy endpoints (moved to Supabase block below — see SUBMIT_RECEIVER_REQUEST etc.)
   // Address Book APIs
@@ -496,9 +501,10 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   DELETE_PENDING_ORDER: `${getSupabaseBaseUrl()}/admin-payment-management`,
   ADMIN_MIGRATE_ORDERS: `${getSupabaseBaseUrl()}/admin-migrate-orders`,
 
-  // Group Chat Notification
-  SEND_GROUP_CHAT_NOTIFICATION: `${getBaseUrl()}/sendGroupChatNotification`,
-  SEND_EVERYONE_MENTION_NOTIFICATION: `${getBaseUrl()}/sendEveryoneMentionNotification`,
+  // Group Chat Notification (Supabase Edge Function — replaces the Firebase
+  // `sendGroupChatNotification`; reads participant emails from Supabase)
+  SEND_GROUP_CHAT_NOTIFICATION: `${getSupabaseBaseUrl()}/send-group-chat-notification`,
+  SEND_EVERYONE_MENTION_NOTIFICATION: `${getSupabaseBaseUrl()}/send-everyone-mention-notification`,
 
   // Live Notifications
   SCHEDULE_LIVE_REMINDER: `${getBaseUrl()}/scheduleLiveReminder`,

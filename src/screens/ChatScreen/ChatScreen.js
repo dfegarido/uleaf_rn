@@ -1,19 +1,9 @@
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  collection,
-  doc,
-  documentId,
-  getDoc,
-  onSnapshot,
-  query,
-  Timestamp,
-  where
-} from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { db } from '../../../firebase';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { AuthContext } from '../../auth/AuthProvider';
 import { postListingDeleteApi } from '../../components/Api/postListingDeleteApi';
@@ -28,6 +18,8 @@ import {
   getChatParticipantsBatchApi,
   submitChatJoinRequestApi,
 } from '../../components/Api/chatApi';
+import { API_ENDPOINTS } from '../../config/apiConfig';
+import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 import { subscribeToChatMessages } from '../../utils/realtimeChat';
 import ChatBubble from '../../components/ChatBubble/ChatBubble';
 import DateSeparator from '../../components/DateSeparator/DateSeparator';
@@ -367,12 +359,23 @@ const ChatScreen = ({navigation, route}) => {
         return;
       }
       try {
-        const snap = await getDocs(
-          query(collection(db, 'chatShops'), where('groupChatId', '==', id), limit(1)),
+        // Reads Supabase (`chat_shops`) via the `chat-shops` Edge Function — the
+        // Firestore `chatShops` collection is frozen and stale, so this check
+        // could gate Add-Listing the wrong way. The `groupChatId` filter is
+        // required because the default buyer-facing GET returns only buyer shops,
+        // while this check must also see supplier shops.
+        const token = await getStoredAuthToken();
+        const res = await fetch(
+          `${API_ENDPOINTS.GET_CHAT_SHOPS}?groupChatId=${encodeURIComponent(id)}`,
+          { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } },
         );
         if (cancelled) return;
-        const shopType = snap.empty ? '' : String(snap.docs[0].data()?.userType || '').toLowerCase();
-        setIsChatShopGroup(!snap.empty && (shopType === 'supplier' || shopType === ''));
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const json = await res.json();
+        const shops = Array.isArray(json?.shops) ? json.shops : [];
+        const shopType = shops.length === 0 ? '' : String(shops[0]?.userType || '').toLowerCase();
+        // Same semantics as before: a supplier shop, or a shop with no userType.
+        setIsChatShopGroup(shops.length > 0 && (shopType === 'supplier' || shopType === ''));
       } catch (error) {
         if (!cancelled) setIsChatShopGroup(false);
       }
@@ -632,16 +635,23 @@ const ChatScreen = ({navigation, route}) => {
       setActiveMembers(0);
       return;
     }
-    
-    // Set up chunked real-time presence listeners to avoid one-listener-per-user overhead.
-    const presenceUnsubscribers = [];
+
+    // Presence moved from Firestore `userPresence` (a one-listener-per-chunk
+    // onSnapshot) to the Supabase `chat-presence` Edge Function. `chats`/presence
+    // are not in the Supabase realtime publication, so this polls — same reason as
+    // the unread badge. The "online, or seen within 5 minutes" rule is unchanged.
+    let cancelled = false;
     const participantUids = participants
       .map(p => p?.uid)
       .filter(uid => !!uid && uid !== currentUserUid);
     const MAX_TRACKED_GROUP_MEMBERS = 200;
     const targetUids = participantUids.slice(0, MAX_TRACKED_GROUP_MEMBERS);
-    const CHUNK_SIZE = 10; // Firestore `in` query limit.
     const presenceByUid = new Map();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const PRESENCE_POLL_MS = 60000;
+
+    // The endpoint caps at 100 uids per call.
+    const CHUNK_SIZE = 100;
 
     const recomputeActiveMembers = () => {
       const onlineUsers = new Set(
@@ -653,35 +663,45 @@ const ChatScreen = ({navigation, route}) => {
       setActiveMembers(onlineUsers.size);
     };
 
-    for (let i = 0; i < targetUids.length; i += CHUNK_SIZE) {
-      const chunkUids = targetUids.slice(i, i + CHUNK_SIZE);
-      if (chunkUids.length === 0) continue;
-      const presenceQuery = query(
-        collection(db, 'userPresence'),
-        where(documentId(), 'in', chunkUids),
-      );
-      const unsubscribe = onSnapshot(presenceQuery, (snapshot) => {
-        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-        // Reset chunk values before applying the latest snapshot values.
-        chunkUids.forEach(uid => presenceByUid.set(uid, false));
-        snapshot.docs.forEach((presenceDoc) => {
-          const uid = presenceDoc.id;
-          const presenceData = presenceDoc.data();
-          const isOnline = presenceData?.isOnline || false;
-          const lastSeen = presenceData?.lastSeen;
-          const isRecentlyActive = lastSeen && lastSeen.toMillis && lastSeen.toMillis() > fiveMinutesAgo;
-          presenceByUid.set(uid, Boolean(isOnline || isRecentlyActive));
-        });
-        recomputeActiveMembers();
-      }, (error) => {
-        console.log('Presence listener error:', error);
-      });
-      presenceUnsubscribers.push(unsubscribe);
-    }
+    const pollPresence = async () => {
+      if (cancelled || targetUids.length === 0) return;
+      try {
+        const token = await getStoredAuthToken();
+        const fiveMinutesAgo = Date.now() - FIVE_MINUTES_MS;
+
+        // Reset before applying, so a user who dropped out of the window flips off.
+        targetUids.forEach(uid => presenceByUid.set(uid, false));
+
+        for (let i = 0; i < targetUids.length; i += CHUNK_SIZE) {
+          const chunkUids = targetUids.slice(i, i + CHUNK_SIZE);
+          if (chunkUids.length === 0) continue;
+          const res = await fetch(
+            `${API_ENDPOINTS.CHAT_PRESENCE}?uids=${encodeURIComponent(chunkUids.join(','))}`,
+            { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } },
+          );
+          if (!res.ok) continue;
+          const json = await res.json();
+          const rows = Array.isArray(json?.data) ? json.data : [];
+          for (const row of rows) {
+            if (!row?.uid) continue;
+            const lastSeenMs = row.lastSeen ? new Date(row.lastSeen).getTime() : 0;
+            const isRecentlyActive = lastSeenMs > fiveMinutesAgo;
+            presenceByUid.set(row.uid, Boolean(row.isOnline || isRecentlyActive));
+          }
+        }
+        if (!cancelled) recomputeActiveMembers();
+      } catch (error) {
+        console.log('Presence poll error:', error.message);
+      }
+    };
+
+    pollPresence();
+    const presenceInterval = setInterval(pollPresence, PRESENCE_POLL_MS);
 
     // Cleanup
     return () => {
-      presenceUnsubscribers.forEach(unsub => unsub());
+      cancelled = true;
+      clearInterval(presenceInterval);
     };
   }, [chatType, id, participants, currentUserUid]);
 
