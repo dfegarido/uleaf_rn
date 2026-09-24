@@ -15,6 +15,11 @@
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
         <!-- Make navigation bar translucent so app can extend beneath it -->
         <item name="android:windowTranslucentNavigation">true</item>
+        <!-- Edge-to-edge (see android/gradle.properties) makes the status bar
+             transparent, so its icons must be dark or they vanish against the
+             app's light surfaces. This is the app-wide default; the few
+             dark-background screens override it with barStyle="light-content". -->
+        <item name="android:windowLightStatusBar">true</item>
         <!-- Never let the platform re-colour the UI for dark mode -->
         <item name="android:forceDarkAllowed">false</item>
     </style>

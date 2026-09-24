@@ -297,6 +297,14 @@ const ChatScreen = ({navigation, route}) => {
   const maskGroupSenderUntilResolved = isBuyer && !isAdminViewer && chatType === 'group';
   const canChatListing = userInfo?.canChatListing || false;
 
+  /**
+   * `ScreenSingleSell` (the listing editor) is registered in the seller stack and
+   * the admin stack, but NOT in `BuyerTabNavigator`. Navigating to it from the
+   * buyer shell throws "route not found" — the error seen when editing a shared
+   * card. Only offer listing edit where the route actually exists.
+   */
+  const canEditListing = !isBuyer || isAdminViewer;
+
   const attemptedParticipantNameFetchRef = useRef(new Set());
   const [, bumpParticipantNameFetch] = useReducer((n) => n + 1, 0);
 
@@ -616,12 +624,31 @@ const ChatScreen = ({navigation, route}) => {
   // Handle edit from tooltip
   const handleEditFromTooltip = () => {
     if (!messageTooltip) return;
-    if (messageTooltip.isListing) {
-      setMessageTooltip(null);
-      navigation.navigate('ScreenSingleSell', { plantCode: messageTooltip.plantCode, isGroupChatListing: true });
-    } else {
-      startEditMessage(messageTooltip);
+    const target = messageTooltip;
+    setMessageTooltip(null);
+    if (target.isListing) {
+      // Editing a listing card edits the *listing*, so only the owner may do it.
+      if (!target.isMyListing) {
+        Alert.alert('Cannot edit', "You can only edit a listing you own.");
+        return;
+      }
+      // `ScreenSingleSell` only exists in the seller/admin stack. Navigating to
+      // it from the buyer shell throws (route not found), which is the "error"
+      // seen when tapping Edit on a shared card as a buyer.
+      if (canEditListing) {
+        navigation.navigate('ScreenSingleSell', {
+          plantCode: target.plantCode,
+          isGroupChatListing: true,
+        });
+      } else {
+        Alert.alert(
+          'Cannot edit here',
+          'Listing details can only be edited from the seller app.',
+        );
+      }
+      return;
     }
+    startEditMessage(target);
   };
 
   // Update messagesRef whenever messages changes
@@ -1123,6 +1150,21 @@ const ChatScreen = ({navigation, route}) => {
     return isAdminViewer && chatType === 'group';
   };
 
+  /**
+   * Whether Edit should be offered for this message.
+   *
+   * A listing card is owned by the *listing's* seller, not by whoever posted the
+   * message, and the editor screen only exists outside the buyer shell. Offering
+   * Edit otherwise is what produced the route-not-found error.
+   */
+  const canEditTooltipMessage = (msg) => {
+    if (!msg) return false;
+    if (msg.isListing) {
+      return Boolean(msg.isMyListing) && canEditListing;
+    }
+    return msg.senderId === currentUserUid;
+  };
+
   // Handle delete from tooltip
   const handleDeleteFromTooltip = () => {
     if (!messageTooltip) return;
@@ -1168,11 +1210,17 @@ const ChatScreen = ({navigation, route}) => {
       if (toDelete.isListing) {
         // Owner deleting own listing: remove listing + message. Admin removing someone else's
         // listing post from a group: remove the message only (do not delete the seller's listing).
+        //
+        // A user who merely *shared* a listing they don't own must never delete
+        // the underlying product: `delete-listing` authorises on sellercode, so
+        // that call returns 403 and the whole delete failed. In that case only
+        // the message is removed.
         const skipListingProductDelete =
-          isAdminViewer &&
-          chatType === 'group' &&
-          toDelete.senderId &&
-          toDelete.senderId !== currentUserUid;
+          !toDelete.isMyListing ||
+          (isAdminViewer &&
+            chatType === 'group' &&
+            toDelete.senderId &&
+            toDelete.senderId !== currentUserUid);
         if (!skipListingProductDelete) {
           await postListingDeleteApi(toDelete.plantCode);
         }
@@ -2632,8 +2680,9 @@ const ChatScreen = ({navigation, route}) => {
                   <ReplyIcon width={24} height={24} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
-              {/* Edit - only for own messages */}
-              {messageTooltip.senderId === currentUserUid && (
+              {/* Edit — only the listing's owner may edit a listing card, and only
+                  where the editor route exists (not the buyer shell). */}
+              {canEditTooltipMessage(messageTooltip) && (
                 <TouchableOpacity
                   style={styles.tooltipIconButton}
                   onPress={handleEditFromTooltip}>
@@ -2715,11 +2764,17 @@ const ChatScreen = ({navigation, route}) => {
             <View style={styles.deleteModalContainer}>
               <View style={styles.deleteModalContent}>
                 <Text style={styles.deleteModalTitle}>
-                  {messageToDelete?.isListing ? 'Delete Listing' : 'Delete Message'}
+                  {messageToDelete?.isListing
+                    ? messageToDelete?.isMyListing
+                      ? 'Delete Listing'
+                      : 'Remove from Chat'
+                    : 'Delete Message'}
                 </Text>
                 <Text style={styles.deleteModalMessage}>
                   {messageToDelete?.isListing
-                    ? 'Are you sure you want to delete this listing? This action cannot be undone.'
+                    ? messageToDelete?.isMyListing
+                      ? 'This permanently deletes the listing and removes it from the chat. This action cannot be undone.'
+                      : "This removes the listing card from the chat. The seller's listing is not affected."
                     : 'Are you sure you want to delete this message? This action cannot be undone.'}
                 </Text>
               </View>

@@ -130,13 +130,23 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
 
   const handleLongPress = () => {
     if (!listing || !onMessageLongPress) return;
+    // `isMine` means *I sent this card*. `isMyListing` means I actually own the
+    // underlying listing — these are different: a buyer can share someone
+    // else's plant. Edit/Delete mutate the listing, so they must be gated on
+    // ownership, not on who posted the message. Getting this wrong is what
+    // produced "route not found" on Edit and a 403 on Delete.
+    const isMyListing = Boolean(
+      currentUserUid &&
+        listing.sellerCode &&
+        String(listing.sellerCode) === String(currentUserUid),
+    );
     onMessageLongPress({
       id: messageId,
       isListing: true,
       listingId,
       plantCode: listing.plantCode,
-      // Only set senderId to current user if this is their own listing
-      // so Edit/Delete appear only for the owner
+      isMine: isMe,
+      isMyListing,
       senderId: isMe ? currentUserUid : null,
       senderName: isMe ? null : (senderName || null),
     });

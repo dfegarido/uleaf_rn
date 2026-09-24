@@ -39,11 +39,15 @@ import HeartIcon from '../../../assets/icons/greylight/heart-regular.svg';
 import ReturnIcon from '../../../assets/icons/greylight/return.svg';
 import CartIcon from '../../../assets/icontabs/buyer-tabs/cart-solid.svg';
 import ShareIcon from '../../../assets/buyer-icons/share-gray.svg';
-import {globalStyles} from '../../../assets/styles/styles';
-import ActionSheet from '../../../components/ActionSheet/ActionSheet';
+import ShareSheet from '../../../components/ShareSheet/ShareSheet';
 import Toast from '../../../components/Toast/Toast';
 import { useAuth } from '../../../auth/AuthProvider';
 import { addToCartApi } from '../../../components/Api/cartApi';
+import {
+  chatCreateApi,
+  findPrivateChatApi,
+  sendChatMessageApi,
+} from '../../../components/Api/chatApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {getPlantListingShareUrl} from '../../../utils/plantShareLink';
@@ -59,6 +63,27 @@ import {getDetailListingImageUri} from '../../../utils/plantListingImage';
 const ScreenPlantDetail = ({navigation, route}) => {
   const {user} = useAuth();
   const {plantCode, previewImageUri} = route.params || {};
+
+  // Current user identity for the share sheet's chat creation. Same accessor
+  // chain the messaging screens use (admin payload nests under `data`).
+  const currentUserUid =
+    user?.data?.uid || user?.user?.uid || user?.uid || '';
+  const currentUserName =
+    user?.data?.username ||
+    user?.user?.username ||
+    user?.username ||
+    user?.data?.email ||
+    user?.user?.email ||
+    user?.email ||
+    'User';
+  const currentUserAvatar =
+    user?.data?.profileImage ||
+    user?.data?.profilePhotoUrl ||
+    user?.user?.profileImage ||
+    user?.user?.profilePhotoUrl ||
+    user?.profileImage ||
+    user?.profilePhotoUrl ||
+    '';
 
   // Get screen dimensions for dynamic card sizing
   const screenWidth = Dimensions.get('window').width;
@@ -736,6 +761,132 @@ const ScreenPlantDetail = ({navigation, route}) => {
     runShareAfterInteractions(() => {
       setTimeout(open, Platform.OS === 'ios' ? 400 : 150);
     });
+  };
+
+  /**
+   * Share the listing into a chat with the selected contact.
+   *
+   * The chat card is the share: a `messages` row carrying isListing + the
+   * listing's Supabase uuid, which is exactly what ListingMessage renders.
+   * `text` is required — the chat-message edge function rejects a body with
+   * neither text nor media (same payload shape the seller flow sends).
+   */
+  const handleShareToContact = async contact => {
+    // A group is already a conversation — go straight to it. Only a person needs
+    // a private chat found or created first.
+    const isGroup = Boolean(contact?.isGroup);
+    const otherUid = contact?.uid;
+    const listingId = plantData?.id;
+    if (!listingId || !currentUserUid || (!isGroup && !otherUid)) {
+      setShowShareSheet(false);
+      Alert.alert('Share', 'This listing cannot be shared right now.');
+      return;
+    }
+
+    const contactName = contact.name || (isGroup ? 'this group' : 'this user');
+    let chatId = null;
+    let chatParams = null;
+
+    try {
+      if (isGroup) {
+        chatId = contact.chatId;
+        if (!chatId) {
+          throw new Error('Could not open the group chat');
+        }
+        chatParams = contact.chat || {
+          id: chatId,
+          type: 'group',
+          name: contact.name || 'Group',
+          avatarUrl: contact.avatarUrl || '',
+          participantIds: contact.participantIds || [],
+        };
+      } else {
+        const findRes = await findPrivateChatApi(otherUid);
+        if (!findRes?.success) {
+          throw new Error(findRes?.error || 'Could not open the conversation');
+        }
+
+        if (findRes.chat?.id) {
+          chatId = findRes.chat.id;
+          chatParams = findRes.chat;
+        } else {
+          // No private chat yet — create one, matching MessagesScreen.createChat's
+          // participant shape so ChatScreen renders the other person correctly.
+          const createRes = await chatCreateApi({
+            participantIds: [currentUserUid, otherUid].filter(Boolean),
+            participants: [
+              {
+                uid: currentUserUid,
+                name: currentUserName,
+                avatarUrl: currentUserAvatar,
+              },
+              {
+                uid: otherUid,
+                name: contact.name || 'Contact',
+                avatarUrl: contact.avatarUrl || '',
+              },
+            ],
+            name: contact.name || 'Contact',
+            avatarUrl: contact.avatarUrl || '',
+            type: 'private',
+          });
+          if (!createRes?.success) {
+            throw new Error(createRes?.error || 'Could not create the chat');
+          }
+          chatId = createRes.data?.id || createRes.data?.chat?.id || null;
+          if (!chatId) {
+            throw new Error('Could not create the chat');
+          }
+          chatParams = {
+            id: chatId,
+            type: 'private',
+            name: contact.name || 'Contact',
+            avatarUrl: contact.avatarUrl || '',
+            participantIds: [currentUserUid, otherUid].filter(Boolean),
+            participants: [
+              {
+                uid: currentUserUid,
+                name: currentUserName,
+                avatarUrl: currentUserAvatar,
+              },
+              {
+                uid: otherUid,
+                name: contact.name || 'Contact',
+                avatarUrl: contact.avatarUrl || '',
+              },
+            ],
+          };
+        }
+      }
+
+      const sendRes = await sendChatMessageApi({
+        chatId,
+        text: 'New Listing',
+        isListing: true,
+        listingId,
+      });
+      if (!sendRes?.success) {
+        throw new Error(sendRes?.error || 'Could not send the listing');
+      }
+
+      setShowShareSheet(false);
+      setShareToastMessage(`Sent to ${contactName}`);
+      setShareToastVisible(true);
+      navigation.navigate('ChatScreen', chatParams);
+    } catch (error) {
+      // The chat may already exist (or have just been created) — send the user
+      // there instead of failing silently and leaving an empty conversation.
+      if (chatId) {
+        setShowShareSheet(false);
+        Alert.alert(
+          'Share',
+          `Could not send the listing to ${contactName}. Opening the chat instead.`,
+        );
+        navigation.navigate('ChatScreen', chatParams);
+        return;
+      }
+      Alert.alert('Share', error?.message || 'Could not share this listing.');
+    }
   };
 
   // Get shipping cost based on listing type and specifications
@@ -1655,42 +1806,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
         </View>
       </Modal>
 
-      <ActionSheet
+      <ShareSheet
         visible={showShareSheet}
         onClose={() => setShowShareSheet(false)}
-        heightPercent="30%">
-        <View style={{padding: 20}}>
-          <TouchableOpacity onPress={handleCopyShareLink}>
-            <View
-              style={{
-                borderColor: '#CDD3D4',
-                borderWidth: 1,
-                borderRadius: 10,
-                padding: 14,
-              }}>
-              <Text style={[globalStyles.textLGGreyDark]}>Copy link</Text>
-              <Text style={[globalStyles.textMDGreyLight, {paddingTop: 4}]}>
-                Copy the listing URL to your clipboard
-              </Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleNativeShareListing}>
-            <View
-              style={{
-                borderColor: '#CDD3D4',
-                borderWidth: 1,
-                borderRadius: 10,
-                padding: 14,
-                marginTop: 10,
-              }}>
-              <Text style={[globalStyles.textLGGreyDark]}>Share…</Text>
-              <Text style={[globalStyles.textMDGreyLight, {paddingTop: 4}]}>
-                WhatsApp, Messages, and other apps
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </ActionSheet>
+        currentUserInfo={user}
+        onSelectUser={handleShareToContact}
+        onCopyLink={handleCopyShareLink}
+        onNativeShare={handleNativeShareListing}
+      />
 
       <Toast
         visible={shareToastVisible}
