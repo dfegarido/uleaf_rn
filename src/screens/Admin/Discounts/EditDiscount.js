@@ -18,7 +18,6 @@ import { ScrollView,
   Image,
   Alert,
   KeyboardAvoidingView,
-  InteractionManager,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
@@ -643,7 +642,7 @@ const EditDiscount = () => {
     setSpeciesSearch('');
     
     // Defer API call to allow modal to render first
-    const interaction = InteractionManager.runAfterInteractions(() => {
+    const idleId = requestIdleCallback(() => {
       const loadSpecies = async () => {
         try {
           setSpeciesLoading(true);
@@ -674,7 +673,7 @@ const EditDiscount = () => {
     });
     
     return () => {
-      interaction.cancel();
+      cancelIdleCallback(idleId);
     };
   }, [showSpeciesSheet]);
 

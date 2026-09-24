@@ -1,4 +1,5 @@
 import AppImage from '../../../components/AppImage/AppImage';
+import {runShareAfterInteractions} from '../../../utils/referralShare';
 
 /* eslint-disable react-native/no-inline-styles */
 import NetInfo from '@react-native-community/netinfo';
@@ -7,7 +8,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert,
   Dimensions,
   Image,
-  InteractionManager,
   Modal,
   Platform,
   ScrollView,
@@ -733,7 +733,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         }
       }
     };
-    InteractionManager.runAfterInteractions(() => {
+    runShareAfterInteractions(() => {
       setTimeout(open, Platform.OS === 'ios' ? 400 : 150);
     });
   };

@@ -2,7 +2,7 @@ import AppImage from '../../../components/AppImage/AppImage';
 
 import React, {useEffect, useState} from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions, KeyboardAvoidingView, Platform, Alert, Keyboard, Image, InteractionManager } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback, Dimensions, KeyboardAvoidingView, Platform, Alert, Keyboard, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
@@ -240,7 +240,7 @@ const AmountOffPlantsPercentage = () => {
     setSpeciesSearch('');
     
     // Defer API call to allow modal to render first
-    const interaction = InteractionManager.runAfterInteractions(() => {
+    const idleId = requestIdleCallback(() => {
       const loadSpecies = async () => {
         try {
           setSpeciesLoading(true);
@@ -271,7 +271,7 @@ const AmountOffPlantsPercentage = () => {
     });
     
     return () => {
-      interaction.cancel();
+      cancelIdleCallback(idleId);
     };
   }, [showSpeciesSheet]);
 
