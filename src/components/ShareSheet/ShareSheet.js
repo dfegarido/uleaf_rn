@@ -182,12 +182,13 @@ const ShareSheet = ({
     if (role === 'admin' || role === 'sub_admin') {
       return 'admin';
     }
+    // Seller-only marker. Deliberately just the garden/company name: buyers
+    // also carry `currency`/`currencySymbol` on their profile, so those are NOT
+    // seller indicators and must not be used here.
     const hasSellerFields = Boolean(
       currentUserInfo?.user?.gardenOrCompanyName ||
         currentUserInfo?.data?.gardenOrCompanyName ||
-        currentUserInfo?.gardenOrCompanyName ||
-        currentUserInfo?.data?.currency ||
-        currentUserInfo?.user?.currency,
+        currentUserInfo?.gardenOrCompanyName,
     );
     return hasSellerFields ? 'supplier' : 'buyer';
   }, [currentUserInfo]);
@@ -250,7 +251,17 @@ const ShareSheet = ({
       let allowedChatUids = null;
       if (chatUids.length > 0) {
         try {
-          const allowedRes = await searchUsersApi({uids: chatUids, limit: 200});
+          // The cohort hint MUST be sent here too. Without it the server falls
+          // back to role precedence (admin > supplier > buyer), so an account
+          // holding both a buyer and a supplier row resolves to "supplier" and
+          // this call returns suppliers while the Recommended call above
+          // returns buyers — the two are merged into one strip, which is exactly
+          // how sellers ended up shown in a buyer's recommended list.
+          const allowedRes = await searchUsersApi({
+            uids: chatUids,
+            limit: 200,
+            role: cohortRole,
+          });
           if (allowedRes?.success) {
             allowedChatUids = new Set(
               (allowedRes.data?.users || []).map((user) => String(user.uid || user.id)),
