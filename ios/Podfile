@@ -421,7 +421,17 @@ fi
             [
               '$(PODS_TARGET_SRCROOT)/common/cpp',
               '$(PODS_ROOT)/Headers/Public/React-Core',
-              '$(PODS_ROOT)/Headers/Public/React-Core-prebuilt'
+              '$(PODS_ROOT)/Headers/Public/React-Core-prebuilt',
+              # react-native-slider/ios/RNCSliderComponentView.mm does
+              #   #import "RCTFabricComponentsPlugins.h"        (quoted, so -I)
+              # but the public React-RCTFabric headers nest it one level down as
+              # Pod/React/RCTFabricComponentsPlugins.h, so the existing
+              # Headers/Public/React-RCTFabric entry alone does not resolve it.
+              # React-Core-prebuilt does not help either: that dir has the header
+              # only inside the xcframework slice, not at Headers/ top level.
+              # Without this path the compile fails with
+              #   "fatal error: 'RCTFabricComponentsPlugins.h' file not found"
+              '$(PODS_ROOT)/Headers/Public/React-RCTFabric/React'
             ].each do |p|
               next if header_search_paths.any? { |e| e.to_s.include?(p) }
 
