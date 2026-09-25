@@ -5,6 +5,10 @@ export const AIR_CARGO_DOCUMENTATION_FEE_LABEL = 'Refundable Import Handling Fee
 
 export const HANDLING_FEE_CREDIT_LABEL = 'Handling Fee Credit';
 
+/** Buyer checkout label for the UPS Next Day upgrade toggle (includes the Live Arrival Guarantee benefit). */
+export const UPS_NEXT_DAY_UPGRADE_LABEL =
+  'Get Live Arrival Guarantee - Upgrade to UPS Next Day Air Saver';
+
 export const PROMO_FREE_AIR_CARGO_MIN_ITEMS = 15;
 export const PROMO_FREE_AIR_CARGO_MIN_SUBTOTAL = 500;
 

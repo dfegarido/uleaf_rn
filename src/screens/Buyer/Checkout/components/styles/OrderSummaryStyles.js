@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     padding: 0,
     gap: 4,
     width: '100%',
-    height: 24,
+    minHeight: 24,
     alignSelf: 'stretch',
   },
   toggleLabel: {
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     padding: 0,
     gap: 12,
     flex: 1,
-    height: 22,
+    minHeight: 22,
   },
   toggleLabelText: {
     fontSize: 16,
@@ -292,7 +292,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#647276',
     flex: 1,
-    height: 22,
+    minHeight: 22,
+    paddingRight: 8,
   },
   toggleLabelTextSubtle: {
     fontSize: 14,
