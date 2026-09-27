@@ -221,13 +221,13 @@ export const getLiveCommentsApi = async (sessionId) => {
   }
 };
 
-/** Add a comment to a live session. */
-export const addLiveCommentApi = async ({ sessionId, message, name, avatar }) => {
+/** Add a comment to a live session. `id` is optional and client-owned. */
+export const addLiveCommentApi = async ({ sessionId, message, name, avatar, id }) => {
   try {
     const res = await fetch(API_ENDPOINTS.LIVE_COMMENTS, {
       method: 'POST',
       headers: await authHeaders(),
-      body: JSON.stringify({ mode: 'add', sessionId, message, name, avatar }),
+      body: JSON.stringify({ mode: 'add', sessionId, message, name, avatar, id }),
     });
     const body = await parseJson(res);
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);

@@ -67,6 +67,14 @@ import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
 import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
+import {
+  createPendingLiveComment,
+  mergeLiveComment,
+  mergeLiveCommentUpdate,
+  mergeLiveCommentsFromServer,
+  normalizeLiveCommentRow,
+  subscribeToLiveComments,
+} from '../../../utils/realtimeLiveComments';
 
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
@@ -214,27 +222,74 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     }
   };
 
-    // Effect for fetching comments
+  // Effect for fetching comments. The 10s poll is a FALLBACK: realtime pushes
+  // inserts/edits/deletes (including the end-of-session purge) and the poll only
+  // covers a dead socket. Both paths MERGE through realtimeLiveComments helpers:
+  // they must agree, since either can fire first.
   useEffect(() => {
       if (!sessionId) return;
 
       let active = true;
       let pollTimer = null;
+      let unsubscribe = null;
 
       const loadComments = async () => {
         const res = await getLiveCommentsApi(sessionId);
         if (!active) return;
         if (res.success) {
-          setComments(res.comments || []);
+          // Server is authoritative: this is also how a delete or the end-of-session
+          // purge reaches the UI. A just-sent local row newer than everything the
+          // server returned is kept (its write predates this response).
+          const server = res.comments || [];
+          setComments((prev) => mergeLiveCommentsFromServer(prev, server));
         }
+      };
+
+      const applyInsert = (payload) => {
+        if (!active) return;
+        const row = normalizeLiveCommentRow(payload?.new || {});
+        if (!row.id) return;
+        setComments((prev) => mergeLiveComment(prev, row));
+      };
+
+      const applyUpdate = (payload) => {
+        if (!active) return;
+        const row = normalizeLiveCommentRow(payload?.new || {});
+        if (!row.id) return;
+        setComments((prev) => mergeLiveCommentUpdate(prev, row));
+      };
+
+      // A comment that is gone (single delete, or the bulk purge on `ended`).
+      // Resync rather than guessing: the purge removes every row for the session.
+      const applyDelete = () => {
+        if (!active) return;
+        loadComments();
       };
 
       loadComments();
       pollTimer = setInterval(loadComments, 10000);
 
+      subscribeToLiveComments(sessionId, {
+        onInsert: applyInsert,
+        onUpdate: applyUpdate,
+        onDelete: applyDelete,
+      })
+        .then((unsub) => {
+          if (!active) {
+            unsub?.().catch(() => {});
+            return;
+          }
+          unsubscribe = unsub;
+        })
+        .catch((err) => {
+          // Realtime unavailable (offline, token mint failed): the poll carries it.
+          console.warn('live comments realtime unavailable:', err?.message || err);
+        });
+
       return () => {
         active = false;
         if (pollTimer) clearInterval(pollTimer);
+        if (unsubscribe) unsubscribe().catch(() => {});
       };
     }, [sessionId]);
 
@@ -289,21 +344,45 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       setNewComment(''); // Clear input after sending
       setEditingComment(null); // Clear editing state
 
-      try {
-        if (editingComment) {
-            await updateLiveCommentApi({ sessionId, commentId: editingComment.id, message: commentToSend });
-        } else {
-            await addLiveCommentApi({
-              sessionId,
-              message: commentToSend,
-              name: userName,
-              avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
-              uid: userId,
-            });
+      // Optimistic: show the comment the instant send is tapped. The id is
+      // generated HERE and sent to the server, so the same row comes back over
+      // Realtime/the poll and merges in place instead of duplicating.
+      if (editingComment) {
+        setComments((prev) => mergeLiveCommentUpdate(prev, { ...editingComment, message: commentToSend, pending: true }));
+        try {
+          await updateLiveCommentApi({ sessionId, commentId: editingComment.id, message: commentToSend });
+        } catch (error) {
+          console.error('Error editing comment:', error);
         }
-        
+        return;
+      }
+
+      const pendingComment = createPendingLiveComment({
+        message: commentToSend,
+        name: userName,
+        avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`,
+        uid: userId,
+      });
+      setComments((prev) => mergeLiveComment(prev, pendingComment));
+
+      try {
+        const res = await addLiveCommentApi({
+          sessionId,
+          id: pendingComment.id,
+          message: commentToSend,
+          name: userName,
+          avatar: profilePhotoUrl || currentUserInfo?.profileImage || currentUserInfo?.user?.profileImage || `https://gravatar.com/avatar/19bb7c35f91e5f6c47e80697c398d70f?s=400&d=mp&r=x`, // Fallback avatar
+          uid: userId,
+        });
+        if (!res.success) {
+          // The write failed: drop the optimistic row so the chat doesn't show a
+          // comment no one else can see.
+          console.error('Error sending comment:', res.error);
+          setComments((prev) => prev.filter((c) => c.id !== pendingComment.id));
+        }
       } catch (error) {
         console.error('Error sending comment:', error);
+        setComments((prev) => prev.filter((c) => c.id !== pendingComment.id));
       }
   };
 

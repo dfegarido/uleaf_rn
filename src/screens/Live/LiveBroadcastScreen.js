@@ -56,6 +56,14 @@ import {
 } from '../../components/Api/liveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
+import {
+  createPendingLiveComment,
+  mergeLiveComment,
+  mergeLiveCommentUpdate,
+  mergeLiveCommentsFromServer,
+  normalizeLiveCommentRow,
+  subscribeToLiveComments,
+} from '../../utils/realtimeLiveComments';
 
 const LiveBroadcastScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
@@ -98,6 +106,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
+  // Set when the channel join is observed (either via the callback or the
+  // getConnectionState() fallback), so the fallback never double-fires.
+  const joinedReachedRef = useRef(false);
   const [statusMessage, setStatusMessage] = useState('Starting camera…');
   const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
@@ -292,11 +303,41 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
 
     let cancelled = false;
+    joinedReachedRef.current = false;
     setStatusMessage('Starting camera…');
     console.log('🔴 Initializing Agora engine for broadcast…', { channelName, uid });
 
     const rtc = createAgoraRtcEngine();
     rtcEngineRef.current = rtc;
+
+    // Safety net for the join callback. `onJoinChannelSuccess` is the ONLY thing
+    // that clears the "Starting camera…" spinner, and on iOS it can be dropped:
+    // react-native-agora's module is an RCTEventEmitter whose native events are
+    // gated behind `hasListeners` (set in startObserving), which the new
+    // architecture (newArchEnabled=true / RN bridgeless) does not reliably
+    // trigger. The native SDK *does* join (its own log shows
+    // onJoinChannelSuccess), so fall back to the native ground truth
+    // getConnectionState() and let the broadcast proceed. Without this the
+    // screen is permanently stuck on "Starting camera…".
+    const joinedFallback = setTimeout(() => {
+      if (cancelled || joinedReachedRef.current) return;
+      try {
+        const state = rtc.getConnectionState();
+        // ConnectionStateTypeConnected === 3
+        if (state === 3) {
+          console.log('⚠️ onJoinChannelSuccess not received; getConnectionState() says connected');
+          joinedReachedRef.current = true;
+          setJoined(true);
+          setStatusMessage('');
+          return;
+        }
+      } catch (e) {
+        console.warn('getConnectionState fallback failed', e);
+      }
+      if (!cancelled) {
+        setStatusMessage('Still connecting to the live stream…');
+      }
+    }, 5000);
 
     try {
       rtc.initialize({
@@ -310,6 +351,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     rtc.registerEventHandler({
       onJoinChannelSuccess: () => {
         if (cancelled) return;
+        joinedReachedRef.current = true;
         console.log('✅ Joined Channel as Broadcaster');
         try {
           rtc.enableLocalVideo(true);
@@ -323,7 +365,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       onLocalVideoStateChanged: (source, state, reason) => {
         console.log('📹 Local video state:', { source, state, reason });
         if (state === 3) {
-          setStatusMessage(`Camera error (${reason})`);
+          // LocalVideoStreamStateFailed with
+          // LocalVideoStreamReasonDeviceNotFound (8): there is no camera to
+          // capture from — always the case on the iOS Simulator, which ships
+          // no camera device. That is NOT a reason to block the broadcast:
+          // audio publishing and channel presence are unaffected, so carry on
+          // and surface it as a non-blocking notice instead of dying on a
+          // "Starting camera…" spinner that never clears.
+          setStatusMessage(
+            reason === 8
+              ? 'No camera on this device — streaming audio only'
+              : `Camera unavailable (${reason}) — streaming audio only`,
+          );
         }
       },
       onTokenPrivilegeWillExpire: () => fetchTokenAndRejoin(),
@@ -383,6 +436,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
     return () => {
       cancelled = true;
+      clearTimeout(joinedFallback);
       console.log('🧹 Leaving live channel (keep Agora engine)');
       setEngineReady(false);
       setJoined(false);
@@ -438,27 +492,74 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
   }, [sessionId]);
 
-  // Effect for fetching comments
+  // Effect for fetching comments. The 10s poll is a FALLBACK: realtime pushes
+  // inserts/edits/deletes (including the end-of-session purge) and the poll only
+  // covers a dead socket. Both paths MERGE through realtimeLiveComments helpers:
+  // they must agree, since either can fire first.
   useEffect(() => {
     if (!sessionId) return;
 
     let active = true;
     let pollTimer = null;
+    let unsubscribe = null;
 
     const loadComments = async () => {
       const res = await getLiveCommentsApi(sessionId);
       if (!active) return;
       if (res.success) {
-        setComments(res.comments || []);
+        // Server is authoritative: this is also how a delete or the end-of-session
+        // purge reaches the UI. A just-sent local row newer than everything the
+        // server returned is kept (its write predates this response).
+        const server = res.comments || [];
+        setComments((prev) => mergeLiveCommentsFromServer(prev, server));
       }
+    };
+
+    const applyInsert = (payload) => {
+      if (!active) return;
+      const row = normalizeLiveCommentRow(payload?.new || {});
+      if (!row.id) return;
+      setComments((prev) => mergeLiveComment(prev, row));
+    };
+
+    const applyUpdate = (payload) => {
+      if (!active) return;
+      const row = normalizeLiveCommentRow(payload?.new || {});
+      if (!row.id) return;
+      setComments((prev) => mergeLiveCommentUpdate(prev, row));
+    };
+
+    // A comment that is gone (single delete, or the bulk purge on `ended`).
+    // Resync rather than guessing: the purge removes every row for the session.
+    const applyDelete = () => {
+      if (!active) return;
+      loadComments();
     };
 
     loadComments();
     pollTimer = setInterval(loadComments, 10000);
 
+    subscribeToLiveComments(sessionId, {
+      onInsert: applyInsert,
+      onUpdate: applyUpdate,
+      onDelete: applyDelete,
+    })
+      .then((unsub) => {
+        if (!active) {
+          unsub?.().catch(() => {});
+          return;
+        }
+        unsubscribe = unsub;
+      })
+      .catch((err) => {
+        // Realtime unavailable (offline, token mint failed): the poll carries it.
+        console.warn('live comments realtime unavailable:', err?.message || err);
+      });
+
     return () => {
       active = false;
       if (pollTimer) clearInterval(pollTimer);
+      if (unsubscribe) unsubscribe().catch(() => {});
     };
   }, [sessionId]);
 
@@ -527,14 +628,49 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     setNewComment(''); // Clear input after sending
     setEditingComment(null); // Clear editing state
 
+    // Optimistic: show the comment the instant send is tapped. The id is
+    // generated HERE and sent to the server, so the same row comes back over
+    // Realtime/the poll and merges in place instead of duplicating.
+    if (editingComment) {
+      const optimistic = {
+        ...editingComment,
+        message: commentToSend,
+        pending: true,
+      };
+      setComments((prev) => mergeLiveCommentUpdate(prev, optimistic));
+      try {
+        await updateLiveCommentApi({ sessionId, commentId: editingComment.id, message: commentToSend });
+      } catch (error) {
+        console.error('Error editing comment:', error);
+      }
+      return;
+    }
+
+    const pendingComment = createPendingLiveComment({
+      message: commentToSend,
+      name: userName,
+      avatar: userAvatar,
+      uid: userId,
+    });
+    setComments((prev) => mergeLiveComment(prev, pendingComment));
+
     try {
-      if (editingComment) {
-          await updateLiveCommentApi({ sessionId, commentId: editingComment.id, message: commentToSend });
-      } else {
-          await addLiveCommentApi({ sessionId, message: commentToSend, name: userName, avatar: userAvatar });
+      const res = await addLiveCommentApi({
+        sessionId,
+        id: pendingComment.id,
+        message: commentToSend,
+        name: userName,
+        avatar: userAvatar,
+      });
+      if (!res.success) {
+        // The write failed: drop the optimistic row so the chat doesn't show a
+        // comment no one else can see.
+        console.error('Error sending comment:', res.error);
+        setComments((prev) => prev.filter((c) => c.id !== pendingComment.id));
       }
     } catch (error) {
       console.error('Error sending comment:', error);
+      setComments((prev) => prev.filter((c) => c.id !== pendingComment.id));
     }
   };
 
