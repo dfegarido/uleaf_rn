@@ -277,8 +277,7 @@ const LiveSellerStrip = ({ navigation }) => {
                   return;
                 }
                 if (stream.status === 'draft') {
-                  const time = formatScheduledTime(stream.scheduledAt);
-                  Alert.alert('Upcoming Live', `This live is scheduled for ${time}. Come back then!`);
+                  Alert.alert('Live Starting Soon', "The broadcaster hasn't started the live yet. Please check back shortly!");
                   return;
                 }
                 navigation.navigate(
