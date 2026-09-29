@@ -10,6 +10,7 @@ import { View,
   Animated,
   Dimensions,
   Alert,
+  Keyboard,
   Platform,
   TextInput,
 } from 'react-native';
@@ -59,6 +60,7 @@ const OrderDetailsModal = ({
   const [isActive, setIsActive] = useState(event?.status === 'active' || event?.isActive !== false);
   const [inactiveNote, setInactiveNote] = useState(event?.inactiveNote || '');
   const [showNoteInput, setShowNoteInput] = useState(false);
+  const [keyboardPad, setKeyboardPad] = useState(0);
   const FlagComponent = getCountryFlag(event?.countries?.[0] || 'TH');
   
   // Animation values
@@ -106,6 +108,19 @@ const OrderDetailsModal = ({
       ]).start();
     }
   }, [visible]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, event => {
+      setKeyboardPad(event.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardPad(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleClose = () => {
     Animated.parallel([
@@ -382,6 +397,7 @@ const OrderDetailsModal = ({
             styles.modalContent,
             {
               transform: [{ translateY: slideAnim }],
+              marginBottom: keyboardPad,
             }
           ]}
         >
@@ -452,6 +468,7 @@ const OrderDetailsModal = ({
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
+                  underlineColorAndroid="transparent"
                 />
                 <View style={styles.noteButtonsContainer}>
                   <TouchableOpacity 
@@ -1534,15 +1551,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noteInput: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
     color: '#202325',
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#CDD3D4',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     minHeight: 80,
     marginBottom: 12,
   },
