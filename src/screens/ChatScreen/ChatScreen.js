@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Timestamp } from 'firebase/firestore';
 import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated, ScrollView } from 'react-native';
+import { AppState, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
@@ -110,6 +110,40 @@ const INITIAL_MESSAGES_LIMIT = 20;
 const PAGINATION_LIMIT = 20;
 const REALTIME_WINDOW_LIMIT = 80;
 
+/**
+ * Presence freshness window. Activity is decided by `lastseen` freshness alone — a
+ * user is active while seen within the last 5 minutes. The stored `isOnline` column is
+ * deliberately NOT part of this rule: it is sticky true after a force-quit, so including
+ * it (`isOnline || fresh`) is exactly the bug that stranded a gone user as "Active now".
+ */
+const PRESENCE_ACTIVE_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Human label for a 1:1 peer's presence.
+ *
+ * `lastSeenMs` is a tri-state, because "we have not looked yet" and "we looked and
+ * there is no row" must not render the same:
+ *   undefined -> poll has not resolved yet  => render nothing (never guess)
+ *   null      -> resolved, no presence row  => "Offline"
+ *   number    -> epoch ms of chat_presence.lastseen
+ *
+ * The previous implementation hardcoded "Active now" for every 1:1 header, so the
+ * label is now derived from real data and never asserts activity without evidence.
+ */
+const formatPeerPresenceLabel = (lastSeenMs) => {
+  if (lastSeenMs === undefined) return '';
+  if (lastSeenMs === null || !Number.isFinite(lastSeenMs) || lastSeenMs <= 0) return 'Offline';
+  const elapsed = Date.now() - lastSeenMs;
+  if (elapsed < PRESENCE_ACTIVE_WINDOW_MS) return 'Active now';
+  const minutes = Math.floor(elapsed / 60000);
+  if (minutes < 60) return `Active ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Active ${days}d ago`;
+  return `Active ${new Date(lastSeenMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+};
+
 // Normalize a message from the Edge Function (camelCase, ISO timestamps) into the
 // Firestore-Timestamp-like shape ChatScreen already consumes (.toDate/.toMillis).
 const toFirestoreTimestamp = (value) => {
@@ -171,7 +205,6 @@ const normalizeRealtimeMessage = (row) => {
 const REPLY_CONTEXT_NEWER_LIMIT = 15;
 const REPLY_CONTEXT_OLDER_LIMIT = 10;
 const PROFILE_CACHE_DAYS = CACHE_CONFIGS.PROFILE_IMAGES.expiryDays;
-import { useUserPresence } from '../../hooks/useUserPresence';
 
 // Reply Icon SVG Component - Curved arrow pointing left
 const ReplyIcon = ({ width = 24, height = 24, color = '#FFFFFF' }) => (
@@ -272,8 +305,10 @@ const ChatScreen = ({navigation, route}) => {
   // Handle admin API response: userInfo.data.uid, regular nested: userInfo.user.uid, or flat: userInfo.uid
   const currentUserUid = userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
   
-  // Track current user's presence (must be after currentUserUid is defined)
-  useUserPresence(currentUserUid);
+  // Presence is tracked app-wide in App.js (NotificationBootstrapper), NOT here.
+  // Keeping it here would mean leaving a chat writes isOnline=false while the rest of
+  // the app is still in use, and anyone not inside a conversation would read as
+  // offline. This screen only READS presence (see the poll below).
   
   // Check if current user is a buyer (only buyers can request to join public groups)
   const isBuyer =
@@ -399,6 +434,15 @@ const ChatScreen = ({navigation, route}) => {
   // Active members tracking
   const [activeMembers, setActiveMembers] = useState(0);
   const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  // Raw lastSeen (ms) of the 1:1 peer. Tri-state by design:
+  //   undefined = not polled yet (render nothing), null = no presence row / poll failed
+  //   (render "Offline"), number = real lastseen. Group chats use the count instead.
+  const [peerLastSeenMs, setPeerLastSeenMs] = useState(undefined);
+
+  // Private-chat header presence, read from `chat_presence` by the effect below.
+  // Group chats keep their existing "N active" render and do not use this.
+  const isPeerActive = typeof peerLastSeenMs === 'number' && onlineUserIds.has(otherParticipantUid);
+  const peerPresenceLabel = formatPeerPresenceLabel(peerLastSeenMs);
   
   // Default avatar for fallback
   const DefaultAvatar = require('../../assets/images/AvatarBig.png');
@@ -656,10 +700,18 @@ const ChatScreen = ({navigation, route}) => {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Track active/online members in group chat
+  // Track presence for the current conversation.
+  //
+  // Group chats and 1:1 conversations need the SAME presence data, so this effect
+  // is no longer gated on `chatType === 'group'`. Private chats previously rendered a
+  // hardcoded "Active now" in the header that was never wired to `chat_presence`,
+  // so a 1:1 thread claimed the other person was active even when they had not opened
+  // the app in weeks. It now resolves the peer against the same table and renders the
+  // real state ("Active now" / "Active 12m ago" / "Active 3h ago" / "Offline").
   useEffect(() => {
-    if (chatType !== 'group' || !id || participants.length === 0) {
+    if (!id || participants.length === 0) {
       setActiveMembers(0);
+      setPeerLastSeenMs(undefined);
       return;
     }
 
@@ -674,7 +726,9 @@ const ChatScreen = ({navigation, route}) => {
     const MAX_TRACKED_GROUP_MEMBERS = 200;
     const targetUids = participantUids.slice(0, MAX_TRACKED_GROUP_MEMBERS);
     const presenceByUid = new Map();
-    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    // Raw lastSeen per uid, kept alongside the boolean so the 1:1 subtitle can show
+    // "Active 12m ago" rather than only online/offline.
+    const rawLastSeenByUid = new Map();
     const PRESENCE_POLL_MS = 60000;
 
     // The endpoint caps at 100 uids per call.
@@ -688,16 +742,24 @@ const ChatScreen = ({navigation, route}) => {
       );
       setOnlineUserIds(onlineUsers);
       setActiveMembers(onlineUsers.size);
+      // 1:1 threads have exactly one peer; surface their lastSeen so the subtitle can
+      // report real activity instead of the old hardcoded "Active now".
+      setPeerLastSeenMs(rawLastSeenByUid.get(otherParticipantUid) ?? null);
     };
 
     const pollPresence = async () => {
       if (cancelled || targetUids.length === 0) return;
       try {
         const token = await getStoredAuthToken();
-        const fiveMinutesAgo = Date.now() - FIVE_MINUTES_MS;
+        const fiveMinutesAgo = Date.now() - PRESENCE_ACTIVE_WINDOW_MS;
 
         // Reset before applying, so a user who dropped out of the window flips off.
         targetUids.forEach(uid => presenceByUid.set(uid, false));
+        rawLastSeenByUid.clear();
+
+        // A partial failure must not be reported as "everyone offline": if any chunk
+        // fails we skip the state write entirely and keep the last known-good values.
+        let failed = false;
 
         for (let i = 0; i < targetUids.length; i += CHUNK_SIZE) {
           const chunkUids = targetUids.slice(i, i + CHUNK_SIZE);
@@ -706,17 +768,26 @@ const ChatScreen = ({navigation, route}) => {
             `${API_ENDPOINTS.CHAT_PRESENCE}?uids=${encodeURIComponent(chunkUids.join(','))}`,
             { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } },
           );
-          if (!res.ok) continue;
+          if (!res.ok) {
+            failed = true;
+            continue;
+          }
           const json = await res.json();
           const rows = Array.isArray(json?.data) ? json.data : [];
           for (const row of rows) {
             if (!row?.uid) continue;
             const lastSeenMs = row.lastSeen ? new Date(row.lastSeen).getTime() : 0;
-            const isRecentlyActive = lastSeenMs > fiveMinutesAgo;
-            presenceByUid.set(row.uid, Boolean(row.isOnline || isRecentlyActive));
+            if (Number.isFinite(lastSeenMs) && lastSeenMs > 0) {
+              rawLastSeenByUid.set(row.uid, lastSeenMs);
+            }
+            // Freshness is authoritative. The server now derives isOnline from lastseen,
+            // but the raw `isOnline` flag is deliberately NOT trusted here either: it is
+            // sticky-true after a force-quit (AppState never fires), and an older server
+            // build still returns the stored column.
+            presenceByUid.set(row.uid, lastSeenMs > fiveMinutesAgo);
           }
         }
-        if (!cancelled) recomputeActiveMembers();
+        if (!cancelled && !failed) recomputeActiveMembers();
       } catch (error) {
         console.log('Presence poll error:', error.message);
       }
@@ -725,12 +796,20 @@ const ChatScreen = ({navigation, route}) => {
     pollPresence();
     const presenceInterval = setInterval(pollPresence, PRESENCE_POLL_MS);
 
+    // Re-poll the instant we come back to the foreground instead of waiting out the
+    // rest of the 60s interval — otherwise a peer who just went offline still reads
+    // as active for up to a minute after the buyer reopens the app.
+    const appStateSub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') pollPresence();
+    });
+
     // Cleanup
     return () => {
       cancelled = true;
       clearInterval(presenceInterval);
+      appStateSub.remove();
     };
-  }, [chatType, id, participants, currentUserUid]);
+  }, [chatType, id, participants, currentUserUid, otherParticipantUid]);
 
   // Animate plant rotation when finding message
   useEffect(() => {
@@ -2335,7 +2414,14 @@ const ChatScreen = ({navigation, route}) => {
             ) : (
               <View style={styles.userInfoText}>
                 <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{participantDataMap[otherParticipantUid]?.name || otherParticipant?.name || name || 'Chat'}</Text>
-                <Text style={styles.subtitle}>Active now</Text>
+                {!peerPresenceLabel ? null : isPeerActive ? (
+                  <View style={styles.subtitleRow}>
+                    <View style={styles.activeIndicatorDotSmall} />
+                    <Text style={styles.activeIndicatorText}>{peerPresenceLabel}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.subtitle}>{peerPresenceLabel}</Text>
+                )}
               </View>
             )}
           </TouchableOpacity>
@@ -2922,6 +3008,12 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.6,
     shadowRadius: 4,
+  },
+  activeIndicatorDotSmall: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#34C759',
   },
   activeIndicatorText: {
     fontSize: 12,

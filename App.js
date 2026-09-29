@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Ensure Firebase is initialized before providers mount
 import './firebase';
 import { AuthProvider, useAuth } from './src/auth/AuthProvider';
+import { useUserPresence } from './src/hooks/useUserPresence';
 import { getGenusApi, getVariegationApi } from './src/components/Api/dropdownApi';
 import AppNavigation from './src/components/AppNavigation';
 import { FilterProvider } from './src/context/FilterContext';
@@ -71,6 +72,15 @@ const App = () => {
 // and run NotificationService.init / requestPermissionAndRegister / dispose.
 const NotificationBootstrapper = ({ children }) => {
   const { isLoggedIn, userInfo } = useAuth();
+
+  // Presence must be tracked for as long as the user is signed in, not only while a
+  // chat is open. It previously lived inside ChatScreen, so everyone appeared offline
+  // unless they happened to be reading a conversation — which made the 1:1 header
+  // ("Active now") and the group member count both meaningless. Mounted here it
+  // covers the whole signed-in session and still flips offline on background/logout.
+  const currentUserUid =
+    userInfo?.data?.uid || userInfo?.user?.uid || userInfo?.uid || '';
+  useUserPresence(isLoggedIn ? currentUserUid : '');
 
   useEffect(() => {
     NotificationService.init(null, {
