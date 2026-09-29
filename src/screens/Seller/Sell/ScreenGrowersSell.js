@@ -166,7 +166,6 @@ const ScreenGrowersSell = ({navigation, route}) => {
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length == 0 ? true : false,
     // );
-    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
   };

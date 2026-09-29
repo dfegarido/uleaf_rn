@@ -149,7 +149,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length == 0 ? true : false,
     // );
-    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
   };

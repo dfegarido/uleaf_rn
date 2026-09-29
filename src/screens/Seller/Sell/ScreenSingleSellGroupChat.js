@@ -154,7 +154,6 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
       console.log('✅ Using cached variegation data for:', genus, species);
       setSelectedVariegation('');
       let localVariegationData = cached.data;
-      setSelectedVariegation(cached.data[0]);
       setDropdownOptionVariegation(localVariegationData);
       return;
     }
@@ -179,7 +178,6 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
     // setdropdownVariegationDisable(
     //   getVariegationApiData.data.length != 0 ? true : false,
     // );
-    setSelectedVariegation(localVariegationData[0]);
     // Set options
     setDropdownOptionVariegation(localVariegationData);
     // Cache the response for 10 minutes
