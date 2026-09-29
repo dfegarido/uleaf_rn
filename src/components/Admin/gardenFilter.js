@@ -64,6 +64,7 @@ const GardenFilter = ({
   gardens,
   gardenCounts = {},
   fetchFullGardenList,
+  onCountsFetched = null,
   currentGarden = null,
   selectedValues,
   gardensLoading = false,
@@ -106,8 +107,16 @@ const GardenFilter = ({
       // if available to ensure the fetched gardens match the Listings
       // Viewer table. Otherwise fall back to the legacy admin leaf-trail API.
       let payload = [];
+      let counts = null;
       if (typeof fetchFullGardenList === 'function') {
-        payload = await fetchFullGardenList();
+        const res = await fetchFullGardenList();
+        // Accept either a plain array (gardens only) or {gardens, counts}.
+        if (Array.isArray(res)) {
+          payload = res;
+        } else if (res && typeof res === 'object') {
+          payload = res.gardens || [];
+          counts = res.counts || null;
+        }
       } else {
         try {
           const res = await getAdminLeafTrailFilters(null, { lite: true });
@@ -118,6 +127,11 @@ const GardenFilter = ({
           console.warn('API call failed, using current gardens only:', apiError?.message || apiError);
           payload = [];
         }
+      }
+      // Surface full-result garden counts when the provider supplies them, so
+      // the modal shows accurate totals without a separate count request.
+      if (counts && typeof onCountsFetched === 'function') {
+        onCountsFetched(counts);
       }
     const mapped = Array.isArray(payload) ? payload.map(g => (typeof g === 'string' ? g : (g.name || g.garden || String(g)))) : [];
     // Normalize, clean results: remove falsy values and placeholder 'N/A'
@@ -177,8 +191,15 @@ const GardenFilter = ({
   const fetchAndMergeToFill = async () => {
     try {
       let payload = [];
+      let counts = null;
       if (typeof fetchFullGardenList === 'function') {
-        payload = await fetchFullGardenList();
+        const res = await fetchFullGardenList();
+        if (Array.isArray(res)) {
+          payload = res;
+        } else if (res && typeof res === 'object') {
+          payload = res.gardens || [];
+          counts = res.counts || null;
+        }
       } else {
         try {
           const res = await getAdminLeafTrailFilters(null, { lite: true });
@@ -189,6 +210,9 @@ const GardenFilter = ({
           console.warn('fetchAndMergeToFill API call failed, using current gardens only:', apiError?.message || apiError);
           payload = [];
         }
+      }
+      if (counts && typeof onCountsFetched === 'function') {
+        onCountsFetched(counts);
       }
   const mapped = Array.isArray(payload) ? payload.map(g => (typeof g === 'string' ? g : (g.name || g.garden || String(g)))) : [];
   const cleaned = mapped.map(m => normalizeGardenName(m)).filter(Boolean).filter(m => m !== 'N/A');

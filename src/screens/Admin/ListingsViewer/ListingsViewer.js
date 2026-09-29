@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View,
   Text,
   ScrollView,
@@ -44,6 +44,29 @@ import { postListingActivateActionApi } from '../../../components/Api/postListin
 import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
 import { adminPushListingsToCartApi } from '../../../components/Api/adminPushListingsToCartApi';
 
+// Module-level so the identity is stable across renders. Rebuilding these
+// inside the component gave every memoized row a new `columns` prop on each
+// parent render, defeating the memoization.
+const TABLE_COLUMNS = [
+  { key: 'image', label: 'Image', width: IMAGE_CELL_WIDTH },
+  { key: 'code', label: 'Code + Status', width: 120 },
+  { key: 'name', label: 'Name', width: 200 },
+  { key: 'listingType', label: 'Listing Type', width: 140 },
+  { key: 'size', label: 'Size', width: 90 },
+  { key: 'quantity', label: 'Quantity', width: 100 },
+  { key: 'localPrice', label: 'Local Price', width: 120 },
+  { key: 'usdPrice', label: 'USD Price', width: 120 },
+  { key: 'discount', label: 'Discount', width: 120 },
+  { key: 'garden', label: 'Garden', width: 200 },
+  { key: 'country', label: 'Country', width: 100 },
+  { key: 'shippingIndex', label: 'Shipping Index', width: 120 },
+  { key: 'acclimationIndex', label: 'Acclimation Index', width: 120 },
+  { key: 'action', label: 'Action', width: 100 },
+];
+
+// Header/row alignment columns (everything except the leading image cell).
+const FILTERED_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'image');
+
 const ListingsViewer = ({ navigation }) => {
   // Normalize garden/seller names to reduce mismatches (curly quotes, extra spaces)
   const normalizeGardenName = (s) => {
@@ -72,6 +95,8 @@ const ListingsViewer = ({ navigation }) => {
   const [sortModalVisible, setSortModalVisible] = useState(false);
   // Status modal state
   const [statusModalVisible, setStatusModalVisible] = useState(false);
+  // Local draft for status selections inside the modal. Commit on View so
+  // toggling checkboxes does not re-run loadListings on every tap.
   const [statusDraft, setStatusDraft] = useState([]);
     // Genus modal state
     const [genusModalVisible, setGenusModalVisible] = useState(false);
@@ -176,29 +201,17 @@ const ListingsViewer = ({ navigation }) => {
   ];
 
   // Table columns configuration
-  const tableColumns = [
-  { key: 'image', label: 'Image', width: IMAGE_CELL_WIDTH },
-    { key: 'code', label: 'Code + Status', width: 120 },
-    { key: 'name', label: 'Name', width: 200 },
-    { key: 'listingType', label: 'Listing Type', width: 140 },
-    { key: 'size', label: 'Size', width: 90 },
-    { key: 'quantity', label: 'Quantity', width: 100 },
-    { key: 'localPrice', label: 'Local Price', width: 120 },
-  { key: 'usdPrice', label: 'USD Price', width: 120 },
-  { key: 'discount', label: 'Discount', width: 120 },
-  { key: 'garden', label: 'Garden', width: 200 },
-    { key: 'country', label: 'Country', width: 100 },
-    { key: 'shippingIndex', label: 'Shipping Index', width: 120 },
-    { key: 'acclimationIndex', label: 'Acclimation Index', width: 120 },
-    { key: 'action', label: 'Action', width: 100 },
-  ];
+  const tableColumns = TABLE_COLUMNS;
 
   useEffect(() => {
     loadListings();
   }, [selectedBadgeFilter, selectedFilters, pagination.currentPage]);
 
   // Use a columns array without 'image' for header/rows alignment
-  const filteredColumns = tableColumns.filter(c => c.key !== 'image');
+  // Stable across renders so memoized rows keep referential-equality on props.
+  // tableColumns is a literal rebuilt each render, so derive from a module
+  // constant rather than memoizing on an unstable dependency.
+  const filteredColumns = FILTERED_COLUMNS;
 
   const loadListings = async (opts = {}) => {
     try {
@@ -296,133 +309,27 @@ const ListingsViewer = ({ navigation }) => {
         // current page and could cause incorrect ordering. The backend's global sort is the source of truth.
 
         setListings(pageListings);
-        // Compute garden counts from ALL listings matching current filters (excluding garden filter)
-        // This ensures accurate counts that match the total listings for each garden
-        // Fire-and-forget: fetch all listings with current filters (excluding garden) to calculate accurate counts
-        (async () => {
-          try {
-            // Build filters excluding garden filter to get all listings for accurate counts
-            const countFilters = {
-              sort: selectedFilters.sort || undefined,
-              status: selectedFilters.status || undefined,
-              genus: selectedFilters.genus || undefined,
-              variegation: selectedFilters.variegation || undefined,
-              listingType: selectedFilters.listingType || undefined,
-              // Exclude garden filter to get counts for all gardens
-              // garden: undefined,
-              country: selectedFilters.country || undefined,
-              shippingIndex: selectedFilters.shippingIndex || undefined,
-              acclimationIndex: selectedFilters.acclimationIndex || undefined,
-              search: isSearching ? searchTerm : undefined,
-              page: 1,
-              limit: 1000, // Fetch up to 1000 listings to calculate counts
-            };
-
-            // Add badge filter mappings
-            if (selectedBadgeFilter) {
-              switch (selectedBadgeFilter) {
-                case 'latest':
-                  countFilters.sort = 'latest';
-                  break;
-                case 'below20':
-                  countFilters.priceMax = 20;
-                  break;
-                case 'unicorn':
-                  countFilters.rarity = 'unicorn';
-                  break;
-                case 'wishlist':
-                  countFilters.isWishlist = true;
-                  break;
-                case 'sellers-fave':
-                  countFilters.isSellersFave = true;
-                  break;
-              }
-            }
-
-            const countResponse = await getAdminListingsApi(countFilters);
-            if (countResponse && countResponse.success) {
-              const extractListingsFromResponse = (respData) => {
-                if (!respData) return [];
-                if (Array.isArray(respData)) return respData;
-                if (Array.isArray(respData.listings)) return respData.listings;
-                if (Array.isArray(respData.data)) return respData.data;
-                if (Array.isArray(respData.data?.listings)) return respData.data.listings;
-                if (Array.isArray(respData?.data?.data?.listings)) return respData.data.data.listings;
-                if (Array.isArray(respData.list)) return respData.list;
-                return [];
-              };
-
-              const allListingsForCounts = extractListingsFromResponse(countResponse.data) || [];
-              const counts = {};
-              (allListingsForCounts || []).forEach(l => {
-                // Prioritize sellerName from listing collection
-                const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
-                const key = raw ? normalizeGardenName(raw) : null;
-                if (!key) return;
-                counts[key] = (counts[key] || 0) + 1;
-              });
-              setGardenCounts(counts);
-            } else {
-              // Fallback: use current page counts if full fetch fails
-              const counts = {};
-              (pageListings || []).forEach(l => {
-                const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
-                const key = raw ? normalizeGardenName(raw) : null;
-                if (!key) return;
-                counts[key] = (counts[key] || 0) + 1;
-              });
-              setGardenCounts(counts);
-            }
-          } catch (e) {
-            console.warn('Failed to compute gardenCounts from all listings', e?.message || e);
-            // Fallback: use current page counts
-            try {
-              const counts = {};
-              (pageListings || []).forEach(l => {
-                const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
-                const key = raw ? normalizeGardenName(raw) : null;
-                if (!key) return;
-                counts[key] = (counts[key] || 0) + 1;
-              });
-              setGardenCounts(counts);
-            } catch (fallbackError) {
-              console.warn('Failed to compute gardenCounts fallback', fallbackError?.message || fallbackError);
-            }
-          }
-        })();
-        // Build garden options from the current page listings so the Garden
-        // filter modal shows the gardens actually present in the listing set.
-        // Prioritize sellerName from listing collection as the primary source.
+        // Derive garden counts and garden options from the page we already
+        // fetched. Both previously triggered their own limit:1000 request on
+        // every page load (two extra full result-set fetches per load); the
+        // Garden modal refreshes the full garden list itself on open/View More
+        // via fetchFullGardenList, so the eager enrichment was redundant.
         try {
-          const gardens = Array.isArray(pageListings) ? pageListings.map(l => {
-            // Use sellerName first (from listing collection), then fallback to other fields
+          const counts = {};
+          const gardens = [];
+          (Array.isArray(pageListings) ? pageListings : []).forEach(l => {
+            // Prioritize sellerName from listing collection
             const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
-            return raw ? normalizeGardenName(raw) : null;
-          }).filter(Boolean) : [];
-          // de-duplicate and sort for stable UI
+            const key = raw ? normalizeGardenName(raw) : null;
+            if (!key) return;
+            counts[key] = (counts[key] || 0) + 1;
+            gardens.push(key);
+          });
+          setGardenCounts(counts);
           const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
           setGardenOptionsState(uniqueGardens);
-          if (uniqueGardens.length === 0) {
-            // Keep previous behavior: empty state handled by GardenFilter component
-          }
-          // Fire-and-forget: try to enrich garden options using the full filtered
-          // result set so the Garden modal shows all gardens matching current filters.
-          (async () => {
-            try {
-              const full = await fetchFullGardenList();
-              if (Array.isArray(full) && full.length > 0) {
-                // merge: keep page-derived uniqueGardens first, then append any
-                // remaining gardens from full (both sets are already normalized)
-                const merged = Array.from(new Set([...uniqueGardens, ...full]));
-                setGardenOptionsState(merged.sort((a, b) => a.localeCompare(b)));
-              }
-            } catch (e) {
-              // ignore enrichment failures
-              // debug log removed
-            }
-          })();
         } catch (e) {
-          console.warn('Failed to derive garden options from listings', e?.message || e);
+          console.warn('Failed to derive garden data from listings', e?.message || e);
         }
         // debug logs removed for performance
         // ensure pagination uses the page we requested when backend doesn't return one
@@ -596,10 +503,38 @@ const ListingsViewer = ({ navigation }) => {
   };
 
   // For ReusableActionSheet
+  // SORT is single-select, so the draft mirrors the sibling filters' shape as a
+  // 0-or-1 element array (that is what the sheet's RadioButton hands back).
+  // Same rule as the other filters: stage while the sheet is open, commit on View.
+  const [sortDraft, setSortDraft] = useState([]);
   const handleSortChange = (sortValue) => {
-    setSelectedFilters((prev) => ({ ...prev, sort: sortValue }));
+    const arr = Array.isArray(sortValue) ? sortValue : (sortValue ? [sortValue] : []);
+    if (sortModalVisible) {
+      setSortDraft(arr);
+    } else {
+      setSelectedFilters((prev) => ({ ...prev, sort: arr.length ? arr[0] : null }));
+    }
   };
+  // Seed the draft when the sheet opens so it reflects the committed selection.
+  useEffect(() => {
+    if (sortModalVisible) {
+      try {
+        setSortDraft(
+          Array.isArray(selectedFilters.sort)
+            ? selectedFilters.sort.slice()
+            : (selectedFilters.sort ? [selectedFilters.sort] : []),
+        );
+      } catch (e) {
+        setSortDraft([]);
+      }
+    }
+  }, [sortModalVisible]);
   const handleSortView = () => {
+    // Commit the draft so loadListings runs once, here, instead of on each selection.
+    setSelectedFilters((prev) => ({
+      ...prev,
+      sort: Array.isArray(sortDraft) && sortDraft.length ? sortDraft[0] : null,
+    }));
     setSortModalVisible(false);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
@@ -621,6 +556,18 @@ const ListingsViewer = ({ navigation }) => {
       setStatusModalVisible(false);
       setPagination((prev) => ({ ...prev, currentPage: 1 }));
     };
+
+  // Initialize status draft when the modal opens so it reflects the currently
+  // committed selection without writing back to selectedFilters while toggling.
+  useEffect(() => {
+    if (statusModalVisible) {
+      try {
+        setStatusDraft(Array.isArray(selectedFilters.status) ? selectedFilters.status.slice() : (selectedFilters.status ? [selectedFilters.status] : []));
+      } catch (e) {
+        setStatusDraft([]);
+      }
+    }
+  }, [statusModalVisible]);
 
   // Genus handlers
   const handleGenusChange = (values) => {
@@ -827,20 +774,24 @@ const ListingsViewer = ({ navigation }) => {
 
       const allListings = extractListingsFromResponse(resp.data) || [];
       // Prioritize sellerName from listing collection as the primary source for garden names
-      const gardens = Array.isArray(allListings) ? allListings.map(l => {
+      const gardens = [];
+      const counts = {};
+      (Array.isArray(allListings) ? allListings : []).forEach(l => {
         // Use sellerName first (from listing collection), then fallback to other fields
         const raw = (l?.sellerName || l?.garden || l?.gardenOrCompanyName || l?.seller || null);
-        return raw ? normalizeGardenName(raw) : null;
-      }).filter(Boolean) : [];
+        const key = raw ? normalizeGardenName(raw) : null;
+        if (!key) return;
+        gardens.push(key);
+        counts[key] = (counts[key] || 0) + 1;
+      });
       const uniqueGardens = Array.from(new Set(gardens)).sort((a, b) => a.localeCompare(b));
-      // Debug: show count and sample of gardens derived from the full listing fetch
-      try {
-  // fetchFullGardenList debug log removed
-      } catch (e) { /* ignore */ }
-      return uniqueGardens;
+      // Return counts alongside the names. Consumers that only want names can
+      // read `.gardens`; counts are derived from the same full result set that
+      // the Garden modal already fetches on open, so no extra request is needed.
+      return { gardens: uniqueGardens, counts };
     } catch (e) {
       console.warn('fetchFullGardenList failed', e?.message || e);
-      return [];
+      return { gardens: [], counts: {} };
     }
   };
 
@@ -1149,14 +1100,17 @@ const ListingsViewer = ({ navigation }) => {
     }
   };
 
-  const handleListingPress = (listing) => {
+  // Stable handler so memoized rows don't re-render on every parent render.
+  // Depends on selectMode because the row invokes onPress unconditionally and
+  // relies on this guard to ignore taps outside selection mode.
+  const handleListingPress = useCallback((listing) => {
     if (!selectMode) return;
     const id = listing.id || listing.plantCode;
     if (!id) return;
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
-  };
+  }, [selectMode]);
 
   const exitSelectMode = () => {
     setSelectMode(false);
@@ -1386,6 +1340,7 @@ const ListingsViewer = ({ navigation }) => {
     switch (filterLabel) {
       case 'Sort':
         setSelectedFilters((prev) => ({ ...prev, sort: null }));
+        setSortDraft([]);
         break;
       case 'Status':
         setSelectedFilters((prev) => ({ ...prev, status: null }));
@@ -1439,13 +1394,14 @@ const ListingsViewer = ({ navigation }) => {
     });
     
     // Reset all draft states
-    setStatusDraft([]);
+    setSortDraft([]);
     setGenusDraft([]);
     setVariegationDraft([]);
     setListingTypeDraft([]);
     setCountryDraft([]);
     setShippingIndexDraft([]);
     setAcclimationIndexDraft([]);
+    setStatusDraft([]);
     
     // Reset badge filter
     setSelectedBadgeFilter(null);
@@ -1632,8 +1588,10 @@ const ListingsViewer = ({ navigation }) => {
 
   return (
     <SafeAreaProvider>
-      {/* include bottom edge so pagination controls sit above device nav/gesture area */}
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* 'top' is intentionally excluded: ScreenHeader applies the status-bar
+          inset itself via getAdminHeaderTopPadding, so including it here
+          double-counts the inset and pushes the title down. */}
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         {/* Header */}
         <ScreenHeader
           navigation={navigation}
@@ -1725,7 +1683,7 @@ const ListingsViewer = ({ navigation }) => {
           visible={sortModalVisible}
           onClose={() => setSortModalVisible(false)}
           sortOptions={adminSortOptions}
-          sortValue={selectedFilters.sort}
+          sortValue={sortModalVisible ? (sortDraft.length ? sortDraft[0] : null) : selectedFilters.sort}
           sortChange={handleSortChange}
           handleSearchSubmit={handleSortView}
           clearFilters={() => handleResetFilter('Sort')}
@@ -1790,6 +1748,7 @@ const ListingsViewer = ({ navigation }) => {
             gardens={gardenOptionsState}
             gardenCounts={gardenCounts}
             fetchFullGardenList={fetchFullGardenList}
+            onCountsFetched={setGardenCounts}
             currentGarden={selectedFilters.garden}
           />
           {/* Country Modal (reuse shared ActionSheet) */}
@@ -1866,25 +1825,29 @@ const ListingsViewer = ({ navigation }) => {
             ) : listings.length === 0 ? (
               <EmptyState message="No listings found" />
             ) : (
-                  <ScrollView
+                  <FlatList
+                    data={listings}
+                    keyExtractor={(item, idx) => String(item.id || item.plantCode || idx)}
                     style={styles.tableContent}
                     contentContainerStyle={styles.tableContentContainer}
                     nestedScrollEnabled={true}
-                  >
-                    {listings.map((listing) => (
+                    renderItem={({ item }) => (
                       <ListingRow
-                        key={listing.id}
-                        listing={listing}
+                        listing={item}
                         onPress={handleListingPress}
                         columns={filteredColumns}
                         onToggleStatus={handleToggleStatus}
-                        isProcessing={!!activatingPlantCodes[listing.plantCode]}
+                        isProcessing={!!activatingPlantCodes[item.plantCode]}
                         activeStatusFilter={selectedFilters.status}
                         selectMode={selectMode}
-                        selected={selectedIds.includes(listing.id || listing.plantCode)}
+                        selected={selectedIds.includes(item.id || item.plantCode)}
                       />
-                    ))}
-                  </ScrollView>
+                    )}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    removeClippedSubviews={true}
+                  />
                 )}
           </View>
         </ScrollView>

@@ -1,6 +1,6 @@
 import AppImage from '../../../components/AppImage/AppImage';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, memo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
@@ -462,4 +462,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ListingRow;
+// Rows are rendered 50-per-page; memoizing keeps parent state changes (filter
+// toggles, selection, image load) from re-rendering every mounted row.
+export default memo(ListingRow);
