@@ -9,7 +9,50 @@ import PlusIcon from '../../../assets/icons/greylight/plus-regular.svg';
 import EditIcon from '../../../assets/admin-icons/edit.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
+import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
+import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
+import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import UserCardSkeleton from './UserCardSkeleton';
+
+const US_STATES = new Set([
+  'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut',
+  'delaware', 'florida', 'georgia', 'hawaii', 'idaho', 'illinois', 'indiana', 'iowa',
+  'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan',
+  'minnesota', 'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire',
+  'new jersey', 'new mexico', 'new york', 'north carolina', 'north dakota', 'ohio',
+  'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota',
+  'tennessee', 'texas', 'utah', 'vermont', 'virginia', 'washington', 'west virginia',
+  'wisconsin', 'wyoming', 'district of columbia',
+  'al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 'id', 'il', 'in', 'ia',
+  'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj',
+  'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt',
+  'va', 'wa', 'wv', 'wi', 'wy', 'dc',
+]);
+
+const countryCodeOf = country => {
+  const value = String(country || '').trim().toLowerCase();
+  if (!value) return '';
+  if (value === 'us' || value === 'usa' || value.includes('united state')) return 'US';
+  if (value === 'ph' || value.includes('philippine')) return 'PH';
+  if (value === 'th' || value.includes('thai')) return 'TH';
+  if (value === 'id' || value.includes('indonesia')) return 'ID';
+  if (US_STATES.has(value)) return 'US';
+  return '';
+};
+
+const countryCodeForUser = user =>
+  countryCodeOf(user?.country || user?.countryCode) || countryCodeOf(user?.state);
+
+const CountryFlag = ({code}) => {
+  const Icon = code === 'TH' ? ThFlag : code === 'ID' ? IdFlag : code === 'PH' ? PhFlag : code === 'US' ? UsFlag : null;
+  if (!Icon) return null;
+  return (
+    <View style={styles.flagBox}>
+      <Icon width={20} height={20} />
+    </View>
+  );
+};
 
 const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () => {}, onPressRole = () => {} }) => {
   const navigation = useNavigation();
@@ -131,7 +174,8 @@ const UserCard = ({ user, onEdit, onStatusUpdate }) => {
         
         <View style={styles.userDetails}>
           <View style={styles.nameRow}>
-            <Text style={styles.userName}>{user.name}</Text>
+            <CountryFlag code={countryCodeForUser(user)} />
+            <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
             <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">@{user.username}</Text>
           </View>
           
@@ -786,14 +830,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    height: 24,
-    gap: 4,
+    minHeight: 24,
+    gap: 6,
+  },
+  flagBox: {
+    width: 20,
+    height: 20,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   userName: {
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 24,
     color: '#202325',
+    flexShrink: 1,
   },
   username: {
     fontSize: 16,

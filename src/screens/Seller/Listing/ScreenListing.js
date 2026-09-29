@@ -52,7 +52,7 @@ import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
-import LiveListingGrid from './components/LiveListingGrid';
+import LiveListingGrid, {PinkPin} from './components/LiveListingGrid';
 import LiveListingGridSkeleton from './components/LiveListingGridSkeleton';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
@@ -278,8 +278,6 @@ const ScreenListing = ({navigation}) => {
   /** Live tab: batch select mode */
   const [isLiveSelectMode, setIsLiveSelectMode] = useState(false);
   const [liveSelectedIds, setLiveSelectedIds] = useState([]);
-  const [liveSortBy, setLiveSortBy] = useState('sequence');
-  const [liveSortOpen, setLiveSortOpen] = useState(false);
 
   /** Active tab: inline manage / multi-select (same UX pattern as Live tab) */
   const [isActiveSelectMode, setIsActiveSelectMode] = useState(false);
@@ -549,8 +547,16 @@ const ScreenListing = ({navigation}) => {
         }
 
         const fetchId = ++liveFetchIdRef.current;
+        const liveSort =
+          reusableSort === 'Sequence #' ||
+          reusableSort === 'Genus' ||
+          reusableSort === 'Price High to Low' ||
+          reusableSort === 'Price Low to High' ||
+          reusableSort === 'Most Loved'
+            ? reusableSort
+            : 'Sequence #';
         const channelFilters = {
-          sortBy: liveSortBy || 'sequence',
+          sortBy: liveSort,
           genus: reusableGenus,
           variegation: reusableVariegation,
           listingType: reusableListingType,
@@ -1576,6 +1582,29 @@ const ScreenListing = ({navigation}) => {
     }
   };
 
+  const optionsPresentInTab = field => {
+    const rows = allListingsRef.current || [];
+    const tabRows = rows.filter(listing => {
+      const status = String(listing?.status || '').trim();
+      const statusLower = status.toLowerCase();
+      if (activeTab === 'All') return true;
+      if (activeTab === 'Live') return status === 'Live';
+      if (activeTab === 'Active') return statusLower === 'active';
+      if (activeTab === 'Group Chat Listing') return status === 'GroupChatListing';
+      if (activeTab === 'Inactive') return statusLower === 'inactive';
+      return statusLower === String(activeTab || '').trim().toLowerCase();
+    });
+    const names = new Set();
+    tabRows.forEach(listing => {
+      const raw = field === 'genus' ? listing?.genus : listing?.variegation || listing?.mutation;
+      const name = String(raw || '').trim();
+      if (name) names.add(name);
+    });
+    return [...names]
+      .sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}))
+      .map(name => ({label: name, value: name}));
+  };
+
   // Delete Item
   const onPressDelete = () => {
     const item = selectedItemStockUpdate;
@@ -2197,18 +2226,6 @@ const ScreenListing = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View>
-        {showB2bUsdBanner ? (
-          <TouchableOpacity
-            style={styles.b2bListingBanner}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('ScreenB2BListingEdit')}>
-            <Text style={styles.b2bListingKicker}>B2B ASIA</Text>
-            <Text style={styles.b2bListingTitle}>Edit listings in USD</Text>
-            <Text style={styles.b2bListingBody}>
-              Tap to inline-edit or bulk-update prices for Live, Group Chat, and Active listings.
-            </Text>
-          </TouchableOpacity>
-        ) : null}
         {/* Filter Tabs */}
         <TabFilter
           tabFilters={userInfo?.liveFlag != 'No' ? FilterLiveTabs : FilterTabs}
@@ -2366,14 +2383,19 @@ const ScreenListing = ({navigation}) => {
                   </View>
                 ) : (
                   <>
-                    <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
-                      <RefreshIcon width={18} height={18} />
-                    </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => setLiveSortOpen(prev => !prev)}
-                      style={styles.liveManageBtn}>
-                      <Text style={styles.liveManageBtnText}>Sort</Text>
+                      onPress={() => onPressPinSearch(!pinSearch)}
+                      style={[styles.liveRefreshBtn, pinSearch && styles.livePinOn]}
+                      hitSlop={8}>
+                      <PinkPin filled />
                     </TouchableOpacity>
+                    {showB2bUsdBanner ? (
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('ScreenB2BListingEdit')}
+                        style={[styles.liveManageBtn, styles.usdEditToolbarBtn]}>
+                        <Text style={styles.usdEditBtnText}>Edit</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity onPress={() => setIsLiveSelectMode(true)} style={styles.liveManageBtn}>
                       <Text style={styles.liveManageBtnText}>Manage</Text>
                     </TouchableOpacity>
@@ -2381,51 +2403,6 @@ const ScreenListing = ({navigation}) => {
                 )}
               </View>
             )}
-            {activeTab === 'Live' && liveSortOpen && !isLiveSelectMode ? (
-              <View style={styles.liveSortMenu}>
-                {[
-                  {key: 'sequence', label: 'Sequence #'},
-                  {key: 'genus', label: 'Genus'},
-                  {key: 'priceHigh', label: 'Price High to Low'},
-                  {key: 'priceLow', label: 'Price Low to High'},
-                ].map(opt => (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={styles.liveSortOption}
-                    onPress={() => {
-                      setLiveSortBy(opt.key);
-                      setLiveSortOpen(false);
-                      const sortedAggregated = prepareSellerChannelTabListings(
-                        allListingsRef.current,
-                        'Live',
-                        {
-                          sortBy: opt.key,
-                          genus: reusableGenus,
-                          variegation: reusableVariegation,
-                          listingType: reusableListingType,
-                          search,
-                          pinOnly: pinSearch,
-                        },
-                      );
-                      sortedAggregated.forEach((item, i) => {
-                        item._originalIndex = i + 1;
-                      });
-                      liveAllListingsRef.current = sortedAggregated;
-                      setDataTable(sortedAggregated.slice(0, LIVE_DISPLAY_PAGE));
-                      setLiveHasMore(sortedAggregated.length > LIVE_DISPLAY_PAGE);
-                      setTotalListings(sortedAggregated.length);
-                    }}>
-                    <Text
-                      style={[
-                        styles.liveSortOptionText,
-                        liveSortBy === opt.key && styles.liveSortOptionTextActive,
-                      ]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
             {loading ? (
               <LiveListingGridSkeleton cardCount={12} />
             ) : dataTable && dataTable.length > 0 ? (
@@ -2433,7 +2410,7 @@ const ScreenListing = ({navigation}) => {
                 <LiveListingGrid
                   data={dataTable}
                   onNavigateToDetail={onNavigateToDetail}
-                  onPressSetToActive={onPressSetToActive}
+                  onSetActive={onPressSetToActive}
                   onLoadMore={loadMoreLiveListings}
                   isLoadingMore={liveLoadingMore}
                   refreshing={refreshing}
@@ -2550,6 +2527,13 @@ const ScreenListing = ({navigation}) => {
                     <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
                       <RefreshIcon width={18} height={18} />
                     </TouchableOpacity>
+                    {showB2bUsdBanner ? (
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('ScreenB2BListingEdit')}
+                        style={[styles.liveManageBtn, styles.usdEditToolbarBtn]}>
+                        <Text style={styles.usdEditBtnText}>Edit</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity onPress={onListingManageEnter} style={styles.liveManageBtn}>
                       <Text style={styles.liveManageBtnText}>Manage</Text>
                     </TouchableOpacity>
@@ -2611,9 +2595,19 @@ const ScreenListing = ({navigation}) => {
         code={code}
         visible={showSheet}
         onClose={() => setShowSheet(false)}
-        sortOptions={sortOptions}
-        genusOptions={genusOptions}
-        variegationOptions={variegationOptions}
+        sortOptions={
+          activeTab === 'Live'
+            ? [
+                {label: 'Sequence #', value: 'Sequence #'},
+                {label: 'Genus', value: 'Genus'},
+                {label: 'Price High to Low', value: 'Price High to Low'},
+                {label: 'Price Low to High', value: 'Price Low to High'},
+                {label: 'Most Loved', value: 'Most Loved'},
+              ]
+            : sortOptions
+        }
+        genusOptions={optionsPresentInTab('genus')}
+        variegationOptions={optionsPresentInTab('variegation')}
         listingTypeOptions={listingTypeOptions}
         sortValue={reusableSort}
         sortChange={setReusableSort}
@@ -2835,33 +2829,15 @@ const styles = StyleSheet.create({
     // zIndex: 10,
     paddingTop: 12,
   },
-  b2bListingBanner: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 8,
-    backgroundColor: '#f2f7f3',
-    borderWidth: 1,
-    borderColor: '#C0DAC2',
-    borderRadius: 12,
-    padding: 14,
-  },
-  b2bListingKicker: {
-    color: '#356641',
-    fontSize: 11,
+  usdEditBtnText: {
+    color: '#fff',
     fontWeight: '700',
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  b2bListingTitle: {
-    color: '#202325',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  b2bListingBody: {
-    color: '#556065',
     fontSize: 13,
-    lineHeight: 18,
+  },
+  usdEditToolbarBtn: {
+    backgroundColor: '#356641',
+    borderColor: '#356641',
+    marginRight: 8,
   },
   contents: {
     // paddingHorizontal: 20,
@@ -3049,6 +3025,10 @@ const styles = StyleSheet.create({
     borderColor: '#CDD3D4',
     marginRight: 8,
   },
+  livePinOn: {
+    backgroundColor: '#FFE7E2',
+    borderColor: '#FF4D8D',
+  },
   liveManageBtn: {
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -3061,30 +3041,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#3B4344',
-  },
-  liveSortMenu: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-  },
-  liveSortOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  liveSortOptionText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#3B4344',
-  },
-  liveSortOptionTextActive: {
-    color: '#539461',
-    fontWeight: '700',
   },
   liveToolbarSelectMode: {
     flexDirection: 'column',

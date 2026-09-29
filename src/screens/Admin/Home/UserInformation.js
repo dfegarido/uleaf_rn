@@ -12,6 +12,7 @@ import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import { API_CONFIG } from '../../../config/apiConfig';
 import { deleteUserApi } from '../../../components/Api/deleteUserApi';
+import { getB2BAccountApi, setB2BBusinessApi } from '../../../components/Api/b2bAccountApi';
 import { UserInformationHeader } from './UserInformationHeader';
 
 const UserInformation = () => {
@@ -24,6 +25,10 @@ const UserInformation = () => {
     () => String(user?.liveFlag || '').toLowerCase() === 'yes',
   );
   const [isUpdatingLiveFlag, setIsUpdatingLiveFlag] = useState(false);
+  const [businessEnabled, setBusinessEnabled] = useState(false);
+  const [businessEligible, setBusinessEligible] = useState(false);
+  const [isLoadingBusiness, setIsLoadingBusiness] = useState(false);
+  const [isUpdatingBusiness, setIsUpdatingBusiness] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
@@ -165,6 +170,28 @@ const UserInformation = () => {
   useEffect(() => {
     setLiveSellingEnabled(String(user?.liveFlag || '').toLowerCase() === 'yes');
   }, [user?.id, user?.liveFlag]);
+
+  useEffect(() => {
+    const supplierId = user?.id || user?.userId;
+    if (!isSupplier || !supplierId) {
+      setBusinessEligible(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setIsLoadingBusiness(true);
+      const result = await getB2BAccountApi({uid: supplierId});
+      if (cancelled) return;
+      const accountClass = result?.data?.account?.accountClass || '';
+      const eligible = accountClass === 'Asia Seller' || accountClass === 'Asia Business';
+      setBusinessEligible(eligible);
+      setBusinessEnabled(accountClass === 'Asia Business');
+      setIsLoadingBusiness(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSupplier, user?.id, user?.userId]);
 
   // Handle user profile update
   const handleProfileUpdate = async () => {
@@ -408,9 +435,49 @@ const UserInformation = () => {
       );
     } catch (error) {
       console.error('Error updating liveFlag:', error);
-      Alert.alert('Error', error.message || 'Could not update live selling.', [{ text: 'OK' }]);
+      Alert.alert(
+        'Error',
+        `Failed to update live selling: ${error.message}`,
+        [{ text: 'OK' }],
+      );
     } finally {
       setIsUpdatingLiveFlag(false);
+    }
+  };
+
+  const handleBusinessToggle = async () => {
+    if (!isSupplier || !businessEligible || isUpdatingBusiness) return;
+    const nextEnabled = !businessEnabled;
+    if (nextEnabled && !liveSellingEnabled) {
+      Alert.alert(
+        'Live selling is off',
+        'Turn Live selling on before setting this supplier to Business. They stay Asia Seller until then.',
+        [{text: 'OK'}],
+      );
+      return;
+    }
+    try {
+      setIsUpdatingBusiness(true);
+      const result = await setB2BBusinessApi({
+        uid: user.id || user.userId,
+        enabled: nextEnabled,
+        liveFlag: liveSellingEnabled ? 'Yes' : 'No',
+      });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update business setting');
+      }
+      setBusinessEnabled(result.data?.enabled === true || result.data?.accountClass === 'Asia Business');
+      Alert.alert(
+        'Success',
+        nextEnabled
+          ? 'This supplier is now B2B Asia. They use exact USD prices.'
+          : 'This supplier is Asia Seller again. List and Add are available after they reload the app.',
+        [{text: 'OK'}],
+      );
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to update business setting', [{text: 'OK'}]);
+    } finally {
+      setIsUpdatingBusiness(false);
     }
   };
 
@@ -525,6 +592,46 @@ const UserInformation = () => {
               )}
             </View>
           </View>
+
+          {isSupplier && (isLoadingBusiness || businessEligible) && (
+            <View style={[styles.statusRow, styles.liveSellingToggleRow]}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.statusLabel}>Business</Text>
+                <Text style={styles.liveSellingHint}>
+                  When on, this supplier is B2B Asia. When off, they return to Asia Seller.
+                </Text>
+              </View>
+              <View style={styles.statusContainer}>
+                <Text
+                  style={[
+                    styles.statusText,
+                    { color: businessEnabled ? '#23C16B' : '#6B7280' },
+                  ]}>
+                  {businessEnabled ? 'On' : 'Off'}
+                </Text>
+                {isLoadingBusiness || isUpdatingBusiness ? (
+                  <ActivityIndicator size="small" color="#0ea5e9" style={{ marginLeft: 10 }} />
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleSwitch,
+                      { backgroundColor: businessEnabled ? '#23C16B' : '#D1D5DB' },
+                    ]}
+                    onPress={handleBusinessToggle}
+                    activeOpacity={0.8}
+                    disabled={!businessEligible}
+                  >
+                    <View
+                      style={[
+                        styles.toggleHandle,
+                        { transform: [{ translateX: businessEnabled ? 20 : 0 }] },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
 
           {/* Live selling (supplier liveFlag) — enables Live tab / live flows in seller app */}
           {isSupplier && (

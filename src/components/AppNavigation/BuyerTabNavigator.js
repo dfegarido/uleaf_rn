@@ -73,6 +73,7 @@ import { ScreenB2BAdminApproval,
   ScreenB2BPayoutDetail,
   ScreenB2BPayoutSummary,
   ScreenB2BUsBuyerAccount,
+  ScreenShareAppToBuyers,
 } from '../../screens/B2BMockups';
 
 const Tab = createBottomTabNavigator();
@@ -371,6 +372,7 @@ function BuyerTabNavigator() {
       <Stack.Screen name="ScreenB2BListingEdit" component={ScreenB2BListingEdit} options={{headerShown: false}} />
       <Stack.Screen name="ScreenB2BFeeConfig" component={ScreenB2BFeeConfig} options={{headerShown: false}} />
       <Stack.Screen name="ScreenB2BUsBuyerAccount" component={ScreenB2BUsBuyerAccount} options={{headerShown: false}} />
+      <Stack.Screen name="ScreenShareAppToBuyers" component={ScreenShareAppToBuyers} options={{headerShown: false}} />
     </Stack.Navigator>
   );
 }

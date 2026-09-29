@@ -45,6 +45,23 @@ export const listB2BBusinessRequestApi = async (params = {}) => {
   }
 };
 
+export const setB2BBusinessApi = async ({uid, enabled, liveFlag}) => {
+  try {
+    const data = await postB2BAccount(API_ENDPOINTS.UPDATE_B2B_BUSINESS_REQUEST, {
+      action: 'setBusiness',
+      uid,
+      enabled: enabled === true,
+      liveFlag,
+    });
+    return {success: true, data: data.data, source: data.source};
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message || 'Could not update business setting',
+    };
+  }
+};
+
 export const updateB2BBusinessRequestApi = async payload => {
   try {
     const data = await postB2BAccount(

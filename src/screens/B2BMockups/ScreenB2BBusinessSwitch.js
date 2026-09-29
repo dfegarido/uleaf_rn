@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
+import {useAuth} from '../../auth/AuthProvider';
 import {
   getB2BAccountApi,
   updateB2BBusinessRequestApi,
@@ -91,7 +92,28 @@ const resolvePathKey = ({accountClass, collectionName, routePath}) => {
   return 'us';
 };
 
+const APPROVED_BUSINESS = ['US Business', 'Asia Business'];
+
+const approvedBusinessClass = account => {
+  const current = String(account?.accountClass || '');
+  if (APPROVED_BUSINESS.includes(current)) {
+    return current;
+  }
+  // Admin can turn Business off. A past Approved request must not keep them on B2B.
+  if (current === 'Asia Seller' || current === 'US Customer') {
+    return '';
+  }
+  const request = account?.request;
+  if (request?.status === 'Approved' && APPROVED_BUSINESS.includes(request.toType)) {
+    return request.toType;
+  }
+  return '';
+};
+
 const ScreenB2BBusinessSwitch = ({navigation, route}) => {
+  const {userInfo} = useAuth();
+  const role = userInfo?.user?.role ?? userInfo?.role ?? userInfo?.data?.role;
+  const isAdminUser = role === 'admin' || role === 'sub_admin';
   const initialPath = route?.params?.path === 'asia' ? 'asia' : 'us';
   const [pathKey, setPathKey] = useState(initialPath);
   const [status, setStatus] = useState('idle');
@@ -107,7 +129,13 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
   const asiaUpgradeBlocked =
     pathKey === 'asia' &&
     account?.canUpgradeToAsiaBusiness === false;
-  const canSubmit = status === 'idle' && !asiaUpgradeBlocked;
+  const approvedClass = approvedBusinessClass(account);
+  const canSubmit =
+    !isAdminUser &&
+    !loadError &&
+    !approvedClass &&
+    status === 'idle' &&
+    !asiaUpgradeBlocked;
 
   const applyAccount = nextAccount => {
     setAccount(nextAccount);
@@ -122,6 +150,11 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
   };
 
   useEffect(() => {
+    if (isAdminUser) {
+      setLoading(false);
+      setAccount(null);
+      return undefined;
+    }
     let active = true;
     const load = async () => {
       setLoading(true);
@@ -144,7 +177,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
     return () => {
       active = false;
     };
-  }, [initialPath]);
+  }, [initialPath, isAdminUser]);
 
   const onSubmit = async () => {
     if (loadError || !account) {
@@ -176,6 +209,14 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
     } else {
       setStatus('pending');
     }
+    const nextClass = approvedBusinessClass(result.data?.account);
+    if (nextClass) {
+      Alert.alert(
+        'Already approved',
+        `Your account has already been approved as a ${nextClass}.`,
+      );
+      return;
+    }
     Alert.alert(
       'Request submitted',
       'Admin will approve or reject. Your current account type does not change until approval.',
@@ -191,13 +232,28 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title={title} />
       <ScrollView contentContainerStyle={styles.content}>
+        {isAdminUser ? (
+          <Text style={styles.sourceNote}>
+            This screen is for buyer and seller accounts.
+          </Text>
+        ) : null}
+        {!isAdminUser ? (
         <Text style={styles.sourceNote}>
           {loadError
             ? 'Couldn’t load this account. Try again in a moment.'
-            : `Current account type: ${account?.accountClass || '—'}`}
+            : approvedClass
+              ? `Your account has already been approved as a ${approvedClass}.`
+              : `Current account type: ${account?.accountClass || '—'}`}
         </Text>
+        ) : null}
 
-        {isSupplierAccount ? (
+        {!isAdminUser && approvedClass === 'US Business' ? (
+          <View style={{marginTop: 16}}>
+            <B2BBuyerInviteCard uid={account?.uid} />
+          </View>
+        ) : null}
+
+        {!isAdminUser && !approvedClass && isSupplierAccount ? (
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Garden Partner account</Text>
             <Text style={styles.infoBody}>
@@ -209,7 +265,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
           </View>
         ) : null}
 
-        {!isSupplierAccount ? (
+        {!isAdminUser && !approvedClass && !isSupplierAccount ? (
           <View style={styles.segment}>
             {PATHS.map(item => (
               <TouchableOpacity
@@ -231,9 +287,10 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
           </View>
         ) : null}
 
-        {loading ? (
+        {!isAdminUser && !approvedClass && loading ? (
           <ActivityIndicator color="#539461" style={{marginVertical: 24}} />
-        ) : (
+        ) : null}
+        {!isAdminUser && !approvedClass && !loading ? (
           <>
             <View style={[styles.statusCard, {backgroundColor: statusMeta.bg}]}>
               <Text style={[styles.statusLabel, {color: statusMeta.color}]}>
@@ -282,12 +339,7 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                 </Text>
               </View>
             )}
-            {status === 'approved' && path.key === 'us' ? (
-              <View style={{marginTop: 16}}>
-                <B2BBuyerInviteCard uid={account?.uid} />
-              </View>
-            ) : null}
-            {status === 'rejected' && (
+            {status === 'rejected' && !approvedClass ? (
               <View style={styles.resultBox}>
                 <Text style={styles.resultTitle}>Request was not approved</Text>
                 <Text style={styles.resultBody}>
@@ -302,9 +354,9 @@ const ScreenB2BBusinessSwitch = ({navigation, route}) => {
                   </Text>
                 </TouchableOpacity>
               </View>
-            )}
+            ) : null}
           </>
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

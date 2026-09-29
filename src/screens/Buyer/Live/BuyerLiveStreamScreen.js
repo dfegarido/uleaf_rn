@@ -76,6 +76,28 @@ import {
   subscribeToLiveComments,
 } from '../../../utils/realtimeLiveComments';
 
+const liveShippingLabel = listing => {
+  const country = String(listing?.country || '').trim().toLowerCase();
+  const currency = String(listing?.localCurrency || listing?.localcurrency || '')
+    .trim()
+    .toUpperCase();
+  const asian =
+    country === 'th' ||
+    country === 'ph' ||
+    country === 'id' ||
+    country.includes('thailand') ||
+    country.includes('philippine') ||
+    country.includes('indonesia');
+  const domestic =
+    country === 'us' ||
+    country === 'usa' ||
+    country.includes('united states') ||
+    (currency === 'USD' && country !== '' && !asian);
+  return domestic
+    ? 'UPS 2nd Day $25 + $2 extra plant'
+    : 'UPS 2nd Day $50 + $5 extra plant';
+};
+
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
@@ -1154,7 +1176,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               <View style={styles.shipping}>
                   <View style={styles.shipDays}>
                     <TruckIcon width={24} height={24} />
-                    <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
+                    <Text style={styles.shipText}>{liveShippingLabel(activeListing)}</Text>
                   </View>
                 </View>
             </View>

@@ -37,6 +37,8 @@ import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import RNFS from 'react-native-fs';
 import { AuthContext } from '../../auth/AuthProvider';
+import { getB2BAccountApi } from '../../components/Api/b2bAccountApi';
+import { accountClassFromUserInfo, isB2BBusinessUser } from '../../utils/b2bShell';
 import { generateAgoraToken, getActiveLiveListingApi, getLiveListingsBySessionApi, updateLiveSessionStatusApi } from '../../components/Api/agoraLiveApi';
 import { getAgoraUid } from '../../utils/getAgoraUid';
 import { sendLiveStartedNotificationApi } from '../../components/Api/sendLiveStartedNotificationApi';
@@ -65,10 +67,37 @@ import {
   subscribeToLiveComments,
 } from '../../utils/realtimeLiveComments';
 
+const liveShippingLabel = (listing, sellerClass) => {
+  const cls = String(sellerClass || '').trim().toLowerCase();
+  const country = String(listing?.country || '').trim().toLowerCase();
+  const currency = String(listing?.localCurrency || listing?.localcurrency || '')
+    .trim()
+    .toUpperCase();
+  const asian =
+    country === 'th' ||
+    country === 'ph' ||
+    country === 'id' ||
+    country.includes('thailand') ||
+    country.includes('philippine') ||
+    country.includes('indonesia');
+  const domestic =
+    cls === 'us business' ||
+    cls === 'ileafu inhouse' ||
+    country === 'us' ||
+    country === 'usa' ||
+    country.includes('united states') ||
+    (currency === 'USD' && country !== '' && !asian);
+  return domestic
+    ? 'UPS 2nd Day $25 + $2 extra plant'
+    : 'UPS 2nd Day $50 + $5 extra plant';
+};
+
 const LiveBroadcastScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
   const { userInfo } = useContext(AuthContext);
+  const [accountClass, setAccountClass] = useState(() => accountClassFromUserInfo(userInfo));
+  const isB2BSeller = isB2BBusinessUser({accountClass});
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const rtcEngineRef = useRef(null);
   const [joined, setJoined] = useState(false);
@@ -120,6 +149,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       KeepAwake.activate();
       return () => KeepAwake.deactivate();
   }, [joined]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const result = await getB2BAccountApi();
+      if (!active) return;
+      const serverClass =
+        result?.data?.account?.accountClass ||
+        result?.data?.accountClass ||
+        accountClassFromUserInfo(userInfo);
+      if (serverClass) setAccountClass(serverClass);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userInfo]);
 
   // Fetch seller profile from Firestore if currentUserInfo is missing profile fields
   useEffect(() => {
@@ -799,6 +844,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         variegation: r.variegation || '',
         potSize: r.potsize || r.potSize || '',
         usdPrice: r.usdprice || r.usdPrice || 0,
+        country: r.country || '',
+        localCurrency: r.localcurrency || r.localCurrency || '',
         sellerCode: r.sellercode || r.sellerCode || '',
         status: r.status || '',
         sessionId: r.sessionid || r.sessionId || '',
@@ -832,10 +879,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     const loadListings = async () => {
       const res = await getLiveListingsBySessionApi(sessionId, 'Live');
       if (!active) return;
-      const listings = (res && res.data) || [];
+      const listings = [...((res && res.data) || [])].sort((a, b) => {
+        const ta = new Date(a.createdAt || 0).getTime();
+        const tb = new Date(b.createdAt || 0).getTime();
+        return ta - tb;
+      });
       const indexMap = {};
       listings.forEach((item, i) => {
-        indexMap[item.id] = `IG${i + 1}`;
+        const code = `IG${i + 1}`;
+        if (item.id) indexMap[item.id] = code;
+        if (item.plantCode) indexMap[item.plantCode] = code;
       });
       setSessionListingIndexMap(indexMap);
       setSessionListingsCount(listings.length);
@@ -1089,12 +1142,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <ScreenshotIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Snap</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
-                  <Text style={styles.sideActionNotesText}>List</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
-                  <Text style={styles.sideActionNotesText}>Add</Text>
-                </TouchableOpacity>
+                {isB2BSeller ? (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('ScreenB2BListingEdit')}
+                    style={styles.sideAction}>
+                    <Text style={styles.sideActionNotesText}>USD</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
+                      <Text style={styles.sideActionNotesText}>List</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
+                      <Text style={styles.sideActionNotesText}>Add</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
             </View>
           </View>
           {soldToUser && (
@@ -1114,9 +1177,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                     )}
                     <View style={styles.plantName}>
                       <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                        {sessionListingIndexMap[activeListing.id] && (
+                        {(sessionListingIndexMap[activeListing.id] || sessionListingIndexMap[activeListing.plantCode]) && (
                           <View style={styles.igBadge}>
-                            <Text style={styles.igBadgeText}>{sessionListingIndexMap[activeListing.id]}</Text>
+                            <Text style={styles.igBadgeText}>
+                              {sessionListingIndexMap[activeListing.id] || sessionListingIndexMap[activeListing.plantCode]}
+                            </Text>
                           </View>
                         )}
                         <Text style={styles.name}>{activeListing.genus}</Text>
@@ -1137,7 +1202,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       <View style={styles.shipDays}>
                         <TruckIcon width={24} height={24} />
                         {/* Shipping info can be added if available */}
-                        <Text style={styles.shipText}>UPS 2nd Day $50 + $5 extra plant</Text>
+                        <Text style={styles.shipText}>{liveShippingLabel(activeListing, accountClass)}</Text>
                       </View>
                     </View>
                 </View>

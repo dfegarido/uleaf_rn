@@ -7,9 +7,10 @@ import {
   getInviteCode,
   publishReferralCodeMapping,
   shareB2BBuyerInvite,
+  shareReferralInvite,
 } from '../../utils/referralShare';
 
-const B2BBuyerInviteCard = ({uid}) => {
+const B2BBuyerInviteCard = ({uid, aboutApp = false}) => {
   const [copied, setCopied] = useState(null);
   const inviteCode = getInviteCode(uid);
   const inviteUrl = buildInviteUrl(inviteCode);
@@ -38,11 +39,14 @@ const B2BBuyerInviteCard = ({uid}) => {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.kicker}>Bring your own buyers</Text>
-      <Text style={styles.title}>Share the app + your code</Text>
+      <Text style={styles.kicker}>{aboutApp ? 'ILEAFU' : 'Bring your own buyers'}</Text>
+      <Text style={styles.title}>
+        {aboutApp ? 'Share what the app is about' : 'Share the app + your code'}
+      </Text>
       <Text style={styles.body}>
-        Instagram followers download ileafU and create an account with this code
-        before you go live. That ties them to you as their referrer.
+        {aboutApp
+          ? 'ileafU is a marketplace for plant imports. Buyers can discover plants from trusted suppliers across Asia, save on air cargo with Shipping Buddy, and shop with a Live Arrival Guarantee.'
+          : 'Instagram followers download ileafU and create an account with this code before you go live. That ties them to you as their referrer.'}
       </Text>
 
       <Text style={styles.label}>Create-account code</Text>
@@ -65,8 +69,12 @@ const B2BBuyerInviteCard = ({uid}) => {
 
       <TouchableOpacity
         style={[globalStyles.primaryButton, {marginTop: 14}]}
-        onPress={() => shareB2BBuyerInvite(uid)}>
-        <Text style={globalStyles.primaryButtonText}>Share app to download</Text>
+        onPress={() =>
+          aboutApp ? shareReferralInvite(uid) : shareB2BBuyerInvite(uid)
+        }>
+        <Text style={globalStyles.primaryButtonText}>
+          {aboutApp ? 'Share app to buyers' : 'Share app to download'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

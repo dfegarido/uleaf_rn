@@ -15,7 +15,8 @@ import { Alert,
   View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { isUsBusinessUser, isB2BBusinessUser } from '../../../utils/b2bShell';
+import { isUsBusinessUser, accountClassFromUserInfo, canEditListingsInUsd, pricingModelLabel } from '../../../utils/b2bShell';
+import { getB2BAccountApi } from '../../../components/Api/b2bAccountApi';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
@@ -57,6 +58,10 @@ const ScreenHome = ({navigation}) => {
   const [loading, setLoading] = useState(false);
   const {userInfo, setAppShell} = useContext(AuthContext);
   const { unreadCount } = useUnreadMessageCount();
+  const [accountClass, setAccountClass] = useState(() => accountClassFromUserInfo(userInfo));
+  const pricingLabel = pricingModelLabel(accountClass);
+  const isUsBusiness = accountClass === 'US Business';
+  const isBusinessAccount = canEditListingsInUsd(accountClass);
 
   // Add state to force image refresh
   const [profileImageKey, setProfileImageKey] = useState(0);
@@ -74,6 +79,24 @@ const ScreenHome = ({navigation}) => {
       setCacheBustTimestamp(newTimestamp);
       setProfileImageKey(prev => prev + 1);
     }, [])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        const result = await getB2BAccountApi();
+        if (!active) return;
+        const serverClass =
+          result?.data?.account?.accountClass ||
+          result?.data?.accountClass ||
+          accountClassFromUserInfo(userInfo);
+        if (serverClass) setAccountClass(serverClass);
+      })();
+      return () => {
+        active = false;
+      };
+    }, [userInfo]),
   );
 
   const handlePressMyStore = () => {
@@ -142,6 +165,24 @@ const ScreenHome = ({navigation}) => {
   const [totalSales, setTotalSales] = useState();
   const [plantSold, setPlantSold] = useState();
   const [plantListed, setPlantListed] = useState();
+  // Business accounts use dollars for new sales. A week that was sold in baht
+  // (or another local currency) keeps that symbol — the amount was not converted.
+  const symbolForSalesWeek = (amount, weekSymbol) => {
+    const fromOrders = String(weekSymbol || '').trim();
+    if (fromOrders) return fromOrders;
+    const reported = String(totalSales?.symbol || '').trim();
+    const local = reported && reported !== '$';
+    if (isBusinessAccount && !(local && Number(amount) !== 0)) return '$';
+    return reported || getCurrencySymbol(userInfo);
+  };
+  const thisWeekCurrency = symbolForSalesWeek(
+    totalSales?.thisWeek,
+    totalSales?.thisWeekSymbol,
+  );
+  const lastWeekCurrency = symbolForSalesWeek(
+    totalSales?.lastWeek,
+    totalSales?.lastWeekSymbol,
+  );
 
   const loadSalesData = async () => {
     const res = await retryAsync(() => getHomeSummaryApi(), 3, 1000);
@@ -481,14 +522,37 @@ const ScreenHome = ({navigation}) => {
 
           <View style={styles.b2bSection}>
             <View style={styles.b2bSectionHeader}>
-              <Text style={styles.b2bSectionTitle}>B2B Asia</Text>
+              <View style={styles.b2bTitleRow}>
+                <Text style={styles.b2bSectionTitle}>B2B Asia</Text>
+                {pricingLabel ? (
+                  <View
+                    style={[
+                      styles.modelBadge,
+                      pricingLabel === 'B2B Asia'
+                        ? styles.modelBadgeBusiness
+                        : styles.modelBadgeInhouse,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.modelBadgeText,
+                        pricingLabel === 'B2B Asia'
+                          ? styles.modelBadgeTextBusiness
+                          : styles.modelBadgeTextInhouse,
+                      ]}>
+                      {pricingLabel}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.b2bSectionSubtitle}>
-                Business account, payouts & USD listings
+                {pricingLabel === 'B2B Asia'
+                  ? 'Exact USD prices. Edit listings in USD.'
+                  : 'In-house prices use the conversion formula.'}
               </Text>
             </View>
 
             <View style={styles.b2bActionList}>
-              {isUsBusinessUser(userInfo) ? (
+              {isUsBusiness ? (
                 <>
                   <TouchableOpacity
                     style={styles.b2bActionRow}
@@ -504,7 +568,7 @@ const ScreenHome = ({navigation}) => {
                   </TouchableOpacity>
                   <View style={styles.b2bActionDivider} />
                 </>
-              ) : (
+              ) : !isBusinessAccount ? (
                 <>
               <TouchableOpacity
                 style={styles.b2bActionRow}
@@ -523,7 +587,7 @@ const ScreenHome = ({navigation}) => {
 
               <View style={styles.b2bActionDivider} />
                 </>
-              )}
+              ) : null}
 
               <TouchableOpacity
                 style={styles.b2bActionRow}
@@ -542,7 +606,7 @@ const ScreenHome = ({navigation}) => {
                 <RightIcon width={20} height={20} />
               </TouchableOpacity>
 
-              {isB2BBusinessUser(userInfo) ? (
+              {isBusinessAccount ? (
                 <>
                   <View style={styles.b2bActionDivider} />
                   <TouchableOpacity
@@ -609,13 +673,13 @@ const ScreenHome = ({navigation}) => {
                       globalStyles.textBold,
                       {paddingBottom: 10},
                     ]}>
-                    {(totalSales?.symbol || getCurrencySymbol(userInfo))}
+                    {thisWeekCurrency}
                     {formatNumberWithCommas(Number(totalSales?.thisWeek || 0))}
                   </Text>
                   <View style={{flexDirection: 'row', gap: 10}}>
                     <Text
                       style={[globalStyles.textSMWhite, globalStyles.textSemiBold]}>
-                      {(totalSales?.symbol || getCurrencySymbol(userInfo))}{formatNumberWithCommas(Number(totalSales?.lastWeek || 0))}
+                      {lastWeekCurrency}{formatNumberWithCommas(Number(totalSales?.lastWeek || 0))}
                     </Text>
                     <Text
                       style={[
@@ -887,7 +951,12 @@ const ScreenHome = ({navigation}) => {
               <BusinessPerformance data={businessPerformanceTable} />
               <View style={{marginBottom: 30}}>
                 {(() => {
-                  const chartCurrency = getCurrencySymbol(userInfo);
+                  const chartCurrency = isBusinessAccount
+                    ? (String(totalSales?.symbol || '').trim() &&
+                      String(totalSales?.symbol).trim() !== '$'
+                        ? totalSales.symbol
+                        : '$')
+                    : getCurrencySymbol(userInfo);
 
                   console.log('💰 Home Screen Currency Info:', {
                     userInfoCurrency: userInfo?.currencySymbol,
@@ -1002,11 +1071,37 @@ const styles = StyleSheet.create({
   b2bSectionHeader: {
     marginBottom: 10,
   },
+  b2bTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
   b2bSectionTitle: {
     color: '#202325',
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 2,
+  },
+  modelBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  modelBadgeBusiness: {
+    backgroundColor: '#E7F5EC',
+  },
+  modelBadgeInhouse: {
+    backgroundColor: '#F3F4F4',
+  },
+  modelBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modelBadgeTextBusiness: {
+    color: '#1F6B3A',
+  },
+  modelBadgeTextInhouse: {
+    color: '#556366',
   },
   b2bSectionSubtitle: {
     color: '#7F8D91',

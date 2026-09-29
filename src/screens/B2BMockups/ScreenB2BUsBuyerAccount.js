@@ -13,7 +13,6 @@ import {globalStyles} from '../../assets/styles/styles';
 import {getB2BAccountApi} from '../../components/Api/b2bAccountApi';
 import {getAllUsersApi} from '../../components/Api/getAllUsersApi';
 import MockupHeader from './MockupHeader';
-import B2BBuyerInviteCard from './B2BBuyerInviteCard';
 import {AuthContext} from '../../auth/AuthProvider';
 import {mergeB2BAccountIntoUserInfo} from '../../utils/b2bShell';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -52,7 +51,6 @@ const ScreenB2BUsBuyerAccount = ({navigation, route}) => {
   useEffect(() => {
     if (isAdminViewer && !lookupUid) {
       setLoading(false);
-      setLoadError(null);
       setAccount(null);
       return;
     }
@@ -76,12 +74,16 @@ const ScreenB2BUsBuyerAccount = ({navigation, route}) => {
       const users = resp?.data?.users || resp?.users || [];
       setMatches(users);
       if (!users.length) {
+        setLookupUid(null);
+        setAccount(null);
         setLoadError('No buyers matched that search.');
       } else {
         setLoadError(null);
       }
     } catch (error) {
       setMatches([]);
+      setLookupUid(null);
+      setAccount(null);
       setLoadError(error?.message || 'Could not search buyers.');
     }
     setSearching(false);
@@ -267,7 +269,6 @@ const ScreenB2BUsBuyerAccount = ({navigation, route}) => {
 
             {isBusiness ? (
               <>
-                <B2BBuyerInviteCard uid={account?.uid} />
                 <View style={styles.resultBox}>
                   <Text style={styles.resultTitle}>This account is US Business</Text>
                   <Text style={styles.resultBody}>

@@ -13,13 +13,6 @@ const CARDS = [
     audience: 'Buyer',
   },
   {
-    key: 'switch',
-    title: 'Business registration / switch',
-    subtitle: 'US Customer → US Business · Asia Seller → Asia Business',
-    route: 'ScreenB2BBusinessSwitch',
-    audience: 'Buyer / Seller',
-  },
-  {
     key: 'approval',
     title: 'Admin business approval',
     subtitle: 'Pending requests, approve or reject, keep history',
@@ -36,13 +29,6 @@ const CARDS = [
     audience: 'Admin',
   },
   {
-    key: 'listing',
-    title: 'Listing inline + bulk edit',
-    subtitle: 'Edit price, pot size, height, status, pin, listing type',
-    route: 'ScreenB2BListingEdit',
-    audience: 'Seller',
-  },
-  {
     key: 'fees',
     title: 'Admin fee & commission settings',
     subtitle: 'Default, country, and per-business rates',
@@ -57,7 +43,7 @@ const ScreenB2BMockupHub = ({navigation}) => {
       <MockupHeader navigation={navigation} title="B2B Asia" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[globalStyles.textMDGreyDark, styles.intro]}>
-          Approvals, payouts, fees, and account switching.
+          Approvals, payouts, and fees.
         </Text>
         {CARDS.map(card => (
           <TouchableOpacity

@@ -130,18 +130,46 @@ const ReusableActionSheet = ({
               contentContainerStyle={{paddingBottom: 90}} 
               nestedScrollEnabled={true}
               showsVerticalScrollIndicator={true}>
-              <CheckBoxGroup
-                options={finalStatusOptions}
-                selectedValues={statusValue}
-                onChange={statusChange}
-                checkboxPosition="right"
-                optionStyle={{
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                }}
-                labelStyle={{textAlign: 'left'}}
-              />
+              {finalStatusOptions.map((opt) => {
+                const selectedValues = Array.isArray(statusValue) ? statusValue : [];
+                const selected = selectedValues.includes(opt.value);
+                return (
+                  <TouchableOpacity
+                    key={String(opt.value)}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      statusChange(
+                        selected
+                          ? selectedValues.filter(v => v !== opt.value)
+                          : [...selectedValues, opt.value],
+                      )
+                    }
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: 20,
+                      paddingVertical: 12,
+                    }}>
+                    <Text style={[globalStyles.textMDGreyDark, {flex: 1, textAlign: 'left'}]}>
+                      {opt.label}
+                    </Text>
+                    <View
+                      style={{
+                        height: 20,
+                        width: 20,
+                        borderWidth: 2,
+                        borderColor: '#444',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      {selected ? (
+                        <View style={{width: 12, height: 12, backgroundColor: '#539461'}} />
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
             <View
               style={{

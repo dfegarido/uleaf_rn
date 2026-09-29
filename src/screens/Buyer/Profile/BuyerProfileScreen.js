@@ -683,7 +683,7 @@ const BuyerProfileScreen = (props) => {
           <MenuItem
             icon={<ProfileIcon width={24} height={24} fill="#556065" />}
             title="Share app to buyers"
-            onPress={() => navigation.navigate('ScreenB2BUsBuyerAccount')}
+            onPress={() => navigation.navigate('ScreenShareAppToBuyers')}
           />
 
           <MenuItem

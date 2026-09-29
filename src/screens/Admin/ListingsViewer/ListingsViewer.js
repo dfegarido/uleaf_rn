@@ -72,6 +72,7 @@ const ListingsViewer = ({ navigation }) => {
   const [sortModalVisible, setSortModalVisible] = useState(false);
   // Status modal state
   const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [statusDraft, setStatusDraft] = useState([]);
     // Genus modal state
     const [genusModalVisible, setGenusModalVisible] = useState(false);
     const [genusOptionsState, setGenusOptionsState] = useState([]);
@@ -545,8 +546,9 @@ const ListingsViewer = ({ navigation }) => {
     // Check if this filter is already active
     const isCurrentlyActive = isFilterActive(filterLabel);
     
-    // If filter is active and clicked again, reset it instead of opening modal
-    if (isCurrentlyActive) {
+    // If filter is active and clicked again, reset it instead of opening modal.
+    // Status stays open so a selected status can be unchecked inside the sheet.
+    if (isCurrentlyActive && filterLabel !== 'Status') {
       handleResetFilter(filterLabel);
       return;
     }
@@ -556,6 +558,10 @@ const ListingsViewer = ({ navigation }) => {
       setSortModalVisible(true);
     } else {
         if (filterLabel === 'Status') {
+          const current = selectedFilters.status;
+          setStatusDraft(
+            Array.isArray(current) ? current : current ? [current] : [],
+          );
           setStatusModalVisible(true);
         } else if (filterLabel === 'Genus') {
           setGenusModalVisible(true);
@@ -597,13 +603,21 @@ const ListingsViewer = ({ navigation }) => {
     setSortModalVisible(false);
     setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
-    // Status filter handlers
+    // Status filter handlers. Keep a draft while the modal is open so tapping
+    // a selected status removes it. The list reloads only when View is pressed.
     const handleStatusChange = (statusValues) => {
-      console.log('Status filter changed:', statusValues);
-      setSelectedFilters((prev) => ({ ...prev, status: statusValues }));
+      const arr = Array.isArray(statusValues) ? statusValues : [];
+      if (statusModalVisible) {
+        setStatusDraft(arr);
+      } else {
+        setSelectedFilters((prev) => ({ ...prev, status: arr.length ? arr : null }));
+      }
     };
     const handleStatusView = () => {
-      console.log('Status filter applied:', selectedFilters.status);
+      setSelectedFilters((prev) => ({
+        ...prev,
+        status: statusDraft.length ? statusDraft : null,
+      }));
       setStatusModalVisible(false);
       setPagination((prev) => ({ ...prev, currentPage: 1 }));
     };
@@ -1375,6 +1389,7 @@ const ListingsViewer = ({ navigation }) => {
         break;
       case 'Status':
         setSelectedFilters((prev) => ({ ...prev, status: null }));
+        setStatusDraft([]);
         break;
       case 'Genus':
         setSelectedFilters((prev) => ({ ...prev, genus: null }));
@@ -1424,6 +1439,7 @@ const ListingsViewer = ({ navigation }) => {
     });
     
     // Reset all draft states
+    setStatusDraft([]);
     setGenusDraft([]);
     setVariegationDraft([]);
     setListingTypeDraft([]);
@@ -1721,7 +1737,7 @@ const ListingsViewer = ({ navigation }) => {
             visible={statusModalVisible}
             onClose={() => setStatusModalVisible(false)}
             statusOptions={adminStatusOptions}
-            statusValue={selectedFilters.status || []}
+            statusValue={statusModalVisible ? statusDraft : (selectedFilters.status || [])}
             statusChange={handleStatusChange}
             handleSearchSubmit={handleStatusView}
             clearFilters={() => handleResetFilter('Status')}

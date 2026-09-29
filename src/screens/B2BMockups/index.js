@@ -6,3 +6,4 @@ export {default as ScreenB2BPayoutDetail} from './ScreenB2BPayoutDetail';
 export {default as ScreenB2BListingEdit} from './ScreenB2BListingEdit';
 export {default as ScreenB2BFeeConfig} from './ScreenB2BFeeConfig';
 export {default as ScreenB2BUsBuyerAccount} from './ScreenB2BUsBuyerAccount';
+export {default as ScreenShareAppToBuyers} from './ScreenShareAppToBuyers';

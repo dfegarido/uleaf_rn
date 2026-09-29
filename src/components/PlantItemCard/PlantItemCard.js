@@ -8,6 +8,7 @@ import WishListSelected from '../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../assets/buyer-icons/wishlist-unselected.svg';
 import HeartIcon from '../../assets/buyer-icons/heart.svg';
 import PhilippinesFlag from '../../assets/buyer-icons/philippines-flag.svg';
+import USAFlag from '../../assets/buyer-icons/usa-flag.svg';
 import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
 import { formatCurrencyFull } from '../../utils/formatCurrency';
@@ -34,9 +35,22 @@ const mapCurrencyToCountry = (localCurrency) => {
       return 'TH';
     case 'IDR':
       return 'ID';
+    case 'USD':
+      return 'US';
     default:
       return null;
   }
+};
+
+const isUnitedStatesCountry = value => {
+  const country = String(value || '').trim().toLowerCase();
+  return (
+    country === 'us' ||
+    country === 'usa' ||
+    country === 'u.s.' ||
+    country === 'u.s.a.' ||
+    country.includes('united states')
+  );
 };
 
 const getFlagComponent = (country, localCurrency) => {
@@ -49,12 +63,18 @@ const getFlagComponent = (country, localCurrency) => {
   }
   
   const countryLower = countryCode?.toLowerCase() || '';
-  if (countryLower.includes('philippines') || countryLower.includes('ph')) {
+  if (isUnitedStatesCountry(countryLower)) {
+    return USAFlag;
+  }
+  if (countryLower.includes('philippines') || countryLower === 'ph') {
     return PhilippinesFlag;
-  } else if (countryLower.includes('thailand') || countryLower.includes('th')) {
+  } else if (countryLower.includes('thailand') || countryLower === 'th') {
     return ThailandFlag;
-  } else if (countryLower.includes('indonesia') || countryLower.includes('id')) {
+  } else if (countryLower.includes('indonesia') || countryLower === 'id') {
     return IndonesiaFlag;
+  }
+  if (String(localCurrency || '').toUpperCase() === 'USD') {
+    return USAFlag;
   }
   return PhilippinesFlag; // Default to Philippines
 };

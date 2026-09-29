@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -12,7 +14,6 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../auth/AuthProvider';
-import {getAdminListingsApi} from '../../components/Api/getAdminListingsApi';
 import {updateB2BListingApi} from '../../components/Api/b2bListingApi';
 import {fetchSellerListingsFromSupabase} from '../../utils/fetchSellerListingsFromSupabase';
 import MockupHeader from './MockupHeader';
@@ -68,6 +69,36 @@ const mapStatus = listing => {
   return 'Active';
 };
 
+const isPinnedTag = value => {
+  if (value === true || value === 1) {
+    return true;
+  }
+  const text = String(value ?? '').trim().toLowerCase();
+  return text === 'true' || text === '1' || text === 'yes';
+};
+
+const sellerUsdPrice = listing => {
+  const currency = String(listing.localCurrency || listing.localcurrency || '').toUpperCase();
+  const typed = Number(listing.localPrice ?? listing.localprice ?? 0);
+  const usd = Number(listing.usdPrice ?? listing.usdprice ?? 0);
+  // USD rows keep the typed amount so 8888 is not replaced by a rounded 8890.
+  // Converted rows show the stored USD (5000 THB → 270) until the seller edits it.
+  const amount = currency === 'USD' ? typed || usd : usd || typed;
+  return Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+};
+
+const formatUsdInput = value => {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return null;
+  }
+  const price = Number(raw.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+  return price.toFixed(2);
+};
+
 const listingToRow = listing => ({
   id: listing.id,
   plantCode: listing.plantCode,
@@ -75,12 +106,28 @@ const listingToRow = listing => ({
   species: listing.species || '',
   variegation: listing.variegation || '',
   status: mapStatus(listing),
-  pin: Boolean(listing.pinTag),
+  pin: isPinnedTag(listing.pinTag ?? listing.pintag),
   listingType: mapChannelType(listing),
-  price: Number(listing.usdPrice || listing.localPrice || 0).toFixed(2),
+  price: sellerUsdPrice(listing),
+  storedUsd: Number(listing.usdPrice || listing.localPrice || 0).toFixed(2),
+  localCurrency: String(listing.localCurrency || '').toUpperCase(),
+  rawStatus: listing.status || '',
+  igIndex: '',
   potSize: listing.potSize || '4"',
   height: mapHeight(listing.approximateHeight),
+  createdAt: listing.createdAt || listing.createdat || null,
 });
+
+const withLiveIndexes = listings => {
+  const live = listings
+    .filter(item => String(item.rawStatus || '').trim().toLowerCase() === 'live')
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  const igById = new Map(live.map((item, index) => [item.id, `IG${index + 1}`]));
+  return listings.map(item => ({
+    ...item,
+    igIndex: igById.get(item.id) || '',
+  }));
+};
 
 const rowsEqual = (a, b) =>
   a.genus === b.genus &&
@@ -93,15 +140,9 @@ const rowsEqual = (a, b) =>
   a.potSize === b.potSize &&
   a.height === b.height;
 
-const ScreenB2BListingEdit = ({navigation, route}) => {
+const ScreenB2BListingEdit = ({navigation}) => {
   const {userInfo} = useContext(AuthContext);
   const nestedUser = userInfo?.user || userInfo?.data || {};
-  const userType =
-    nestedUser.userType || userInfo?.userType || nestedUser.role || userInfo?.role;
-  const isAdmin =
-    route?.params?.audience === 'admin' ||
-    userType === 'admin' ||
-    userType === 'sub_admin';
   const sellerUid =
     userInfo?.uid || userInfo?.id || nestedUser.uid || nestedUser.id;
   const [rows, setRows] = useState([]);
@@ -113,7 +154,8 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
   const [manageMode, setManageMode] = useState(false);
   const [selected, setSelected] = useState([]);
   const [bulkField, setBulkField] = useState('price');
-  const [bulkValue, setBulkValue] = useState('50.00');
+  const [bulkValue, setBulkValue] = useState('');
+  const [bulkTouched, setBulkTouched] = useState(false);
   const [channel, setChannel] = useState('live');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
@@ -123,6 +165,10 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
   });
 
   const selectedCount = selected.length;
+  const pendingBulkPrice =
+    manageMode && bulkTouched && bulkField === 'price' && selected.length
+      ? formatUsdInput(bulkValue)
+      : null;
   const dirtyRows = useMemo(
     () =>
       rows.filter(row => {
@@ -142,7 +188,7 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
     }
 
     try {
-      if (!isAdmin && !sellerUid) {
+      if (!sellerUid) {
         setRows([]);
         setBaseline([]);
         setLoadError('Sign in as a seller to load your listings.');
@@ -153,54 +199,35 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
       let totalItems = 0;
       let totalPages = 1;
 
-      if (isAdmin) {
-        const result = await getAdminListingsApi({
-          status: channelConfig.status,
-          listingChannel:
-            channel === 'live'
-              ? 'live'
-              : channel === 'group'
-                ? 'group_chat'
-                : channel === 'active'
-                  ? 'active'
-                  : 'all',
-          sort: 'latest',
-          limit: PAGE_SIZE,
-          page,
-        });
-        if (!result.success) {
-          setRows([]);
-          setBaseline([]);
-          setLoadError(result.error || 'Could not load listings.');
-          return;
-        }
-        mapped = (result.data?.listings || []).map(listingToRow);
-        const serverPagination = result.data?.pagination || {};
-        totalItems = Number(serverPagination.totalItems) || mapped.length;
-        totalPages = Math.max(
-          1,
-          Number(serverPagination.totalPages) ||
-            Math.ceil(totalItems / PAGE_SIZE) ||
-            1,
-        );
-      } else {
-        const {listings} = await fetchSellerListingsFromSupabase(sellerUid);
-        const wanted = new Set(
-          String(channelConfig.status)
-            .split(',')
-            .map(item => item.trim().toLowerCase()),
-        );
-        const filtered = listings.filter(item =>
-          wanted.has(String(item.status || '').trim().toLowerCase()),
-        );
-        totalItems = filtered.length;
-        totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-        const start = (page - 1) * PAGE_SIZE;
-        mapped = filtered.slice(start, start + PAGE_SIZE).map(listingToRow);
-      }
+      const {listings} = await fetchSellerListingsFromSupabase(sellerUid);
+      const wanted = new Set(
+        String(channelConfig.status)
+          .split(',')
+          .map(item => item.trim().toLowerCase()),
+      );
+      const filtered = listings.filter(item =>
+        wanted.has(String(item.status || '').trim().toLowerCase()),
+      );
+      totalItems = filtered.length;
+      totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+      const start = (page - 1) * PAGE_SIZE;
+      const indexed = withLiveIndexes(filtered.map(listingToRow)).sort(
+        (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+      );
+      mapped = indexed.slice(start, start + PAGE_SIZE);
 
       setRows(mapped);
-      setBaseline(mapped.map(row => ({...row})));
+      setBaseline(
+        mapped.map(row => ({
+          ...row,
+          // Only a USD row whose stored price differs from the typed amount
+          // should start dirty. Other currencies stay clean until you edit them.
+          price:
+            row.localCurrency === 'USD' && row.price !== row.storedUsd
+              ? row.storedUsd
+              : row.price,
+        })),
+      );
       setPagination({currentPage: page, totalPages, totalItems});
       setLoadError(null);
       setSelected([]);
@@ -212,7 +239,7 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [channel, channelConfig.status, page, isAdmin, sellerUid]);
+  }, [channel, channelConfig.status, page, sellerUid]);
 
   useEffect(() => {
     loadListings();
@@ -254,14 +281,41 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
     setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   };
 
+  const rowsWithBulkPrice = source => {
+    if (!(manageMode && bulkTouched && bulkField === 'price' && selected.length)) {
+      return {rows: source, error: null};
+    }
+    const formatted = formatUsdInput(bulkValue);
+    if (!formatted) {
+      return {rows: source, error: 'Enter a USD amount like 108, then tap Save.'};
+    }
+    return {
+      rows: source.map(row => (selected.includes(row.id) ? {...row, price: formatted} : row)),
+      error: null,
+    };
+  };
+
   const onUpdate = async () => {
-    if (!dirtyRows.length) {
-      Alert.alert('No changes', 'Edit a listing first, then tap Save.');
+    const applied = rowsWithBulkPrice(rows);
+    if (applied.error) {
+      Alert.alert('Invalid price', applied.error);
+      return;
+    }
+    const source = applied.rows;
+    if (source !== rows) {
+      setRows(source);
+    }
+    const pending = source.filter(row => {
+      const original = baseline.find(item => item.id === row.id);
+      return !original || !rowsEqual(row, original);
+    });
+    if (!pending.length) {
+      Alert.alert('No changes', 'Edit a price, then tap Save.');
       return;
     }
     setSaving(true);
     const result = await updateB2BListingApi(
-      dirtyRows.map(row => ({
+      pending.map(row => ({
         id: row.id,
         plantCode: row.plantCode,
         genus: row.genus,
@@ -281,12 +335,21 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
       return;
     }
     const errorCount = result.data?.errors?.length || 0;
+    const updatedCount = result.data?.updatedCount || 0;
+    const firstError = result.data?.errors?.[0]?.error;
+    if (!updatedCount) {
+      Alert.alert('Update failed', firstError || 'The price was not saved.');
+      return;
+    }
     Alert.alert(
       'Saved',
       errorCount
-        ? `Updated ${result.data.updatedCount}. ${errorCount} failed.`
-        : `Updated ${result.data.updatedCount} listing(s).`,
+        ? `Updated ${updatedCount}. ${errorCount} failed.${firstError ? `\n${firstError}` : ''}`
+        : `Updated ${updatedCount} listing(s).`,
     );
+    setBulkTouched(false);
+    setSelected([]);
+    setManageMode(false);
     await loadListings({isRefresh: true});
   };
 
@@ -295,13 +358,22 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
       Alert.alert('Select listings', 'Choose one or more cards first.');
       return;
     }
+    if (bulkField === 'price') {
+      const formatted = formatUsdInput(bulkValue);
+      if (!formatted) {
+        Alert.alert('Invalid price', 'Enter a USD amount like 108.');
+        return;
+      }
+      setRows(prev =>
+        prev.map(row => (selected.includes(row.id) ? {...row, price: formatted} : row)),
+      );
+      setBulkTouched(false);
+      return;
+    }
     setRows(prev =>
       prev.map(row => {
         if (!selected.includes(row.id)) {
           return row;
-        }
-        if (bulkField === 'price') {
-          return {...row, price: Number(bulkValue).toFixed(2)};
         }
         if (bulkField === 'potSize') {
           return {...row, potSize: bulkValue};
@@ -359,9 +431,16 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
             />
           ) : null}
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.plantName} numberOfLines={2}>
-              {`${row.genus} ${row.species}`.trim() || 'Untitled'}
-            </Text>
+            <View style={styles.nameRow}>
+              {row.igIndex ? (
+                <View style={styles.igBadge}>
+                  <Text style={styles.igBadgeText}>{row.igIndex}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.plantName} numberOfLines={2}>
+                {`${row.genus} ${row.species}`.trim() || 'Untitled'}
+              </Text>
+            </View>
             <Text style={styles.meta} numberOfLines={1}>
               {row.variegation || 'No variegation'} · {row.plantCode}
             </Text>
@@ -413,8 +492,12 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <MockupHeader navigation={navigation} title="Edit listings (USD)" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={8}>
 
       <View style={styles.channelRow}>
         {CHANNELS.map(item => (
@@ -446,9 +529,9 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.toolBtn, styles.saveBtn, (!dirtyRows.length || saving) && styles.saveBtnOff]}
+            style={[styles.toolBtn, styles.saveBtn, (!dirtyRows.length && !pendingBulkPrice || saving) && styles.saveBtnOff]}
             onPress={onUpdate}
-            disabled={saving || loading || !dirtyRows.length}>
+            disabled={saving || loading || (!dirtyRows.length && !pendingBulkPrice)}>
             <Text style={styles.saveText}>{saving ? 'Saving…' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
@@ -482,10 +565,12 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
         </View>
       ) : (
         <FlatList
+          style={styles.flex}
           data={rows}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.center}>
@@ -530,8 +615,9 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
                 style={[styles.fieldChip, bulkField === field && styles.fieldChipOn]}
                 onPress={() => {
                   setBulkField(field);
+                  setBulkTouched(false);
                   if (field === 'price') {
-                    setBulkValue('50.00');
+                    setBulkValue('');
                   } else if (field === 'potSize') {
                     setBulkValue('6"');
                   } else if (field === 'height') {
@@ -559,8 +645,11 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
               style={styles.bulkInput}
               keyboardType="decimal-pad"
               value={bulkValue}
-              onChangeText={setBulkValue}
-              placeholder="50.00"
+              onChangeText={value => {
+                setBulkTouched(true);
+                setBulkValue(value);
+              }}
+              placeholder="108.00"
             />
           ) : (
             <View style={styles.optionRow}>
@@ -579,6 +668,7 @@ const ScreenB2BListingEdit = ({navigation, route}) => {
           </TouchableOpacity>
         </View>
       ) : null}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -594,6 +684,7 @@ const Chip = ({label, value, onPress, tone}) => (
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#F6F8F6'},
+  flex: {flex: 1},
   channelRow: {
     flexDirection: 'row',
     gap: 8,
@@ -658,7 +749,15 @@ const styles = StyleSheet.create({
   cardSelected: {borderColor: '#356641'},
   cardTop: {flexDirection: 'row', alignItems: 'flex-start', gap: 10},
   cardTitleWrap: {flex: 1},
-  plantName: {color: '#202325', fontSize: 16, fontWeight: '700', lineHeight: 22},
+  nameRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  igBadge: {
+    backgroundColor: '#202325',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  igBadgeText: {color: '#fff', fontSize: 11, fontWeight: '700'},
+  plantName: {color: '#202325', fontSize: 16, fontWeight: '700', lineHeight: 22, flex: 1},
   meta: {color: '#7F8D91', fontSize: 12, marginTop: 4},
   check: {
     width: 22,

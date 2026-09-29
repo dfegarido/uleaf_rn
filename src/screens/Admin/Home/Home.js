@@ -160,28 +160,11 @@ const B2BAsiaSection = ({navigation}) => {
           <DiscountsIcon width={48} height={48} />
         </IconTile>
         <IconTile
-          title="Listing Edit"
-          onPress={() =>
-            navigation.navigate('ScreenB2BListingEdit', {audience: 'admin'})
-          }>
-          <ListingViewIcon width={48} height={48} />
-        </IconTile>
-        <IconTile
-          title="Switch Flow"
-          onPress={() => navigation.navigate('ScreenB2BBusinessSwitch')}>
-          <LiveSetupIcon width={48} height={48} />
-        </IconTile>
-        <IconTile
           title="US Buyer"
           onPress={() =>
             navigation.navigate('ScreenB2BUsBuyerAccount', {audience: 'admin'})
           }>
           <AvatarIcon width={48} height={48} />
-        </IconTile>
-        <IconTile
-          title="All B2B screens"
-          onPress={() => navigation.navigate('ScreenB2BMockupHub')}>
-          <HappeningsIcon width={48} height={48} />
         </IconTile>
       </View>
     </View>

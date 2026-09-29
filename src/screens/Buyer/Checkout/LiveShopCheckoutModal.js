@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { setupURLPolyfill } from 'react-native-url-polyfill';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import USAFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
@@ -68,6 +69,10 @@ const renderCountryFlag = country => {
   const countryCode = country?.toUpperCase();
   
   switch (countryCode) {
+    case 'UNITED STATES':
+    case 'USA':
+    case 'US':
+      return <USAFlag width={24} height={16} style={styles.flagIcon} />;
     case 'PHILIPPINES':
     case 'PH':
     case 'PHL':

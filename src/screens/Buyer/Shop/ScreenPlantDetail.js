@@ -25,6 +25,7 @@ import HeartSolidIcon from '../../../assets/buyer-icons/heart.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import MinusIcon from '../../../assets/buyer-icons/minus.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import USAFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import PlaneIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import PlusIcon from '../../../assets/buyer-icons/plus.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
@@ -59,6 +60,51 @@ import {
 } from '../../../config/shippingConstants';
 import PlantListingImage from '../../../components/PlantListingImage/PlantListingImage';
 import {getDetailListingImageUri} from '../../../utils/plantListingImage';
+
+const isUnitedStatesCountry = value => {
+  const country = String(value || '').trim().toLowerCase();
+  return (
+    country === 'us' ||
+    country === 'usa' ||
+    country === 'u.s.' ||
+    country === 'u.s.a.' ||
+    country.includes('united states')
+  );
+};
+
+const isAsianImportCountry = value => {
+  const country = String(value || '').trim().toLowerCase();
+  return (
+    country === 'th' ||
+    country === 'ph' ||
+    country === 'id' ||
+    country.includes('thailand') ||
+    country.includes('philippine') ||
+    country.includes('indonesia')
+  );
+};
+
+const isDomesticUsPlant = plant => {
+  if (!plant) {
+    return false;
+  }
+  const country = plant.country || plant.plantCountry || '';
+  if (isUnitedStatesCountry(country)) {
+    return true;
+  }
+  const cls = String(plant.accountClass || plant.sellerAccountClass || '')
+    .trim()
+    .toLowerCase();
+  if (cls === 'us business' || cls === 'ileafu inhouse') {
+    return true;
+  }
+  // USD with no Asian country is a plant already in the US. Asia Business
+  // listings stay on the import rate because their country is TH, PH, or ID.
+  const currency = String(plant.localCurrency || plant.localcurrency || '')
+    .trim()
+    .toUpperCase();
+  return currency === 'USD' && !isAsianImportCountry(country);
+};
 
 const ScreenPlantDetail = ({navigation, route}) => {
   const {user} = useAuth();
@@ -891,7 +937,27 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
   // Get shipping cost based on listing type and specifications
   const getShippingCost = () => {
-    const listingType = plantData?.listingType?.toLowerCase() || 'single';
+    if (isDomesticUsPlant(plantData)) {
+      return {
+        cost: 25,
+        addOnCost: 2,
+        baseCargo: 0,
+        description: 'UPS 2nd Day $25, add-on plant $2',
+        displayText: 'UPS 2nd Day ',
+        mainPrice: '$25',
+        addOnText: ', add-on plant ',
+        addOnPrice: '$2',
+        rule: 'Domestic UPS for plants already in the US',
+      };
+    }
+    const listingTypeRaw = String(plantData?.listingType || 'single').toLowerCase();
+    const listingType = listingTypeRaw.includes('single')
+      ? 'single'
+      : listingTypeRaw.includes('grower') || listingTypeRaw.includes('choice')
+        ? 'growers'
+        : listingTypeRaw.includes('whole')
+          ? 'wholesale'
+          : listingTypeRaw;
     const potSize = selectedPotSize || '2"';
     const plantHeight = plantData?.approximateHeight || 0;
     
@@ -1230,6 +1296,8 @@ const ScreenPlantDetail = ({navigation, route}) => {
                         return 'TH';
                       case 'IDR':
                         return 'ID';
+                      case 'USD':
+                        return 'US';
                       default:
                         return null;
                     }
@@ -1256,14 +1324,18 @@ const ScreenPlantDetail = ({navigation, route}) => {
                   }
 
                   const country = countryCode?.toString().toLowerCase() || '';
-                  if (country.includes('philippines') || country.includes('ph')) {
+                  if (isUnitedStatesCountry(country)) {
+                    return <USAFlag width={28} height={19} style={styles.flagImage} />;
+                  } else if (country.includes('philippines') || country === 'ph') {
                     return <PhilippinesFlag width={28} height={19} style={styles.flagImage} />;
-                  } else if (country.includes('thailand') || country.includes('th')) {
+                  } else if (country.includes('thailand') || country === 'th') {
                     return <ThailandFlag width={28} height={19} style={styles.flagImage} />;
-                  } else if (country.includes('indonesia') || country.includes('id')) {
+                  } else if (country.includes('indonesia') || country === 'id') {
                     return <IndonesiaFlag width={28} height={19} style={styles.flagImage} />;
                   }
-                  // Default to Philippines
+                  if (String(plantData.localCurrency || '').toUpperCase() === 'USD') {
+                    return <USAFlag width={28} height={19} style={styles.flagImage} />;
+                  }
                   return <PhilippinesFlag width={28} height={19} style={styles.flagImage} />;
                 })()
               )}
@@ -1276,6 +1348,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                           case 'PHP': return 'Philippines';
                           case 'THB': return 'Thailand';
                           case 'IDR': return 'Indonesia';
+                          case 'USD': return 'United States';
                           default: return null;
                         }
                       };
@@ -1292,7 +1365,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
                           if (currencyFromVar) countryText = mapCurrencyToCountryText(currencyFromVar) || currencyFromVar;
                         }
                       }
-                      // If still no country, default to Philippines
+                      if (isUnitedStatesCountry(countryText)) {
+                        return 'United States';
+                      }
+                      if (!countryText && String(plantData.localCurrency || '').toUpperCase() === 'USD') {
+                        return 'United States';
+                      }
                       return countryText || 'Philippines';
                 })()}
               </Text>
@@ -1358,7 +1436,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
             <View style={styles.shippingInfo}>
               <FlightIcon width={20} height={20} />
               <Text style={styles.shippingText}>
-                {plantData?.listingType?.toLowerCase() === 'wholesale' ? (
+                {isDomesticUsPlant(plantData) ? (
+                  <>
+                    {getShippingCost().displayText}
+                    <Text style={{color: '#539461'}}>{getShippingCost().mainPrice}</Text>
+                    {getShippingCost().addOnText}
+                    <Text style={{color: '#539461'}}>{getShippingCost().addOnPrice}</Text>
+                  </>
+                ) : plantData?.listingType?.toLowerCase() === 'wholesale' ? (
                   <>Initial Wholesale Air Cargo <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text>, add-on wholesale order <Text style={{color: '#539461'}}>$50</Text>.</>
                 ) : (
                   <>{AIR_CARGO_DOCUMENTATION_FEE_LABEL} <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text></>
@@ -1494,7 +1579,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
                 <View style={styles.baseCargoTextContainer}>
                   <View style={styles.baseCargoTextAndAmount}>
                     <Text style={styles.baseCargoDetailData}>
-                      {plantData?.listingType?.toLowerCase() === 'wholesale' ? (
+                      {isDomesticUsPlant(plantData) ? (
+                        <>
+                          {getShippingCost().displayText}
+                          <Text style={{color: '#539461'}}>{getShippingCost().mainPrice}</Text>
+                          {getShippingCost().addOnText}
+                          <Text style={{color: '#539461'}}>{getShippingCost().addOnPrice}</Text>
+                        </>
+                      ) : plantData?.listingType?.toLowerCase() === 'wholesale' ? (
                         <>Initial Wholesale Air Cargo <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text>, add-on wholesale order <Text style={{color: '#539461'}}>$50</Text>.</>
                       ) : (
                         <>{AIR_CARGO_DOCUMENTATION_FEE_LABEL} <Text style={{color: '#539461'}}>${getShippingCost().baseCargo}</Text></>

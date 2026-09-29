@@ -20,6 +20,33 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { globalStyles } from '../../../../assets/styles/styles';
+import Svg, { Path } from 'react-native-svg';
+
+const PINK_PIN = '#FF4D8D';
+
+export const PinkPin = ({filled}) => (
+  <Svg width={18} height={18} viewBox="0 0 20 20" fill="none">
+    <Path
+      d="M19.0612 6.62822L13.3744 0.938535C12.7894 0.354473 11.8387 0.354473 11.2528 0.938535L6.22311 5.98229C5.22373 5.66916 2.9428 5.29041 0.562484 7.21135C-0.0834536 7.72791 -0.187516 8.67385 0.329046 9.31979C0.363734 9.36291 0.401234 9.4051 0.440609 9.44353L4.9678 13.9707L0.970296 17.9682C0.677796 18.2607 0.677796 18.736 0.970296 19.0285C1.11655 19.1748 1.30873 19.2479 1.50092 19.2479C1.69311 19.2479 1.88436 19.1748 2.03155 19.0285L6.02905 15.031L10.5581 19.5601C10.8497 19.8498 11.2322 19.9951 11.6147 19.9951C11.9972 19.9951 12.3872 19.847 12.6806 19.5517C12.7265 19.5057 12.7697 19.456 12.8109 19.4017C13.665 18.2654 14.8969 16.0885 14.0484 13.7776L19.0612 8.74885C19.6453 8.16385 19.6453 7.21322 19.0612 6.62822Z"
+      fill={filled ? PINK_PIN : 'none'}
+      stroke={PINK_PIN}
+      strokeWidth={filled ? 0 : 1.4}
+    />
+  </Svg>
+);
+
+const formatCardPrice = listing => {
+  const raw = listing?.localPrice ?? listing?.usdPrice;
+  const amount = parseFloat(raw);
+  if (!Number.isFinite(amount)) return '';
+  const currency = String(listing?.localCurrency || '').toUpperCase();
+  const symbol =
+    listing?.localCurrencySymbol ||
+    listing?.currencySymbol ||
+    (currency === 'USD' ? '$' : '');
+  const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `${symbol}${text}`;
+};
 
 const ActiveBadge = () => {
   const opacity = useSharedValue(1);
@@ -55,7 +82,7 @@ const cardWidth =
 const LiveListingGrid = ({
   data = [],
   onNavigateToDetail,
-  onPressSetToActive,
+  onSetActive,
   onLoadMore,
   isLoadingMore = false,
   refreshing = false,
@@ -90,9 +117,9 @@ const LiveListingGrid = ({
         : wasPreviouslyActive
           ? '#FEF2EA'
           : '#fff';
-    const showSetActive = !isActive && inStock;
     const displayIndex = `IG${listing._originalIndex ?? (index + 1)}`;
     const hasImage = !!(listing.imagePrimary || listing.image);
+    const priceLabel = formatCardPrice(listing);
 
     const isSelected = isSelectMode && selectedIds.includes(listing.id);
 
@@ -140,6 +167,19 @@ const LiveListingGrid = ({
               </View>
             </View>
           )}
+          {!isSelectMode && (
+            <TouchableOpacity
+              style={[styles.pinButton, isActive && styles.pinButtonOn]}
+              hitSlop={8}
+              disabled={!inStock || isActive}
+              onPress={e => {
+                e.stopPropagation();
+                if (!inStock || isActive) return;
+                onSetActive?.(listing.plantCode);
+              }}>
+              <PinkPin filled />
+            </TouchableOpacity>
+          )}
         </View>
         <View style={styles.body}>
           <Text
@@ -152,17 +192,12 @@ const LiveListingGrid = ({
             numberOfLines={1}>
             {listing.species || '—'}
           </Text>
+          {!!priceLabel && (
+            <Text style={styles.price} numberOfLines={1}>
+              {priceLabel}
+            </Text>
+          )}
         </View>
-        {showSetActive && (
-          <TouchableOpacity
-            style={styles.setActiveButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              onPressSetToActive(listing.plantCode);
-            }}>
-            <Text style={styles.setActiveButtonText}>Set Active</Text>
-          </TouchableOpacity>
-        )}
       </TouchableOpacity>
     );
   };
@@ -308,18 +343,26 @@ const styles = StyleSheet.create({
   species: {
     fontSize: 14,
   },
-  setActiveButton: {
-    marginHorizontal: 8,
-    marginBottom: 8,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#48A7F8',
-    alignItems: 'center',
+  price: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#202325',
   },
-  setActiveButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
+  pinButton: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFE7E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinButtonOn: {
+    borderWidth: 1.5,
+    borderColor: '#FF4D8D',
   },
   selectCheckboxWrap: {
     position: 'absolute',

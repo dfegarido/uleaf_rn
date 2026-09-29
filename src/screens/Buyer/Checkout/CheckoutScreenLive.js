@@ -37,6 +37,7 @@ import LocationIcon from '../../../assets/buyer-icons/address.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
 import PhilippinesFlag from '../../../assets/buyer-icons/philippines-flag.svg';
+import USAFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import FlightIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import PlantIcon from '../../../assets/buyer-icons/plant-violet.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
@@ -92,6 +93,10 @@ const renderCountryFlag = country => {
   const countryCode = country?.toUpperCase();
   
   switch (countryCode) {
+    case 'UNITED STATES':
+    case 'USA':
+    case 'US':
+      return <USAFlag width={24} height={16} style={styles.flagIcon} />;
     case 'PHILIPPINES':
     case 'PH':
     case 'PHL':
