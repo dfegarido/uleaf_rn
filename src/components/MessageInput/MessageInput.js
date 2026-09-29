@@ -7,6 +7,41 @@ import { validateVideo, formatDuration, isReadableVideoFile } from '../../utils/
 import Svg, { Path, G } from 'react-native-svg';
 import UserMentionPicker from './UserMentionPicker';
 
+// Message composer — a text area that starts one line tall, grows with its content,
+// and stops at a 6-line ceiling before scrolling internally.
+//
+// Sizing is left to the NATIVE side: with `multiline` the TextInput auto-grows on its own
+// between `minHeight` and `maxHeight`, with no explicit `height` on the input or its
+// parent. Growing and capping at 6 lines both work this way.
+//
+// Two traps here, both verified on-device, both iOS-only and both caused by the New
+// Architecture (Fabric). Do not reintroduce either one:
+//
+//   1. Any explicit `height` on the input defeats everything. An inline
+//      `{ height: inputHeight }`, a same-style-array `flex: 1` (flexBasis: 0), or a
+//      height computed from onContentSizeChange all PIN the native view — and once pinned,
+//      Fabric stops re-measuring altogether: onContentSizeChange fires once at mount
+//      (cs=20) and then never again no matter how much text is typed. Measured directly.
+//
+//   2. Fabric does not re-measure when the value is cleared programmatically, so sending a
+//      tall message left the box tall and empty (facebook/react-native#54570 — "after
+//      clearing and typing again it stops resizing"; iOS Fabric only). `setMessage('')`
+//      alone does NOT shrink it. The fix is on `numberOfLines` below: flipping it between
+//      1 and the line cap whenever the value crosses empty/non-empty invalidates the
+//      native layout, which forces the re-measure the clear would otherwise skip.
+const INPUT_FONT_SIZE = 15;
+const INPUT_LINE_HEIGHT = 20;
+/** Visible line cap — the "6 lines" the composer grows to before it scrolls. */
+const INPUT_MAX_LINES = 6;
+/** One line of text: fontSize/lineHeight are pinned on styles.input. */
+const INPUT_TEXT_MIN_HEIGHT = INPUT_LINE_HEIGHT; // 20 ≈ 1 line
+const INPUT_TEXT_MAX_HEIGHT = INPUT_LINE_HEIGHT * INPUT_MAX_LINES; // 120 = 6 lines
+// The wrapper adds padding + border, so its cap must clear the text cap by exactly that
+// chrome or the last line gets clipped. Chrome = 2x borderWidth(0.5 ≈ 1 in points) + 2x
+// paddingVertical(8) + 1px rounding slack = 18.
+const INPUT_CONTAINER_CHROME = 18;
+const INPUT_CONTAINER_MAX_HEIGHT = INPUT_TEXT_MAX_HEIGHT + INPUT_CONTAINER_CHROME; // 138
+
 // Image Icon SVG Component
 const ImageIcon = ({ width = 24, height = 24, color = '#080341' }) => (
   <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
@@ -34,7 +69,6 @@ const VideoIcon = ({ width = 24, height = 24, color = '#000000' }) => (
 
 const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null, currentUserUid = null, chatType = 'private'}) => {
   const [message, setMessage] = useState('');
-  const [inputHeight, setInputHeight] = useState(40); // Initial height
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
   const [previewVideo, setPreviewVideo] = useState(null); // Video preview data: { uri, thumbnail, duration }
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -97,6 +131,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     setCursorPosition(estimatedCursor);
     detectMentionAtCursor(text, estimatedCursor);
   };
+
   
   // Handle mention selection
   const handleSelectMention = (user) => {
@@ -161,7 +196,6 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       if (onSaveEdit) {
         onSaveEdit(textToSend);
         setMessage('');
-        setInputHeight(40);
       }
       return;
     }
@@ -199,7 +233,6 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       onSendVideo(previewVideo, textToSend, replyTo);
       setPreviewVideo(null);
       setMessage('');
-      setInputHeight(40);
       setUploadProgress(0);
     }
     // If we have both images and text, send them together
@@ -207,7 +240,6 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       onSendImage(previewImages, textToSend, replyTo); // Send images with text and reply
       setPreviewImages([]);
       setMessage('');
-      setInputHeight(40);
     } 
     // If we only have images
     else if (hasImages && onSendImage) {
@@ -223,7 +255,6 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
       // Include mentions in the message
       onSend(textToSend, false, null, null, null, replyTo, finalMentions.length > 0 ? finalMentions : null);
       setMessage('');
-      setInputHeight(40);
       setMentions([]); // Clear mentions after sending
     }
   };
@@ -467,11 +498,6 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     });
   };
 
-  const handleContentSizeChange = (event) => {
-    const newHeight = Math.min(Math.max(40, event.nativeEvent.contentSize.height), 120); // Min 40px, Max 120px
-    setInputHeight(newHeight);
-  };
-
   // Get reply preview text
   const getReplyPreviewText = () => {
     if (!replyingTo) return '';
@@ -668,7 +694,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
         <View style={styles.inputContainer}>
           <TextInput
             ref={textInputRef}
-            style={[styles.input, { height: inputHeight }, disabled && styles.inputDisabled]}
+            style={[styles.input, disabled && styles.inputDisabled]}
             placeholder={disabled ? "Join the group to send messages..." : "Aa"}
             value={message}
             onChangeText={handleTextChange}
@@ -677,9 +703,13 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
               setCursorPosition(pos);
               detectMentionAtCursor(message, pos);
             }}
-            onContentSizeChange={handleContentSizeChange}
             multiline={true}
-            textAlignVertical="center"
+            // iOS caps the box here; Android caps at maxHeight and ignores this. Also the
+            // shrink trigger: Fabric skips the re-measure when the value is cleared, so
+            // crossing empty/non-empty must change this prop or the box stays tall and
+            // empty after send. See the sizing notes at the top of this file.
+            numberOfLines={message === '' ? 1 : INPUT_MAX_LINES}
+            textAlignVertical="top"
             returnKeyType="default"
             blurOnSubmit={false}
             placeholderTextColor="#8E8E93"
@@ -796,7 +826,9 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // `flex-end` keeps the icon/send buttons pinned to the LAST line as the text area
+    // grows, instead of floating in the vertical middle of a tall box.
+    alignItems: 'flex-end',
     gap: 8,
   },
   iconButton: {
@@ -863,20 +895,26 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    minHeight: 40,
-    maxHeight: 100,
+    // No explicit height anywhere: the wrapper must be free to grow with its child.
+    // Only a ceiling, high enough to clear the 4-line text cap plus this chrome.
+    maxHeight: INPUT_CONTAINER_MAX_HEIGHT,
     justifyContent: 'center',
     borderWidth: 0.5,
     borderColor: '#E4E6EB',
   },
   input: {
-    flex: 1,
     color: '#050505',
-    fontSize: 15,
-    minHeight: 24,
-    maxHeight: 84,
-    lineHeight: 20,
+    fontSize: INPUT_FONT_SIZE,
+    lineHeight: INPUT_LINE_HEIGHT,
+    // Native auto-grow lives between these two. `flex: 1` is deliberately absent: in
+    // the same style array it sets flexBasis to 0 and pins the height, which is what
+    // stopped the input from ever growing.
+    minHeight: INPUT_TEXT_MIN_HEIGHT,
+    maxHeight: INPUT_TEXT_MAX_HEIGHT,
     padding: 0,
+    // Top-align so added lines grow downward from the first line instead of the whole
+    // block re-centring on every keystroke.
+    textAlignVertical: 'top',
   },
   inputDisabled: {
     color: '#8E8E93',
