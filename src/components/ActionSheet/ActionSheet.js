@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useContext} from 'react';
 import { Modal,
   View,
   StyleSheet,
@@ -9,11 +9,18 @@ import { Modal,
   Platform,
   Easing,
 } from 'react-native';
+import {SafeAreaInsetsContext} from 'react-native-safe-area-context';
 
 const {height: screenHeight} = Dimensions.get('window');
 
 const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
   const slideAnim = useRef(new Animated.Value(0)).current;
+  // Sheets are absolutely positioned at bottom:0, so on devices with a
+  // 3-button nav bar (or a gesture pill) the child footer would sit under the
+  // system bar. Read the context directly (not useSafeAreaInsets) so a sheet
+  // rendered without a SafeAreaProvider falls back to 0 instead of throwing.
+  const insets = useContext(SafeAreaInsetsContext);
+  const bottomInset = insets?.bottom || 0;
 
   // Calculate height from percentage string or use as-is if it's a number
   const getHeight = () => {
@@ -85,7 +92,15 @@ const ActionSheet = ({visible, onClose, children, heightPercent = '30%'}) => {
                 ],
               },
             ]}>
-            {children}
+            {/* Wrap children so the bottom inset lifts the whole content area.
+                Padding on the sheet itself would NOT move `position:'absolute'`
+                footers: an absolutely-positioned child resolves its `bottom`
+                against the parent's box, ignoring the parent's padding.
+                marginBottom on this wrapper shifts flex-flow footers and gives
+                absolute footers (bottom:10/12) a correctly-raised base. */}
+            <View style={[styles.content, {marginBottom: bottomInset}]}>
+              {children}
+            </View>
           </Animated.View>
         </View>
       </KeyboardAvoidingView>
@@ -114,6 +129,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     // padding: 20,
+  },
+  content: {
+    flex: 1,
   },
 });
 

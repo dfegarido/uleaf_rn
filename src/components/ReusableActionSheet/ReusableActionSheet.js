@@ -566,28 +566,24 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={styles.genusScroll}
-              contentContainerStyle={{paddingBottom: 100}}
-              nestedScrollEnabled={true}
-              showsVerticalScrollIndicator={true}>
-              {(!leafTrailStatusOptions || leafTrailStatusOptions.length === 0) ? (
-                <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
-              ) : (
-                <CheckBoxGroup
-                  options={leafTrailStatusOptions}
-                  selectedValues={leafTrailStatusValue}
-                  onChange={leafTrailStatusChange}
-                  checkboxPosition="right"
-                  optionStyle={{
-                    justifyContent: 'space-between',
-                    paddingHorizontal: 20,
-                    paddingBottom: 10,
-                  }}
-                  labelStyle={{textAlign: 'left'}}
-                />
-              )}
-            </ScrollView>
+            {(!leafTrailStatusOptions || leafTrailStatusOptions.length === 0) ? (
+              <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
+            ) : (
+              <CheckBoxGroup
+                options={leafTrailStatusOptions}
+                selectedValues={leafTrailStatusValue}
+                onChange={leafTrailStatusChange}
+                checkboxPosition="right"
+                containerStyle={styles.sheetListScroll}
+                contentContainerStyle={{paddingBottom: 100}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 10,
+                }}
+                labelStyle={{textAlign: 'left'}}
+              />
+            )}
 
             <View style={styles.genusActionBar}>
               <TouchableOpacity
@@ -619,28 +615,24 @@ const ReusableActionSheet = ({
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={styles.genusScroll}
-              contentContainerStyle={{paddingBottom: 100}}
-              nestedScrollEnabled={true}
-              showsVerticalScrollIndicator={true}>
-              {(!plantStatusOptions || plantStatusOptions.length === 0) ? (
-                <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
-              ) : (
-                <CheckBoxGroup
-                  options={plantStatusOptions}
-                  selectedValues={plantStatusValue}
-                  onChange={plantStatusChange}
-                  checkboxPosition="right"
-                  optionStyle={{
-                    justifyContent: 'space-between',
-                    paddingHorizontal: 20,
-                    paddingBottom: 10,
-                  }}
-                  labelStyle={{textAlign: 'left'}}
-                />
-              )}
-            </ScrollView>
+            {(!plantStatusOptions || plantStatusOptions.length === 0) ? (
+              <Text style={{padding: 20, color: '#7F8D91'}}>No options available</Text>
+            ) : (
+              <CheckBoxGroup
+                options={plantStatusOptions}
+                selectedValues={plantStatusValue}
+                onChange={plantStatusChange}
+                checkboxPosition="right"
+                containerStyle={styles.sheetListScroll}
+                contentContainerStyle={{paddingBottom: 100}}
+                optionStyle={{
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 20,
+                  paddingBottom: 10,
+                }}
+                labelStyle={{textAlign: 'left'}}
+              />
+            )}
 
             <View style={styles.genusActionBar}>
               <TouchableOpacity
@@ -980,6 +972,13 @@ const styles = StyleSheet.create({
     marginRight: -6,
   },
   genusScroll: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  // Bounded-height container for CheckBoxGroup. Its FlatList must own its own
+  // scrolling; a wrapping ScrollView of the same orientation is invalid.
+  sheetListScroll: {
+    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
   },

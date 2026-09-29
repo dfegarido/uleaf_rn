@@ -8,6 +8,7 @@ const CheckBoxGroup = ({
   selectedValues = [],
   onChange,
   containerStyle,
+  contentContainerStyle,
   optionStyle,
   boxStyle,
   checkStyle,
@@ -40,14 +41,14 @@ const CheckBoxGroup = ({
         keyExtractor={(item) => String(item.value)}
         renderItem={renderItem}
         keyboardShouldPersistTaps="handled"
-        // Allow this FlatList to be nested inside ScrollViews used by
-        // various action-sheet/modal wrappers. This avoids the common
-        // runtime warning about VirtualizedLists nested in plain ScrollViews
-        // while preserving native nested scrolling behavior.
+        // This list is virtualized: do NOT wrap it in a plain ScrollView of the
+        // same orientation (React Native warns and windowing breaks). Give the
+        // list itself a bounded height (style/containerStyle) instead.
         nestedScrollEnabled={true}
         removeClippedSubviews={true}
         initialNumToRender={20}
         maxToRenderPerBatch={20}
+        contentContainerStyle={contentContainerStyle}
       />
     </View>
   );

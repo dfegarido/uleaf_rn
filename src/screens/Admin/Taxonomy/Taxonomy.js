@@ -387,26 +387,28 @@ const FilterModal = ({ visible, onClose, filterType, onSelect, activeFilters, fi
               <Text style={styles.closeIcon}>×</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView contentContainerStyle={{paddingBottom: 95}}>
-            {options.length === 0 ? (
+          {options.length === 0 ? (
+            <View style={{maxHeight: 320}}>
               <Text style={{padding: 20, color: '#7F8D91'}}>
                 No options available
               </Text>
-            ) : (
-              <CheckBoxGroup
-                options={options}
-                selectedValues={selectedValues}
-                onChange={handleSelectionChange}
-                checkboxPosition="right"
-                optionStyle={{
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 20,
-                  paddingVertical: 12,
-                }}
-                labelStyle={{textAlign: 'left'}}
-              />
-            )}
-          </ScrollView>
+            </View>
+          ) : (
+            <CheckBoxGroup
+              options={options}
+              selectedValues={selectedValues}
+              onChange={handleSelectionChange}
+              checkboxPosition="right"
+              containerStyle={{flex: 1, maxHeight: 320}}
+              contentContainerStyle={{paddingBottom: 95}}
+              optionStyle={{
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+              }}
+              labelStyle={{textAlign: 'left'}}
+            />
+          )}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity onPress={resetSelection} style={{width: '45%'}}>
               <View style={[globalStyles.lightGreenButton]}>
