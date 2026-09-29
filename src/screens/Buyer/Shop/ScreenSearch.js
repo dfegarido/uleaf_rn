@@ -24,6 +24,13 @@ import { retryAsync } from '../../../utils/utils';
 const RECENT_SEARCHES_KEY = 'recent_searches';
 const MAX_RECENT = 10;
 
+// Server-side paging: /plant-search accepts limit (1-100) + offset and returns
+// pagination.total / pagination.hasMore, so results are fetched as the user
+// scrolls instead of being capped at the first page.
+const SEARCH_PAGE_SIZE = 20;
+const LOAD_MORE_THRESHOLD = 400; // px from the bottom that triggers the next page
+const LOAD_MORE_COOLDOWN = 800; // ms between two load-more calls
+
 const SUGGESTED_SEARCHES = [
   'Monstera',
   'Philodendron',
@@ -67,17 +74,36 @@ const transformSearchResult = (p) => ({
   potSize: p.potSizes && p.potSizes.length > 0 ? p.potSizes[0] : null,
 });
 
+// Match browse (ScreenGenusPlants isDisplayableBuyerPlant): don't require
+// species/variegation — that was dropping valid API hits (e.g. title-only names).
+const isDisplayableSearchResult = (plant) => {
+  if (!plant || typeof plant.plantCode !== 'string' || plant.plantCode.trim() === '') {
+    return false;
+  }
+  return (
+    (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
+    (typeof plant.plantName === 'string' && plant.plantName.trim() !== '')
+  );
+};
+
 const ScreenSearch = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
   const [recentSearches, setRecentSearches] = useState([]);
   const [results, setResults] = useState([]);
+  const [totalResults, setTotalResults] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchError, setSearchError] = useState(null);
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
   const searchRequestIdRef = useRef(0);
+  const offsetRef = useRef(0);
+  const lastQueryRef = useRef('');
+  const loadMoreLockRef = useRef(0);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -125,67 +151,118 @@ const ScreenSearch = ({ navigation }) => {
     }
   }, []);
 
-  const performSearch = useCallback(async (query) => {
-    if (!query || query.trim().length < 2) {
-      setResults([]);
+  const resetPagination = useCallback(() => {
+    offsetRef.current = 0;
+    lastQueryRef.current = '';
+    setResults([]);
+    setTotalResults(0);
+    setHasMore(false);
+    setLoadMoreError(false);
+  }, []);
+
+  const fetchSearchPage = useCallback(async (query, offset) => {
+    // searchPlantsApi returns { success:false } on HTTP errors instead of throwing,
+    // so retry inside the callback or flaky 500s never get retried.
+    const res = await retryAsync(
+      async () => {
+        const apiRes = await searchPlantsApi({ query, limit: SEARCH_PAGE_SIZE, offset });
+        if (!apiRes?.success) {
+          throw new Error(apiRes?.error || 'Search failed');
+        }
+        return apiRes;
+      },
+      3,
+      600,
+    );
+
+    const rawPlants = (res.data?.plants || []).map(transformSearchResult);
+    const pagination = res.data?.pagination || {};
+
+    return {
+      plants: rawPlants.filter(isDisplayableSearchResult),
+      // Server rows returned, before the client-side displayability filter —
+      // this is what the next offset must advance by.
+      rowCount: rawPlants.length,
+      total: typeof pagination.total === 'number' ? pagination.total : offset + rawPlants.length,
+      hasMore:
+        typeof pagination.hasMore === 'boolean'
+          ? pagination.hasMore
+          : rawPlants.length >= SEARCH_PAGE_SIZE,
+    };
+  }, []);
+
+  /**
+   * Run a search, or fetch the next page when append is true.
+   * Appends never clear the list and share the current request id so a newer
+   * search (or a cleared query) invalidates them.
+   */
+  const performSearch = useCallback(async (query, { append = false } = {}) => {
+    const trimmed = typeof query === 'string' ? query.trim() : '';
+
+    if (trimmed.length < 2) {
+      resetPagination();
       setHasSearched(false);
       setSearchError(null);
       return;
     }
 
-    const requestId = ++searchRequestIdRef.current;
-    setLoading(true);
-    setHasSearched(true);
-    setSearchError(null);
+    const requestId = append ? searchRequestIdRef.current : ++searchRequestIdRef.current;
+    const offset = append ? offsetRef.current : 0;
+
+    if (append) {
+      setLoadingMore(true);
+      setLoadMoreError(false);
+    } else {
+      setLoading(true);
+      setHasSearched(true);
+      setSearchError(null);
+      setLoadMoreError(false);
+    }
 
     try {
-      // searchPlantsApi returns { success:false } on HTTP errors instead of throwing,
-      // so retry inside the callback or flaky 500s never get retried.
-      const res = await retryAsync(
-        async () => {
-          const apiRes = await searchPlantsApi({ query: query.trim(), limit: 20 });
-          if (!apiRes?.success) {
-            throw new Error(apiRes?.error || 'Search failed');
-          }
-          return apiRes;
-        },
-        3,
-        600,
-      );
+      const page = await fetchSearchPage(trimmed, offset);
 
-      // Ignore stale responses from older debounced requests
+      // Ignore stale responses: a newer search (or a load-more) bumped the id.
       if (requestId !== searchRequestIdRef.current) {
         return;
       }
 
-      const rawPlants = (res.data?.plants || []).map(transformSearchResult);
-      // Match browse (ScreenGenusPlants isDisplayableBuyerPlant): don't require
-      // species/variegation — that was dropping valid API hits (e.g. title-only names).
-      const validPlants = rawPlants.filter(plant => {
-        if (!plant || typeof plant.plantCode !== 'string' || plant.plantCode.trim() === '') {
-          return false;
-        }
-        return (
-          (typeof plant.genus === 'string' && plant.genus.trim() !== '') ||
-          (typeof plant.plantName === 'string' && plant.plantName.trim() !== '')
-        );
-      });
+      lastQueryRef.current = trimmed;
+      offsetRef.current = offset + page.rowCount;
 
-      setResults(validPlants);
+      setResults(prev => {
+        if (!append) {
+          return page.plants;
+        }
+        const existing = new Set(prev.map(p => p.plantCode));
+        return [...prev, ...page.plants.filter(p => !existing.has(p.plantCode))];
+      });
+      setTotalResults(page.total);
+      setHasMore(page.hasMore);
       setSearchError(null);
     } catch (error) {
       if (requestId !== searchRequestIdRef.current) {
         return;
       }
       console.error('Search error:', error);
-      setResults([]);
-      setSearchError(error?.message || 'Search failed. Please try again.');
+      if (append) {
+        setLoadMoreError(true);
+      } else {
+        setResults([]);
+        setTotalResults(0);
+        setHasMore(false);
+        setSearchError(error?.message || 'Search failed. Please try again.');
+      }
     } finally {
       if (requestId === searchRequestIdRef.current) {
-        setLoading(false);
+        if (append) {
+          setLoadingMore(false);
+        } else {
+          setLoading(false);
+        }
       }
     }
-  }, []);
+  }, [fetchSearchPage, resetPagination]);
 
   const handleTextChange = useCallback((text) => {
     setSearchText(text);
@@ -199,11 +276,11 @@ const ScreenSearch = ({ navigation }) => {
         performSearch(text);
       }, 300);
     } else {
-      setResults([]);
+      resetPagination();
       setHasSearched(false);
       setSearchError(null);
     }
-  }, [performSearch]);
+  }, [performSearch, resetPagination]);
 
   const handleSubmit = useCallback(() => {
     if (searchText.trim().length >= 2) {
@@ -218,6 +295,28 @@ const ScreenSearch = ({ navigation }) => {
     saveRecentSearch(query);
     performSearch(query);
   }, [saveRecentSearch, performSearch]);
+
+  // Fetch the next page when the list is nearly scrolled to the bottom.
+  const handleLoadMore = useCallback(() => {
+    const now = Date.now();
+    if (!hasMore || loading || loadingMore || loadMoreError) return;
+    if (now - loadMoreLockRef.current < LOAD_MORE_COOLDOWN) return;
+    loadMoreLockRef.current = now;
+    performSearch(lastQueryRef.current, { append: true });
+  }, [hasMore, loading, loadingMore, loadMoreError, performSearch]);
+
+  const handleScroll = useCallback((event) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - LOAD_MORE_THRESHOLD) {
+      handleLoadMore();
+    }
+  }, [handleLoadMore]);
+
+  const handleRetryLoadMore = useCallback(() => {
+    setLoadMoreError(false);
+    loadMoreLockRef.current = Date.now();
+    performSearch(lastQueryRef.current, { append: true });
+  }, [performSearch]);
 
   const handleSuggestedPress = useCallback((query) => {
     setSearchText(query);
@@ -236,11 +335,11 @@ const ScreenSearch = ({ navigation }) => {
 
   const handleClear = useCallback(() => {
     setSearchText('');
-    setResults([]);
+    resetPagination();
     setHasSearched(false);
     setSearchError(null);
     inputRef.current?.focus();
-  }, []);
+  }, [resetPagination]);
 
   const showEmptyState = hasSearched && !loading && results.length === 0 && !searchError;
   const showErrorState = hasSearched && !loading && !!searchError;
@@ -293,6 +392,8 @@ const ScreenSearch = ({ navigation }) => {
         style={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         {/* Recent Searches */}
         {showRecent && (
@@ -357,7 +458,9 @@ const ScreenSearch = ({ navigation }) => {
         {showResults && (
           <View style={styles.resultsSection}>
             <Text style={styles.resultsCount}>
-              {results.length} result{results.length !== 1 ? 's' : ''}
+              {totalResults > results.length
+                ? `${totalResults} results`
+                : `${results.length} result${results.length !== 1 ? 's' : ''}`}
             </Text>
             <View style={styles.resultsGrid}>
               {results.map((plant, idx) => (
@@ -378,6 +481,33 @@ const ScreenSearch = ({ navigation }) => {
                 </View>
               ))}
             </View>
+
+            {/* Infinite scroll footer: next-page loader / end of list */}
+            {loadingMore && (
+              <View style={styles.loadMoreContainer}>
+                <ActivityIndicator size="small" color="#539461" />
+                <Text style={styles.loadingMoreText}>Loading more plants...</Text>
+              </View>
+            )}
+
+            {!hasMore && !loadingMore && !loadMoreError && (
+              <View style={styles.loadMoreContainer}>
+                <Text style={styles.loadingMoreText}>You've reached the end</Text>
+              </View>
+            )}
+
+            {!loadingMore && loadMoreError && (
+              <View style={styles.loadMoreContainer}>
+                <Text style={styles.loadMoreErrorText}>Couldn't load more plants.</Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={handleRetryLoadMore}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.retryButtonText}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -582,6 +712,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  loadMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#9AA4A8',
+  },
+  loadMoreErrorText: {
+    fontSize: 14,
+    color: '#9AA4A8',
+    marginBottom: 4,
   },
 });
 
