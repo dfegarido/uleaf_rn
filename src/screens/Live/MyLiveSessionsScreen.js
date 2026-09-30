@@ -10,7 +10,6 @@ import {
   Dimensions,
   FlatList,
   Image,
-  ImageBackground,
   Modal,
   RefreshControl,
   StyleSheet,
@@ -399,17 +398,17 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         onPress={item.status !== 'ended' ? () => handleCardPress(item) : undefined}
         activeOpacity={item.status !== 'ended' ? 0.2 : 1}
       >
-        <ImageBackground
-          source={{ uri: coverPhotoUri }}
-          style={styles.cardImage}
-          imageStyle={{ borderRadius: 8 }}
-        >
+        {/* RN 0.87 deprecates ImageBackground; the supported equivalent is a
+            View with an absolutely positioned Image (see ImageBackground.js,
+            which is itself implemented that way). */}
+        <View style={styles.cardImage}>
+          <AppImage source={{ uri: coverPhotoUri }} style={styles.cardImageCover} resizeMode="cover" />
           <View style={styles.cardOverlay}>
             <View style={[styles.statusBadge, badgeStyle]}>
               <Text style={styles.statusText}>{displayStatus}</Text>
             </View>
           </View>
-        </ImageBackground>
+        </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.title}
@@ -668,6 +667,16 @@ const styles = StyleSheet.create({
     height: 120,
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
+  },
+  // Replaces ImageBackground's `imageStyle`. absoluteFill alone is NOT enough:
+  // RN's <Image> sizes itself from the source's intrinsic dimensions unless an
+  // explicit width/height is present, so mirror ImageBackground, which
+  // re-applies the parent's width/height onto the Image.
+  cardImageCover: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
   cardOverlay: {
     padding: 8,
