@@ -129,6 +129,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [snapshotPreviewUri, setSnapshotPreviewUri] = useState(null);
   const [snapshotCountdown, setSnapshotCountdown] = useState(0);
   const countdownIntervalRef = useRef(null);
+  // The countdown owns its own cadence and must not be restarted by the 10s
+  // poll (or by its own snap, which changes imagePrimary). It reads the current
+  // listing through this ref instead of depending on the object identity.
+  const activeListingRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoinListExpanded, setJoinListExpanded] = useState(false);
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
@@ -818,14 +822,50 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
-  const handleManualSnapshot = () => {
-    if (!activeListing || !joined) return;
+  const stopSnapshotCountdown = () => {
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    setSnapshotCountdown(0);
-    captureAndUploadSnapshot(activeListing);
+  };
+
+  // Starts an 8s countdown; at 0 the plant photo is snapped and uploaded, then
+  // the counter waits a 10s gap before running again — for as long as this
+  // listing stays on air. Both the automatic cycle and the side "Snap" button
+  // use this, so pressing Snap brings the counter back immediately.
+  const startSnapshotCountdown = () => {
+    stopSnapshotCountdown();
+
+    const COUNTDOWN_S = 8;
+    const GAP_S = 10;
+    let remaining = COUNTDOWN_S;
+    setSnapshotCountdown(remaining);
+
+    countdownIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+
+      if (remaining > 0) {
+        setSnapshotCountdown(remaining);
+        return;
+      }
+
+      if (remaining === 0) {
+        // Countdown finished: hide the counter and refresh the plant photo.
+        setSnapshotCountdown(0);
+        const listing = activeListingRef.current;
+        if (listing && !snapshotPendingRef.current) {
+          captureAndUploadSnapshot(listing);
+          console.log('[Snapshot] Countdown reached 0 — snapped', listing.plantCode);
+        }
+        return;
+      }
+
+      // Gap between cycles. When it elapses the counter appears again.
+      if (remaining <= -GAP_S) {
+        remaining = COUNTDOWN_S;
+        setSnapshotCountdown(remaining);
+      }
+    }, 1000);
   };
 
   //get active listing
@@ -855,7 +895,20 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         const res = await getActiveLiveListingApi();
         if (!active) return;
         if (res && res.success && res.data) {
-          setActiveListing(toCamel(res.data));
+          const next = toCamel(res.data);
+          // The 10s poll rebuilds this object every tick, which would restart
+          // the snapshot-countdown effect below (and re-fire its capture) on
+          // every poll. Keep the previous object when nothing the countdown or
+          // the card depends on has changed.
+          setActiveListing((prev) =>
+            prev &&
+            prev.id === next.id &&
+            prev.plantCode === next.plantCode &&
+            prev.imagePrimary === next.imagePrimary &&
+            prev.status === next.status
+              ? prev
+              : next,
+          );
         } else {
           setActiveListing(null);
         }
@@ -884,9 +937,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         const tb = new Date(b.createdAt || 0).getTime();
         return ta - tb;
       });
+      // The IG number is stored per listing (liveigindex) and assigned once at
+      // creation, so it must NOT be derived from position here: a sold/deleted
+      // listing would otherwise renumber everything below it. Creation order is
+      // kept for display; the number comes from the row.
       const indexMap = {};
-      listings.forEach((item, i) => {
-        const code = `IG${i + 1}`;
+      listings.forEach((item) => {
+        if (item.liveIgIndex == null || String(item.liveIgIndex).trim() === '') return;
+        const code = `IG${item.liveIgIndex}`;
         if (item.id) indexMap[item.id] = code;
         if (item.plantCode) indexMap[item.plantCode] = code;
       });
@@ -904,35 +962,26 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   }, [sessionId]);
 
   useEffect(() => {
+    // Track the active listing for the countdown without restarting it.
+    activeListingRef.current = activeListing;
+  }, [activeListing]);
+
+  useEffect(() => {
     setSnapshotPreviewUri(null);
     setSnapshotCountdown(0);
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    if (!activeListing || activeListing.imagePrimary || !joined) return;
+    stopSnapshotCountdown();
+    if (!activeListing || !joined) return;
 
-    console.log('[Snapshot] No image for listing', activeListing.plantCode, '— starting 8s countdown');
-    let remaining = 8;
-    setSnapshotCountdown(remaining);
+    console.log(
+      '[Snapshot] Watching listing',
+      activeListing.plantCode,
+      '— 8s countdown / 10s gap',
+    );
 
-    countdownIntervalRef.current = setInterval(() => {
-      remaining -= 1;
-      setSnapshotCountdown(remaining);
-      if (remaining <= 0) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-        captureAndUploadSnapshot(activeListing);
-      }
-    }, 1000);
+    startSnapshotCountdown();
 
-    return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-      }
-    };
-  }, [activeListing, joined]);
+    return stopSnapshotCountdown;
+  }, [activeListing?.id, activeListing?.plantCode, joined]);
 
   // Periodic live thumbnail capture — updates the session's coverPhotoUrl
   // so the buyer's shop screen shows a fresh preview of what's currently on stream
@@ -1016,6 +1065,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             </View>
           )}
         </View>
+
+        {snapshotCountdown > 0 && (
+          <View style={styles.snapshotOverlay} pointerEvents="none">
+            <View style={styles.snapshotBadge}>
+              <Text style={styles.snapshotPrepareText}>Prepare for snapshot</Text>
+              <Text style={styles.snapshotCountdownText}>{snapshotCountdown}</Text>
+            </View>
+          </View>
+        )}
 
         {!!statusMessage && engineReady && (
           <View style={styles.statusBanner} pointerEvents="none">
@@ -1138,7 +1196,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <NoteIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Notes</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleManualSnapshot} style={styles.sideAction}>
+                <TouchableOpacity onPress={startSnapshotCountdown} style={styles.sideAction}>
                   <ScreenshotIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Snap</Text>
                 </TouchableOpacity>
@@ -1230,7 +1288,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           onListingCreated={() => setLiveListingModalVisible(true)}
           sessionId={sessionId}
           navigation={navigation}
-          nextIgIndex={sessionListingsCount + 1}
+          nextIgIndex={
+            sessionDetails?.lastIgIndex != null
+              ? Number(sessionDetails.lastIgIndex) + 1
+              : sessionListingsCount + 1
+          }
         />
 
         <LiveListingsModal
@@ -1579,35 +1641,33 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    zIndex: 10,
+    // Non-blocking: the whole layer ignores touches (pointerEvents="none") and
+    // paints no backdrop, so the seller can still use the comment box, the
+    // right-rail buttons and the listing card while the counter runs.
+    zIndex: 30,
+    elevation: 30,
+  },
+  snapshotBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   snapshotPrepareText: {
     ...baseFont,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.85)',
-    marginBottom: 8,
+    marginBottom: 2,
   },
   snapshotCountdownText: {
     ...baseFont,
-    fontSize: 72,
+    fontSize: 44,
     fontWeight: '800',
     color: '#FFFFFF',
-    lineHeight: 80,
-  },
-  snapshotSnapNowBtn: {
-    marginTop: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 24,
-  },
-  snapshotSnapNowText: {
-    ...baseFont,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    lineHeight: 50,
   },
   shop: {
     flexDirection: 'column',

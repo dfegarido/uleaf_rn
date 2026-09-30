@@ -117,7 +117,15 @@ const LiveListingGrid = ({
         : wasPreviouslyActive
           ? '#FEF2EA'
           : '#fff';
-    const displayIndex = `IG${listing._originalIndex ?? (index + 1)}`;
+    // The IG<n> label is stored on the listing and handed out once at creation
+    // (see migration 037). It must NOT fall back to the row position: a listing
+    // whose number is missing would then borrow the number of the slot it
+    // happens to sit in, which is how two different plants both displayed
+    // "IG5". A row with no stored number simply shows no label.
+    const displayIndex =
+      listing.liveIgIndex != null && String(listing.liveIgIndex).trim() !== ''
+        ? `IG${listing.liveIgIndex}`
+        : '';
     const hasImage = !!(listing.imagePrimary || listing.image);
     const priceLabel = formatCardPrice(listing);
 
@@ -149,7 +157,7 @@ const LiveListingGrid = ({
               <Text style={styles.noImageIndexText}>{displayIndex}</Text>
             </View>
           )}
-          {hasImage && (
+          {hasImage && !!displayIndex && (
             <View style={styles.indexBadge}>
               <Text style={styles.indexBadgeText}>{displayIndex}</Text>
             </View>

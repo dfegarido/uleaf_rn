@@ -501,7 +501,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     };
   }, [sessionId, brodcasterId]);
 
-  // Same IG index ordering as seller (LiveBroadcastScreen): Live listings in session by createdAt
+  // The IG<n> label is stored on the listing (liveIgIndex), assigned once at
+  // creation — same source the seller screen uses. It must NOT be derived from
+  // the position in this result set: a sold or deleted listing shifts every row
+  // below it, so the buyer would read a different number than the seller.
   useEffect(() => {
     if (!sessionId) return;
 
@@ -512,8 +515,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       const res = await getLiveListingsBySessionApi(sessionId, 'Live');
       if (!active) return;
       const indexMap = {};
-      (res.data || []).forEach((item, i) => {
-        indexMap[item.id] = `IG${i + 1}`;
+      (res.data || []).forEach((item) => {
+        if (item.liveIgIndex == null || String(item.liveIgIndex).trim() === '') return;
+        if (item.id) indexMap[item.id] = `IG${item.liveIgIndex}`;
       });
       setSessionListingIndexMap(indexMap);
     };
@@ -1159,10 +1163,20 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         {activeListing && (<View style={styles.shop}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
+                <AppImage
+                  source={
+                    activeListing.imagePrimary
+                      ? { uri: activeListing.imagePrimary }
+                      : undefined
+                  }
+                  style={styles.listingThumb}
+                />
                 <View style={styles.plantName}>
-                  <Text style={styles.name}>{activeListing.genus}</Text>
-                  <Text style={styles.name}>{activeListing.species}</Text>
-                  <Text style={styles.variegation}>{activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}</Text>
+                  <Text style={styles.name} numberOfLines={1}>{activeListing.genus}</Text>
+                  <Text style={styles.name} numberOfLines={2}>{activeListing.species}</Text>
+                  <Text style={styles.variegation} numberOfLines={1}>
+                    {activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}
+                  </Text>
                 </View>
                 <View style={styles.price}>
                   <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
@@ -1171,12 +1185,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                         <Text style={styles.discountText}>33% OFF</Text>
                       </View> */}
                 </View>
-                
               </View>
               <View style={styles.shipping}>
                   <View style={styles.shipDays}>
                     <TruckIcon width={24} height={24} />
-                    <Text style={styles.shipText}>{liveShippingLabel(activeListing)}</Text>
+                    <Text style={styles.shipText} numberOfLines={2}>{liveShippingLabel(activeListing)}</Text>
                   </View>
                 </View>
             </View>
@@ -1564,8 +1577,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     width: 359,
-    height: 210,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 16,
   },
   plant: {
@@ -1573,39 +1585,44 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
     width: 327,
-    height: 90,
   },
   plantDetails: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
     width: 327,
-    height: 50,
+  },
+  listingThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
   },
   plantName: {
     flexDirection: 'column',
-    gap: 4,
-    width: 247,
-    height: 50,
+    gap: 2,
+    flex: 1,
   },
   name: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 12,
-    lineHeight: 24,
+    fontSize: 13,
+    lineHeight: 17,
   },
   variegation: {
     ...baseFont,
     color: '#CDD3D4',
     fontWeight: '500',
     fontSize: 12,
-    lineHeight: 22,
+    lineHeight: 16,
   },
   price: {
     flexDirection: 'column',
     alignItems: 'flex-end',
+    justifyContent: 'flex-start',
     gap: 6,
-    width: 72,
-    height: 50,
+    flexShrink: 0,
+    paddingLeft: 8,
   },
   plantPrice: {
     ...baseFont,
@@ -1639,10 +1656,8 @@ const styles = StyleSheet.create({
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
     gap: 8,
     width: 327,
-    height: 28,
   },
   shippingType: {
     justifyContent: 'center',
@@ -1675,7 +1690,6 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 22,
     gap: 8,
     width: 327,
     height: 48,

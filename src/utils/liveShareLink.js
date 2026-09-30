@@ -58,11 +58,15 @@ export function shareLiveStream(sessionId, sellerId) {
 
   runShareAfterInteractions(async () => {
     try {
-      await Share.open({
-        message: url,
-        url,
-        title: 'Share LIVE sale',
-      });
+      // Pass the link ONCE. react-native-share adds `url` as an extra activity
+      // item on top of `message` (iOS), and Android builds `message + " " + url`,
+      // so sending both copies the same link twice into the share target.
+      // iOS takes only `url`; Android takes only `message`.
+      await Share.open(
+        Platform.OS === 'ios'
+          ? { title: 'Share LIVE sale', url }
+          : { title: 'Share LIVE sale', message: url },
+      );
     } catch (error) {
       if (error?.message !== 'User did not share') {
         Alert.alert('Error', 'Could not open share sheet. Please try again.');

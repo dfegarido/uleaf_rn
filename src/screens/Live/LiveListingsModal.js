@@ -113,13 +113,18 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
   };
 
   const igIndexMap = useMemo(() => {
+    // The IG number is stored on the listing (liveIgIndex) and assigned once at
+    // creation, so it must not be derived from position: a sold/deleted listing
+    // would otherwise renumber everything below it. Ordering is by creation
+    // date so the sequence still reads naturally top-to-bottom.
     const sortedForIg = [...listings].sort(
       (a, b) => createdAtMs(a) - createdAtMs(b),
     );
     const map = {};
-    sortedForIg.forEach((row, i) => {
+    sortedForIg.forEach((row) => {
+      if (row.liveIgIndex == null || String(row.liveIgIndex).trim() === '') return;
       const key = row.id || row.plantCode;
-      if (key) map[key] = `IG${i + 1}`;
+      if (key) map[key] = `IG${row.liveIgIndex}`;
     });
     return map;
   }, [listings]);

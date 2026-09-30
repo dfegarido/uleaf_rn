@@ -24,14 +24,6 @@ const SORT_OPTIONS = [
   {key: 'priceLow', label: 'Price Low to High'},
 ];
 
-const createdAtMs = (data) => {
-  const ts = data?.createdAt;
-  if (!ts) return 0;
-  if (typeof ts.toMillis === 'function') return ts.toMillis();
-  if (ts.seconds != null) return ts.seconds * 1000;
-  return 0;
-};
-
 const igSequenceNum = (ig) => {
   const n = parseInt(String(ig || '').replace(/\D/g, ''), 10);
   return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
@@ -70,12 +62,13 @@ const ShopModal = ({
       if (!active) return;
       const listings = (res.data || []).map((item) => ({ id: item.id, ...item }));
 
-      const sortedForIg = [...listings].sort(
-        (a, b) => createdAtMs(a) - createdAtMs(b),
-      );
+      // The number comes from the listing's stored liveIgIndex (assigned once at
+      // creation), not from the position here: a sold/deleted listing would
+      // otherwise renumber the remaining rows and disagree with the seller.
       const igMap = {};
-      sortedForIg.forEach((row, i) => {
-        igMap[row.id] = `IG${i + 1}`;
+      listings.forEach((row) => {
+        if (row.liveIgIndex == null || String(row.liveIgIndex).trim() === '') return;
+        igMap[row.id] = `IG${row.liveIgIndex}`;
       });
       setLocalIgIndexMap(igMap);
 
