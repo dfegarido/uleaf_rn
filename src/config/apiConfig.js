@@ -250,6 +250,7 @@ GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single 
   PUT_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
   DELETE_CHAT_MESSAGE: `${getSupabaseBaseUrl()}/chat-message`,
   GET_CHAT_MEMBERSHIP: `${getSupabaseBaseUrl()}/chat-membership`,
+  GET_CHAT_ACTIVE_MEMBERS: `${getSupabaseBaseUrl()}/chat-active-members`,
   POST_CHAT_JOIN_REQUEST: `${getSupabaseBaseUrl()}/chat-join-request`,
   GET_CHAT_PARTICIPANTS: `${getSupabaseBaseUrl()}/chat-participants`,
   GET_CHAT_PARTICIPANTS_BATCH: `${getSupabaseBaseUrl()}/chat-participants-batch`,

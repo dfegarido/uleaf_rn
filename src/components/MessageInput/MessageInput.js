@@ -1,6 +1,6 @@
 import AppImage from '../AppImage/AppImage';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View, Text, Alert, ActivityIndicator, Image, ScrollView, Keyboard } from 'react-native';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { validateVideo, formatDuration, isReadableVideoFile } from '../../utils/videoCompression';
@@ -67,7 +67,7 @@ const VideoIcon = ({ width = 24, height = 24, color = '#000000' }) => (
   </Svg>
 );
 
-const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, editingMessage = null, onCancelEdit = null, onSaveEdit = null, currentUserUid = null, chatType = 'private'}) => {
+const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, replyingTo = null, onCancelReply = null, participantDataMap = {}, mentionCandidates = null, editingMessage = null, onCancelEdit = null, onSaveEdit = null, currentUserUid = null, chatType = 'private'}) => {
   const [message, setMessage] = useState('');
   const [previewImages, setPreviewImages] = useState([]); // Array of local URIs for preview
   const [previewVideo, setPreviewVideo] = useState(null); // Video preview data: { uri, thumbnail, duration }
@@ -81,6 +81,12 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
   const [mentionStartPosition, setMentionStartPosition] = useState(0);
   const [mentions, setMentions] = useState([]); // Array of {uid, name, username}
   const textInputRef = useRef(null);
+  // Latest committed composer text. `onSelectionChange` fires BEFORE React commits the
+  // setMessage() from `onChangeText`, so its closure still holds the PREVIOUS value;
+  // passing that stale string to detectMentionAtCursor hides the picker that
+  // onChangeText just opened. Verified on the iOS simulator: typing "@" alone rendered
+  // NO picker, and only a second character made one appear. Read this ref instead.
+  const messageRef = useRef('');
 
   // Sync message state with editingMessage
   React.useEffect(() => {
@@ -127,6 +133,7 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
     const lengthDelta = text.length - prevLength;
     const estimatedCursor = Math.max(0, cursorPosition + lengthDelta);
 
+    messageRef.current = text;
     setMessage(text);
     setCursorPosition(estimatedCursor);
     detectMentionAtCursor(text, estimatedCursor);
@@ -166,18 +173,42 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
   };
   
   // Get group members for mention picker
-  const getGroupMembers = () => {
+  //
+  // Prefers the `mentionCandidates` sections handed down by ChatScreen, which are
+  // already ordered ("Active now" by presence recency, then "Recently active" by most
+  // recent message) and filtered to members who have actually posted. Falls back to
+  // deriving the list from `participantDataMap` so the component still works for any
+  // caller that does not pass the prop.
+  const getGroupMembers = useCallback(() => {
+    if (mentionCandidates) {
+      // Flatten for the search path, but tag each row with its section so the picker
+      // can render headers without re-deriving the split. `username` is not carried on
+      // the candidate objects (it is not stored on participantDataMap either), so it is
+      // derived from the name exactly as the fallback branch below does — this keeps the
+      // inserted mention text (`@${user.username || user.name}`) identical either way.
+      const tag = (u, section) => ({
+        ...u,
+        username: u.username || u.name,
+        section,
+      });
+      return [
+        ...mentionCandidates.active.map(u => tag(u, 'active')),
+        ...mentionCandidates.recent.map(u => tag(u, 'recent')),
+      ];
+    }
+
     if (chatType !== 'group') return [];
-    
+
     return Object.keys(participantDataMap)
       .map(uid => ({
         uid,
         name: participantDataMap[uid]?.name || 'Unknown',
         username: participantDataMap[uid]?.username || participantDataMap[uid]?.name,
         avatarUrl: participantDataMap[uid]?.avatarUrl || null,
+        section: 'recent',
       }))
       .filter(user => user.uid !== currentUserUid); // Don't show current user
-  };
+  }, [mentionCandidates, participantDataMap, currentUserUid, chatType]);
   
   // Show send button when there's text, image, or video previews
   const hasText = message.trim().length > 0;
@@ -668,6 +699,20 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
         </ScrollView>
       )}
       
+      {/* User Mention Picker - Shows when typing @ in group chats.
+          Rendered in normal flow ABOVE the composer. It used to be
+          position:'absolute'/bottom:0, which floated it OVER the text input
+          and hid the field while typing the mention. */}
+      {chatType === 'group' && (
+        <UserMentionPicker
+          visible={showMentionPicker}
+          users={getGroupMembers()}
+          onSelectUser={handleSelectMention}
+          searchQuery={mentionSearchQuery}
+          currentUserUid={currentUserUid}
+        />
+      )}
+
       <View style={styles.inputRow}>
         {/* Gallery/Image Button - Left side (hidden during edit mode) */}
         {!editingMessage && !previewVideo && (
@@ -701,7 +746,10 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
             onSelectionChange={(event) => {
               const pos = event.nativeEvent.selection.start;
               setCursorPosition(pos);
-              detectMentionAtCursor(message, pos);
+              // Read the ref, NOT `message`: this callback runs before the setMessage()
+              // from onChangeText has been committed, so `message` is one keystroke
+              // behind and would hide the picker as it opens. See messageRef above.
+              detectMentionAtCursor(messageRef.current, pos);
             }}
             multiline={true}
             // iOS caps the box here; Android caps at maxHeight and ignores this. Also the
@@ -727,17 +775,6 @@ const MessageInput = ({onSend, onSendImage, onSendVideo, disabled = false, reply
           </View>
         </TouchableOpacity>
       </View>
-      
-      {/* User Mention Picker - Shows when typing @ in group chats */}
-      {chatType === 'group' && (
-        <UserMentionPicker
-          visible={showMentionPicker}
-          users={getGroupMembers()}
-          onSelectUser={handleSelectMention}
-          searchQuery={mentionSearchQuery}
-          currentUserUid={currentUserUid}
-        />
-      )}
     </View>
   );
 }

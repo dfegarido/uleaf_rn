@@ -158,6 +158,36 @@ export const getChatMembershipApi = async (chatId) => {
   }
 };
 
+/**
+ * Exact active-member set for one chat, most-recently-seen first.
+ *
+ * Replaces the presence poll's client-side 200-uid sample for the header count and the
+ * @-mention "Active now" section: group chats hold 1,000-1,700 members and the
+ * arbitrary `participantids` order meant the sample could hold as few as 2 of the
+ * room's active members. The server answers for the whole chat.
+ *
+ * @param {string} chatId
+ * @returns {{success: boolean, data: Array<{uid: string, isOnline: boolean, lastSeen: string|null}>, error: string|null}}
+ */
+export const getChatActiveMembersApi = async (chatId) => {
+  try {
+    const res = await fetch(
+      `${API_ENDPOINTS.GET_CHAT_ACTIVE_MEMBERS}?chatId=${encodeURIComponent(chatId)}`,
+      { method: 'GET', headers: await authHeaders() },
+    );
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return {
+      success: true,
+      data: Array.isArray(body.data) ? body.data : [],
+      error: null,
+    };
+  } catch (error) {
+    console.error('getChatActiveMembersApi error:', error.message);
+    return { success: false, data: [], error: error.message };
+  }
+};
+
 /** Submit a join request for a public group chat. */
 export const submitChatJoinRequestApi = async ({ chatId, userName, userAvatar }) => {
   try {

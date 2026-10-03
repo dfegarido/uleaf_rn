@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Timestamp } from 'firebase/firestore';
-import React, { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AppState, FlatList, Image, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Alert, Animated, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -15,6 +15,7 @@ import {
   updateChatMessageApi,
   deleteChatMessageApi,
   getChatMembershipApi,
+  getChatActiveMembersApi,
   getChatParticipantsBatchApi,
   submitChatJoinRequestApi,
 } from '../../components/Api/chatApi';
@@ -158,6 +159,29 @@ const toFirestoreTimestamp = (value) => {
     toDate: () => new Date(d.getTime()),
     toMillis: () => d.getTime(),
   };
+};
+
+/**
+ * Epoch ms for a message timestamp, which may be a Firestore Timestamp, the
+ * Timestamp-like object normalizeMessage/toFirestoreTimestamp produces, an ISO
+ * string, or already a number. Returns 0 when there is nothing usable.
+ *
+ * Single source of truth for this conversion: the mention picker sorts by
+ * "most recent sender" and must read the same field the same way as the list.
+ */
+const toMillis = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value.toMillis === 'function') {
+    const ms = value.toMillis();
+    return Number.isFinite(ms) ? ms : 0;
+  }
+  if (typeof value.toDate === 'function') {
+    const ms = value.toDate().getTime();
+    return Number.isFinite(ms) ? ms : 0;
+  }
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
 };
 
 const normalizeMessage = (msg) => {
@@ -438,6 +462,14 @@ const ChatScreen = ({navigation, route}) => {
   //   undefined = not polled yet (render nothing), null = no presence row / poll failed
   //   (render "Offline"), number = real lastseen. Group chats use the count instead.
   const [peerLastSeenMs, setPeerLastSeenMs] = useState(undefined);
+  // uid -> epoch ms of `chat_presence.lastseen`, for every uid the poll resolved.
+  // Needed by the @-mention picker so it can order the "Active now" section by
+  // recency: `onlineUserIds` is only a Set, so it can answer "is active" but not
+  // "how recently". Written in the same place as `onlineUserIds` (recomputeActiveMembers)
+  // so the two can never disagree, and it deliberately carries the same
+  // partial-failure contract: if a presence chunk fails the state write is skipped
+  // and the previous map is kept.
+  const [presenceLastSeen, setPresenceLastSeen] = useState({});
 
   // Private-chat header presence, read from `chat_presence` by the effect below.
   // Group chats keep their existing "N active" render and do not use this.
@@ -700,6 +732,86 @@ const ChatScreen = ({navigation, route}) => {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Mention candidates: the members a sender can actually @ in this chat.
+  //
+  // Roster is deliberately SENDERS ONLY — the same pool `participantDataMap` already
+  // holds (built from message senders at the effect below). Measured live: the largest
+  // group has 1,628 members but only ~26 senders, so this is a small list and needs no
+  // lazy-loading. The full member roster was considered and declined.
+  //
+  // Ordering:
+  //   "Active now"      -> presence within PRESENCE_ACTIVE_WINDOW_MS, most recent first
+  //   "Recently active" -> everyone else, most recent message first, then A-Z
+  // @everyone is not an entry here; the picker pins it as its list header.
+  //
+  // Derived from `messages` (so it tracks new senders) and `presenceLastSeen` (so the
+  // active section is real data). Both halves are memoised together to keep identity
+  // stable across unrelated re-renders of this large screen.
+  const mentionCandidates = useMemo(() => {
+    const lastMessageMsByUid = new Map();
+    // `messages` is chronological ascending (oldest first), so a plain overwrite
+    // leaves each uid holding its most recent timestamp.
+    for (const msg of messages) {
+      const senderId = msg?.senderId;
+      if (!senderId || senderId === currentUserUid) continue;
+      const ms = toMillis(msg?.timestamp) || toMillis(msg?.createdAt);
+      if (ms > 0) lastMessageMsByUid.set(senderId, ms);
+    }
+
+    // `participants` is the full member list; `participantDataMap` has fresher
+    // names/avatars for senders. Union both so a sender whose name resolved later is
+    // still listed, keyed by uid.
+    const byUid = new Map();
+    for (const p of participants) {
+      const uid = p?.uid;
+      if (!uid || uid === currentUserUid) continue;
+      byUid.set(uid, { uid, name: p?.name || 'Unknown', avatarUrl: p?.avatarUrl || null });
+    }
+    for (const [uid, entry] of Object.entries(participantDataMap)) {
+      if (!uid || uid === currentUserUid) continue;
+      byUid.set(uid, {
+        uid,
+        name: entry?.name || byUid.get(uid)?.name || 'Unknown',
+        avatarUrl: entry?.avatarUrl || byUid.get(uid)?.avatarUrl || null,
+      });
+    }
+
+    // Include a member when they have posted OR they are active right now. Senders give
+    // the list its "Recently active" body; active non-senders would otherwise be
+    // invisible in "Active now" even though the header counts them (measured: a
+    // 1,277-member room where a single member had ever posted).
+    const now = Date.now();
+    const list = [];
+    for (const [uid, user] of byUid.entries()) {
+      const lastMessageMs = lastMessageMsByUid.get(uid) || 0;
+      const lastSeenMs = presenceLastSeen[uid] || 0;
+      const isActiveNow = lastSeenMs > 0 && now - lastSeenMs < PRESENCE_ACTIVE_WINDOW_MS;
+      if (lastMessageMs === 0 && !isActiveNow) continue;
+      list.push({ ...user, lastMessageMs, lastSeenMs });
+    }
+
+    const active = [];
+    const recent = [];
+    for (const user of list) {
+      if (user.lastSeenMs > 0 && now - user.lastSeenMs < PRESENCE_ACTIVE_WINDOW_MS) {
+        active.push(user);
+      } else {
+        recent.push(user);
+      }
+    }
+
+    active.sort((a, b) => b.lastSeenMs - a.lastSeenMs);
+    recent.sort(
+      (a, b) =>
+        b.lastMessageMs - a.lastMessageMs ||
+        String(a.name).localeCompare(String(b.name))
+    );
+
+    // Keep the poll's prioritization in sync (see the presence effect). Assigning in
+    // an effect, not during render, to stay out of the render phase.
+    return { active, recent };
+  }, [messages, participants, participantDataMap, presenceLastSeen, currentUserUid]);
+
   // Track presence for the current conversation.
   //
   // Group chats and 1:1 conversations need the SAME presence data, so this effect
@@ -708,99 +820,108 @@ const ChatScreen = ({navigation, route}) => {
   // so a 1:1 thread claimed the other person was active even when they had not opened
   // the app in weeks. It now resolves the peer against the same table and renders the
   // real state ("Active now" / "Active 12m ago" / "Active 3h ago" / "Offline").
+  //
+  // GROUP chats ask the server for the exact active set of the whole room
+  // (GET /chat-active-members). The previous client-side poll could only cover
+  // MAX_TRACKED_GROUP_MEMBERS (200) participants: production groups hold 1,000-1,700
+  // members and `participantids` order is arbitrary, so it sampled a fraction of the
+  // room — measured "Acclimation 101" (1,277 members, 8 genuinely active) reported
+  // "2 active". One request per chat now returns everyone active, including members
+  // who have never posted.
+  //
+  // 1:1 keeps the direct peer lookup (GET /chat-presence?uids=<peer>) — there is
+  // exactly one other participant, so the server-side room query would be wasteful.
   useEffect(() => {
     if (!id || participants.length === 0) {
       setActiveMembers(0);
       setPeerLastSeenMs(undefined);
+      setPresenceLastSeen({});
+      setOnlineUserIds(new Set());
       return;
     }
 
-    // Presence moved from Firestore `userPresence` (a one-listener-per-chunk
-    // onSnapshot) to the Supabase `chat-presence` Edge Function. `chats`/presence
-    // are not in the Supabase realtime publication, so this polls — same reason as
-    // the unread badge. The "online, or seen within 5 minutes" rule is unchanged.
     let cancelled = false;
-    const participantUids = participants
-      .map(p => p?.uid)
-      .filter(uid => !!uid && uid !== currentUserUid);
-    const MAX_TRACKED_GROUP_MEMBERS = 200;
-    const targetUids = participantUids.slice(0, MAX_TRACKED_GROUP_MEMBERS);
-    const presenceByUid = new Map();
-    // Raw lastSeen per uid, kept alongside the boolean so the 1:1 subtitle can show
-    // "Active 12m ago" rather than only online/offline.
-    const rawLastSeenByUid = new Map();
+    // Presence is not in the Supabase realtime publication, so this polls.
     const PRESENCE_POLL_MS = 60000;
+    const POLL_MS = chatType === 'group' ? PRESENCE_POLL_MS : 30000;
 
-    // The endpoint caps at 100 uids per call.
-    const CHUNK_SIZE = 100;
+    // Reset per round so a user who dropped out of the freshness window flips off.
+    const rawLastSeenByUid = new Map();
 
-    const recomputeActiveMembers = () => {
-      const onlineUsers = new Set(
-        Array.from(presenceByUid.entries())
-          .filter(([, isActive]) => isActive)
+    const applyActiveMembers = () => {
+      const online = new Set(
+        Array.from(rawLastSeenByUid.entries())
+          .filter(([, ms]) => ms > Date.now() - PRESENCE_ACTIVE_WINDOW_MS)
           .map(([uid]) => uid)
       );
-      setOnlineUserIds(onlineUsers);
-      setActiveMembers(onlineUsers.size);
-      // 1:1 threads have exactly one peer; surface their lastSeen so the subtitle can
-      // report real activity instead of the old hardcoded "Active now".
-      setPeerLastSeenMs(rawLastSeenByUid.get(otherParticipantUid) ?? null);
+      setOnlineUserIds(online);
+      setActiveMembers(online.size);
+      setPresenceLastSeen(Object.fromEntries(rawLastSeenByUid));
     };
 
-    const pollPresence = async () => {
-      if (cancelled || targetUids.length === 0) return;
+    const fetchActiveMembers = async () => {
+      if (cancelled) return;
+      rawLastSeenByUid.clear();
+      const res = await getChatActiveMembersApi(id);
+      if (cancelled) return;
+      // Keep the last known-good values on failure rather than reporting the whole
+      // room as offline — a partial/absent answer is not evidence of absence.
+      if (!res.success) return;
+      for (const row of res.data) {
+        if (!row?.uid) continue;
+        const ms = row.lastSeen ? new Date(row.lastSeen).getTime() : 0;
+        if (Number.isFinite(ms) && ms > 0) rawLastSeenByUid.set(row.uid, ms);
+      }
+      applyActiveMembers();
+    };
+
+    // 1:1 — resolve the single peer's raw lastSeen for the subtitle; its freshness
+    // also drives the header dot via `onlineUserIds`.
+    const fetchPeerPresence = async () => {
+      if (cancelled || !otherParticipantUid) return;
       try {
         const token = await getStoredAuthToken();
-        const fiveMinutesAgo = Date.now() - PRESENCE_ACTIVE_WINDOW_MS;
-
-        // Reset before applying, so a user who dropped out of the window flips off.
-        targetUids.forEach(uid => presenceByUid.set(uid, false));
+        const res = await fetch(
+          `${API_ENDPOINTS.CHAT_PRESENCE}?uids=${encodeURIComponent(otherParticipantUid)}`,
+          { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } },
+        );
+        if (cancelled || !res.ok) return;
+        const json = await res.json();
+        const rows = Array.isArray(json?.data) ? json.data : [];
         rawLastSeenByUid.clear();
-
-        // A partial failure must not be reported as "everyone offline": if any chunk
-        // fails we skip the state write entirely and keep the last known-good values.
-        let failed = false;
-
-        for (let i = 0; i < targetUids.length; i += CHUNK_SIZE) {
-          const chunkUids = targetUids.slice(i, i + CHUNK_SIZE);
-          if (chunkUids.length === 0) continue;
-          const res = await fetch(
-            `${API_ENDPOINTS.CHAT_PRESENCE}?uids=${encodeURIComponent(chunkUids.join(','))}`,
-            { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } },
-          );
-          if (!res.ok) {
-            failed = true;
-            continue;
-          }
-          const json = await res.json();
-          const rows = Array.isArray(json?.data) ? json.data : [];
-          for (const row of rows) {
-            if (!row?.uid) continue;
-            const lastSeenMs = row.lastSeen ? new Date(row.lastSeen).getTime() : 0;
-            if (Number.isFinite(lastSeenMs) && lastSeenMs > 0) {
-              rawLastSeenByUid.set(row.uid, lastSeenMs);
-            }
-            // Freshness is authoritative. The server now derives isOnline from lastseen,
-            // but the raw `isOnline` flag is deliberately NOT trusted here either: it is
-            // sticky-true after a force-quit (AppState never fires), and an older server
-            // build still returns the stored column.
-            presenceByUid.set(row.uid, lastSeenMs > fiveMinutesAgo);
-          }
+        for (const row of rows) {
+          if (!row?.uid) continue;
+          const ms = row.lastSeen ? new Date(row.lastSeen).getTime() : 0;
+          if (Number.isFinite(ms) && ms > 0) rawLastSeenByUid.set(row.uid, ms);
         }
-        if (!cancelled && !failed) recomputeActiveMembers();
+        if (!rawLastSeenByUid.has(otherParticipantUid)) {
+          // Present-but-unresolved: report the peer as offline rather than unknown.
+          rawLastSeenByUid.set(otherParticipantUid, 0);
+        }
+        setPeerLastSeenMs(rawLastSeenByUid.get(otherParticipantUid) ?? null);
+        applyActiveMembers();
       } catch (error) {
         console.log('Presence poll error:', error.message);
       }
     };
 
-    pollPresence();
-    const presenceInterval = setInterval(pollPresence, PRESENCE_POLL_MS);
+    const poll = () => {
+      if (cancelled) return;
+      if (chatType === 'group') {
+        fetchActiveMembers().catch(error => console.log('Presence poll error:', error.message));
+      } else {
+        fetchPeerPresence();
+      }
+    };
+
+    poll();
+    const presenceInterval = setInterval(poll, POLL_MS);
 
     // Re-poll the instant we come back to the foreground instead of waiting out the
-    // rest of the 60s interval — otherwise a peer who just went offline still reads
+    // rest of the interval — otherwise a peer who just went offline still reads
     // as active for up to a minute after the buyer reopens the app.
     const appStateSub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') pollPresence();
+      if (next === 'active') poll();
     });
 
     // Cleanup
@@ -2730,6 +2851,7 @@ const ChatScreen = ({navigation, route}) => {
           replyingTo={replyingTo}
           onCancelReply={cancelReply}
           participantDataMap={participantDataMap}
+          mentionCandidates={mentionCandidates}
           editingMessage={editingMessage}
           onCancelEdit={cancelEdit}
           onSaveEdit={saveEditedMessage}

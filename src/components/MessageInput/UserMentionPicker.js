@@ -27,44 +27,67 @@ const UserMentionPicker = ({
     return null;
   }
 
-  // Filter users based on search query
+  const query = String(searchQuery || '').toLowerCase();
+
+  // Filter users based on search query. Self is never suggested.
   const filteredUsers = (users || []).filter(user => {
-    // Don't suggest self
     if (user.uid === currentUserUid) return false;
-    
-    const query = searchQuery.toLowerCase();
     const name = (user.name || '').toLowerCase();
     const username = (user.username || '').toLowerCase();
-    
     return name.includes(query) || username.includes(query);
   });
 
   // Check if "everyone" matches the search query
-  const showEveryone = 'everyone'.includes(searchQuery.toLowerCase()) || searchQuery === '';
+  const showEveryone = 'everyone'.includes(query) || query === '';
 
   if (!showEveryone && filteredUsers.length === 0) {
     return null;
   }
 
-  const renderUser = ({ item }) => {
-    const avatarSource = item.avatarUrl 
-      ? { uri: item.avatarUrl } 
+  // Section rows. A header is only emitted when its section has rows, so a search that
+  // empties "Active now" (or a chat where nobody is online) never renders a bare header.
+  // `users` arrives already ordered with a `section` tag from
+  // MessageInput.getGroupMembers(); ordering is NOT re-derived here.
+  const rows = [];
+  const activeUsers = filteredUsers.filter(user => user.section === 'active');
+  const recentUsers = filteredUsers.filter(user => user.section !== 'active');
+  if (activeUsers.length > 0) {
+    rows.push({ type: 'header', key: 'header-active', label: 'Active now' });
+    activeUsers.forEach(user => rows.push({ type: 'user', key: user.uid, user }));
+  }
+  if (recentUsers.length > 0) {
+    rows.push({ type: 'header', key: 'header-recent', label: 'Recently active' });
+    recentUsers.forEach(user => rows.push({ type: 'user', key: user.uid, user }));
+  }
+
+  const renderRow = ({ item }) => {
+    if (item.type === 'header') {
+      return (
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>{item.label}</Text>
+        </View>
+      );
+    }
+
+    const { user } = item;
+    const avatarSource = user.avatarUrl
+      ? { uri: user.avatarUrl }
       : DefaultAvatar;
 
     return (
       <TouchableOpacity
         style={styles.userItem}
-        onPress={() => onSelectUser(item)}
+        onPress={() => onSelectUser(user)}
         activeOpacity={0.7}
       >
         <Image source={avatarSource} style={styles.avatar} />
         <View style={styles.userInfo}>
           <Text style={styles.userName} numberOfLines={1}>
-            {item.name || 'Unknown'}
+            {user.name || 'Unknown'}
           </Text>
-          {item.username && (
+          {user.username && (
             <Text style={styles.userHandle} numberOfLines={1}>
-              @{item.username}
+              @{user.username}
             </Text>
           )}
         </View>
@@ -80,9 +103,9 @@ const UserMentionPicker = ({
         </Text>
       </View>
       <FlatList
-        data={filteredUsers}
-        renderItem={renderUser}
-        keyExtractor={(item) => item.uid}
+        data={rows}
+        renderItem={renderRow}
+        keyExtractor={(item) => item.key}
         style={styles.list}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -120,25 +143,20 @@ const UserMentionPicker = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderRadius: 16,
     maxHeight: 300,
+    marginBottom: 8,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: -2,
+      height: 2,
     },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 10,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
+    borderWidth: 1,
     borderColor: '#E5E5E5',
   },
   header: {
@@ -156,6 +174,21 @@ const styles = StyleSheet.create({
   },
   list: {
     maxHeight: 250,
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+    backgroundColor: '#FAFAFA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  sectionHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   userItem: {
     flexDirection: 'row',
