@@ -1754,6 +1754,43 @@ const ScreenListing = ({navigation}) => {
     });
   }, [activeSelectedIds, dataTable, exitActiveSelectMode, navigation]);
 
+  const handleGroupChatBatchExportToMainstream = useCallback(() => {
+    if (groupChatSelectedIds.length === 0) return;
+    const count = groupChatSelectedIds.length;
+    Alert.alert(
+      'Export to Mainstream',
+      `Move ${count} listing${count > 1 ? 's' : ''} to your Active listings? They will no longer appear in the Group Chat tab.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Export',
+          onPress: () => {
+            const selectedItems = dataTable.filter(item => groupChatSelectedIds.includes(item.id));
+            const invalid = selectedItems.filter(
+              item => (item.status || '').trim() !== 'GroupChatListing',
+            );
+            if (invalid.length > 0) {
+              Alert.alert('Validation', 'Some selected listings are not group chat listings.');
+              return;
+            }
+            const removeItem = arr => arr.filter(l => !groupChatSelectedIds.includes(l.id));
+            setDataTable(removeItem(dataTable));
+            allListingsRef.current = removeItem(allListingsRef.current);
+            allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
+            setTotalListings(prev => Math.max(0, prev - count));
+            exitGroupChatSelectMode();
+            showToast(`${count} listing${count > 1 ? 's' : ''} moved to Active.`);
+            const plantCodes = selectedItems.map(item => item.plantCode ?? item.id);
+            postListingActivateActionApi(plantCodes).catch(() => {
+              showToast('Failed to export listings.', 'error');
+              onRefresh();
+            });
+          },
+        },
+      ],
+    );
+  }, [groupChatSelectedIds, dataTable, exitGroupChatSelectMode, onRefresh]);
+
   const handleGroupChatBatchDeactivate = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
     const count = groupChatSelectedIds.length;
@@ -2480,6 +2517,18 @@ const ScreenListing = ({navigation}) => {
                       </TouchableOpacity>
                     </View>
                     <View style={styles.liveActionsRow}>
+                      {activeTab === 'Group Chat Listing' ? (
+                        <TouchableOpacity
+                          onPress={handleGroupChatBatchExportToMainstream}
+                          disabled={listingManageSelectedIds.length === 0}
+                          style={[
+                            styles.liveActionChip,
+                            styles.liveExportChip,
+                            listingManageSelectedIds.length === 0 && {opacity: 0.4},
+                          ]}>
+                          <Text style={styles.liveActionChipText}>Export</Text>
+                        </TouchableOpacity>
+                      ) : null}
                       <TouchableOpacity
                         onPress={onListingManageDiscount}
                         disabled={listingManageSelectedIds.length === 0}

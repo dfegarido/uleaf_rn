@@ -31,7 +31,12 @@ import BatchUploadIcon from '../../../assets/icons/greydark/batch-upload.svg';
 import NoteEditIcon from '../../../assets/icons/greydark/note-edit.svg';
 import CaretRightIcon from '../../../assets/icons/greydark/caret-right-regular.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { accountClassFromUserInfo, isUsBusinessUser } from '../../../utils/b2bShell';
+import { getB2BAccountApi } from '../../../components/Api/b2bAccountApi';
+import {
+  accountClassFromUserInfo,
+  canEditListingsInUsd,
+  isUsBusinessUser,
+} from '../../../utils/b2bShell';
 import { isIleafuInhouseAccountClass } from '../../../utils/b2bCountries';
 const screenWidth = Dimensions.get('window').width;
 
@@ -61,12 +66,34 @@ const ScreenSell = ({navigation}) => {
     userInfo?.data?.id ||
     null;
   const [liveFlagResolved, setLiveFlagResolved] = useState(resolvedLiveFlagRaw);
+  const [accountClass, setAccountClass] = useState(() => accountClassFromUserInfo(userInfo));
+  // Asia Business and US Business sell through Live Sale and chat only.
+  const catalogDisabled = canEditListingsInUsd(accountClass);
   const inhouseOnly = isIleafuInhouseAccountClass(accountClassFromUserInfo(userInfo));
   const canUseLiveSale =
     (typeof liveFlagResolved === 'string' &&
       liveFlagResolved.trim().toLowerCase() === 'yes') ||
+    catalogDisabled ||
     isUsBusinessUser(userInfo) ||
     inhouseOnly;
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        const result = await getB2BAccountApi();
+        if (!active) return;
+        const serverClass =
+          result?.data?.account?.accountClass ||
+          result?.data?.accountClass ||
+          accountClassFromUserInfo(userInfo);
+        if (serverClass) setAccountClass(serverClass);
+      })();
+      return () => {
+        active = false;
+      };
+    }, [userInfo]),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -192,12 +219,15 @@ const ScreenSell = ({navigation}) => {
   };
 
   const handlePressSingle = () => {
+    if (catalogDisabled) return;
     navigation.navigate('ScreenSingleSell');
   };
   const handlePressWholesale = () => {
+    if (catalogDisabled) return;
     navigation.navigate('ScreenWholesaleSell');
   };
   const handlePressGrowers = () => {
+    if (catalogDisabled) return;
     navigation.navigate('ScreenGrowersSell');
   };
   const handlePressDuplicate = () => {
@@ -287,8 +317,14 @@ const ScreenSell = ({navigation}) => {
               justifyContent: 'space-between',
               marginTop: 20,
             }}>
-            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+            <View
+              style={[
+                globalStyles.cardLightAccent,
+                styles.cardMenu,
+                catalogDisabled && styles.cardMenuDisabled,
+              ]}>
               <TouchableOpacity
+                disabled={catalogDisabled}
                 onPress={handlePressSingle}
                 style={{
                   marginTop: 10,
@@ -305,8 +341,14 @@ const ScreenSell = ({navigation}) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={[globalStyles.cardLightAccent, styles.cardMenu]}>
+            <View
+              style={[
+                globalStyles.cardLightAccent,
+                styles.cardMenu,
+                catalogDisabled && styles.cardMenuDisabled,
+              ]}>
               <TouchableOpacity
+                disabled={catalogDisabled}
                 onPress={handlePressGrowers}
                 style={{
                   marginTop: 10,
@@ -332,8 +374,9 @@ const ScreenSell = ({navigation}) => {
               globalStyles.cardLightAccent,
               styles.cardMenuFull,
               {marginTop: 10, justifyContent: 'center', alignItems: 'center'},
+              catalogDisabled && styles.cardMenuDisabled,
             ]}>
-            <TouchableOpacity onPress={handlePressWholesale}>
+            <TouchableOpacity disabled={catalogDisabled} onPress={handlePressWholesale}>
               <WholeSalePlantIcon></WholeSalePlantIcon>
               <Text
                 style={[
@@ -526,6 +569,7 @@ const styles = StyleSheet.create({
   },
   cardMenu: {padding: 20, width: screenWidth * 0.5 - 25},
   cardMenuFull: {padding: 20},
+  cardMenuDisabled: {opacity: 0.35},
 
   sheetHeader: {
     flexDirection: 'row',

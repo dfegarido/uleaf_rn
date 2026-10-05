@@ -45,13 +45,14 @@ export const listB2BBusinessRequestApi = async (params = {}) => {
   }
 };
 
-export const setB2BBusinessApi = async ({uid, enabled, liveFlag}) => {
+export const setB2BBusinessApi = async ({uid, enabled, liveFlag, toType}) => {
   try {
     const data = await postB2BAccount(API_ENDPOINTS.UPDATE_B2B_BUSINESS_REQUEST, {
       action: 'setBusiness',
       uid,
       enabled: enabled === true,
       liveFlag,
+      toType,
     });
     return {success: true, data: data.data, source: data.source};
   } catch (error) {

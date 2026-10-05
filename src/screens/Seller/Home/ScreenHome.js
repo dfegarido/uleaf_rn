@@ -165,24 +165,17 @@ const ScreenHome = ({navigation}) => {
   const [totalSales, setTotalSales] = useState();
   const [plantSold, setPlantSold] = useState();
   const [plantListed, setPlantListed] = useState();
-  // Business accounts use dollars for new sales. A week that was sold in baht
-  // (or another local currency) keeps that symbol — the amount was not converted.
-  const symbolForSalesWeek = (amount, weekSymbol) => {
+  // Asia Business and US Business type their price in USD. The card always
+  // shows that dollar amount, even when the garden country is Thailand.
+  const symbolForSalesWeek = weekSymbol => {
+    if (isBusinessAccount) return '$';
     const fromOrders = String(weekSymbol || '').trim();
     if (fromOrders) return fromOrders;
     const reported = String(totalSales?.symbol || '').trim();
-    const local = reported && reported !== '$';
-    if (isBusinessAccount && !(local && Number(amount) !== 0)) return '$';
     return reported || getCurrencySymbol(userInfo);
   };
-  const thisWeekCurrency = symbolForSalesWeek(
-    totalSales?.thisWeek,
-    totalSales?.thisWeekSymbol,
-  );
-  const lastWeekCurrency = symbolForSalesWeek(
-    totalSales?.lastWeek,
-    totalSales?.lastWeekSymbol,
-  );
+  const thisWeekCurrency = symbolForSalesWeek(totalSales?.thisWeekSymbol);
+  const lastWeekCurrency = symbolForSalesWeek(totalSales?.lastWeekSymbol);
 
   const loadSalesData = async () => {
     const res = await retryAsync(() => getHomeSummaryApi(), 3, 1000);
@@ -952,10 +945,7 @@ const ScreenHome = ({navigation}) => {
               <View style={{marginBottom: 30}}>
                 {(() => {
                   const chartCurrency = isBusinessAccount
-                    ? (String(totalSales?.symbol || '').trim() &&
-                      String(totalSales?.symbol).trim() !== '$'
-                        ? totalSales.symbol
-                        : '$')
+                    ? '$'
                     : getCurrencySymbol(userInfo);
 
                   console.log('💰 Home Screen Currency Info:', {
