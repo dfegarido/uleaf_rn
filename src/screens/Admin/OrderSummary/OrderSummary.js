@@ -9,6 +9,7 @@ import { ActivityIndicator,
   Image,
   Modal,
   Platform,
+  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -297,22 +298,7 @@ const dedupeOrderTableRows = (rows = []) => {
 
     // Extract price data - check multiple possible field names
     let localPrices, usdPrices;
-    
-    // Log all price-related fields for debugging (first order only)
-    if (order.transactionNumber) {
-      console.log(`Order ${order.transactionNumber} price fields:`, {
-        localPrices: order.localPrices,
-        localPrice: order.localPrice,
-        usdPrices: order.usdPrices,
-        usdPrice: order.usdPrice,
-        totalPrice: order.totalPrice,
-        totalUsdPrice: order.totalUsdPrice,
-        price: order.price,
-        productTotal: order.productTotal,
-        allKeys: Object.keys(order).filter(k => k.toLowerCase().includes('price'))
-      });
-    }
-    
+
     if (order.localPrices && Array.isArray(order.localPrices) && order.localPrices.length > 0) {
       localPrices = order.localPrices;
     } else if (order.localPrice !== undefined && order.localPrice !== null) {
@@ -377,20 +363,6 @@ const dedupeOrderTableRows = (rows = []) => {
         return '—';
       }
     };
-
-    // Debug: Log hub received/packed data for first order only
-    if (order.transactionNumber && !order._hubDebugLogged) {
-      console.log('Mapping order hub data:', {
-        transactionNumber: order.transactionNumber,
-        hubReceiver: order.hubReceiver,
-        hubReceiverDateScanned: order.hubReceiver?.dateScanned,
-        hubReceivedDateFormatted: order.hubReceivedDateFormatted,
-        hubPackDetails: order.hubPackDetails,
-        hubPackDetailsDateProcessed: order.hubPackDetails?.dateProcessed,
-        hubPackedDateFormatted: order.hubPackedDateFormatted,
-      });
-      order._hubDebugLogged = true; // Prevent multiple logs
-    }
 
     const formatCamelCase = () =>
       deriveOrderSummaryLeafTrailDisplay({
@@ -586,8 +558,9 @@ const dedupeOrderTableRows = (rows = []) => {
         showToast('Failed to generate report. Please try again.', 'error');
       } else {
         // Show success toast
-        console.log(`Export successful: ${result.ordersCount} orders sent to ${result.message}`);
-        showToast(`Report sent successfully! ${result.ordersCount} orders`, 'success');
+        const ordersCount = result.ordersCount ?? result.pagination?.total ?? 0;
+        console.log(`Export successful: ${ordersCount} orders sent to ${result.message}`);
+        showToast(`Report sent successfully! ${ordersCount} orders`, 'success');
       }
     } catch (error) {
       // Show error toast
@@ -641,48 +614,6 @@ const dedupeOrderTableRows = (rows = []) => {
       });
 
       if (response.success && response.orders) {
-        console.log('Orders API response:', {
-          success: response.success,
-          ordersCount: response.orders.length,
-          total: response.total,
-          totalPages: response.totalPages,
-          currentPage: response.currentPage
-        });
-        if (response.orders.length > 0) {
-          console.log('Full order data from API (first order):', JSON.stringify(response.orders[0], null, 2));
-        } else {
-          console.log('No orders returned from API. This might be due to filtering or no orders in the database.');
-        }
-        
-        // Debug: Log hub received and packed data from first few orders
-        if (response.orders.length > 0) {
-          console.log('Hub Received/Packed data in orders:', response.orders.slice(0, 5).map((o, i) => ({
-            index: i,
-            transactionNumber: o.transactionNumber,
-            hubReceiver: o.hubReceiver,
-            hubReceiverDateScanned: o.hubReceiver?.dateScanned,
-            hubReceivedDateFormatted: o.hubReceivedDateFormatted,
-            hubPackDetails: o.hubPackDetails,
-            hubPackDetailsDateProcessed: o.hubPackDetails?.dateProcessed,
-            hubPackedDateFormatted: o.hubPackedDateFormatted,
-          })));
-        }
-        
-        // Debug: Log price fields from first few orders
-        if (response.orders.length > 0) {
-          console.log('Price data in orders:', response.orders.slice(0, 5).map((o, i) => ({
-            index: i,
-            transactionNumber: o.transactionNumber,
-            localPrice: o.localPrice,
-            usdPrice: o.usdPrice,
-            localPrices: o.localPrices,
-            usdPrices: o.usdPrices,
-            totalPrice: o.totalPrice,
-            totalUsdPrice: o.totalUsdPrice,
-            localPriceCurrency: o.localPriceCurrency
-          })));
-        }
-        
         const visibleOrders = excludePendingPaymentFromAllTab(
           filterSupersededPendingOrders(response.orders),
           { allTab: activeTab === 'all' },
@@ -1854,12 +1785,20 @@ const dedupeOrderTableRows = (rows = []) => {
                 )}
               </View>
             ) : (
-              <ScrollView
+              <FlatList
+                data={orders}
+                keyExtractor={(order, i) =>
+                  order.id ||
+                  `${order.transactionNumber}|${order.plantCode}|${order.buyerFirstName}|${i}`
+                }
                 style={styles.tableContent}
                 contentContainerStyle={styles.tableContentContainer}
                 nestedScrollEnabled={true}
-              >
-                {orders.map((order, i) => {
+                initialNumToRender={8}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                removeClippedSubviews={Platform.OS === 'android'}
+                renderItem={({item: order, index: i}) => {
                   const rowKey =
                     order.id ||
                     `${order.transactionNumber}|${order.plantCode}|${order.buyerFirstName}|${i}`;
@@ -2058,8 +1997,8 @@ const dedupeOrderTableRows = (rows = []) => {
                     );
                   }
                   return React.cloneElement(rowBody, { key: rowKey });
-                })}
-              </ScrollView>
+                }}
+              />
             )}
           </View>
         </ScrollView>
