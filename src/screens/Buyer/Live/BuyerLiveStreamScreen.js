@@ -1558,6 +1558,15 @@ const styles = StyleSheet.create({
     gap: 5,
     width: 56,
     minHeight: 200,
+    // Centre the rail in the space between the top bar and the product card, then
+    // lift it clear of the card. The card is anchored to the bottom of the screen,
+    // so this rail has to be raised for its last item (Cart: 40pt icon + 10pt label
+    // + padding) to clear the card instead of rendering on top of it.
+    // -33 sits the five items slightly above the screen centre, keeping the last one
+    // well clear of the card's top edge (617pt). transform is used because it moves
+    // the rail 1:1; a margin offset is partly absorbed by the parent's
+    // justifyContent: 'space-between'.
+    transform: [{ translateY: -83 }],
   },
   sideAction: {
     justifyContent: 'center',
