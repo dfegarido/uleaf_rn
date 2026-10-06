@@ -29,14 +29,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CaretDown from '../../../assets/icons/white/caret-down.svg';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
 import CaretUp from '../../../assets/icons/white/caret-up.svg';
-import ActiveLoveIcon from '../../../assets/live-icon/active-love.svg';
+import ActiveLoveIcon from '../../../assets/live-icon/heart-filled.svg';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
-import LoveIcon from '../../../assets/live-icon/love.svg';
-import NoteIcon from '../../../assets/live-icon/notes.svg';
+import LoveIcon from '../../../assets/live-icon/heart-outline.svg';
+import NoteIcon from '../../../assets/live-icon/notes-outline.svg';
 import ShopIcon from '../../../assets/live-icon/shopv3.svg';
 import TruckIcon from '../../../assets/live-icon/truck.svg';
-import CartIconSelected from '../../../assets/icontabs/buyer-tabs/cart-icon-selected.svg';
+import CartIconSelected from '../../../assets/live-icon/cart-outline.svg';
 import ShareReferralIcon from '../../../assets/live-icon/share-referral.svg';
 import ViewersIcon from '../../../assets/live-icon/viewers.svg';
 import { AuthContext } from '../../../auth/AuthProvider';
@@ -59,6 +59,7 @@ import {
 } from '../../../components/Api/liveApi';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
+import GlassView from '../../../components/Glass/GlassView';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { shareLiveStream } from '../../../utils/liveShareLink';
 import { getAgoraUid } from '../../../utils/getAgoraUid';
@@ -188,7 +189,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
   const [lastJoinedUser, setLastJoinedUser] = useState(null);
   const [soldToUser, setSoldToUser] = useState(null);
-  const [isCommentFocused, setIsCommentFocused] = useState(false);
   const [checkOutData, setCheckOutData] = useState({});
   const [isLiveShopCheckoutVisible, setIsLiveShopCheckoutVisible] = useState(false);
   // True while the modal is open on the tapped row's data and the authoritative
@@ -1044,29 +1044,37 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         )}
       </View>
       
+      {/* A single uniform, edge-less scrim. There is deliberately no separate bottom-weighted
+          band: a 46%-tall overlay put a visible hard edge across the middle of the video
+          (the "transparent black at half the screen"). Each surface keeps its own tint. */}
+      <View pointerEvents="none" style={styles.scrimBase} />
+
       {/* Only show UI components when stream is active */}
       {joined && remoteUid && (
         <>
           <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => goBack()} style={styles.backButton}>
-                    <BackSolidIcon width={24} height={24} />
-            </TouchableOpacity>
-            <View style={styles.topAction}>
+            {/* Back button and viewer count group on the LEFT, both on the same 16pt content
+                line: the pill reads as a label for the stream rather than a floating control
+                adrift in the middle of the video. */}
+            <View style={styles.headerSideStart}>
+              <TouchableOpacity onPress={() => goBack()} activeOpacity={0.8}>
+                <GlassView
+                  variant="control"
+                  radius={14}
+                  style={styles.backButton}>
+                  <BackSolidIcon width={24} height={24} />
+                </GlassView>
+              </TouchableOpacity>
+              <GlassView variant="control" radius={18} style={styles.liveViewer}>
+                <ViewersIcon width={18} height={18} />
+                <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
+              </GlassView>
+            </View>
+            <View style={styles.headerSideEnd}>
               {/* <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
                     <GuideIcon width={19} height={19} fill="#FFFFFF" />
                     <Text style={styles.guideText}>Guide</Text>
               </TouchableOpacity> */}
-              <TouchableOpacity style={styles.liveViewer}>
-                    <ViewersIcon width={24} height={24} />
-                    <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
-              </TouchableOpacity>
-              {activeListing && sessionListingIndexMap[activeListing.id] ? (
-                <View style={styles.topIgBadge}>
-                  <Text style={styles.topIgBadgeText}>
-                    {sessionListingIndexMap[activeListing.id]}
-                  </Text>
-                </View>
-              ) : null}
             </View>
           </View>
 
@@ -1132,7 +1140,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 )}
               <View style={styles.comments}>
                 <FlatList
-                  style={{borderRadius: 16}}
+                  style={styles.commentList}
+                  contentContainerStyle={styles.commentListContent}
                   ref={flatListRef}
                   data={comments}
                   keyExtractor={(item) => item.id}
@@ -1143,25 +1152,15 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                       activeOpacity={0.7}
                     >
                       <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
-                      <View style={styles.commentContent}>
+                      {/* One wrapping line: bold name then the message, as in the reference.
+                          A nested Text keeps them inline while the whole run still wraps. */}
+                      <Text style={styles.chatLine} numberOfLines={4}>
                         <Text style={styles.chatName}>{item.name}</Text>
-                        <Text style={styles.chatMessage}>{item.message}</Text>
-                      </View>
+                        <Text style={styles.chatMessage}>{`: ${item.message}`}</Text>
+                      </Text>
                     </TouchableOpacity>
                   )}
                 />
-                <TextInput
-                    style={[styles.commentInput, isCommentFocused && styles.commentInputFocused]}
-                    placeholder="Comment"
-                    placeholderTextColor="#fff"
-                    value={newComment}
-                    onChangeText={setNewComment}
-                    onSubmitEditing={handleSendComment}
-                    onFocus={() => setIsCommentFocused(true)}
-                    onBlur={() => setIsCommentFocused(false)}
-                    multiline
-                    blurOnSubmit={true}
-                  />
             </View>
           </View>
           {/* <View style={styles.comments}>
@@ -1189,7 +1188,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             />
 
           </View> */}
-          <View style={styles.sideActions}>
+          <GlassView variant="rail" style={styles.sideActions}>
               <TouchableOpacity
                 style={styles.sideAction}
                 onPress={() => shareLiveStream(sessionId, brodcasterId)}
@@ -1237,14 +1236,43 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               </TouchableOpacity>
 
              
-          </View>
+          </GlassView>
         </View>
+        {/* The comment pill belongs to the full-width column, not the 48% chat column: it
+            spans the screen like the product card below it. Kept above the card so the
+            reading order stays chat -> input -> product. */}
+        <GlassView
+            variant="pill"
+            style={styles.commentPill}>
+          {/* Auto-grows to a 4-line ceiling, then scrolls inside. Sizing is left to the
+              NATIVE side (minHeight/maxHeight + multiline, no explicit `height` — an
+              explicit height pins the native view and stops it re-measuring). Return
+              still SENDS: `submitBehavior` replaces `blurOnSubmit` on a multiline input,
+              whose default would be 'newline'. */}
+          <TextInput
+              style={styles.commentInput}
+              placeholder="Ask a question or comment..."
+              placeholderTextColor="rgba(255, 255, 255, 0.62)"
+              value={newComment}
+              onChangeText={setNewComment}
+              onSubmitEditing={handleSendComment}
+              returnKeyType="send"
+              submitBehavior="blurAndSubmit"
+              multiline
+              // The visible 4-line cap. Also the shrink trigger: Fabric skips the
+              // re-measure when the value is cleared, so crossing empty/non-empty must
+              // change this prop or the box stays tall and empty after send
+              // (facebook/react-native#54570, iOS Fabric).
+              numberOfLines={newComment === '' ? 1 : 4}
+              textAlignVertical="top"
+          />
+        </GlassView>
         {soldToUser && (
           <View style={styles.soldToContainer}>
             <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
           </View>
         )}
-        {activeListing && (<View style={styles.shop}>
+        {activeListing && (<GlassView variant="dark" radius={28} style={styles.shopGlass}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
                 <AppImage
@@ -1256,7 +1284,18 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   style={styles.listingThumb}
                 />
                 <View style={styles.plantName}>
-                  <Text style={styles.name} numberOfLines={1}>{activeListing.genus}</Text>
+                  {/* The IG<n> index sits with the plant name it identifies, not floating in the
+                      header. It is the same sessionListingIndexMap value the shop list uses. */}
+                  <View style={styles.nameRow}>
+                    {sessionListingIndexMap[activeListing.id] ? (
+                      <View style={styles.listingIndexBadge}>
+                        <Text style={styles.listingIndexBadgeText}>
+                          {sessionListingIndexMap[activeListing.id]}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.name, styles.nameRowText]} numberOfLines={1}>{activeListing.genus}</Text>
+                  </View>
                   <Text style={styles.name} numberOfLines={2}>{activeListing.species}</Text>
                   <Text style={styles.variegation} numberOfLines={1}>
                     {activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}
@@ -1277,7 +1316,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   </View>
                 </View>
             </View>
-            <View style={styles.actionButton}>
+            <View style={[styles.actionButton, styles.actionButtonRow]}>
               {buyerPendingPayment?.status === 'pending_payment' && (
                 <TouchableOpacity onPress={() => {gotoPayToBoard()}} style={styles.actionButtonTouch}>
                   <Text style={styles.actionText}>Pending Payment</Text>
@@ -1295,6 +1334,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 <>
                   <LiveStreamAddToCartButton
                     onPress={() => handleAddToCart(activeListing)}
+                    variant="glass"
+                    radius={14}
                     style={{ flex: 1, width: undefined }}
                   />
                   <TouchableOpacity onPress={() => {
@@ -1305,7 +1346,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 </>
               )} 
             </View>
-        </View>)}
+        </GlassView>)}
         {!activeListing && (<View style={styles.shop}>
                       <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
                     </View>)}
@@ -1371,14 +1412,39 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1,
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
     paddingTop: 1,
-    paddingBottom: 34,
+    // SafeAreaView already insets for the home indicator; a second 24pt here stacked on top of
+    // it and pushed the product card ~24pt off the bottom of the screen.
+    paddingBottom: 8,
     backgroundColor: '#000',
   },
   stream: {
     ...StyleSheet.absoluteFill,
     backgroundColor: '#444',
+    overflow: 'hidden',
+  },
+  // A single flat scrim over the whole frame so white chat text keeps contrast on a bright
+  // video. Kept deliberately light, and uniform: the video is the hero, so there must be no
+  // band or edge anywhere in it.
+  scrimBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
+  },
+  // Full-bleed transparent overlay: it positions the chat column (left) and the rail
+  // (right edge) independently. A space-between row would otherwise let the rail's width
+  // push the chat off-centre, and this is also the only way to pin the rail to the screen
+  // edge while the 16pt-inset content below keeps its alignment line.
+  social: {
+    // A normal flex child of the actionBar column, NOT an absolute overlay. As an overlay it
+    // inherited the whole column height and centred itself, which rode its top ~42pt up into
+    // the header and ran the chat column straight through the back button and viewer pill.
+    // As a flex child the column bounds it between the header above and the comment pill below.
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 8,
   },
   video: { flex: 1 },
   connectingText: {
@@ -1396,43 +1462,63 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    gap: 2,
-    width: 375,
-    height: 58,
-    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    width: '100%',
   },
-  backButton: {
+  // Equal-flex shoulders: the centre pill lands on the SCREEN's centre line regardless of how
+  // wide the back button or the IG pill happen to be. Do not revert to space-between.
+  headerSideStart: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 4,
-    height: 32,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 12,
+    justifyContent: 'flex-start',
+    gap: 10,
   },
+  headerSideEnd: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  // 44pt visual / tappable circle, matching the reference's floating glass back control.
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+  },
+  // The two header pills group together and stay right-aligned; the back button is the only
+  // thing on the left, so the group reads as centred-ish without faking a fixed offset.
   topAction: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 34,
-    marginRight: 54,
   },
-  topIgBadge: {
-    backgroundColor: '#333',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 4,
+  // The plant index badge that sits with the product name in the card.
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nameRowText: {
+    flexShrink: 1,
+  },
+  listingIndexBadge: {
+    paddingHorizontal: 6,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 34,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
-  topIgBadgeText: {
+  listingIndexBadgeText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 11,
+    fontFamily: 'Inter',
   },
   guide: {
     flexDirection: 'row',
@@ -1451,40 +1537,36 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginLeft: 3,
   },
+  // Compact green audience capsule. 58pt per the mockup spec; radius = height/2.
+  // Compact dark capsule beside the back button, matching the reference header. It is a
+  // GlassView surface, so the green fill is gone and the tint comes from the control variant.
   liveViewer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     gap: 6,
-    width: 85,
-    height: 34,
-    backgroundColor: '#539461',
-    borderRadius: 12,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: 10,
   },
   liveViewerText: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#FFFFFF',
   },
   actionBar: {
+    // The full-width column: the comment pill and the product card both live here, so they
+    // share one 16pt inset. The chat column + rail float separately in the absolute overlay
+    // (styles.social) and are therefore NOT laid out inside this column.
     flexDirection: 'column',
-    alignItems: 'flex-end',
-    paddingHorizontal: 8,
-    gap: 5,
-    width: 375,
-    height: 447,
-    alignSelf: 'center',
-  },
-  social: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
     gap: 12,
-    width: 359,
-    height: 253,
+    width: '100%',
+    flex: 1,
   },
   soldToContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
@@ -1499,20 +1581,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   leftColumn: {
-    flex: 1,
+    // A rounded chat surface in the middle-left. It HUGS its messages and grows upward from
+    // the bottom (justifyContent flex-end), so a quiet chat stays a small card instead of an
+    // empty half-screen box; maxHeight + flexShrink stop a busy chat from pushing past the
+    // column the parent gives it.
     flexDirection: 'column',
     justifyContent: 'flex-end',
-    height: '60%',
-   // marginTop: 10,
+    // Pinned to the bottom of the row and only as tall as its messages, so a quiet chat is a
+    // small card sitting on the input. A forced height:'100%' here turned it into a tall empty
+    // box with the messages stranded at the bottom.
+    alignSelf: 'flex-end',
+    maxHeight: '100%',
+    // A DEFINITE width. With only `maxWidth` the panel sized to its content, the content sized
+    // to the panel, and the `flex: 1` text column resolved to zero — the avatars drew while
+    // every message vanished.
+    width: '66%',
+    backgroundColor: 'rgba(20, 20, 20, 0.34)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    overflow: 'hidden',
   },
+  // The join notice is just the first chat row in the reference, not a second tinted box
+  // stacked on top of the message list. Keeping it transparent removes the double-panel
+  // clutter; the caret and expand/collapse behaviour are unchanged.
   joinNotificationContainer: {
-    backgroundColor: 'rgba(86, 80, 80, 0.4)',
-    borderRadius: 8,
-    paddingHorizontal: 5,
-    paddingVertical: 6,
-    marginBottom: 8,
+    backgroundColor: 'transparent',
+    paddingVertical: 2,
+    marginBottom: 4,
     maxHeight: 180,
-    width: '90%',
+    width: '100%',
   },
   joinNotificationHeader: {
     flexDirection: 'row',
@@ -1534,11 +1632,20 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
-    gap: 16,
-    width: 260,
-    height: 400,
-    paddingBottom: 213,
-    
+    gap: 14,
+    width: '100%',
+  },
+  // FlatList has no intrinsic height: without flex it collapses to 0 inside the panel and the
+  // chat silently renders nothing. It must own the remaining height of the panel.
+  commentList: {
+    width: '100%',
+    borderRadius: 16,
+  },
+  // The rows hug their content; the panel (leftColumn) carries flexShrink + maxHeight, so a
+  // busy chat shrinks and scrolls while a quiet one stays a small card. Giving the list itself
+  // `flex: 1` instead made it fill the whole column and stranded the messages in a tall box.
+  commentListContent: {
+    flexGrow: 0,
   },
   commentRow: {
     flexDirection: 'row',
@@ -1552,24 +1659,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    width: '90%',
+    flex: 1,
+    flexShrink: 1,
   },
   joinedContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 2,
-    width: 118,
+    flex: 1,
+    flexShrink: 1,
   },
   joinedName: {
     ...baseFont,
-    fontWeight: '500',
+    fontWeight: '700',
     fontSize: 12,
     lineHeight: 17,
     color: '#FFF',
   },
   joinedMessage: {
     ...baseFont,
-    fontWeight: '500',
+    fontWeight: '400',
     fontSize: 13,
     lineHeight: 22,
     flexWrap: 'wrap',
@@ -1587,11 +1696,16 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 2,
-    width: 228,
+    flex: 1,
+    flexShrink: 1,
+  },
+  chatLine: {
+    flex: 1,
+    flexShrink: 1,
   },
   chatName: {
     ...baseFont,
-    fontWeight: '500',
+    fontWeight: '700',
     fontSize: 12,
     lineHeight: 17,
     color: '#fff',
@@ -1601,7 +1715,7 @@ const styles = StyleSheet.create({
   },
   chatMessage: {
     ...baseFont,
-    fontWeight: '500',
+    fontWeight: '400',
     fontSize: 13,
     lineHeight: 22,
     flexWrap: 'wrap',
@@ -1611,69 +1725,88 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
-  commentInput: {
+  // 46pt to match the reference pill, whose edges measure at y 625.5 and y 669.5 on an 874pt
+  // screen (44pt) with a 13.5pt placeholder band. Radius at half the height keeps it a capsule.
+  commentPill: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
-    width: 260,
-    height: 38,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
+    // Top-aligned so added lines grow DOWNWARD from the first line instead of the
+    // whole text block re-centring on every keystroke.
+    alignItems: 'flex-start',
+    width: '100%',
+    // No fixed height: 13 + one 20pt line + 13 = 46pt, the measured reference height,
+    // so the single-line look is unchanged; the pill only grows once text wraps.
+    paddingVertical: 13,
+    borderRadius: 23,
+    paddingHorizontal: 20,
+  },
+  // NOT multiline: a multiline TextInput aligns its text to the TOP of the box, which left the
+  // placeholder jammed against the top edge with ~34pt of empty pill below it. Single-line
+  // inputs centre vertically on both platforms. `height` is kept off the pill so the row's
+  // alignItems centre it in the remaining space.
+  commentInput: {
+    // `flex: 1` is for WIDTH only — the parent is a row, so flexBasis applies to the
+    // main axis. The height is left to the native auto-grow between min/maxHeight.
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    paddingVertical: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    includeFontPadding: false,
+    // Top-aligned: lines accumulate downward. A single line still sits centred because
+    // the pill's paddingVertical equals the leftover space.
+    textAlignVertical: 'top',
+    // One 20pt line up to four, then iOS scrolls inside the box.
+    minHeight: 20,
+    maxHeight: 80,
     color: '#FFF',
-    // backgroundColor: 'rgba(0, 0, 0, 0.4)', 
-    borderRadius: 16,
+    fontFamily: 'Inter',
+    letterSpacing: 0.2,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
-  commentInputFocused: {
-    height: 80, // Or another height that fits multiple lines
-    textAlignVertical: 'top', // Align text to the top
-    // backgroundColor: 'rgba(0, 0, 0, 0.4)', 
-    borderRadius: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
-  },
+  // While typing, the pill stays a pill: it only grows the fixed height, never squarer.
   sideActions: {
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 5,
-    width: 56,
-    minHeight: 200,
-    // Centre the rail in the space between the top bar and the product card, then
-    // lift it clear of the card. The card is anchored to the bottom of the screen,
-    // so this rail has to be raised for its last item (Cart: 40pt icon + 10pt label
-    // + padding) to clear the card instead of rendering on top of it.
-    // -33 sits the five items slightly above the screen centre, keeping the last one
-    // well clear of the card's top edge (617pt). transform is used because it moves
-    // the rail 1:1; a margin offset is partly absorbed by the parent's
-    // justifyContent: 'space-between'.
-    transform: [{ translateY: -83 }],
+    gap: 4,
+    width: 76,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    // Narrow floating capsule. No fixed height: it sizes to its five actions so it can never
+    // overflow a parent or drift, and it stays clear of the product card below.
   },
   sideAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 5,
-    width: '100%',
+    width: 60,
+    paddingVertical: 6,
   },
   sideActionIconWrap: {
-    width: 40,
-    height: 40,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  shopGlass: {
+    flexDirection: 'column',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    width: '100%',
+    // No marginBottom: this card is the last child of the column, so a bottom margin is pure
+    // dead space below it. The actionBar gap already separates it from the comment pill.
+  },
+  // Empty-state panel used when the session has no active listing; kept as a plain
+  // surface rather than glass because there is no product to read through it.
   shop: {
     flexDirection: 'column',
     alignItems: 'center',
     padding: 16,
     gap: 12,
-    width: 359,
+    width: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 16,
   },
@@ -1681,34 +1814,35 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 12,
-    width: 327,
+    width: '100%',
   },
   plantDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    width: 327,
+    gap: 12,
+    width: '100%',
   },
   listingThumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
+    width: 72,
+    height: 72,
+    borderRadius: 10,
     backgroundColor: '#1a1a1a',
   },
   plantName: {
     flexDirection: 'column',
     gap: 2,
     flex: 1,
+    flexShrink: 1,
   },
   name: {
     ...baseFont,
-    fontWeight: '600',
-    fontSize: 13,
-    lineHeight: 17,
+    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 19,
   },
   variegation: {
     ...baseFont,
-    color: '#CDD3D4',
+    color: 'rgba(255, 255, 255, 0.70)',
     fontWeight: '500',
     fontSize: 12,
     lineHeight: 16,
@@ -1723,9 +1857,9 @@ const styles = StyleSheet.create({
   },
   plantPrice: {
     ...baseFont,
-    fontWeight: '700',
-    fontSize: 20,
-    lineHeight: 24,
+    fontWeight: '800',
+    fontSize: 28,
+    lineHeight: 32,
   },
   discount: {
     flexDirection: 'row',
@@ -1747,14 +1881,14 @@ const styles = StyleSheet.create({
   sideActionText: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 10,
     marginTop: 4,
   },
   shipping: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: 327,
+    width: '100%',
   },
   shippingType: {
     justifyContent: 'center',
@@ -1780,40 +1914,46 @@ const styles = StyleSheet.create({
   },
   shipText: {
     ...baseFont,
+    color: 'rgba(255, 255, 255, 0.70)',
     fontWeight: '500',
-    fontSize: 11,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 19,
   },
   actionButton: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    width: 327,
-    height: 48,
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    height: 60,
+  },
+  // Single-child states (Pending Payment / Awaiting new item) stretch full width; the
+  // two-button state keeps each child at flex:1 through this override.
+  actionButtonRow: {
+    justifyContent: 'space-between',
   },
   actionButtonTouch: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
-    width: 327,
-    height: 48,
-    backgroundColor: '#539461',
-    borderRadius: 12,
+    flex: 1,
+    height: 60,
+    backgroundColor: '#55AE68',
+    borderRadius: 22,
   },
   waitingButtonTouch: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
-    width: 327,
-    height: 48,
+    width: '100%',
+    height: 60,
     backgroundColor: '#bdc5bfff',
-    borderRadius: 12,
+    borderRadius: 22,
   },
   actionText: {
     ...baseFont,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 16,
-    lineHeight: 16,
+    lineHeight: 20,
   },
   stickyNoteContainer: {
     position: 'absolute',
