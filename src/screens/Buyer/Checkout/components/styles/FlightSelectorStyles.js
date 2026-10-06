@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { LIVE } from '../../styles/liveCheckoutTheme';
 
 const styles = StyleSheet.create({
   plantFlight: {
@@ -96,6 +97,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#E5E7EB',
+    position: 'relative',
   },
   optionCardAndroidLive: {
     flex: 1,
@@ -152,6 +154,95 @@ const styles = StyleSheet.create({
   disabledNoteBold: {
     fontWeight: '700',
     fontStyle: 'normal',
+  },
+
+  /* ---------------------------------------------------------------------
+   * LIVE modal variant. These are layered on top of the base styles by
+   * FlightSelector when `variant === 'liveModal'`, so the full checkout page
+   * (which never passes the prop) renders exactly as before.
+   * ------------------------------------------------------------------- */
+
+  // The modal supplies the cream surface and the card padding, so the section
+  // becomes transparent rather than painting a second white card inside it.
+  livePlantFlight: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 16,
+  },
+
+  liveCutoffDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: LIVE.amberBg,
+    borderRadius: 12,
+    borderLeftWidth: 0,
+  },
+
+  liveCutoffDateLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: LIVE.amberText,
+  },
+
+  liveCutoffDateValue: {
+    fontWeight: '700',
+    color: LIVE.amberText,
+  },
+
+  // Selected: strong green outline on white. Unselected: filled sage.
+  liveSelectedOptionCard: {
+    backgroundColor: LIVE.card,
+    borderColor: LIVE.greenBorder,
+  },
+
+  liveUnselectedOptionCard: {
+    backgroundColor: LIVE.sageBg,
+    borderColor: LIVE.sageBorder,
+  },
+
+  liveOptionText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: LIVE.nearBlack,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+
+  liveUnselectedOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: LIVE.sageText,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+
+  liveOptionSubtextSelected: {
+    color: LIVE.nearBlack,
+  },
+
+  liveOptionSubtextUnselected: {
+    color: LIVE.sageText,
+  },
+
+  // Circular check badge pinned to the card's top-right corner.
+  checkBadge: {
+    position: 'absolute',
+    top: -9,
+    right: -9,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: LIVE.greenBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
 });
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import CaretDownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
+import WhiteCaretLeftIcon from '../../../../assets/icons/white/caret-left-regular.svg';
 import VenmoLogoIcon from '../../../../assets/buyer-icons/venmo-logo.svg';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
 import styles from './styles/CheckoutBarStyles';
@@ -8,11 +9,14 @@ import styles from './styles/CheckoutBarStyles';
 /**
  * Fixed checkout bar shown at the bottom of the Checkout screen
  */
-const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightDateIso, onCheckoutPress, vaultedPaymentId, vaultedPaymentUsername}) => {
+const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightDateIso, onCheckoutPress, vaultedPaymentId, vaultedPaymentUsername, variant}) => {
   const isBelowMinimum = total < 1;
   const isDisabled = loading || !selectedFlightDateIso || isBelowMinimum;
   // Display total: if less than $1 (including negative), always show $0.00
   const displayTotal = total < 1 ? 0 : total;
+  // LIVE bottom sheet styling. Deliberately NOT keyed off `isLive` — the full
+  // CheckoutScreen can also be opened with isLive: true (ScreenPlantDetailPurge).
+  const isLiveModal = variant === 'liveModal';
 
   const maskUsername = (username) => {
     if (!username || username.length < 3) {
@@ -41,9 +45,13 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
       <View style={styles.checkoutContent}>
         <View style={styles.checkoutSummary}>
           <View style={styles.amountRow}>
-            <Text style={styles.amountLabel}>Total</Text>
-            <Text style={styles.amountValue}>{formatCurrencyFull(displayTotal)}</Text>
-            <CaretDownIcon width={24} height={24} style={styles.infoIcon} />
+            <Text style={[styles.amountLabel, isLiveModal && styles.liveAmountLabel]}>Total</Text>
+            <Text style={[styles.amountValue, isLiveModal && styles.liveAmountValue]}>
+              {formatCurrencyFull(displayTotal)}
+            </Text>
+            {/* Dead affordance on the live sheet — nothing is wired to it, and
+                the design has no breakdown sheet. The full checkout page keeps it. */}
+            {!isLiveModal && <CaretDownIcon width={24} height={24} style={styles.infoIcon} />}
           </View>
 
           {discount > 0 && (
@@ -56,7 +64,9 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
 
         <TouchableOpacity
           style={[
-            vaultedPaymentId ? styles.venmoButton : styles.placeOrderButton,
+            vaultedPaymentId
+              ? [styles.venmoButton, isLiveModal && styles.liveVenmoButton]
+              : [styles.placeOrderButton, isLiveModal && styles.livePlaceOrderButton],
             isDisabled && (vaultedPaymentId ? styles.venmoButtonDisabled : styles.placeOrderButtonDisabled)
           ]}
           // onPress={onCheckoutPress}
@@ -93,9 +103,16 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
                 )}
               </View>
             ) : (
-              <Text style={isDisabled ? styles.buttonLabelDisabled : styles.buttonLabel} numberOfLines={1}>
-                Place Order
-              </Text>
+              <View style={styles.placeOrderLabelRow}>
+                <Text
+                  style={[isDisabled ? styles.buttonLabelDisabled : styles.buttonLabel, isLiveModal && styles.liveButtonLabel]}
+                  numberOfLines={1}>
+                  Place Order
+                </Text>
+                {/* No white right-caret exists in the asset tree; the white
+                    left-caret is mirrored instead of adding a duplicate SVG. */}
+                {isLiveModal && <WhiteCaretLeftIcon width={16} height={16} style={styles.arrowMirror} />}
+              </View>
             )}
           </View>
         </TouchableOpacity>

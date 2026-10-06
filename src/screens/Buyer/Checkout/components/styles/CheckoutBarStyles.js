@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { LIVE } from '../../styles/liveCheckoutTheme';
 
 const styles = StyleSheet.create({
   checkoutBar: {
@@ -102,6 +103,54 @@ const styles = StyleSheet.create({
     width: 100,
     borderRadius: 6,
     backgroundColor: '#E5E7EB',
+  },
+
+  /* ---------------------------------------------------------------------
+   * LIVE bottom-sheet variant. Applied only when `variant === 'liveModal'`,
+   * so the full CheckoutScreen bar is untouched.
+   * ------------------------------------------------------------------- */
+
+  liveAmountLabel: {
+    fontSize: 15,
+    color: LIVE.muted,
+  },
+
+  liveAmountValue: {
+    fontSize: 22,
+    lineHeight: 26,
+    color: LIVE.nearBlack,
+  },
+
+  liveButtonLabel: {
+    fontSize: 17,
+    fontWeight: '600',
+  },
+
+  placeOrderLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+
+  // Mirrors the white left-caret into a right-pointing arrow.
+  arrowMirror: {
+    transform: [{ scaleX: -1 }],
+  },
+
+  livePlaceOrderButton: {
+    backgroundColor: LIVE.greenButton,
+    borderRadius: 24,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+
+  liveVenmoButton: {
+    borderRadius: 24,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   venmoButton: {
       flexDirection: 'row',

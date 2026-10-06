@@ -31,6 +31,7 @@ import CheckoutBar from './components/CheckoutBar';
 import FlightSelector from './components/FlightSelector';
 import OrderSummary from './components/OrderSummary';
 import { useCheckoutController } from './controllers/CheckoutController';
+import { LIVE } from './styles/liveCheckoutTheme';
 
 // Helper function to determine country from currency
 const getCountryFromCurrency = currency => {
@@ -90,6 +91,26 @@ const renderCountryFlag = country => {
   }
 };
 
+// Display names for the country pill. The pill previously rendered empty text,
+// so the country was only implied by the flag.
+const COUNTRY_DISPLAY_NAMES = {
+  TH: 'Thailand',
+  PH: 'Philippines',
+  ID: 'Indonesia',
+  US: 'United States',
+  USA: 'United States',
+  UNITED_STATES: 'United States',
+  THAILAND: 'Thailand',
+  PHILIPPINES: 'Philippines',
+  INDONESIA: 'Indonesia',
+};
+
+const getCountryDisplayName = country => {
+  if (!country) return '';
+  const key = String(country).trim().toUpperCase();
+  return COUNTRY_DISPLAY_NAMES[key] || COUNTRY_DISPLAY_NAMES[getCountryFromCurrency(key)] || '';
+};
+
 // Plant Item Component (similar to CartComponent from cart screen)
 const PlantItemComponent = ({
   image,
@@ -105,11 +126,14 @@ const PlantItemComponent = ({
   country,
   shippingMethod,
   airCargoOption,
+  isLiveModal = false,
+  renderCountryFlag,
   isLoading,
   onPress,
 }) => {
   const isGrowerChoice = listingType === 'growers_choice';
   const isDiscounted = originalPrice && discount && originalPrice > price;
+  const countryName = isLiveModal ? getCountryDisplayName(country) : '';
 
   return (
     <TouchableOpacity style={styles.plant} onPress={onPress}>
@@ -117,15 +141,15 @@ const PlantItemComponent = ({
       <View style={styles.plantImage}>
         <View style={styles.plantImageContainer}>
           {isLoading ? (
-            <View style={[styles.plantImageSkeleton, { width: 96, height: 128, borderRadius: 6 }]} />
+            <View style={[styles.plantImageSkeleton, { width: 88, height: 88, borderRadius: 12 }]} />
           ) : image ? (
             <AppImage
               source={{ uri: image }}
-              style={{ width: 96, height: 128, borderRadius: 6 }}
+              style={{ width: 88, height: 88, borderRadius: 12 }}
               resizeMode="cover"
             />
           ) : (
-            <View style={{ width: 96, height: 128, borderRadius: 6, backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 88, height: 88, borderRadius: 12, backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ color: '#9CA3AF', fontSize: 12 }}>No Image</Text>
             </View>
           )}
@@ -139,18 +163,26 @@ const PlantItemComponent = ({
           {isLoading ? (
             <View style={styles.skeletonText} />
           ) : (
-            <Text style={styles.plantNameText} numberOfLines={1} ellipsizeMode="tail">{name}</Text>
+            <Text style={styles.plantNameText} numberOfLines={2} ellipsizeMode="tail">{name}</Text>
           )}
+          {/* Variation + size, with the origin pill on the same line (design). The
+              country pill lives here rather than in a separate block below the row,
+              so the name is not repeated a second time under the divider. */}
           <View style={styles.variationSize}>
             {isLoading ? (
               <View style={styles.skeletonTextShort} />
             ) : (
               <>
-                <Text style={styles.variationText}>{variation}</Text>
-                <View style={styles.dividerContainer}>
-                  <View style={styles.divider} />
-                </View>
-                <Text style={styles.sizeNumber}>{size}</Text>
+                <Text style={styles.variationText} numberOfLines={1}>
+                  {variation}
+                  {size ? ` • ${size}` : ''}
+                </Text>
+                {countryName ? (
+                  <View style={styles.countryPillRow}>
+                    <Text style={styles.countryPillText}>{countryName}</Text>
+                    {renderCountryFlag ? renderCountryFlag(country) : null}
+                  </View>
+                ) : null}
               </>
             )}
           </View>
@@ -287,8 +319,8 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
 
           <View style={styles.header}>
             <Text style={styles.title}>LIVE Checkout</Text>
-            <TouchableOpacity onPress={onClose}>
-              <CloseIcon width={24} height={24} color="#000" />
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <CloseIcon width={16} height={16} color="#555555" />
             </TouchableOpacity>
           </View>
 
@@ -305,6 +337,7 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
                 
                 <FlightSelector
                   isLive={true}
+                  variant="liveModal"
                   lockedFlightDate={lockedFlightDate}
                   flightDateOptions={flightDateOptions}
                   selectedFlightDate={selectedFlightDate}
@@ -343,16 +376,22 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
                       listingType={isPending ? null : plantItems[0]?.listingType}
                       discount={isPending ? null : plantItems[0]?.discount}
                       originalPrice={isPending ? null : plantItems[0]?.originalPrice}
+                      country={plantItems[0]?.country}
+                      isLiveModal
+                      renderCountryFlag={renderCountryFlag}
                       isLoading={isPending}
                       onPress={() => {
                         // Plant detail navigation can be hooked up here when needed.
                       }}
                     />
 
-                    {/* Name, origin and shipping for the row above. This block came from
-                        PlantList; the shipping label keeps its skeleton until the real
-                        label is known, the name/flag do not, since the optimistic payload
-                        already carries them. */}
+                    {/* Divider inside the card, matching the mockup where the
+                        shipping row sits under a hairline in the same card. */}
+                    <View style={styles.cardDivider} />
+
+                    {/* Below the divider the design has ONLY the shipping row — the
+                        plant name is not repeated, and the origin pill moved up beside
+                        the variation/size line. */}
                     <View style={styles.plantItemDetails}>
                       {isPending ? (
                         <View style={{ gap: 8 }}>
@@ -361,18 +400,11 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
                         </View>
                       ) : (
                         <>
-                          <View style={styles.titleCountry}>
-                            <Text style={styles.titleText}>
-                              {plantItems[0]?.title || 'Rare Tropical Plants from Thailand'}
-                            </Text>
-                            <View style={styles.countryContainer}>
-                              <Text style={styles.countryText}></Text>
-                              {renderCountryFlag(plantItems[0]?.country)}
-                            </View>
-                          </View>
-
                           <View style={styles.plantShipping}>
-                            <ShippingMethodLabel shippingMethod={plantItems[0]?.shippingMethod} />
+                            <ShippingMethodLabel
+                              variant="liveModal"
+                              shippingMethod={plantItems[0]?.shippingMethod}
+                            />
                           </View>
 
                           {plantItems[0]?.flightInfo && (
@@ -430,6 +462,7 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
               </ScrollView>
               
               <CheckoutBar
+                variant="liveModal"
                 // finalTotal is undefined while the optimistic payload lacks an amount;
                 // default it so the bar never formats NaN.
                 total={isPending ? 0 : (orderSummary.finalTotal || 0)}
@@ -467,10 +500,10 @@ const styles = StyleSheet.create(
   },
   modalContainer: {
     height: '60%',
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
+    backgroundColor: LIVE.cream,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
   },
   header: {
     flexDirection: 'row',
@@ -482,7 +515,15 @@ const styles = StyleSheet.create(
     fontSize: 20,
     fontWeight: 'bold',
     fontFamily: 'Inter-Bold',
-    color: '#000',
+    color: LIVE.nearBlack,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: LIVE.closeCircle,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,
@@ -820,21 +861,38 @@ const styles = StyleSheet.create(
   plantImageSkeleton: {
     backgroundColor: '#E5E7EB',
   },
+  cardDivider: {
+    height: 1,
+    backgroundColor: LIVE.divider,
+    marginVertical: 12,
+    alignSelf: 'stretch',
+  },
   
   plantItemWrapper: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    padding: 0,
+    // The white product card: row + name/shipping block live inside one card.
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
     gap: 0,
     width: '100%',
     flex: 0,
     alignSelf: 'stretch',
+    // Very subtle lift so the white card separates from the cream sheet.
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   plantList: {
     flexDirection: 'column',
     alignItems: 'flex-start',
     paddingTop: 12,
-    paddingHorizontal: 12,
+    // Horizontal padding lives on the white card (plantItemWrapper) now; keeping
+    // it here too would double-indent the card inside the cream sheet.
+    paddingHorizontal: 0,
     paddingBottom: 16,
     gap: 12,
     width: '100%',
@@ -1767,11 +1825,11 @@ const styles = StyleSheet.create(
   plant: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: 12,
-    gap: 12,
+    padding: 0,
+    gap: 16,
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
     flex: 0,
     alignSelf: 'stretch',
   },
@@ -1779,15 +1837,15 @@ const styles = StyleSheet.create(
     flexDirection: 'row',
     alignItems: 'center',
     padding: 0,
-    width: 96,
-    height: 128,
-    borderRadius: 6,
+    width: 88,
+    height: 88,
+    borderRadius: 12,
     flex: 0,
   },
   plantImageContainer: {
-    width: 96,
-    height: 128,
-    borderRadius: 6,
+    width: 88,
+    height: 88,
+    borderRadius: 12,
     flex: 0,
   },
   plantDetails: {
@@ -1803,19 +1861,21 @@ const styles = StyleSheet.create(
     padding: 0,
     gap: 4,
     width: '100%',
-    height: 50,
+    // NOTE: no fixed height here. A fixed 50 clipped long names mid-word once;
+    // let the block size itself and the single-line name ellipsize instead.
     flex: 0,
     alignSelf: 'stretch',
   },
   plantNameText: {
     width: '100%',
-    height: 24,
+    // No fixed height: the name wraps to a second line like the design, so the
+    // block must size itself (a fixed height clipped it mid-word before).
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '700',
     fontSize: 16,
     lineHeight: 24,
-    color: '#202325',
+    color: LIVE.greenName,
     flex: 0,
     alignSelf: 'stretch',
   },
@@ -1823,21 +1883,39 @@ const styles = StyleSheet.create(
     flexDirection: 'row',
     alignItems: 'center',
     padding: 0,
-    gap: 6,
+    gap: 8,
     width: '100%',
     height: 22,
     flex: 0,
     alignSelf: 'stretch',
   },
   variationText: {
-    width: 127,
-    height: 22,
+    // No fixed width: the origin pill shares this line, so the text must flex.
+    flexShrink: 1,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 22, // 140% of 16px
-    color: '#647276',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#4A4A4A',
+  },
+  countryPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    backgroundColor: '#EAEAEA',
+    borderRadius: 6,
+    flex: 0,
+  },
+  countryPillText: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
+    fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#333333',
     flex: 0,
   },
   dividerContainer: {
@@ -1884,11 +1962,11 @@ const styles = StyleSheet.create(
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 0,
-    paddingHorizontal: 8,
-    paddingBottom: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingBottom: 4,
     backgroundColor: '#202325',
-    borderRadius: 6,
+    borderRadius: 8,
     flex: 0,
   },
   listingTypeLabel: {
@@ -1949,12 +2027,12 @@ const styles = StyleSheet.create(
     flex: 1,
   },
   priceNumber: {
-    height: 24,
+    height: 26,
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '700',
-    fontSize: 20,
-    lineHeight: 24,
+    fontSize: 22,
+    lineHeight: 26,
     color: '#202325',
     flex: 0,
   },
@@ -1987,7 +2065,7 @@ const styles = StyleSheet.create(
     fontSize: 16,
     lineHeight: 22, // 140% of 16px
     textAlign: 'right',
-    color: '#393D40',
+    color: '#2E7D32',
     flex: 0,
   },
   quantityMultiple: {
@@ -1998,7 +2076,7 @@ const styles = StyleSheet.create(
     fontSize: 16,
     lineHeight: 22, // 140% of 16px
     textAlign: 'right',
-    color: '#393D40',
+    color: '#2E7D32',
     flex: 0,
   },
   plantItemDetails: {
@@ -2012,60 +2090,20 @@ const styles = StyleSheet.create(
     flex: 0,
     alignSelf: 'stretch',
   },
-  titleCountry: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 0,
-    gap: 8,
-    width: '100%',
-    height: 22,
-    flex: 0,
-    alignSelf: 'stretch',
-  },
-  titleText: {
-    height: 22,
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 22, // 140% of 16px
-    color: '#202325',
-    flex: 1,
-  },
-  countryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 0,
-    gap: 6,
-    width: 53,
-    height: 22,
-    flex: 0,
-  },
-  countryText: {
-    width: 23,
-    height: 22,
-    fontFamily: 'Inter',
-    fontStyle: 'normal',
-    fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 22, // 140% of 16px
-    color: '#556065',
-    flex: 0,
-  },
   flagIcon: {
-    width: 24,
-    height: 16,
+    width: 18,
+    height: 12,
     flex: 0,
   },
   plantShipping: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 0,
     gap: 6,
     width: '100%',
-    height: 24,
+    // No fixed height: the shipping label carries a main line AND a sub line, and
+    // a fixed 24 clipped the sub line off (same failure as the old name block).
     flex: 0,
     alignSelf: 'stretch',
   },

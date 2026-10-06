@@ -1,12 +1,21 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert, Animated, Platform } from 'react-native';
+import ClockIcon from '../../../../assets/admin-icons/clock.svg';
+import CheckRegularIcon from '../../../../assets/icons/white/check-regular.svg';
 import styles from './styles/FlightSelectorStyles';
 
 /**
  * Flight selector component with locking UX for checkout screen
+ *
+ * `variant="liveModal"` applies the LIVE bottom-sheet styling (cream-aware
+ * section, sage date cards, check badge). Everything else keeps the original
+ * checkout-page look. Note: do NOT key this off `isLive` — the full
+ * CheckoutScreen can also be opened with `isLive: true` (see
+ * ScreenPlantDetailPurge), so `isLive` does not mean "the live modal".
  */
 const FlightSelector = ({
   isLive=false,
+  variant,
   lockedFlightDate,
   flightDateOptions = [],
   selectedFlightDate,
@@ -65,6 +74,8 @@ const FlightSelector = ({
     return Platform.OS === 'android';
   };
 
+  const isLiveModal = variant === 'liveModal';
+
   // Cutoff is per flight date from the API; must follow the selected option, not always index 0.
   const cutoffOptionForDisplay = (() => {
     if (!flightDateOptions.length) return null;
@@ -108,7 +119,7 @@ const FlightSelector = ({
   };
 
   return (
-    <View style={styles.plantFlight}>
+    <View style={[styles.plantFlight, isLiveModal && styles.livePlantFlight]}>
       {/* Title */}
       <View style={styles.flightTitle}>
         <View style={styles.flightTitleRow}>
@@ -145,9 +156,15 @@ const FlightSelector = ({
 
       {/* Cutoff Date Info — tied to the selected flight, not the first card */}
       {flightDateOptions.length > 0 && displayCutoffDateLabel ? (
-        <View style={styles.cutoffDateContainer}>
-          <Text style={styles.cutoffDateLabel}>
-            Order cutoff: <Text style={styles.cutoffDateValue}>{displayCutoffDateLabel}</Text>
+        <View style={[styles.cutoffDateContainer, isLiveModal && styles.liveCutoffDateContainer]}>
+          {/* clock.svg has a hard-coded #7F8D91 stroke, so it cannot be tinted
+              via a color prop. Left as-is; it reads fine on the amber pill. */}
+          {isLiveModal ? <ClockIcon width={18} height={18} /> : null}
+          <Text style={[styles.cutoffDateLabel, isLiveModal && styles.liveCutoffDateLabel]}>
+            Order cutoff:{' '}
+            <Text style={[styles.cutoffDateValue, isLiveModal && styles.liveCutoffDateValue]}>
+              {displayCutoffDateLabel}
+            </Text>
           </Text>
         </View>
       ) : null}
@@ -202,23 +219,45 @@ const FlightSelector = ({
                     style={[
                       isAndroid() && isLive ? styles.optionCardAndroidLive : styles.optionCard,
                       selectedFlightDate?.iso === option.iso
-                        ? styles.selectedOptionCard
-                        : styles.unselectedOptionCard,
+                        ? isLiveModal
+                          ? styles.liveSelectedOptionCard
+                          : styles.selectedOptionCard
+                        : isLiveModal
+                          ? styles.liveUnselectedOptionCard
+                          : styles.unselectedOptionCard,
                       isEffectivelyLocked && styles.mutedOption,
                     ]}
                     onPress={() => handleFlightSelection(option)}
                     activeOpacity={isEffectivelyLocked ? 1 : 0.7}
                     disabled={isEffectivelyLocked}
                     pointerEvents={isEffectivelyLocked ? 'none' : 'auto'}>
+                    {isLiveModal && selectedFlightDate?.iso === option.iso ? (
+                      <View style={styles.checkBadge}>
+                        <CheckRegularIcon width={12} height={12} />
+                      </View>
+                    ) : null}
                     <Text
                       style={
                         selectedFlightDate?.iso === option.iso
-                          ? styles.optionText
-                          : styles.unselectedOptionText
+                          ? isLiveModal
+                            ? styles.liveOptionText
+                            : styles.optionText
+                          : isLiveModal
+                            ? styles.liveUnselectedOptionText
+                            : styles.unselectedOptionText
                       }>
                       {option.displayLabel || option.label}
                     </Text>
-                    <Text style={styles.optionSubtext}>Sat</Text>
+                    <Text
+                      style={[
+                        styles.optionSubtext,
+                        isLiveModal &&
+                          (selectedFlightDate?.iso === option.iso
+                            ? styles.liveOptionSubtextSelected
+                            : styles.liveOptionSubtextUnselected),
+                      ]}>
+                      Sat
+                    </Text>
                   </TouchableOpacity>
                 );
               }))
