@@ -11,8 +11,10 @@ import { View,
   Alert,
 } from 'react-native';
 import Video from 'react-native-video';
-// FALLBACK: Using simple progress bar instead of Slider to avoid RNCSlider issues
-// import Slider from '@react-native-community/slider';
+// Timeline scrubbing uses SimpleProgressBar, not @react-native-community/slider:
+// RNCSliderComponentView.mm imports "RCTFabricComponentsPlugins.h" quote-style, which
+// cannot resolve under RN 0.87 (the header lives in Headers/Public/React-RCTFabric/React/).
+// The pod was removed, so do not re-add it without fixing that import.
 import SimpleProgressBar from './SimpleProgressBar';
 import Svg, { Path } from 'react-native-svg';
 import { formatDuration } from '../../utils/videoCompression';
@@ -703,10 +705,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
-  },
-  slider: {
-    flex: 1,
-    marginHorizontal: 8,
   },
   controlButtons: {
     flexDirection: 'row',

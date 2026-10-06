@@ -1,0 +1,12 @@
+diff --git a/node_modules/react-native-agora/ios/AgoraRtcSurfaceViewManager.mm b/node_modules/react-native-agora/ios/AgoraRtcSurfaceViewManager.mm
+index e3a9fc3..d9680b2 100644
+--- a/node_modules/react-native-agora/ios/AgoraRtcSurfaceViewManager.mm
++++ b/node_modules/react-native-agora/ios/AgoraRtcSurfaceViewManager.mm
+@@ -1,6 +1,6 @@
+ #import <React/RCTViewManager.h>
+ #import <React/RCTUIManager.h>
+-#import "RCTBridge.h"
++#import <React/RCTBridge.h>
+ #import "AgoraRtcNg.h"
+ #import <AgoraRtcWrapper/iris_engine_base.h>
+ 

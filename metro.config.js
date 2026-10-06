@@ -66,6 +66,26 @@ module.exports = (() => {
         );
       }
 
+      // ...and exports resolution also trips on a React Native 0.87 bug.
+      //
+      // `@react-native/virtualized-lists@0.87.x` deep-imports
+      // `react-native/src/private/featureflags/ReactNativeFeatureFlags` (bare specifier)
+      // from VirtualizedList.js and VirtualizeUtils.js, but RN 0.87 removed the `./src/*`
+      // wildcard from its package `exports`, so that subpath is no longer listed. Metro
+      // warns and falls back to file-based resolution — the bundle is byte-identical
+      // either way, so this is noise, not a failure.
+      //
+      // Upstream: facebook/react-native#57933, fix PRs #57940/#57969 (not in any released
+      // 0.87.x). Resolving these with exports off reproduces Metro's own fallback one step
+      // earlier and silences the warning. Drop this branch once the fix ships.
+      if (moduleName.startsWith('react-native/src/')) {
+        return context.resolveRequest(
+          {...context, unstable_enablePackageExports: false},
+          moduleName,
+          platform,
+        );
+      }
+
       return context.resolveRequest(context, moduleName, platform);
     },
   };
