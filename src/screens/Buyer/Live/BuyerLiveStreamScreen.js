@@ -98,6 +98,54 @@ const liveShippingLabel = listing => {
     : 'UPS 2nd Day $50 + $5 extra plant';
 };
 
+// Builds the payload the LIVE checkout modal needs to paint its first frame from
+// the live-listing row the buyer tapped. Only display fields are filled in: the
+// authoritative detail (variations, exact discount, flight dates) still comes from
+// getPlantDetailApi. Returns null when the row carries no plant code, in which case
+// the caller falls back to the blocking flow.
+const optimisticPlantDataFromListing = listing => {
+  if (!listing) return null;
+  const plantCode = listing.plantCode || listing.plantcode;
+  if (!plantCode) return null;
+
+  const name =
+    listing.name ||
+    listing.title ||
+    `${listing.genus || ''} ${listing.species || ''}`.trim() ||
+    'Rare Tropical Plants';
+  const potSize = listing.potSize || listing.potsize || null;
+  const price = listing.usdPrice ?? listing.usdprice ?? 0;
+  const image = listing.imagePrimary || listing.imageprimary || null;
+
+  return {
+    plantData: {
+      plantCode,
+      name,
+      title: name,
+      genus: listing.genus || '',
+      species: listing.species || '',
+      variation: listing.variegation || 'Standard',
+      potSize,
+      size: potSize,
+      imagePrimary: image,
+      image,
+      country: listing.country || null,
+      localCurrency: listing.localCurrency || null,
+      listingType: listing.listingType || listing.listingtype || null,
+      accountClass: listing.accountClass || null,
+      usdPrice: price,
+      price,
+      // listing-detail does not return a shipping method for live listings, so the
+      // label falls back to its default text — pass null to keep the skeleton and the
+      // real payload showing the same string instead of flipping between two.
+      shippingMethod: null,
+    },
+    selectedPotSize: potSize,
+    quantity: 1,
+    totalAmount: Number(price) || 0,
+  };
+};
+
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
@@ -143,6 +191,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [isCommentFocused, setIsCommentFocused] = useState(false);
   const [checkOutData, setCheckOutData] = useState({});
   const [isLiveShopCheckoutVisible, setIsLiveShopCheckoutVisible] = useState(false);
+  // True while the modal is open on the tapped row's data and the authoritative
+  // plant detail is still in flight — the modal renders skeletons meanwhile.
+  const [isLiveCheckoutPending, setIsLiveCheckoutPending] = useState(false);
   const [editingComment, setEditingComment] = useState(null);
 
   useEffect(() => {
@@ -830,37 +881,67 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     }
   };
 
+  // Opens the LIVE checkout modal immediately on the tapped row's display data and
+  // loads the authoritative detail underneath. The modal is fed the row directly from
+  // ShopModal rather than the shared `plantData`/`activeListing` state, which is what
+  // used to make the tap wait on (and depend on) unrelated in-flight requests.
   const buyNow = async (item) => {
-    // removeViewers();
+    const optimistic = optimisticPlantDataFromListing(item);
+
+    if (!optimistic) {
+      Alert.alert('Error', 'This plant is not available for purchase.');
+      return;
+    }
+
+    // No blocking spinner here on purpose: the checkout modal opens straight away and
+    // shows its own skeletons, so the full-screen `isLoading` Modal would be a second
+    // Modal competing with it for presentation (iOS presents one at a time) — the
+    // checkout sheet then silently fails to appear.
+    setIsLiveCheckoutPending(true);
+    setCheckOutData({
+      ...optimistic,
+      plantData: { ...optimistic.plantData, flightDate: null, cargoDate: null },
+      plantCode: optimistic.plantData.plantCode,
+      isLive: true,
+    });
+    setIsLiveShopCheckoutVisible(true);
+
     try {
-      setIsLoading(true);
-      const plantDatas = await loadPlantDetails(item);
-      const discountsData = await getDiscountedPrice(item, plantDatas);
-      setTimeout(() => {
-        setIsLoading(false);  
-            const data = {
-              fromBuyNow: true,
-              plantData: {
-                ...plantDatas,
-                country: discountsData.country,
-                flightDate: plantDatas?.flightDate || plantDatas?.cargoDate || null,
-                cargoDate: plantDatas ? plantDatas.cargoDate : null,
-              },
-              selectedPotSize: plantDatas ? plantDatas.potSize : null,
-              quantity: 1,
-              plantCode: plantDatas ? plantDatas.plantCode : null,
-              totalAmount: discountsData.unitPrice * 1,
-              isLive: true,
-            };
-            setCheckOutData(data);
-            setIsLiveShopCheckoutVisible(true);
-            //navigation.navigate('CheckoutScreen', data);
-      }, 1000);
+      // loadPlantDetails only resolves once the detail API answered — a caught failure
+      // resolves undefined, so the guard covers both the error and the retry-exhausted path.
+      const plantDatas = await loadPlantDetails({ plantCode: optimistic.plantData.plantCode });
+      if (!plantDatas) {
+        return; // loadPlantDetails already alerted
+      }
+
+      const discountsData = await getDiscountedPrice(item, {
+        ...plantDatas,
+        country: plantDatas.country || optimistic.plantData.country,
+      });
+
+      setCheckOutData({
+        fromBuyNow: true,
+        plantData: {
+          ...plantDatas,
+          country: discountsData.country,
+          flightDate: plantDatas?.flightDate || plantDatas?.cargoDate || null,
+          cargoDate: plantDatas ? plantDatas.cargoDate : null,
+        },
+        selectedPotSize: plantDatas ? plantDatas.potSize : null,
+        quantity: 1,
+        plantCode: plantDatas ? plantDatas.plantCode : null,
+        totalAmount: discountsData.unitPrice * 1,
+        isLive: true,
+      });
     } catch (error) {
       console.log('error', error);
-      setIsLoading(false);
+      setIsLiveShopCheckoutVisible(false);
+      Alert.alert('Error', 'Could not load this plant. Please try again.');
+    } finally {
+      // Must clear on every path: a stale `true` would leave the modal stuck on skeletons
+      // for the next time it opens.
+      setIsLiveCheckoutPending(false);
     }
-    
   }
 
   // Effect to fetch order for the active listing
@@ -911,7 +992,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   }
 
   return (
-     <SafeAreaView style={styles.container}>
+   <SafeAreaView style={styles.container}>
       {isLoading && (
                       <Modal transparent animationType="fade">
                         <View style={styles.loadingOverlay}>
@@ -1243,7 +1324,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
       <LiveShopCheckoutModal
         isVisible={isLiveShopCheckoutVisible}
-        onClose={() => setIsLiveShopCheckoutVisible(false)}
+        onClose={() => {
+          setIsLiveShopCheckoutVisible(false);
+          setIsLiveCheckoutPending(false);
+        }}
+        isPending={isLiveCheckoutPending}
         listingDetails={checkOutData}
       />
       

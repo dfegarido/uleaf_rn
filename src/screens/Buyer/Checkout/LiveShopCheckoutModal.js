@@ -15,6 +15,8 @@ import { FlatList,
 } from 'react-native';
 
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
+import FlightIcon from '../../../assets/buyer-icons/plane-gray.svg';
+import ShippingMethodLabel from '../../../components/ShippingMethodLabel/ShippingMethodLabel';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
@@ -28,7 +30,6 @@ import AddressSection from './components/AddressSection';
 import CheckoutBar from './components/CheckoutBar';
 import FlightSelector from './components/FlightSelector';
 import OrderSummary from './components/OrderSummary';
-import PlantList from './components/PlantList';
 import { useCheckoutController } from './controllers/CheckoutController';
 
 // Helper function to determine country from currency
@@ -104,6 +105,7 @@ const PlantItemComponent = ({
   country,
   shippingMethod,
   airCargoOption,
+  isLoading,
   onPress,
 }) => {
   const isGrowerChoice = listingType === 'growers_choice';
@@ -114,7 +116,9 @@ const PlantItemComponent = ({
       {/* Plant Image */}
       <View style={styles.plantImage}>
         <View style={styles.plantImageContainer}>
-          {image ? (
+          {isLoading ? (
+            <View style={[styles.plantImageSkeleton, { width: 96, height: 128, borderRadius: 6 }]} />
+          ) : image ? (
             <AppImage
               source={{ uri: image }}
               style={{ width: 96, height: 128, borderRadius: 6 }}
@@ -132,25 +136,39 @@ const PlantItemComponent = ({
       <View style={styles.plantDetails}>
         {/* Plant Name */}
         <View style={styles.plantName}>
-          <Text style={styles.plantNameText}>{name}</Text>
+          {isLoading ? (
+            <View style={styles.skeletonText} />
+          ) : (
+            <Text style={styles.plantNameText} numberOfLines={1} ellipsizeMode="tail">{name}</Text>
+          )}
           <View style={styles.variationSize}>
-            <Text style={styles.variationText}>{variation}</Text>
-            <View style={styles.dividerContainer}>
-              <View style={styles.divider} />
-            </View>
-            <Text style={styles.sizeNumber}>{size}</Text>
+            {isLoading ? (
+              <View style={styles.skeletonTextShort} />
+            ) : (
+              <>
+                <Text style={styles.variationText}>{variation}</Text>
+                <View style={styles.dividerContainer}>
+                  <View style={styles.divider} />
+                </View>
+                <Text style={styles.sizeNumber}>{size}</Text>
+              </>
+            )}
           </View>
         </View>
 
         {/* Type and Discount */}
         <View style={styles.typeDiscount}>
-          <View style={styles.listingType}>
-            <Text style={styles.listingTypeLabel}>
-              {listingType === 'single_grower' ? 'Single' : 
-               listingType === 'wholesale' ? 'Wholesale' : 'Grower\'s Choice'}
-            </Text>
-          </View>
-          {isDiscounted && (
+          {isLoading ? (
+            <View style={styles.skeletonTextShort} />
+          ) : (
+            <View style={styles.listingType}>
+              <Text style={styles.listingTypeLabel}>
+                {listingType === 'single_grower' ? 'Single' : 
+                 listingType === 'wholesale' ? 'Wholesale' : 'Grower\'s Choice'}
+              </Text>
+            </View>
+          )}
+          {!isLoading && isDiscounted && (
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>{discount}% OFF</Text>
             </View>
@@ -160,11 +178,15 @@ const PlantItemComponent = ({
         {/* Price and Quantity */}
         <View style={styles.priceQuantity}>
           <View style={styles.priceContainer}>
-            <Text style={[styles.priceNumber, isDiscounted && styles.discountedPrice]}>
-              {formatCurrencyFull(price)}
-            </Text>
+            {isLoading ? (
+              <View style={styles.skeletonAmountLarge} />
+            ) : (
+              <Text style={[styles.priceNumber, isDiscounted && styles.discountedPrice]}>
+                {formatCurrencyFull(price)}
+              </Text>
+            )}
             {/* Original Price (if discounted) */}
-            {originalPrice && discount && (
+            {!isLoading && originalPrice && discount && (
               <Text style={styles.originalPriceText}>
                 {formatCurrencyFull(originalPrice)}
               </Text>
@@ -173,8 +195,14 @@ const PlantItemComponent = ({
 
           {/* Quantity - Always show quantity for all listing types */}
           <View style={styles.quantityContainer}>
-            <Text style={styles.quantityNumber}>{quantity || 1}</Text>
-            <Text style={styles.quantityMultiple}>x</Text>
+            {isLoading ? (
+              <View style={styles.skeletonAmount} />
+            ) : (
+              <>
+                <Text style={styles.quantityNumber}>{quantity || 1}</Text>
+                <Text style={styles.quantityMultiple}>x</Text>
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -183,7 +211,7 @@ const PlantItemComponent = ({
 };
 
 
-const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
+const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending = false }) => {
 
   setupURLPolyfill();
     // Use the controller for all business logic
@@ -252,7 +280,11 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
       visible={isVisible}
       onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+          {/* 82% rather than 60%: at 60% the scroll viewport was ~384pt against ~541pt
+              of content, so the row's bottom, the full plant name and the shipping /
+              upgrade notices sat permanently under the fixed Total bar. */}
+          <View style={[styles.modalContainer, { height: '82%' }]}>
+
           <View style={styles.header}>
             <Text style={styles.title}>LIVE Checkout</Text>
             <TouchableOpacity onPress={onClose}>
@@ -295,19 +327,76 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
                   receiverFlightDate={receiverFlightDate}
                 />
                 
-                {/* <PlantList
-                  plantItems={plantItems}
-                  renderCountryFlag={renderCountryFlag}
-                  PlantItemComponent={PlantItemComponent}
-                  onPlantPress={(item) => {
-                    // Navigation to plant detail can be implemented here when needed
-                    // if (item.plantCode) {
-                    //   navigation.navigate('ScreenPlantDetail', {
-                    //     plantCode: item.plantCode,
-                    //   });
-                    // }
-                  }}
-                /> */}
+                {/* Plant details sit below the flight date selection so the buyer
+                    sees what they are buying once the date is chosen. While the
+                    authoritative detail is in flight the row renders its skeletons, so
+                    the layout does not jump when the payload swaps in. */}
+                <View style={styles.plantList}>
+                  <View style={styles.plantItemWrapper}>
+                    <PlantItemComponent
+                      image={isPending ? null : plantItems[0]?.image}
+                      name={isPending ? '' : plantItems[0]?.name}
+                      variation={isPending ? '' : plantItems[0]?.variation}
+                      size={isPending ? '' : plantItems[0]?.size}
+                      price={isPending ? null : plantItems[0]?.price}
+                      quantity={isPending ? null : plantItems[0]?.quantity}
+                      listingType={isPending ? null : plantItems[0]?.listingType}
+                      discount={isPending ? null : plantItems[0]?.discount}
+                      originalPrice={isPending ? null : plantItems[0]?.originalPrice}
+                      isLoading={isPending}
+                      onPress={() => {
+                        // Plant detail navigation can be hooked up here when needed.
+                      }}
+                    />
+
+                    {/* Name, origin and shipping for the row above. This block came from
+                        PlantList; the shipping label keeps its skeleton until the real
+                        label is known, the name/flag do not, since the optimistic payload
+                        already carries them. */}
+                    <View style={styles.plantItemDetails}>
+                      {isPending ? (
+                        <View style={{ gap: 8 }}>
+                          <View style={styles.skeletonText} />
+                          <View style={styles.skeletonTextShort} />
+                        </View>
+                      ) : (
+                        <>
+                          <View style={styles.titleCountry}>
+                            <Text style={styles.titleText}>
+                              {plantItems[0]?.title || 'Rare Tropical Plants from Thailand'}
+                            </Text>
+                            <View style={styles.countryContainer}>
+                              <Text style={styles.countryText}></Text>
+                              {renderCountryFlag(plantItems[0]?.country)}
+                            </View>
+                          </View>
+
+                          <View style={styles.plantShipping}>
+                            <ShippingMethodLabel shippingMethod={plantItems[0]?.shippingMethod} />
+                          </View>
+
+                          {plantItems[0]?.flightInfo && (
+                            <View style={styles.plantShipping}>
+                              <View style={styles.shippingContent}>
+                                <FlightIcon width={24} height={24} style={styles.airCargoIcon} />
+                                <Text style={styles.shippingText}>{plantItems[0]?.flightInfo}</Text>
+                              </View>
+                            </View>
+                          )}
+
+                          {plantItems[0]?.hasAirCargo && !plantItems[0]?.flightInfo && (
+                            <View style={styles.plantShipping}>
+                              <View style={styles.shippingContent}>
+                                <FlightIcon width={24} height={24} style={styles.airCargoIcon} />
+                                <Text style={styles.shippingText}>Plant / Wholesale Air Cargo</Text>
+                              </View>
+                            </View>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  </View>
+                </View>
                 
                 {/* <OrderSummary
                   quantityBreakdown={quantityBreakdown}
@@ -341,9 +430,11 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails }) => {
               </ScrollView>
               
               <CheckoutBar
-                total={orderSummary.finalTotal}
+                // finalTotal is undefined while the optimistic payload lacks an amount;
+                // default it so the bar never formats NaN.
+                total={isPending ? 0 : (orderSummary.finalTotal || 0)}
                 discount={orderSummary.codeDiscount || 0}
-                loading={loading || isCalculatingShipping}
+                loading={isPending || loading || isCalculatingShipping}
                 selectedFlightDateIso={selectedFlightDate?.iso}
                 onCheckoutPress={handleCheckout}
                 vaultedPaymentId={vaultedPaymentId}
@@ -725,6 +816,9 @@ const styles = StyleSheet.create(
     minWidth: 92,
     height: 86,
     marginRight: 12,
+  },
+  plantImageSkeleton: {
+    backgroundColor: '#E5E7EB',
   },
   
   plantItemWrapper: {
