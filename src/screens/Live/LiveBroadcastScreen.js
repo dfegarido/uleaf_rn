@@ -822,6 +822,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
+  // "Snap" side button: capture the plant photo immediately, on the tap. No
+  // countdown, no loop — the tap IS the trigger. Cancels any countdown that
+  // happens to be pending so a just-taken photo is not snapped again 8s later.
+  const handleManualSnapshot = () => {
+    const listing = activeListingRef.current;
+    if (!listing) {
+      console.warn('[Snapshot] Snap pressed with no active listing, skipping');
+      return;
+    }
+    stopSnapshotCountdown();
+    setSnapshotCountdown(0);
+    if (snapshotPendingRef.current) return;
+    captureAndUploadSnapshot(listing);
+    console.log('[Snapshot] Snap pressed — captured', listing.plantCode);
+  };
+
   const stopSnapshotCountdown = () => {
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
@@ -829,15 +845,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
   };
 
-  // Starts an 8s countdown; at 0 the plant photo is snapped and uploaded, then
-  // the counter waits a 10s gap before running again — for as long as this
-  // listing stays on air. Both the automatic cycle and the side "Snap" button
-  // use this, so pressing Snap brings the counter back immediately.
+  // Runs ONE 8s countdown: at 0 the plant photo is snapped and uploaded, then
+  // the counter stops. It is armed by exactly two events — the seller pressing
+  // Go Live, and the active listing changing — and never re-arms itself, so a
+  // live listing cannot keep re-snapping (and re-uploading) on a timer.
   const startSnapshotCountdown = () => {
     stopSnapshotCountdown();
 
     const COUNTDOWN_S = 8;
-    const GAP_S = 10;
     let remaining = COUNTDOWN_S;
     setSnapshotCountdown(remaining);
 
@@ -849,21 +864,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         return;
       }
 
-      if (remaining === 0) {
-        // Countdown finished: hide the counter and refresh the plant photo.
-        setSnapshotCountdown(0);
-        const listing = activeListingRef.current;
-        if (listing && !snapshotPendingRef.current) {
-          captureAndUploadSnapshot(listing);
-          console.log('[Snapshot] Countdown reached 0 — snapped', listing.plantCode);
-        }
-        return;
-      }
-
-      // Gap between cycles. When it elapses the counter appears again.
-      if (remaining <= -GAP_S) {
-        remaining = COUNTDOWN_S;
-        setSnapshotCountdown(remaining);
+      // Countdown finished: hide the counter and refresh the plant photo, then
+      // stop. Re-arming is the caller's job (next Go Live / listing switch).
+      stopSnapshotCountdown();
+      setSnapshotCountdown(0);
+      const listing = activeListingRef.current;
+      if (listing && !snapshotPendingRef.current) {
+        captureAndUploadSnapshot(listing);
+        console.log('[Snapshot] Countdown reached 0 — snapped', listing.plantCode);
       }
     }, 1000);
   };
@@ -970,18 +978,21 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     setSnapshotPreviewUri(null);
     setSnapshotCountdown(0);
     stopSnapshotCountdown();
-    if (!activeListing || !joined) return;
+    // Arm the one-shot counter only while the seller is actually live. The
+    // effect re-runs on the two intended trigger events: pressing Go Live
+    // (isLive false -> true) and the active listing changing.
+    if (!activeListing || !joined || !isLive) return;
 
     console.log(
       '[Snapshot] Watching listing',
       activeListing.plantCode,
-      '— 8s countdown / 10s gap',
+      '— 8s countdown (one shot)',
     );
 
     startSnapshotCountdown();
 
     return stopSnapshotCountdown;
-  }, [activeListing?.id, activeListing?.plantCode, joined]);
+  }, [activeListing?.id, activeListing?.plantCode, joined, isLive]);
 
   // Periodic live thumbnail capture — updates the session's coverPhotoUrl
   // so the buyer's shop screen shows a fresh preview of what's currently on stream
@@ -1196,7 +1207,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   <NoteIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Notes</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={startSnapshotCountdown} style={styles.sideAction}>
+                <TouchableOpacity onPress={handleManualSnapshot} style={styles.sideAction}>
                   <ScreenshotIcon width={32} height={32} />
                   <Text style={styles.sideActionNotesText}>Snap</Text>
                 </TouchableOpacity>
