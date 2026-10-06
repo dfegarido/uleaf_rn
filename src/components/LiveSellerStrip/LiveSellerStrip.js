@@ -1,6 +1,6 @@
 import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
 import { getLiveStreamsApi, normalizeLiveRow, isVisibleLiveStream } from '../Api/liveApi';
@@ -78,10 +78,20 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
       onPress={onPress}
       activeOpacity={0.7}>
       {stream.coverPhotoUrl ? (
-        <ImageBackground
-          source={{ uri: stream.coverPhotoUrl }}
-          style={styles.cardImage}
-          imageStyle={styles.cardImageStyle}>
+        <View style={styles.cardImage}>
+          {/* RN 0.87 deprecates ImageBackground; the supported equivalent is a View
+              with an absolutely positioned Image, which is how ImageBackground itself
+              is implemented. `style.width/height` are mirrored onto the Image and
+              `cardImageStyle` is applied last, matching ImageBackground's own order. */}
+          <Image
+            source={{ uri: stream.coverPhotoUrl }}
+            style={[
+              StyleSheet.absoluteFill,
+              { width: styles.cardImage.width, height: styles.cardImage.height },
+              styles.cardImageStyle,
+            ]}
+            resizeMode="cover"
+          />
           {isUpcoming ? (
             <View style={[styles.upcomingBadge, isCountdown && styles.countdownBadge]}>
               <Text style={[styles.upcomingBadgeText, isCountdown && styles.countdownBadgeText]}>{upcomingText}</Text>
@@ -96,7 +106,7 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
               <Text style={styles.liveBadgeText}>Live</Text>
             </Animated.View>
           )}
-        </ImageBackground>
+        </View>
       ) : (
         <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
           {isUpcoming ? (
