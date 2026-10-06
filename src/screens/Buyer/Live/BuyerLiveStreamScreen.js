@@ -289,9 +289,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       plantDataWithCountry.country = country;
     }
     setPlantDataCountry(plantDataWithCountry)
+    // Return the RESOLVED country. This used to return the pre-resolution `null`
+    // whenever the caller already supplied a country, which then clobbered it at
+    // every call site (a Philippines listing rendered as the default Thailand).
     return {
-      country,
-      unitPrice
+      country: plantDataWithCountry.country || country,
+      unitPrice,
     }
   };
 
