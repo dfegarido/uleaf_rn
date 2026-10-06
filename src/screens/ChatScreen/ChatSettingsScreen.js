@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
+import React, { useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { ActivityIndicator,
   Dimensions,
@@ -25,9 +25,10 @@ import Svg, { Path, G, Defs, ClipPath, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../../config/apiConfig';
 import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
+import { formatPresenceLabel, PRESENCE_ACTIVE_WINDOW_MS } from '../../utils/chatPresence';
 import { listAdminsApi } from '../../components/Api/listAdminsApi';
 import { sendGroupChatNotificationApi } from '../../components/Api/sendGroupChatNotificationApi';
-import { chatDeleteApi, chatUpdateApi, getChatDetailApi, getChatMembershipApi, getChatParticipantsBatchApi, listChatJoinRequestsApi, submitChatJoinRequestApi } from '../../components/Api/chatApi';
+import { chatDeleteApi, chatUpdateApi, getChatActiveMembersApi, getChatDetailApi, getChatMembershipApi, getChatParticipantsBatchApi, listChatJoinRequestsApi, submitChatJoinRequestApi } from '../../components/Api/chatApi';
 
 const AvatarImage = require('../../assets/images/AvatarBig.png');
 
@@ -115,6 +116,24 @@ const ChatSettingsScreen = ({navigation, route}) => {
   // Member search state
   const [memberSearchText, setMemberSearchText] = useState('');
   const [filteredParticipants, setFilteredParticipants] = useState([]);
+  // ── Active members (presence) ───────────────────────────────────────────────
+  // Declared up here next to the other list state so `filterParticipants` (below)
+  // can scope the member modal; the fetching effects live further down.
+  //
+  // GET /chat-active-members returns the exact active set of the whole room
+  // (production groups hold 1,000-1,700 members, so a client-side sample would
+  // describe an arbitrary slice). Polled because presence is not in the Supabase
+  // realtime publication.
+  const [activeMembers, setActiveMembers] = useState([]);
+  // uid -> name/avatar, filled by getChatParticipantsBatchApi for active members who
+  // are not in this screen's `participants` (e.g. never-posted members).
+  const [activeMemberProfiles, setActiveMemberProfiles] = useState({});
+  // Presence is UNKNOWN until the first poll resolves. Without this the card would
+  // flash an empty state on every open, and a failed poll would read as "nobody is
+  // active" — a failed request is not evidence of absence.
+  const [presenceResolved, setPresenceResolved] = useState(false);
+  // When true, the View All Members modal lists only the active set (set by "See all").
+  const [memberListActiveOnly, setMemberListActiveOnly] = useState(false);
   // Add member modal selection state
   const [selectedUsersToAdd, setSelectedUsersToAdd] = useState([]);
   // User type filter for add member modal ('all', 'buyer', 'supplier')
@@ -224,21 +243,45 @@ const ChatSettingsScreen = ({navigation, route}) => {
     return participant?.name || 'Unknown';
   };
 
-  // Filter participants based on search text
+  // Filter participants based on search text (and, when the modal was opened from
+  // "See all", the active-only scope).
   const filterParticipants = (searchQuery) => {
+    const scoped = memberListActiveOnly
+      ? (participants || []).filter(p => activeMembers.some(m => m.uid === p.uid))
+      : (participants || []);
+
     if (!searchQuery.trim()) {
-      setFilteredParticipants(participants || []);
+      setFilteredParticipants(scoped);
       return;
     }
 
     const query = searchQuery.toLowerCase().trim();
-    const filtered = (participants || []).filter(participant => {
+    const filtered = scoped.filter(participant => {
       // Use stored name from chat document
       const displayName = participant?.name || '';
       return displayName.toLowerCase().includes(query);
     });
 
     setFilteredParticipants(filtered);
+  };
+
+  // Open the member modal, optionally pre-filtered to the active set ("See all").
+  const openMembersModal = (activeOnly = false) => {
+    setMemberListActiveOnly(activeOnly);
+    if (activeOnly) {
+      const activeUids = activeMembers.map(m => m.uid);
+      setFilteredParticipants((participants || []).filter(p => activeUids.includes(p.uid)));
+    } else {
+      setFilteredParticipants(participants || []);
+    }
+    setMemberSearchText('');
+    setViewMembersModalVisible(true);
+  };
+
+  const closeMembersModal = () => {
+    setViewMembersModalVisible(false);
+    setMemberSearchText('');
+    setMemberListActiveOnly(false);
   };
 
   // Deduplicate initial participants on mount
@@ -308,6 +351,78 @@ const ChatSettingsScreen = ({navigation, route}) => {
       fetchLatestChatData();
     }
   }, [chatId, isFocused, isGroupChat]);
+
+  // ── Active members (presence) fetch ─────────────────────────────────────────
+  // State lives up with the other list state; this effect owns the polling.
+  useEffect(() => {
+    if (!chatId || !isGroupChat || !isFocused) return;
+
+    let cancelled = false;
+    const PRESENCE_POLL_MS = 60000;
+
+    const fetchActiveMembers = async () => {
+      const res = await getChatActiveMembersApi(chatId);
+      if (cancelled) return;
+      if (!res?.success) {
+        // Keep the last known-good list; only stop claiming "unknown" once we have
+        // actually heard from the server.
+        return;
+      }
+      const rows = Array.isArray(res.data) ? res.data : [];
+      // The endpoint returns ONLY members active within the 5-minute window, so every
+      // row carries a usable `lastSeen`. A row we cannot label is dropped rather than
+      // rendered as "Offline" next to a green presence dot.
+      const withMs = rows
+        .filter((r) => r && r.uid && r.lastSeen)
+        .map((r) => ({ uid: r.uid, lastSeen: new Date(r.lastSeen).getTime() }))
+        .filter((m) => Number.isFinite(m.lastSeen) && m.lastSeen > 0)
+        .sort((a, b) => b.lastSeen - a.lastSeen);
+      setActiveMembers(withMs);
+      setPresenceResolved(true);
+
+      // Resolve names/avatars for any active uid this screen does not know yet.
+      setActiveMemberProfiles((prev) => {
+        const missing = withMs.map((m) => m.uid).filter((uid) => !prev[uid]);
+        if (missing.length === 0) return prev;
+        // Fire-and-forget: the card renders from `participants` meanwhile, then fills in.
+        getChatParticipantsBatchApi(missing).then((batchRes) => {
+          if (cancelled || !batchRes?.success) return;
+          const found = batchRes.participants || {};
+          if (Object.keys(found).length === 0) return;
+          setActiveMemberProfiles((cur) => ({ ...cur, ...found }));
+        });
+        return prev;
+      });
+    };
+
+    fetchActiveMembers();
+    const timer = setInterval(fetchActiveMembers, PRESENCE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [chatId, isGroupChat, isFocused]);
+
+  // Active members joined with a display name/avatar. Prefers this screen's own
+  // `participants` (freshest, and already deduped) and falls back to the batch lookup.
+  const activeMemberRows = useMemo(() => {
+    return activeMembers.map((m) => {
+      const fromParticipants = participants.find((p) => p && p.uid === m.uid);
+      const profile = fromParticipants || activeMemberProfiles[m.uid] || null;
+      return {
+        uid: m.uid,
+        lastSeen: m.lastSeen,
+        name: profile?.name || 'Member',
+        avatarUrl: profile?.avatarUrl,
+      };
+    });
+  }, [activeMembers, participants, activeMemberProfiles]);
+
+  const activeCount = activeMemberRows.length;
+
+  // The Active Members card shows at most this many rows; "See all" opens the full
+  // member modal pre-filtered to the active set.
+  const ACTIVE_MEMBERS_PREVIEW = 5;
 
   // Sync group name from route params on mount
   useEffect(() => {
@@ -1425,60 +1540,61 @@ const ChatSettingsScreen = ({navigation, route}) => {
             {/* Group Name - Full, no truncation */}
             <Text style={styles.groupNameFull}>{groupNameDisplay || 'Group Chat'}</Text>
             
-            {/* Member Count */}
-            <Text style={styles.groupMemberCount}>
-              {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
-            </Text>
+            {/* Member count + how many are active right now */}
+            <View style={styles.memberCountRow}>
+              <Text style={styles.groupMemberCount}>
+                {`${participants.length} ${participants.length === 1 ? 'member' : 'members'}`}
+              </Text>
+              {presenceResolved && (
+                <>
+                  <Text style={styles.memberCountDot}>•</Text>
+                  <Text style={styles.memberCountActive}>{`${activeCount} active`}</Text>
+                </>
+              )}
+            </View>
             
-            {/* Action Buttons - Add Member, Edit Name, Delete Group (admin) / Leave Group (member) */}
-            <View style={styles.groupActionButtons}>
-              {isAdmin && (
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={openAddMemberModal}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Add Member">
-                  <View style={styles.actionButtonIcon}>
-                    <AddMemberIcon width={24} height={24} color="#647276" />
-                  </View>
-                  <Text style={styles.actionButtonText}>Add Member</Text>
-                </TouchableOpacity>
-              )}
-              {isAdmin && (
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={openEditNameModal}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Edit Name">
-                  <View style={styles.actionButtonIcon}>
-                    <EditNameIcon width={24} height={24} color="#647276" />
-                  </View>
-                  <Text style={styles.actionButtonText}>Edit Name</Text>
-                </TouchableOpacity>
-              )}
-              {isAdmin ? (
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={deleteChat}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Delete Group">
-                  <View style={styles.actionButtonIcon}>
-                    <DeleteGroupIcon width={24} height={24} color="#FF3B30" />
-                  </View>
-                  <Text style={[styles.actionButtonText, {color: '#FF3B30'}]}>Delete Group</Text>
-                </TouchableOpacity>
-              ) : isMember ? (
-                <TouchableOpacity 
-                  style={styles.actionButton}
+            {/* Action pills: Leave (member) / Invite + Delete (admin) */}
+            <View style={styles.pillRow}>
+              {isMember && !isAdmin && (
+                <TouchableOpacity
+                  style={[styles.pill, styles.pillDanger]}
                   onPress={handleLeaveGroup}
                   activeOpacity={0.7}
                   accessibilityLabel="Leave Group">
-                  <View style={styles.actionButtonIcon}>
-                    <DeleteGroupIcon width={24} height={24} color="#FF3B30" />
-                  </View>
-                  <Text style={[styles.actionButtonText, {color: '#FF3B30'}]}>Leave Group</Text>
+                  <DeleteGroupIcon width={18} height={18} color="#E5484D" />
+                  <Text style={[styles.pillText, styles.pillTextDanger]}>Leave Group</Text>
                 </TouchableOpacity>
-              ) : null}
+              )}
+              {isAdmin && (
+                <TouchableOpacity
+                  style={[styles.pill, styles.pillNeutral]}
+                  onPress={openAddMemberModal}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Invite">
+                  <AddMemberIcon width={18} height={18} color="#202325" />
+                  <Text style={styles.pillText}>Invite</Text>
+                </TouchableOpacity>
+              )}
+              {isAdmin && (
+                <TouchableOpacity
+                  style={[styles.pill, styles.pillNeutral]}
+                  onPress={openEditNameModal}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Edit Name">
+                  <EditNameIcon width={18} height={18} color="#202325" />
+                  <Text style={styles.pillText}>Edit Name</Text>
+                </TouchableOpacity>
+              )}
+              {isAdmin && (
+                <TouchableOpacity
+                  style={[styles.pill, styles.pillNeutral]}
+                  onPress={deleteChat}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Delete Group">
+                  <DeleteGroupIcon width={18} height={18} color="#E5484D" />
+                  <Text style={[styles.pillText, styles.pillTextDanger]}>Delete Group</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
           
@@ -1558,7 +1674,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
           <View style={styles.section}>
             <TouchableOpacity 
               style={styles.viewMembersButton}
-              onPress={() => setViewMembersModalVisible(true)}>
+              onPress={() => openMembersModal(false)}>
               <View style={styles.viewMembersButtonContent}>
                 <Text style={styles.viewMembersButtonText}>View All Members</Text>
                 <Text style={styles.viewMembersButtonCount}>
@@ -1568,6 +1684,44 @@ const ChatSettingsScreen = ({navigation, route}) => {
               <Text style={styles.viewMembersButtonArrow}>›</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Active Members card — renders only once presence has resolved and
+              somebody is actually active (a near-empty card would just be noise). */}
+          {presenceResolved && activeCount > 0 && (
+            <View style={styles.section}>
+              <View style={styles.activeMembersCard}>
+                <View style={styles.activeMembersHeader}>
+                  <Text style={styles.activeMembersTitle}>{`Active Members (${activeCount})`}</Text>
+                  <TouchableOpacity
+                    onPress={() => openMembersModal(true)}
+                    accessibilityLabel="See all active members">
+                    <Text style={styles.activeMembersSeeAll}>See all</Text>
+                  </TouchableOpacity>
+                </View>
+                {activeMemberRows.slice(0, ACTIVE_MEMBERS_PREVIEW).map((member, index, arr) => (
+                  <View
+                    key={member.uid}
+                    style={[
+                      styles.activeMemberRow,
+                      index === arr.length - 1 && styles.activeMemberRowLast,
+                    ]}>
+                    <View style={styles.activeMemberAvatarWrap}>
+                      <Image
+                        source={getAvatarSource(member.avatarUrl)}
+                        style={styles.activeMemberAvatar}
+                        defaultSource={AvatarImage}
+                      />
+                      <View style={styles.activeDot} />
+                    </View>
+                    <Text style={styles.activeMemberName} numberOfLines={1}>
+                      {member.name}
+                    </Text>
+                    <Text style={styles.activeMemberStatus}>{formatPresenceLabel(member.lastSeen)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Group Visibility Toggle - Only show for admins */}
           {isAdmin && (
@@ -1924,22 +2078,18 @@ const ChatSettingsScreen = ({navigation, route}) => {
           visible={viewMembersModalVisible}
           animationType="slide"
           transparent
-          onRequestClose={() => {
-            setViewMembersModalVisible(false);
-            setMemberSearchText('');
-          }}>
+          onRequestClose={closeMembersModal}>
           <View style={styles.modalOverlay}>
             <View style={styles.viewMembersModalContainer}>
               {/* Modal Header */}
               <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={() => {
-                  setViewMembersModalVisible(false);
-                  setMemberSearchText('');
-                }}>
+                <TouchableOpacity onPress={closeMembersModal}>
                   <Text style={styles.modalCancelButton}>Close</Text>
                 </TouchableOpacity>
                 <Text style={styles.modalTitle}>
-                  Members ({participants?.length || 0})
+                  {memberListActiveOnly
+                    ? `Active Members (${filteredParticipants.length})`
+                    : `Members (${participants?.length || 0})`}
                 </Text>
                 <View style={{width: 60}} />
               </View>
@@ -2778,27 +2928,117 @@ const styles = StyleSheet.create({
   groupMemberCount: {
     fontSize: 14,
     color: '#647276',
+  },
+  memberCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  groupActionButtons: {
-    flexDirection: 'row',
-    gap: 32,
+  memberCountDot: {
+    fontSize: 14,
+    color: '#647276',
+    marginHorizontal: 6,
   },
-  actionButton: {
+  memberCountActive: {
+    fontSize: 14,
+    color: '#539461',
+    fontWeight: '600',
+  },
+  // Action pills (Leave Group / Invite / Edit Name / Delete Group)
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  pill: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 22,
   },
-  actionButtonIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F5F6F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+  pillDanger: {
+    backgroundColor: '#FDECEC',
   },
-  actionButtonText: {
-    fontSize: 13,
+  pillNeutral: {
+    backgroundColor: '#F1F2F3',
+  },
+  pillText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#202325',
-    fontWeight: '500',
+  },
+  pillTextDanger: {
+    color: '#E5484D',
+  },
+  // Active Members card
+  activeMembersCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EDEFF1',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  activeMembersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+  },
+  activeMembersTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  activeMembersSeeAll: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#3B82F6',
+  },
+  activeMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F2F3',
+  },
+  activeMemberRowLast: {
+    borderBottomWidth: 0,
+  },
+  activeMemberAvatarWrap: {
+    width: 40,
+    height: 40,
+  },
+  activeMemberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F2F3',
+  },
+  activeDot: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#28C76F',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  activeMemberName: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#202325',
+  },
+  activeMemberStatus: {
+    fontSize: 13,
+    color: '#647276',
+    marginLeft: 8,
   },
 });

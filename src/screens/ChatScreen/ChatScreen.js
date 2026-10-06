@@ -31,6 +31,10 @@ import { uploadChatVideo } from '../../utils/uploadChatVideo';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
 import { compressVideo } from '../../utils/videoCompression';
 import { generateVideoThumbnail } from '../../utils/videoThumbnail';
+import {
+  PRESENCE_ACTIVE_WINDOW_MS,
+  formatPresenceLabel as formatPeerPresenceLabel,
+} from '../../utils/chatPresence';
 
 // Helper function to format date/time for separators
 const formatMessageDateTime = (timestamp) => {
@@ -112,38 +116,11 @@ const PAGINATION_LIMIT = 20;
 const REALTIME_WINDOW_LIMIT = 80;
 
 /**
- * Presence freshness window. Activity is decided by `lastseen` freshness alone — a
- * user is active while seen within the last 5 minutes. The stored `isOnline` column is
- * deliberately NOT part of this rule: it is sticky true after a force-quit, so including
- * it (`isOnline || fresh`) is exactly the bug that stranded a gone user as "Active now".
+ * Presence freshness window + the human label now live in `utils/chatPresence.js`
+ * (imported above as `PRESENCE_ACTIVE_WINDOW_MS` / `formatPeerPresenceLabel`) so the
+ * chat header and the group-info screen cannot drift. The local copies that used to
+ * sit here have been removed.
  */
-const PRESENCE_ACTIVE_WINDOW_MS = 5 * 60 * 1000;
-
-/**
- * Human label for a 1:1 peer's presence.
- *
- * `lastSeenMs` is a tri-state, because "we have not looked yet" and "we looked and
- * there is no row" must not render the same:
- *   undefined -> poll has not resolved yet  => render nothing (never guess)
- *   null      -> resolved, no presence row  => "Offline"
- *   number    -> epoch ms of chat_presence.lastseen
- *
- * The previous implementation hardcoded "Active now" for every 1:1 header, so the
- * label is now derived from real data and never asserts activity without evidence.
- */
-const formatPeerPresenceLabel = (lastSeenMs) => {
-  if (lastSeenMs === undefined) return '';
-  if (lastSeenMs === null || !Number.isFinite(lastSeenMs) || lastSeenMs <= 0) return 'Offline';
-  const elapsed = Date.now() - lastSeenMs;
-  if (elapsed < PRESENCE_ACTIVE_WINDOW_MS) return 'Active now';
-  const minutes = Math.floor(elapsed / 60000);
-  if (minutes < 60) return `Active ${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Active ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `Active ${days}d ago`;
-  return `Active ${new Date(lastSeenMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-};
 
 // Normalize a message from the Edge Function (camelCase, ISO timestamps) into the
 // Firestore-Timestamp-like shape ChatScreen already consumes (.toDate/.toMillis).
