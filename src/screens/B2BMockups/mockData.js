@@ -46,6 +46,35 @@ export const getGrossNetPayout = item => {
   );
 };
 
+/** Amount on the payout row. Unscanned plants still show the sale price. */
+export const rowAmount = item => {
+  const net = getGrossNetPayout(item);
+  if (net != null) {
+    return net;
+  }
+  const listed = Number(item?.listedPrice);
+  return Number.isFinite(listed) && listed > 0 ? listed : null;
+};
+
+/**
+ * The payout API sets liveSaleDate from the live session. Do not replace that
+ * with the order clock: a sale just after midnight Eastern is still the
+ * previous day's live.
+ */
+export const withSaleDate = item => {
+  if (!item) {
+    return item;
+  }
+  if (item.liveSaleDate && item.liveSaleDate !== '—') {
+    return item;
+  }
+  const sold = item.orderDate && item.orderDate !== '—' ? item.orderDate : null;
+  if (!sold) {
+    return item;
+  }
+  return {...item, liveSaleDate: sold};
+};
+
 export const getPartialAmount = (net, percent = DEFAULT_PARTIAL_PERCENT) => {
   if (net == null || net <= 0) {
     return 0;

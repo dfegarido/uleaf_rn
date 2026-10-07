@@ -39,6 +39,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
+    minHeight: 48,
+    flexShrink: 0,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#CDD3D4',
@@ -54,6 +56,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     flex: 1,
+    height: 48,
+    flexShrink: 0,
+    paddingVertical: 0,
   },
   modalSkeletonAvatar: {
     width: 40,

@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { globalStyles } from '../../../../assets/styles/styles';
 import Svg, { Path } from 'react-native-svg';
+import EditIcon from '../../../../assets/icons/greydark/note-edit.svg';
 
 const PINK_PIN = '#FF4D8D';
 
@@ -91,6 +92,7 @@ const LiveListingGrid = ({
   isSelectMode = false,
   selectedIds = [],
   onToggleSelect,
+  onEdit,
 }) => {
   const renderCard = ({ item: listing, index }) => {
     const isActive = listing?.isActiveLiveListing === true;
@@ -188,6 +190,17 @@ const LiveListingGrid = ({
               <PinkPin filled />
             </TouchableOpacity>
           )}
+          {!isSelectMode && onEdit ? (
+            <TouchableOpacity
+              style={styles.editButton}
+              hitSlop={8}
+              onPress={e => {
+                e.stopPropagation();
+                onEdit(listing);
+              }}>
+              <EditIcon width={16} height={16} />
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View style={styles.body}>
           <Text
@@ -371,6 +384,17 @@ const styles = StyleSheet.create({
   pinButtonOn: {
     borderWidth: 1.5,
     borderColor: '#FF4D8D',
+  },
+  editButton: {
+    position: 'absolute',
+    left: 6,
+    bottom: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectCheckboxWrap: {
     position: 'absolute',

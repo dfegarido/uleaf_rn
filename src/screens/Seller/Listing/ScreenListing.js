@@ -505,8 +505,9 @@ const ScreenListing = ({navigation}) => {
     navigation.navigate('ScreenListingDetail', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       plantCode: selectedItem.plantCode,
+      b2bLiveActions: showB2bUsdBanner,
     });
-  }, [liveSelectedIds, dataTable, exitLiveSelectMode, navigation]);
+  }, [liveSelectedIds, dataTable, exitLiveSelectMode, navigation, showB2bUsdBanner]);
 
 
   const fetchListingsPage = async (targetPage = 1) => {
@@ -1510,6 +1511,30 @@ const ScreenListing = ({navigation}) => {
     navigation.navigate('ScreenListingDetail', {
       onGoBack: setIsInitialFetchRefresh(prev => !prev),
       plantCode: plantCode,
+      b2bLiveActions: showB2bUsdBanner,
+    });
+  };
+
+  const openLiveListingEditor = listing => {
+    if (!listing?.plantCode) return;
+    const params = {
+      plantCode: listing.plantCode,
+      onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
+    };
+    const type = listing.listingType;
+    if (type === 'Wholesale') {
+      navigation.navigate('ScreenWholesaleSell', params);
+      return;
+    }
+    if (type === "Grower's Choice") {
+      navigation.navigate('ScreenGrowersSell', params);
+      return;
+    }
+    navigation.navigate('ScreenSingleSell', {
+      ...params,
+      availableQty: listing.availableQty,
+      status: listing.status,
+      publishType: listing.publishType,
     });
   };
 
@@ -2456,6 +2481,7 @@ const ScreenListing = ({navigation}) => {
                   isSelectMode={isLiveSelectMode}
                   selectedIds={liveSelectedIds}
                   onToggleSelect={toggleLiveSelect}
+                  onEdit={showB2bUsdBanner ? openLiveListingEditor : undefined}
                 />
               </View>
             ) : !loading ? (

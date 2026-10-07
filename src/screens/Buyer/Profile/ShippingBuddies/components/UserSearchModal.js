@@ -1,6 +1,6 @@
 import AppImage from '../../../../../components/AppImage/AppImage';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View,
   Text,
   Modal,
@@ -8,9 +8,9 @@ import { View,
   TextInput,
   ScrollView,
   TouchableOpacity,
-  Image,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
+  Dimensions,
 } from 'react-native';
 import styles from './styles/UserSearchModalStyles';
 
@@ -49,6 +49,30 @@ const UserSearchModal = ({
     }
   }, [visible, searchText]);
 
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return undefined;
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, event => {
+      setKeyboardHeight(event?.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
+
+  const sheetMaxHeight = Math.min(
+    600,
+    Dimensions.get('window').height - keyboardHeight - 24,
+  );
+
   const getInitials = (user) => {
     const first = user.firstName?.[0] || '';
     const last = user.lastName?.[0] || '';
@@ -63,9 +87,15 @@ const UserSearchModal = ({
       transparent
       onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <View style={styles.modalContainer}>
+        <View
+          style={[
+            styles.modalContainer,
+            {
+              maxHeight: sheetMaxHeight,
+              marginBottom: keyboardHeight,
+              overflow: 'hidden',
+            },
+          ]}>
           {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Receiver</Text>
@@ -90,9 +120,9 @@ const UserSearchModal = ({
           </View>
 
           {/* User List */}
-          {loading ? (
+          {loading && users.length === 0 ? (
             <ScrollView
-              style={styles.modalUserList}
+              style={[styles.modalUserList, {maxHeight: Math.max(120, sheetMaxHeight - 160)}]}
               keyboardShouldPersistTaps="handled">
               {Array.from({ length: 5 }).map((_, idx) => (
                 <SkeletonUserItem key={idx} index={idx} />
@@ -100,7 +130,7 @@ const UserSearchModal = ({
             </ScrollView>
           ) : users.length > 0 ? (
             <ScrollView
-              style={styles.modalUserList}
+              style={[styles.modalUserList, {maxHeight: Math.max(120, sheetMaxHeight - 160)}]}
               keyboardShouldPersistTaps="handled">
               {users.map((user, index) => (
                 <TouchableOpacity
@@ -147,7 +177,6 @@ const UserSearchModal = ({
             </View>
           )}
         </View>
-      </KeyboardAvoidingView>
       </View>
     </Modal>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Modal, FlatList, ActivityIndicator, Animated, Alert, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
@@ -10,6 +11,32 @@ import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import { BUSINESS_COUNTRIES } from '../../../utils/b2bCountries';
 import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
+
+function tokenExpiry(token) {
+  try {
+    const payload = String(token || '').split('.')[1];
+    if (!payload) return 0;
+    const padded = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const json = JSON.parse(atob(padded));
+    return Number(json.exp) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+async function readAdminAuthToken() {
+  const token = await AsyncStorage.getItem('authToken');
+  if (!token) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (tokenExpiry(token) >= now) return token;
+
+  const { auth } = require('../../../../firebase');
+  const user = auth?.currentUser;
+  if (!user) return null;
+  const freshToken = await user.getIdToken(true);
+  await AsyncStorage.setItem('authToken', freshToken);
+  return freshToken;
+}
 
 // Skeleton loading component for the country field
 const CountryFieldSkeleton = () => {
@@ -235,7 +262,7 @@ const EnrollSeller = () => {
       setIsSubmitting(true);
       
       // Get the auth token
-      const authToken = await getStoredAuthToken();
+      const authToken = await readAdminAuthToken();
       console.log('Auth token retrieved:', authToken ? 'Token exists' : 'No token');
       if (!authToken) {
         throw new Error('Authentication token not available');

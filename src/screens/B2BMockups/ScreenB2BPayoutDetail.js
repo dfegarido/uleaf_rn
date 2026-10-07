@@ -25,6 +25,7 @@ import {
   isExceptionCondition,
   isPayoutEligible,
   payoutStatusTone,
+  withSaleDate,
 } from './mockData';
 
 const ScreenB2BPayoutDetail = ({navigation, route}) => {
@@ -47,7 +48,7 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
     if (!next) {
       return;
     }
-    setPayout(next);
+    setPayout(withSaleDate(next));
     setPayoutStatus(next.payoutStatus);
     setAmountPaid(next.amountPaid || 0);
     setPartialPercent(next.partialPercent || DEFAULT_PARTIAL_PERCENT);

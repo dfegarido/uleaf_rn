@@ -57,6 +57,7 @@ import PinIcon from '../../../assets/icons/greylight/pin-light.svg';
 import InchesIcon from '../../../assets/icons/greylight/inches.svg';
 import CopyIcon from '../../../assets/icons/greylight/copy-regular.svg';
 import IconMenu from '../../../assets/icons/greydark/dots-three-vertical-regular.svg';
+import TrashIcon from '../../../assets/icons/greydark/trash-regular.svg';
 import PlantIcon from '../../../assets/icons/greylight/plant-regular.svg';
 import StoreIcon from '../../../assets/icons/greylight/storefront-regular.svg';
 import CalendarIcon from '../../../assets/icons/greylight/calendar-blank-regular.svg';
@@ -89,7 +90,7 @@ const ScreenListingDetail = ({navigation, route}) => {
   const [listingData, setListingData] = useState(null);
   const {userInfo} = useContext(AuthContext);
 
-  const {plantCode, onGoBack} = route.params;
+  const {plantCode, onGoBack, b2bLiveActions} = route.params;
 
   const routes = useNavigationState(state => state.routes);
   const previousRoute = routes[routes.length - 2]; // Previous screen
@@ -429,6 +430,25 @@ const ScreenListingDetail = ({navigation, route}) => {
   };
   // Pin Item
 
+  const openEditor = () => {
+    const params = {
+      plantCode: listingData?.plantCode,
+      onGoBack: handleEditCallback,
+    };
+    const type = listingData?.listingType;
+    if (type === 'Wholesale') {
+      navigation.navigate('ScreenWholesaleSell', params);
+      return;
+    }
+    if (type === "Grower's Choice") {
+      navigation.navigate('ScreenGrowersSell', params);
+      return;
+    }
+    if (type === 'Single Plant') {
+      navigation.navigate('ScreenSingleSell', params);
+    }
+  };
+
   // Handle edit callback - refresh detail screen and trigger parent refresh
   const handleEditCallback = async () => {
     // Reload the listing detail data
@@ -465,7 +485,7 @@ const ScreenListingDetail = ({navigation, route}) => {
               : []
           }
           width={screenWidth}
-          height={screenHeight * 0.5}
+          height={b2bLiveActions ? screenHeight * 0.62 : screenHeight * 0.5}
         />
       </View>
       {/* Fullscreen Background Carousel */}
@@ -496,25 +516,33 @@ const ScreenListingDetail = ({navigation, route}) => {
               <LeftIcon width={30} height={30} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-              onPress={() => setActionShowSheet(true)}
-              style={[
-                styles.iconButton,
-                {
-                  borderWidth: 1,
-                  borderColor: '#CDD3D4',
-                  padding: 5,
-                  borderRadius: 10,
-                  backgroundColor: '#fff',
-                },
-              ]}>
-              <IconMenu width={30} height={30} />
-            </TouchableOpacity>
+            {b2bLiveActions ? (
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                  onPress={openEditor}
+                  style={styles.headerIcon}>
+                  <EditIcon width={22} height={22} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                  onPress={onPressDeleteConfirm}
+                  style={styles.headerIcon}>
+                  <TrashIcon width={22} height={22} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                onPress={() => setActionShowSheet(true)}
+                style={styles.headerIcon}>
+                <IconMenu width={30} height={30} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         {/* Top blocker area — allows carousel to be visible */}
-        <View style={{height: screenHeight * 0.15}} />
+        <View style={{height: b2bLiveActions ? screenHeight * 0.46 : screenHeight * 0.15}} />
 
         {/* Foreground Content */}
         <View style={styles.contents}>
@@ -1117,26 +1145,7 @@ const ScreenListingDetail = ({navigation, route}) => {
         }}
         // onPressUpdateStockShow={setShowSheetUpdateStocks}
         // showSheetUpdateStocks={showSheetUpdateStocks}
-        onPressEdit={() => {
-          if (listingData?.listingType == 'Single Plant') {
-            navigation.navigate('ScreenSingleSell', {
-              plantCode: listingData?.plantCode,
-              onGoBack: handleEditCallback,
-            });
-          }
-          if (listingData?.listingType == 'Wholesale') {
-            navigation.navigate('ScreenWholesaleSell', {
-              plantCode: listingData?.plantCode,
-              onGoBack: handleEditCallback,
-            });
-          }
-          if (listingData?.listingType == "Grower's Choice") {
-            navigation.navigate('ScreenGrowersSell', {
-              plantCode: listingData?.plantCode,
-              onGoBack: handleEditCallback,
-            });
-          }
-        }}
+        onPressEdit={openEditor}
         onPressDelete={onPressDeleteConfirm}
       />
 
@@ -1231,6 +1240,20 @@ const styles = StyleSheet.create({
   iconButton: {
     marginHorizontal: 4,
     alignItems: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIcon: {
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    padding: 5,
+    borderRadius: 10,
+    backgroundColor: '#fff',
   },
   stickyHeader: {
     backgroundColor: 'transparent',

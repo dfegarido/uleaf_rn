@@ -472,7 +472,13 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.topNavItem}
-            onPress={() => navigation.navigate('ScreenPayout')}>
+            onPress={() => {
+              if (isBusinessAccount) {
+                navigation.navigate('ScreenB2BPayoutSummary', {audience: 'seller'});
+                return;
+              }
+              navigation.navigate('ScreenPayout');
+            }}>
             <PayoutsIcon width={40} height={40} />
             <Text
               style={[globalStyles.textSMGreyLight, globalStyles.textSemiBold]}>
@@ -577,31 +583,11 @@ const ScreenHome = ({navigation}) => {
                 </View>
                 <RightIcon width={20} height={20} />
               </TouchableOpacity>
-
-              <View style={styles.b2bActionDivider} />
                 </>
               ) : null}
 
-              <TouchableOpacity
-                style={styles.b2bActionRow}
-                activeOpacity={0.7}
-                onPress={() =>
-                  navigation.navigate('ScreenB2BPayoutSummary', {
-                    audience: 'seller',
-                  })
-                }>
-                <View style={styles.b2bActionText}>
-                  <Text style={styles.b2bActionTitle}>Commission payouts</Text>
-                  <Text style={styles.b2bActionBody}>
-                    Fees, logistics & plant care on paid orders
-                  </Text>
-                </View>
-                <RightIcon width={20} height={20} />
-              </TouchableOpacity>
-
               {isBusinessAccount ? (
                 <>
-                  <View style={styles.b2bActionDivider} />
                   <TouchableOpacity
                     style={styles.b2bActionRow}
                     activeOpacity={0.7}

@@ -57,23 +57,16 @@ const JoinerShippingBuddiesScreen = () => {
   const [submitting, setSubmitting] = React.useState(false);
   const [imageError, setImageError] = React.useState(false);
 
-  // Fetch users when modal opens
+  // One search for open, typing, and clearing. Typing waits briefly so each
+  // letter does not fire its own request.
   React.useEffect(() => {
-    if (modalVisible) {
-      fetchUsers('');
-    }
-  }, [modalVisible]);
-
-  // Search users when search text changes (with debounce)
-  React.useEffect(() => {
-    if (modalVisible && searchText !== undefined) {
-      const debounceTimeout = setTimeout(() => {
-        fetchUsers(searchText);
-      }, 500);
-
-      return () => clearTimeout(debounceTimeout);
-    }
-  }, [searchText, modalVisible]);
+    if (!modalVisible) return undefined;
+    const delay = (searchText || '').trim() ? 300 : 0;
+    const debounceTimeout = setTimeout(() => {
+      fetchUsers(searchText);
+    }, delay);
+    return () => clearTimeout(debounceTimeout);
+  }, [searchText, modalVisible, fetchUsers]);
 
   const handleSelectUser = (user) => {
     const actualUsername = user.username && user.username.trim()

@@ -178,6 +178,9 @@ const MessagesScreen = ({navigation}) => {
   // mount with empty arrays and would otherwise clear `loading` before the fetch
   // completes, hiding the skeleton and flashing "No Messages Yet".
   const fetchCompletedRef = useRef(false);
+  // Rooms created before the chat list refetch returns. Kept until the server
+  // list includes them, so a slow reload does not hide the new room.
+  const optimisticChatsRef = useRef(new Map());
 
   useEffect(() => {
     avatarMapRef.current = avatarMap;
@@ -323,7 +326,14 @@ const MessagesScreen = ({navigation}) => {
           return;
         }
         setMemberChats(res.memberChats || []);
-        setAdminGroupChats(res.adminGroupChats || []);
+        const serverGroups = res.adminGroupChats || [];
+        const serverIds = new Set(serverGroups.map(chat => chat.id));
+        const pendingRooms = [];
+        for (const [id, chat] of optimisticChatsRef.current) {
+          if (serverIds.has(id)) optimisticChatsRef.current.delete(id);
+          else pendingRooms.push(chat);
+        }
+        setAdminGroupChats([...pendingRooms, ...serverGroups]);
         setPublicGroupChats(res.publicGroupChats || []);
       } catch (error) {
         if (!cancelled) {
@@ -678,7 +688,28 @@ const MessagesScreen = ({navigation}) => {
         }))
       ];
 
-      // Create the group chat via Supabase (replaces the Firestore addDoc + getDoc)
+      const now = new Date();
+      const tempId = `pending-${now.getTime()}`;
+      const optimisticRoom = {
+        id: tempId,
+        name,
+        type: 'group',
+        isGroup: true,
+        isPublic: false,
+        participantIds: allParticipantIds,
+        participants: allParticipants,
+        lastMessage: '',
+        unreadBy: [],
+        timestamp: {
+          seconds: Math.floor(now.getTime() / 1000),
+          nanoseconds: 0,
+          toDate: () => now,
+        },
+      };
+      optimisticChatsRef.current.set(tempId, optimisticRoom);
+      setAdminGroupChats(prev => [optimisticRoom, ...prev.filter(chat => chat.id !== tempId)]);
+      setSelectedTab('groups');
+
       try {
         const createRes = await chatCreateApi({
           participantIds: allParticipantIds,
@@ -694,9 +725,27 @@ const MessagesScreen = ({navigation}) => {
         }
 
         const newChatData = createRes.data.chat;
-        await sendGroupChatNotificationApi(allParticipantIds, name);
+        const savedRoom = {
+          ...optimisticRoom,
+          ...newChatData,
+          id: newChatData.id,
+          type: 'group',
+          isGroup: true,
+          timestamp: optimisticRoom.timestamp,
+        };
+        optimisticChatsRef.current.delete(tempId);
+        optimisticChatsRef.current.set(newChatData.id, savedRoom);
+        setAdminGroupChats(prev => [
+          savedRoom,
+          ...prev.filter(chat => chat.id !== tempId && chat.id !== newChatData.id),
+        ]);
+        sendGroupChatNotificationApi(allParticipantIds, name).catch(err => {
+          console.warn('handleCreateGroup: notification failed:', err);
+        });
         navigation.navigate('ChatScreen', newChatData);
       } catch (firestoreError) {
+        optimisticChatsRef.current.delete(tempId);
+        setAdminGroupChats(prev => prev.filter(chat => chat.id !== tempId));
         console.error('handleCreateGroup: error creating chat document:', firestoreError);
         Alert.alert(
           'Error',
@@ -971,16 +1020,17 @@ const MessagesScreen = ({navigation}) => {
     </View>
   );
 
+  const isRoom = msg =>
+    msg.isGroup || msg.type === 'group' || (msg.participants && msg.participants.length > 2);
+
   const filteredMessages = useMemo(() => {
     if (selectedTab === 'groups') {
-      return messages.filter(
-        msg => (msg.isGroup || (msg.participants && msg.participants.length > 2)),
-      );
+      return messages.filter(isRoom);
     }
     if (selectedTab === 'chatshops') {
       return [];
     }
-    return messages.filter(msg => !msg.isGroup && (!msg.participants || msg.participants.length <= 2));
+    return messages.filter(msg => !isRoom(msg));
   }, [messages, selectedTab]);
 
   const { unreadMessages, unreadGroups } = useMemo(() => {
@@ -996,7 +1046,7 @@ const MessagesScreen = ({navigation}) => {
       msg =>
         msg.unreadBy &&
         msg.unreadBy.includes(currentUserUid) &&
-        (msg.isGroup || (msg.participants && msg.participants.length > 2)),
+        (msg.isGroup || msg.type === 'group' || (msg.participants && msg.participants.length > 2)),
     ).length;
 
     return { unreadMessages: unreadMessagesCount, unreadGroups: unreadGroupsCount };

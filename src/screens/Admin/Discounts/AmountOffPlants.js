@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, Modal, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
+import TimeScrollPicker from '../../../components/TimeScrollPicker/TimeScrollPicker';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 
 const AmountOffPlants = () => {
@@ -602,10 +603,11 @@ const AmountOffPlants = () => {
 
       {/* Start Time modal (bottom sheet) */}
       <Modal transparent visible={showStartTimeSheet} onRequestClose={() => setShowStartTimeSheet(false)} animationType="fade" presentationStyle="overFullScreen" statusBarTranslucent>
-        <TouchableWithoutFeedback onPress={() => setShowStartTimeSheet(false)}>
-          <View style={styles.fullscreenOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={{ width: '100%', height: 354, backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'absolute', bottom: 0, transform: timeKeyboardOffset ? [{ translateY: -timeKeyboardOffset }] : [] }}>
+        <View style={styles.fullscreenOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowStartTimeSheet(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '100%', height: 400, zIndex: 1, elevation: 8, backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'absolute', bottom: 0, transform: timeKeyboardOffset ? [{ translateY: -timeKeyboardOffset }] : [] }}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 12}}>
                   <Text style={{fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325'}}>Select time</Text>
                   <TouchableOpacity onPress={() => setShowStartTimeSheet(false)}>
@@ -615,47 +617,16 @@ const AmountOffPlants = () => {
                   </TouchableOpacity>
                 </View>
                 <View style={{paddingHorizontal: 24, flex: 1, justifyContent: 'center'}}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-                    <View style={{width: 120}}>
-                      <View style={[styles.inputRow, {height: 72, minHeight: 72}]}>
-                        <TextInput
-                          style={[styles.input, {textAlign: 'center', fontSize: 36, lineHeight: 40}]}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          value={tempHour}
-                          onChangeText={setTempHour}
-                        />
-                      </View>
-                      <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Hour</Text>
-                    </View>
-                    <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 24, color: '#202325', marginHorizontal: 8}}>:</Text>
-                    <View style={{width: 120, marginRight: 8}}>
-                      <View style={[styles.inputRow, {height: 72, minHeight: 72}]}>
-                        <TextInput
-                          style={[styles.input, {textAlign: 'center', fontSize: 36, lineHeight: 40}]}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          value={tempMinute}
-                          onChangeText={setTempMinute}
-                        />
-                      </View>
-                      <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Minutes</Text>
-                    </View>
-                    <View style={{width: 59, marginLeft: 4}}>
-                      <TouchableOpacity
-                        style={[{height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tempAmPm === 'AM' ? '#539461' : '#FFFFFF', borderWidth: tempAmPm === 'AM' ? 0 : 1, borderColor: '#539461'}]}
-                        onPress={() => setTempAmPm('AM')}
-                      >
-                        <Text style={{color: tempAmPm === 'AM' ? '#FFFFFF' : '#539461', fontFamily: 'Inter', fontWeight: '500', fontSize: 16}}>AM</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[{height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4, backgroundColor: tempAmPm === 'PM' ? '#539461' : '#FFFFFF', borderWidth: tempAmPm === 'PM' ? 0 : 1, borderColor: '#539461'}]}
-                        onPress={() => setTempAmPm('PM')}
-                      >
-                        <Text style={{color: tempAmPm === 'PM' ? '#FFFFFF' : '#539461', fontFamily: 'Inter', fontWeight: '500', fontSize: 16}}>PM</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  {showStartTimeSheet ? (
+                    <TimeScrollPicker
+                      hour={tempHour}
+                      minute={tempMinute}
+                      period={tempAmPm}
+                      onHourChange={setTempHour}
+                      onMinuteChange={setTempMinute}
+                      onPeriodChange={setTempAmPm}
+                    />
+                  ) : null}
                 </View>
                 <View style={{flexDirection: 'row', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 0}}>
                   <TouchableOpacity style={{flex: 1, height: 48, borderRadius: 12, backgroundColor: '#F2F7F3', alignItems: 'center', justifyContent: 'center'}} onPress={() => setShowStartTimeSheet(false)}>
@@ -674,9 +645,7 @@ const AmountOffPlants = () => {
                   </TouchableOpacity>
                 </View>
               </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
+        </View>
       </Modal>
 
       {/* End Date modal (bottom sheet) */}
@@ -772,10 +741,11 @@ const AmountOffPlants = () => {
 
       {/* End Time modal (bottom sheet) */}
       <Modal transparent visible={showEndTimeSheet} onRequestClose={() => setShowEndTimeSheet(false)} animationType="fade" presentationStyle="overFullScreen" statusBarTranslucent>
-        <TouchableWithoutFeedback onPress={() => setShowEndTimeSheet(false)}>
-          <View style={styles.fullscreenOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={{ width: '100%', height: 354, backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'absolute', bottom: 0, transform: endTimeKeyboardOffset ? [{ translateY: -endTimeKeyboardOffset }] : [] }}>
+        <View style={styles.fullscreenOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowEndTimeSheet(false)}>
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ width: '100%', height: 400, zIndex: 1, elevation: 8, backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'absolute', bottom: 0, transform: endTimeKeyboardOffset ? [{ translateY: -endTimeKeyboardOffset }] : [] }}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 12}}>
                   <Text style={{fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325'}}>Select time</Text>
                   <TouchableOpacity onPress={() => setShowEndTimeSheet(false)}>
@@ -785,47 +755,16 @@ const AmountOffPlants = () => {
                   </TouchableOpacity>
                 </View>
                 <View style={{paddingHorizontal: 24, flex: 1, justifyContent: 'center'}}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
-                    <View style={{width: 120}}>
-                      <View style={[styles.inputRow, {height: 72, minHeight: 72}]}>
-                        <TextInput
-                          style={[styles.input, {textAlign: 'center', fontSize: 36, lineHeight: 40}]}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          value={tempEndHour}
-                          onChangeText={setTempEndHour}
-                        />
-                      </View>
-                      <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Hour</Text>
-                    </View>
-                    <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 24, color: '#202325', marginHorizontal: 8}}>:</Text>
-                    <View style={{width: 120, marginRight: 8}}>
-                      <View style={[styles.inputRow, {height: 72, minHeight: 72}]}>
-                        <TextInput
-                          style={[styles.input, {textAlign: 'center', fontSize: 36, lineHeight: 40}]}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          value={tempEndMinute}
-                          onChangeText={setTempEndMinute}
-                        />
-                      </View>
-                      <Text style={{marginTop: 4, textAlign: 'center', fontFamily: 'Inter', fontWeight: '500', fontSize: 14, color: '#7F8D91'}}>Minutes</Text>
-                    </View>
-                    <View style={{width: 59, marginLeft: 4}}>
-                      <TouchableOpacity
-                        style={[{height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tempEndAmPm === 'AM' ? '#539461' : '#FFFFFF', borderWidth: tempEndAmPm === 'AM' ? 0 : 1, borderColor: '#539461'}]}
-                        onPress={() => setTempEndAmPm('AM')}
-                      >
-                        <Text style={{color: tempEndAmPm === 'AM' ? '#FFFFFF' : '#539461', fontFamily: 'Inter', fontWeight: '500', fontSize: 16}}>AM</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[{height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4, backgroundColor: tempEndAmPm === 'PM' ? '#539461' : '#FFFFFF', borderWidth: tempEndAmPm === 'PM' ? 0 : 1, borderColor: '#539461'}]}
-                        onPress={() => setTempEndAmPm('PM')}
-                      >
-                        <Text style={{color: tempEndAmPm === 'PM' ? '#FFFFFF' : '#539461', fontFamily: 'Inter', fontWeight: '500', fontSize: 16}}>PM</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  {showEndTimeSheet ? (
+                    <TimeScrollPicker
+                      hour={tempEndHour}
+                      minute={tempEndMinute}
+                      period={tempEndAmPm}
+                      onHourChange={setTempEndHour}
+                      onMinuteChange={setTempEndMinute}
+                      onPeriodChange={setTempEndAmPm}
+                    />
+                  ) : null}
                 </View>
                 <View style={{flexDirection: 'row', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 0}}>
                   <TouchableOpacity style={{flex: 1, height: 48, borderRadius: 12, backgroundColor: '#F2F7F3', alignItems: 'center', justifyContent: 'center'}} onPress={() => setShowEndTimeSheet(false)}>
@@ -844,9 +783,7 @@ const AmountOffPlants = () => {
                   </TouchableOpacity>
                 </View>
               </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
+        </View>
       </Modal>
     </SafeAreaView>
   );

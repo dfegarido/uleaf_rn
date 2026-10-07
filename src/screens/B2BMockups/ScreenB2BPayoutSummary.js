@@ -22,6 +22,8 @@ import {
   getGrossNetPayout,
   isExceptionCondition,
   payoutStatusTone,
+  rowAmount,
+  withSaleDate,
 } from './mockData';
 
 let Share;
@@ -203,7 +205,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
         return;
       }
       if (result.success && Array.isArray(result.data?.items)) {
-        setPayouts(result.data.items);
+        setPayouts(result.data.items.map(withSaleDate));
         setApiTotals(result.data.totals || null);
         setLoadError(null);
       } else {
@@ -446,7 +448,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
           </View>
         ) : (
           groups.map(([date, items]) => {
-            const net = items.reduce((sum, row) => sum + (getGrossNetPayout(row) || 0), 0);
+            const net = items.reduce((sum, row) => sum + (rowAmount(row) || 0), 0);
             return (
               <View key={date} style={styles.dateBlock}>
                 <View style={styles.dateHead}>
@@ -551,6 +553,7 @@ const PayoutCardSkeleton = () => (
 
 const PayoutCard = React.memo(({item, groupBy, onPress}) => {
   const netValue = getGrossNetPayout(item);
+  const shownAmount = rowAmount(item);
   const tone = payoutStatusTone(item.payoutStatus);
   const remaining = Number(((netValue || 0) - (item.amountPaid || 0)).toFixed(2));
   const hasProof = (item.proofs || []).length > 0;
@@ -572,10 +575,10 @@ const PayoutCard = React.memo(({item, groupBy, onPress}) => {
           <Text
             style={[
               styles.amount,
-              netValue == null && styles.muted,
-              netValue < 0 && styles.negative,
+              shownAmount == null && styles.muted,
+              shownAmount < 0 && styles.negative,
             ]}>
-            {formatUsd(netValue)}
+            {formatUsd(shownAmount)}
           </Text>
           {item.amountPaid > 0 && netValue != null ? (
             <Text style={styles.paidHint}>

@@ -232,6 +232,7 @@ export const useShippingBuddiesController = () => {
   // User search for receiver request
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const searchSeq = useRef(0);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   
@@ -243,11 +244,12 @@ export const useShippingBuddiesController = () => {
   const [cancelRequestModalVisible, setCancelRequestModalVisible] = useState(false);
 
   const fetchUsers = useCallback(async (query = '') => {
+    const seq = ++searchSeq.current;
     try {
       setLoadingUsers(true);
       
       const authToken = await getStoredAuthToken();
-      const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodeURIComponent(query)}&userType=buyer&limit=5&offset=0`;
+      const apiUrl = `${API_ENDPOINTS.SEARCH_USER}?query=${encodeURIComponent(query)}&userType=buyer&purpose=shipping-receiver&limit=20&offset=0`;
       
       const headers = {
         'Content-Type': 'application/json'
@@ -262,12 +264,15 @@ export const useShippingBuddiesController = () => {
         headers: headers
       });
 
+      if (seq !== searchSeq.current) return;
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch users: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      if (seq !== searchSeq.current) return;
 
       if (data && data.success && data.results) {
         const currentUser = getCurrentUserIdentifiers();
@@ -336,6 +341,7 @@ export const useShippingBuddiesController = () => {
         setUsers([]);
       }
     } catch (error) {
+      if (seq !== searchSeq.current) return;
       console.error('[ShippingBuddiesController] Error fetching users:', error);
       Alert.alert(
         'Search Error',
@@ -344,7 +350,7 @@ export const useShippingBuddiesController = () => {
       );
       setUsers([]);
     } finally {
-      setLoadingUsers(false);
+      if (seq === searchSeq.current) setLoadingUsers(false);
     }
   }, [getCurrentUserIdentifiers]);
 

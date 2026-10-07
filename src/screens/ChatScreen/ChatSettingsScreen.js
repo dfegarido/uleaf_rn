@@ -1275,21 +1275,13 @@ const ChatSettingsScreen = ({navigation, route}) => {
                   } else {
                     // If we can't go back, try navigating directly to MessagesScreen or Chat
                     // This handles edge cases where navigation stack is different
-                    try {
-                      navigation.navigate('MessagesScreen');
-                    } catch {
-                      try {
-                        navigation.navigate('Chat');
-                      } catch {
-                        // If all navigation fails, do nothing (user is already at the right screen)
-                      }
-                    }
+                    returnToChatList();
                   }
                 }, 300);
               } else {
                 // If we can't go back at all, try navigating directly
                 try {
-                  navigation.navigate('MessagesScreen');
+                  returnToChatList();
                 } catch {
                   try {
                     navigation.navigate('Chat');
@@ -1352,6 +1344,24 @@ const ChatSettingsScreen = ({navigation, route}) => {
     );
   };
 
+  // Buyer and seller register the chat list as MessagesScreen. Admin registers
+  // it as the Chat tab inside AdminTabs, so a direct MessagesScreen navigate
+  // is not handled and the deleted room stays on screen.
+  const returnToChatList = (params) => {
+    const names = navigation.getState()?.routeNames || [];
+    if (names.includes('MessagesScreen')) {
+      navigation.navigate('MessagesScreen', params);
+      return;
+    }
+    if (names.includes('AdminTabs')) {
+      navigation.navigate('AdminTabs', { screen: 'Chat', params });
+      return;
+    }
+    if (names.includes('Chat')) {
+      navigation.navigate('Chat', params);
+    }
+  };
+
   const deleteChat = async () => {
     Alert.alert(
       isGroupChat ? 'Delete Group' : 'Delete Chat',
@@ -1377,7 +1387,7 @@ const ChatSettingsScreen = ({navigation, route}) => {
               // focus effect never re-fires loadInitialMessages for the deleted chat.
               // Pass deletedChatId so MessagesScreen can optimistically remove it
               // from the list immediately, before the refetch completes.
-              navigation.navigate('MessagesScreen', { deletedChatId: chatId });
+              returnToChatList({ deletedChatId: chatId });
             } catch (error) {
               console.log('Error deleting chat:', error);
               Alert.alert('Error', 'Failed to delete chat. Please try again.');
