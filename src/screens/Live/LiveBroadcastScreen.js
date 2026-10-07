@@ -1,12 +1,17 @@
 import AppImage from '../../components/AppImage/AppImage';
+import PlantListingImage from '../../components/PlantListingImage/PlantListingImage';
 import GlassView from '../../components/Glass/GlassView';
 
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
+  Easing,
   FlatList,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   PermissionsAndroid,
   Platform,
@@ -14,6 +19,7 @@ import { ActivityIndicator,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View
 } from 'react-native';
 import { ChannelProfileType,
@@ -23,15 +29,18 @@ import { ChannelProfileType,
   RtcTextureView,
 } from 'react-native-agora';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import BackSolidIcon from '../../assets/icons/white/caret-left-regular.svg';
-import LoveIcon from '../../assets/live-icon/love.svg';
-import MicOffIcon from '../../assets/live-icon/muted.svg';
-import MicOnIcon from '../../assets/live-icon/unmuted.svg';
+import LoveIcon from '../../assets/live-icon/heart-outline.svg';
+import MicOffIcon from '../../assets/live-icon/mic-off-outline.svg';
+import MicOnIcon from '../../assets/live-icon/mic-outline.svg';
 
 import KeepAwake from 'react-native-keep-awake';
-import NoteIcon from '../../assets/live-icon/notes.svg';
-import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
-import ScreenshotIcon from '../../assets/live-icon/screenshot.svg';
+import NoteIcon from '../../assets/live-icon/notes-outline.svg';
+import ReverseCameraIcon from '../../assets/live-icon/camera-flip-outline.svg';
+import ListIcon from '../../assets/live-icon/list-outline.svg';
+import AddIcon from '../../assets/live-icon/add-outline.svg';
+import ScreenshotIcon from '../../assets/live-icon/snap-outline.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
 import RNFS from 'react-native-fs';
@@ -92,6 +101,24 @@ const liveShippingLabel = (listing, sellerClass) => {
     : 'UPS 2nd Day $50 + $5 extra plant';
 };
 
+// Top-to-bottom gradient pill shared by Go Live (light green -> green) and End Live (light red ->
+// red), the same treatment as the buyer's Buy Now. The Svg is an absolute-fill painting layer, so
+// it sits behind the label and adds no height. Ids must differ: two Svgs can share a screen.
+const GradientButton = ({ id, label, from, to, onPress }) => (
+  <TouchableOpacity onPress={onPress} style={styles.gradientButton} activeOpacity={0.85}>
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+      <Defs>
+        <SvgLinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={from} />
+          <Stop offset="1" stopColor={to} />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" rx="18" ry="18" fill={`url(#${id})`} />
+    </Svg>
+    <Text style={styles.actionText}>{label}</Text>
+  </TouchableOpacity>
+);
+
 const LiveBroadcastScreen = ({navigation, route}) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
@@ -127,6 +154,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const thumbnailPendingRef = useRef(false);
   const thumbnailTimerRef = useRef(null);
   const [snapshotPreviewUri, setSnapshotPreviewUri] = useState(null);
+  // The on-device snapshot file backing `snapshotPreviewUri`. Held in a ref (not state) because
+  // the engine's snapshot callback is registered once and would read a stale closure.
+  const snapshotFileRef = useRef(null);
+  // The write that put the snapshot on the listing: `{plantCode, previousImagePrimary}`. The
+  // preview is dropped once the 10s poll shows a DIFFERENT imagePrimary for that plant.
+  const snapshotAwaitRef = useRef(null);
+  const snapshotSafetyTimerRef = useRef(null);
   const [snapshotCountdown, setSnapshotCountdown] = useState(0);
   const countdownIntervalRef = useRef(null);
   // The countdown owns its own cadence and must not be restarted by the 10s
@@ -146,6 +180,17 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [statusMessage, setStatusMessage] = useState('Starting camera…');
   const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
+  const commentInputRef = useRef(null);
+  // The card collapses by its own measured height: `height` cannot be interpolated on this build
+  // (an AnimatedInterpolation in the tree crashed RN 0.87), so the value must already BE px.
+  const cardHeightRef = useRef(0);
+  const cardAnimatingRef = useRef(false);
+  const cardCollapse = useRef(new Animated.Value(0)).current;
+  const cardFade = useRef(new Animated.Value(1)).current;
+  const [cardMeasured, setCardMeasured] = useState(false);
+  // Rail x-offset in points. A raw Animated.Value, NOT interpolate(): on RN 0.87 an
+  // AnimatedInterpolation nested in a transform throws "cannot add a new property".
+  const sideRailShift = useRef(new Animated.Value(0)).current;
   const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
   const [sessionListingsCount, setSessionListingsCount] = useState(0);
   const [editingComment, setEditingComment] = useState(null);
@@ -452,6 +497,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           return;
         }
         const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+        releaseSnapshotFile(snapshotFileRef.current);
+        snapshotFileRef.current = filePath;
         setSnapshotPreviewUri(fileUri);
         const pending = snapshotPendingRef.current;
         snapshotPendingRef.current = null;
@@ -798,20 +845,51 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     engine.takeSnapshot(0, filePath);
   };
 
+  // Delete a snapshot temp file only AFTER the thumb has let go of it. Clearing the preview
+  // starts a 250ms local -> remote cross-fade whose outgoing layer is still this file, so an
+  // immediate unlink can blank the thumb mid-fade.
+  const releaseSnapshotFile = (filePath, delayMs = 3000) => {
+    if (!filePath) return;
+    setTimeout(() => {
+      RNFS.unlink(filePath).catch(() => {});
+    }, delayMs);
+  };
+
+  // Drop the preview (the thumb falls through to the remote photo with a cross-fade) and
+  // schedule the file for deletion.
+  const clearSnapshotPreview = () => {
+    if (snapshotSafetyTimerRef.current) {
+      clearTimeout(snapshotSafetyTimerRef.current);
+      snapshotSafetyTimerRef.current = null;
+    }
+    snapshotAwaitRef.current = null;
+    releaseSnapshotFile(snapshotFileRef.current);
+    snapshotFileRef.current = null;
+    setSnapshotPreviewUri(null);
+  };
+
   const handleSnapshotUpload = async (filePath, plantCode) => {
+    const previousImagePrimary = activeListingRef.current?.imagePrimary ?? null;
     try {
       console.log('[Snapshot] Uploading image for', plantCode);
       const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
       const imageUrl = await uploadImageToBackend(fileUri);
       if (!imageUrl) throw new Error('Upload returned empty URL');
       console.log('[Snapshot] Uploaded, updating listing imagePrimary:', imageUrl);
-      await updateListingApi({ plantCode, imagePrimary: imageUrl });
+      // updateListingApi never throws: a failed write comes back as { success: false }.
+      const result = await updateListingApi({ plantCode, imagePrimary: imageUrl });
+      if (!result?.success) {
+        throw new Error(result?.error || 'Listing update failed');
+      }
       console.log('[Snapshot] Listing updated successfully');
+      // Keep the local frame on the card until the poll delivers the new remote photo, so the
+      // thumb makes ONE hand-off. Safety net if the poll never shows a different photo.
+      snapshotAwaitRef.current = { plantCode, previousImagePrimary };
+      if (snapshotSafetyTimerRef.current) clearTimeout(snapshotSafetyTimerRef.current);
+      snapshotSafetyTimerRef.current = setTimeout(clearSnapshotPreview, 30000);
     } catch (err) {
       console.error('[Snapshot] Upload/update failed:', err?.message || err);
-    } finally {
-      try { await RNFS.unlink(filePath); } catch (_) {}
-      setSnapshotPreviewUri(null);
+      clearSnapshotPreview();
     }
   };
 
@@ -913,6 +991,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         if (!active) return;
         if (res && res.success && res.data) {
           const next = toCamel(res.data);
+          const awaiting = snapshotAwaitRef.current;
+          if (
+            awaiting &&
+            awaiting.plantCode === next.plantCode &&
+            next.imagePrimary !== awaiting.previousImagePrimary
+          ) {
+            clearSnapshotPreview();
+          }
           // The 10s poll rebuilds this object every tick, which would restart
           // the snapshot-countdown effect below (and re-fire its capture) on
           // every poll. Keep the previous object when nothing the countdown or
@@ -978,13 +1064,62 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
   }, [sessionId]);
 
+  // Driven by focus (not keyboard events) so Android, where adjustResize does not fire them,
+  // lands in the same state. Same 250ms curve as the buyer so rail, card and keyboard read as one.
+  useEffect(() => {
+    const timing = { duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: false };
+    Animated.timing(sideRailShift, {
+      toValue: isCommentFocused ? SIDE_RAIL_HIDDEN_OFFSET : 0,
+      ...timing,
+    }).start();
+  }, [isCommentFocused, sideRailShift]);
+
+  useEffect(() => {
+    if (!cardMeasured) return;
+    cardAnimatingRef.current = true;
+    const timing = { duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: false };
+    Animated.parallel([
+      Animated.timing(cardCollapse, {
+        toValue: isCommentFocused ? 0 : cardHeightRef.current,
+        ...timing,
+      }),
+      Animated.timing(cardFade, { toValue: isCommentFocused ? 0 : 1, ...timing }),
+    ]).start(({ finished }) => {
+      cardAnimatingRef.current = !finished;
+    });
+  }, [isCommentFocused, cardMeasured, cardCollapse, cardFade]);
+
+  // Layout events also fire mid-animation with intermediate heights (and a collapsed card
+  // re-reports 0); writing those back would fight the running timing, so they are ignored.
+  const onCardLayout = (event) => {
+    const h = event.nativeEvent.layout.height;
+    if (h <= 0 || cardAnimatingRef.current) return;
+    cardHeightRef.current = h;
+    cardCollapse.setValue(h);
+    if (!cardMeasured) setCardMeasured(true);
+  };
+
+  // Natural size until measured; afterwards the animated pixel height takes over.
+  const cardWrapStyle = cardMeasured ? { height: cardCollapse, opacity: cardFade } : null;
+  // Hoisted: the linter rejects style literals and the transform must stay one stable object.
+  const railSlideStyle = { transform: [{ translateX: sideRailShift }] };
+
   useEffect(() => {
     // Track the active listing for the countdown without restarting it.
     activeListingRef.current = activeListing;
   }, [activeListing]);
 
+  // No thumb left to hold the file on unmount, so it can go at once.
+  useEffect(
+    () => () => {
+      if (snapshotSafetyTimerRef.current) clearTimeout(snapshotSafetyTimerRef.current);
+      if (snapshotFileRef.current) RNFS.unlink(snapshotFileRef.current).catch(() => {});
+    },
+    [],
+  );
+
   useEffect(() => {
-    setSnapshotPreviewUri(null);
+    clearSnapshotPreview();
     setSnapshotCountdown(0);
     stopSnapshotCountdown();
     // Arm the one-shot counter only while the seller is actually live. The
@@ -1101,6 +1236,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           </View>
         )}
 
+        {/* One flat scrim over the whole frame so white chat text keeps contrast on a bright
+            video; uniform on purpose (no band or edge), same as the buyer screen. */}
+        <View pointerEvents="none" style={styles.scrimBase} />
+
         <View
           collapsable={false}
           pointerEvents="box-none"
@@ -1112,24 +1251,30 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             },
           ]}>
             <View style={styles.topBar}>
-              <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.backButton}>
-                      <BackSolidIcon width={24} height={24} />
+              <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} activeOpacity={0.8}>
+                <GlassView variant="control" radius={14} style={styles.backButton}>
+                  <BackSolidIcon width={24} height={24} />
+                </GlassView>
               </TouchableOpacity>
               <View style={styles.topAction}>
-                <TouchableOpacity style={styles.guide} onPress={handleMuteToggle}>
-                  {isMuted ? <MicOffIcon width={24} height={24} /> : <MicOnIcon width={24} height={24} />}
+                <TouchableOpacity onPress={handleMuteToggle} activeOpacity={0.8}>
+                  <GlassView variant="control" radius={14} style={styles.guide}>
+                    {isMuted ? <MicOffIcon width={24} height={24} /> : <MicOnIcon width={24} height={24} />}
+                  </GlassView>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.guide} onPress={handleSwitchCamera}>
-                      <ReverseCameraIcon width={19} height={19} />
+                <TouchableOpacity onPress={handleSwitchCamera} activeOpacity={0.8}>
+                  <GlassView variant="control" radius={14} style={styles.guide}>
+                    <ReverseCameraIcon width={24} height={24} />
+                  </GlassView>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.liveViewer}>
-                      <ViewersIcon width={24} height={24} />
-                      <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
-                </TouchableOpacity>
+                <GlassView variant="control" radius={18} style={styles.liveViewer}>
+                  <ViewersIcon width={18} height={18} />
+                  <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
+                </GlassView>
               </View>
             </View>
-            <View style={styles.overlaySpacer} />
         {joined && (
+        <KeyboardAvoidingView style={styles.keyboardAvoider} behavior="padding" keyboardVerticalOffset={0}>
         <View style={styles.actionBar}>
           <View style={styles.social}>
             <View style={styles.leftColumn}>
@@ -1139,8 +1284,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               <FlatList
                 ref={flatListRef}
                 data={chatFeed}
-                style={styles.commentList}
+                style={[styles.commentList, styles.commentListFloor]}
                 keyExtractor={(item) => item.id}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                onScrollBeginDrag={Keyboard.dismiss}
                 /* Scrolling stays; only the indicator is suppressed, as asked. */
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.commentListContent}
@@ -1161,32 +1309,28 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   </GlassView>
                 )}
               />
-              <TextInput
-                  style={[styles.commentInput, isCommentFocused && styles.commentInputFocused]}
-                  placeholder="Comment"
-                  placeholderTextColor="#fff"
-                  value={newComment}
-                  onChangeText={setNewComment}
-                  onSubmitEditing={handleSendComment}
-                  onFocus={() => setIsCommentFocused(true)}
-                  onBlur={() => setIsCommentFocused(false)}
-                  multiline
-                  blurOnSubmit={true}
-                />
-  
             </View>
             </View>
-            <View style={styles.sideActions}>
+            {/* A sibling of the chat column, so it cannot be drawn behind the keyboard: it slides
+                off the right edge while the composer is focused, as on the buyer screen. */}
+            <Animated.View style={[styles.railWrap, railSlideStyle]}>
+            <GlassView variant="rail" style={styles.sideActions}>
                 <TouchableOpacity style={styles.sideAction}>
-                  <LoveIcon />
+                  <View style={styles.sideActionIconWrap}>
+                    <LoveIcon width={26} height={26} />
+                  </View>
                   <Text style={styles.sideActionText}>{formatViewersLikes(liveStats?.likeCount || 0)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
-                  <NoteIcon width={32} height={32} />
+                  <View style={styles.sideActionIconWrap}>
+                    <NoteIcon width={26} height={26} />
+                  </View>
                   <Text style={styles.sideActionNotesText}>Notes</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleManualSnapshot} style={styles.sideAction}>
-                  <ScreenshotIcon width={32} height={32} />
+                  <View style={styles.sideActionIconWrap}>
+                    <ScreenshotIcon width={26} height={26} />
+                  </View>
                   <Text style={styles.sideActionNotesText}>Snap</Text>
                 </TouchableOpacity>
                 {isB2BSeller ? (
@@ -1198,28 +1342,70 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 ) : (
                   <>
                     <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
+                      <View style={styles.sideActionIconWrap}>
+                        <ListIcon width={26} height={26} />
+                      </View>
                       <Text style={styles.sideActionNotesText}>List</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
+                      <View style={styles.sideActionIconWrap}>
+                        <AddIcon width={26} height={26} />
+                      </View>
                       <Text style={styles.sideActionNotesText}>Add</Text>
                     </TouchableOpacity>
                   </>
                 )}
-            </View>
+            </GlassView>
+            </Animated.View>
           </View>
+        {/* Full-width, like the buyer: spans the screen above the card. Glass pill owns the surface; the TouchableWithoutFeedback owns the padding so
+            the whole capsule is one touch target. No explicit height: the input auto-grows
+            between minHeight and maxHeight (a fixed height pins the native view). */}
+        <GlassView variant="pill" style={styles.commentPill}>
+          <TouchableWithoutFeedback onPress={() => commentInputRef.current?.focus()}>
+            <View style={styles.commentPillTouch}>
+              <TextInput
+                ref={commentInputRef}
+                style={styles.commentInput}
+                placeholder="Comment"
+                placeholderTextColor="rgba(255, 255, 255, 0.62)"
+                value={newComment}
+                onChangeText={setNewComment}
+                onSubmitEditing={handleSendComment}
+                onFocus={() => setIsCommentFocused(true)}
+                onBlur={() => setIsCommentFocused(false)}
+                returnKeyType="send"
+                submitBehavior="blurAndSubmit"
+                multiline
+                numberOfLines={newComment === '' ? 1 : 4}
+                textAlignVertical="top"
+              />
+            </View>
+          </TouchableWithoutFeedback>
+        </GlassView>
           {soldToUser && (
             <View style={styles.soldToContainer}>
               <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
             </View>
           )}
+          {/* Slides down and fades while typing, freeing its height for the chat. Animated, not
+              unmounted, so the column does not reflow in one frame. */}
           {activeListing && (
-            <View style={styles.shop}>
+            <Animated.View
+              onLayout={onCardLayout}
+              style={[styles.plantCardWrap, cardWrapStyle]}
+              pointerEvents={isCommentFocused ? 'none' : 'auto'}
+              accessibilityElementsHidden={isCommentFocused}
+              importantForAccessibility={isCommentFocused ? 'no-hide-descendants' : 'auto'}>
+            <GlassView variant="dark" radius={28} style={styles.shopGlass}>
                 <View style={styles.plant}>
                   <View style={styles.plantDetails}>
                     {(snapshotPreviewUri || activeListing.imagePrimary) && (
-                      <AppImage
-                        source={{ uri: snapshotPreviewUri ?? activeListing.imagePrimary }}
+                      <PlantListingImage
+                        uri={activeListing.imagePrimary}
+                        localUri={snapshotPreviewUri}
                         style={styles.listingThumb}
+                        resizeMode="cover"
                       />
                     )}
                     <View style={styles.plantName}>
@@ -1254,19 +1440,33 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                     </View>
                 </View>
                 <View style={styles.actionButton}>
-                  {!isLive && (<TouchableOpacity onPress={() => updateLiveSessionStatus('live')} style={styles.actionButtonTouch}>
-                    <Text style={styles.actionText}>Go Live</Text>
-                  </TouchableOpacity>)}
-                  {isLive && (<TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} style={styles.actionEndButtonTouch}>
-                    <Text style={styles.actionText}>End Live</Text>
-                  </TouchableOpacity>)}
+                  {!isLive && (
+                    <GradientButton
+                      id="goLiveGradient"
+                      label="Go Live"
+                      from="#7CC97C"
+                      to="#2E6B3E"
+                      onPress={() => updateLiveSessionStatus('live')}
+                    />
+                  )}
+                  {isLive && (
+                    <GradientButton
+                      id="endLiveGradient"
+                      label="End Live"
+                      from="#F28B73"
+                      to="#C23B1E"
+                      onPress={() => updateLiveSessionStatus('ended')}
+                    />
+                  )}
                 </View>
-            </View>
+            </GlassView>
+            </Animated.View>
           )}
           {!activeListing && (<View style={styles.shop}>
               <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
             </View>)}
           </View>
+        </KeyboardAvoidingView>
         )}
         </View>
 
@@ -1326,6 +1526,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
 export default LiveBroadcastScreen;
 
+// Rail is 56pt wide and 15pt from the edge; 100 clears it, the screen edge does the clipping.
+const SIDE_RAIL_HIDDEN_OFFSET = 100;
+
 const baseFont = {
   fontFamily: 'Inter',
   fontStyle: 'normal',
@@ -1333,11 +1536,13 @@ const baseFont = {
 };
 
 const styles = StyleSheet.create({
-  commentInputFocused: {
-    height: 80, // Or another height that fits multiple lines
-    textAlignVertical: 'top', // Align text to the top
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
-    borderRadius: 16
+  // A single flat scrim over the whole frame (same value as the buyer screen). Above the video
+  // (zIndex 0) and below the overlay (zIndex 20), so it tints the frame but never the chrome.
+  scrimBase: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    elevation: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
   },
   loadingOverlay: {
     flex: 1,
@@ -1370,9 +1575,6 @@ const styles = StyleSheet.create({
     elevation: 20,
     justifyContent: 'flex-start',
   },
-  overlaySpacer: {
-    flex: 1,
-  },
   statusBanner: {
     position: 'absolute',
     top: 80,
@@ -1401,34 +1603,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
-    gap: 2,
     width: '100%',
-    height: 58,
   },
+  // 44pt circle, the buyer's floating glass back control (GlassView owns fill/border).
   backButton: {
-    flexDirection: 'row',
+    width: 44,
+    height: 44,
     alignItems: 'center',
-    padding: 4,
-    height: 32,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 12,
+    justifyContent: 'center',
+    borderRadius: 22,
   },
   topAction: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: 8,
-    width: 178,
-    height: 34,
   },
   guide: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
-    height: 34,
-    backgroundColor: '#414649',
-    borderRadius: 12,
+    width: 44,
+    height: 36,
+    borderRadius: 18,
   },
   guideIcon: { width: 34, height: 34 },
   guideText: {
@@ -1442,24 +1638,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     gap: 6,
-    width: 85,
-    height: 34,
-    backgroundColor: '#539461',
-    borderRadius: 12,
+    height: 36,
+    borderRadius: 18,
   },
   liveViewerText: {
     ...baseFont,
     fontWeight: '600',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 18,
   },
   actionBar: {
+    // Fills what the top bar leaves, so the chat column is bounded between the header and the
+    // card instead of being pushed down by a spacer plus hand-tuned margins.
+    flex: 1,
     flexDirection: 'column',
     alignItems: 'flex-end',
-    paddingHorizontal: 8,
+    // 15 = the top bar's inset, so the chat, composer and card share one content line.
+    paddingHorizontal: 15,
     gap: 12,
     width: '100%',
   },
@@ -1468,8 +1665,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
-    width: 359,
-    height: 353,
+    flex: 1,
+    width: '100%',
   },
   soldToContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
@@ -1483,31 +1680,34 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  // Hugs its messages and grows upward from the bottom; bounded by `social` (flex: 1), so it
+  // can never reach the top bar. Replaces marginTop 250 / height 453 / paddingBottom 213.
   leftColumn: {
     flex: 1,
     flexDirection: 'column',
     justifyContent: 'flex-end',
-    height: '100%',
-    marginTop: 250,
+    alignSelf: 'stretch',
   },
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
     alignItems: 'flex-start',
-    gap: 16,
-    width: 260,
-    height: 453,
-    paddingBottom: 213
+    gap: 14,
+    width: '100%',
+    flexShrink: 1,
   },
   // The chat list. `maxHeight` is the hard cap the user asked for; `flexShrink: 1` is what makes
   // it safe — this container is a FIXED 453 tall with 213 bottom padding, so only 240 of content
   // box is left and the list shares it with the 38pt input + 16 gap. Without the shrink the list
   // would spill out of the container instead of scrolling, because RN children default to
   // flexShrink 0.
+  // No surface of its own: each row is its own glass pill, so a panel behind them would show
+  // through as a dark slab. `maxHeight` is the cap; `flexShrink` lets it give height back to the
+  // composer below instead of spilling.
   commentList: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    width: '100%',
     borderRadius: 16,
-    maxHeight: 240,
+    maxHeight: 300,
     flexShrink: 1,
   },
   commentRow: {
@@ -1526,7 +1726,8 @@ const styles = StyleSheet.create({
   },
   // Separates the rows: a gap here, not a row margin, keeps each glass edge clean.
   commentListContent: {
-    gap: 6,
+    flexGrow: 0,
+    gap: 8,
   },
   avatar: {
     width: 24,
@@ -1539,7 +1740,9 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 2,
-    width: 228,
+    // Hugs the text and shrinks once the row hits its max width, so a long unbroken comment
+    // wraps inside the pill instead of running under its edge (was a fixed 228).
+    flexShrink: 1,
   },
   chatName: {
     ...baseFont,
@@ -1557,33 +1760,60 @@ const styles = StyleSheet.create({
     color: '#fff',
     height: 'auto',
   },
-  commentInput: {
+  commentPill: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
-    width: 260,
-    height: 38,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    color: '#FFF',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
-    borderRadius: 16
+    alignItems: 'flex-start',
+    width: '100%',
+    borderRadius: 23,
   },
+  // Carries the pill's padding so the whole capsule is one touch target: 13 + one 20pt line + 13.
+  commentPillTouch: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+  },
+  commentInput: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    paddingVertical: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'top',
+    minHeight: 20,
+    maxHeight: 80,
+    color: '#FFF',
+    fontFamily: 'Inter',
+    letterSpacing: 0.2,
+  },
+  // Narrow floating capsule centred beside the chat (social's alignItems: 'center'); sizes to
+  // its actions, no fixed height.
   sideActions: {
     flexDirection: 'column',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 16,
+    gap: 4,
     width: 56,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
   },
   sideAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 5,
+    width: 56,
+    paddingVertical: 6,
+  },
+  // Same 34pt icon box and dimming as the buyer rail: the outline icons are fixed white at
+  // stroke 2, which reads heavy at 26pt without the 0.82.
+  sideActionIconWrap: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.82,
   },
   sideActionText: {
     ...baseFont,
@@ -1629,6 +1859,31 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     lineHeight: 50,
   },
+  keyboardAvoider: {
+    flex: 1,
+  },
+  // Hugs the rail so the translate is measured from its own edge.
+  railWrap: {
+    alignSelf: 'center',
+  },
+  // One chat row is ~36pt with its gap: the floor keeps a line of context while the card is gone.
+  commentListFloor: {
+    minHeight: 44,
+  },
+  // Clips the card as it animates to zero height.
+  plantCardWrap: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  shopGlass: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    width: '100%',
+  },
+  // Empty-state panel (no active listing): plain, there is no product to read through glass.
   shop: {
     flexDirection: 'column',
     alignItems: 'center',
@@ -1756,24 +2011,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 48,
   },
-  actionButtonTouch: {
+  // Radius and clipping match the buyer's Buy Now; the colour comes from the Svg gradient.
+  gradientButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
     width: '100%',
     height: 48,
-    backgroundColor: '#539461',
-    borderRadius: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
-  actionEndButtonTouch: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
-    width: '100%',
-    height: 48,
-    backgroundColor: '#E7522F',
-    borderRadius: 12,
-  },
+
   actionText: {
     ...baseFont,
     fontWeight: '600',

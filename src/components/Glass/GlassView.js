@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import {
   BlurView,
   GLASS_BLUR_AMOUNT,
@@ -50,7 +50,10 @@ const GlassView = ({
   };
   const content = contentStyle ? <View style={contentStyle}>{children}</View> : children;
 
-  if (!isGlassBlurAvailable()) {
+  // Android: the blur library paints a fixed overlay color that cannot blur live video
+  // underneath, so it renders as a solid gray box. Degrade to the translucent tint path
+  // for all glass surfaces on Android. iOS keeps the real BlurView when available.
+  if (!isGlassBlurAvailable() || Platform.OS === 'android') {
     return (
       <View style={[glassClip, surface, tint, style]} {...rest}>
         {content}
