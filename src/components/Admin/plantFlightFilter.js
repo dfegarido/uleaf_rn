@@ -219,6 +219,7 @@ const PlantFlightFilter = ({
   flightDates = [],
   availableFlightDateIsos = [],
   selectedValues = [],
+  embedded = false,
 }) => {
   const insets = useSafeAreaInsets();
   const [draftSelection, setDraftSelection] = useState([]);
@@ -300,14 +301,7 @@ const PlantFlightFilter = ({
     onClose();
   };
 
-  return (
-    <Modal
-      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}
-      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-      statusBarTranslucent={Platform.OS === 'android'}>
+  const sheet = (
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
@@ -369,6 +363,22 @@ const PlantFlightFilter = ({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+  );
+
+  if (embedded) {
+    if (!isVisible) return null;
+    return <View style={{flex: 1}}>{sheet}</View>;
+  }
+
+  return (
+    <Modal
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}>
+      {sheet}
     </Modal>
   );
 };

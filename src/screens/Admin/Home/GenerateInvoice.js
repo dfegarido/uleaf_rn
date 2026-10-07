@@ -1,298 +1,25 @@
-import AppImage from '../../../components/AppImage/AppImage';
-
-import React, {useState, useCallback, useEffect, useRef} from 'react';
+import React, {useState, useCallback, useEffect, useRef, useMemo} from 'react';
 import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  Image,
   ActivityIndicator,
   Alert,
-  Modal,
-  TextInput,
-  ScrollView,
-  TouchableWithoutFeedback,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useFocusEffect} from '@react-navigation/native';
-import {useNavigation} from '@react-navigation/native';
+import {Pressable} from 'react-native-gesture-handler';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import SearchIcon from '../../../assets/admin-icons/search.svg';
-import CloseIcon from '../../../assets/admin-icons/x.svg';
 import ArrowDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import {searchBuyersApi} from '../../../components/Api/searchBuyersApi';
-import {getAllUsersApi} from '../../../components/Api/getAllUsersApi';
 import {generateInvoiceApi, getInvoicePdfApi} from '../../../components/Api/orderManagementApi';
 import {getAdminOrdersApi} from '../../../components/Api/adminOrderApi';
+import BuyerFilter from '../../../components/Admin/buyerFilter';
+import JoinerFilter from '../../../components/Admin/joinerFilter';
+import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
+import PlantFlightFilter, {parseAdminFlightDateTokenToIso} from '../../../components/Admin/plantFlightFilter';
 import NetInfo from '@react-native-community/netinfo';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
-
-// Buyer Selection Modal Component
-const BuyerSelectionModal = ({ isVisible, onClose, onSelectBuyer, buyers, loading, searchQuery, onSearchChange }) => {
-  // Filter buyers based on the search query
-  const filteredBuyers = buyers.filter(buyer => {
-    const name = buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || '';
-    const email = buyer.email || '';
-    const username = buyer.username || '';
-    const searchLower = searchQuery.toLowerCase();
-    return name.toLowerCase().includes(searchLower) || 
-           email.toLowerCase().includes(searchLower) ||
-           username.toLowerCase().includes(searchLower);
-  });
-
-  const handleSelect = (buyer) => {
-    onSelectBuyer(buyer);
-    onClose();
-  };
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.actionSheetContainer}>
-              <SafeAreaView>
-                {/* Header */}
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalHeaderTitle}>Select Buyer</Text>
-                  <TouchableOpacity onPress={onClose}>
-                    <CloseIcon width={24} height={24} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Content Area */}
-                <View style={styles.modalContentContainer}>
-                  {/* Search Bar */}
-                  <View style={styles.searchFieldContainer}>
-                    <SearchIcon width={20} height={20} />
-                    <TextInput
-                      style={styles.searchTextInput}
-                      placeholder="Search by name, email, or username..."
-                      placeholderTextColor="#647276"
-                      value={searchQuery}
-                      onChangeText={onSearchChange}
-                    />
-                  </View>
-
-                  {/* Scrollable List of Buyers */}
-                  {loading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#539461" />
-                      <Text style={styles.loadingText}>Loading buyers...</Text>
-                    </View>
-                  ) : (
-                    <ScrollView style={styles.buyerListContainer} showsVerticalScrollIndicator={false}>
-                      {filteredBuyers.length === 0 ? (
-                        <View style={styles.emptyBuyerContainer}>
-                          <Text style={styles.emptyBuyerText}>
-                            {searchQuery ? 'No buyers found' : 'No buyers available'}
-                          </Text>
-                        </View>
-                      ) : (
-                        filteredBuyers.map((buyer, index) => {
-                          const buyerName = buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.email || 'Unknown';
-                          const avatarUrl = buyer.profileImage || buyer.avatar || '';
-                          return (
-                            <View key={buyer.id || buyer.uid || index}>
-                              <TouchableOpacity 
-                                style={styles.buyerItemContainer} 
-                                onPress={() => handleSelect(buyer)}
-                              >
-                                {avatarUrl ? (
-                                  <AppImage source={{ uri: avatarUrl }} style={styles.buyerAvatar} />
-                                ) : (
-                                  <View style={[styles.buyerAvatar, styles.buyerAvatarPlaceholder]}>
-                                    <Text style={styles.buyerAvatarText}>
-                                      {buyerName.charAt(0).toUpperCase()}
-                                    </Text>
-                                  </View>
-                                )}
-                                <View style={styles.buyerInfo}>
-                                  <Text style={styles.buyerName}>{buyerName}</Text>
-                                  {buyer.email && (
-                                    <Text style={styles.buyerEmail}>{buyer.email}</Text>
-                                  )}
-                                  {buyer.username && buyer.username !== buyer.email && (
-                                    <Text style={styles.buyerUsername}>@{buyer.username}</Text>
-                                  )}
-                                </View>
-                              </TouchableOpacity>
-                              {index < filteredBuyers.length - 1 && <View style={styles.divider} />}
-                            </View>
-                          );
-                        })
-                      )}
-                    </ScrollView>
-                  )}
-                </View>
-              </SafeAreaView>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
-
-// Invoice Generation Modal Component
-const InvoiceGenerationModal = ({ isVisible, onClose, buyer, transaction, onGenerate }) => {
-  const [transactionNumber, setTransactionNumber] = useState('');
-  const [plantCode, setPlantCode] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // Update transaction number when transaction prop changes or modal opens
-  useEffect(() => {
-    if (isVisible && transaction?.transactionNumber) {
-      setTransactionNumber(transaction.transactionNumber);
-    } else if (!isVisible) {
-      // Reset when modal closes
-      setTransactionNumber('');
-      setPlantCode('');
-    }
-  }, [transaction, isVisible]);
-
-  const handleGenerate = async () => {
-    if (!transactionNumber.trim()) {
-      Alert.alert('Error', 'Please enter a transaction number');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await generateInvoiceApi({
-        transactionNumber: transactionNumber.trim(),
-        plantCode: plantCode.trim() || undefined,
-      });
-
-      if (response.success) {
-        Alert.alert(
-          'Success',
-          response.message || 'Invoice generated and sent successfully',
-          [{text: 'OK', onPress: () => {
-            setTransactionNumber('');
-            setPlantCode('');
-            onClose();
-            onGenerate();
-          }}]
-        );
-      } else {
-        Alert.alert('Error', response.error || 'Failed to generate invoice');
-      }
-    } catch (error) {
-      console.error('Error generating invoice:', error);
-      Alert.alert('Error', error.message || 'An error occurred while generating invoice');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const buyerName = buyer?.name || `${buyer?.firstName || ''} ${buyer?.lastName || ''}`.trim() || buyer?.email || 'Unknown';
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.invoiceModalContainer}>
-              <SafeAreaView>
-                {/* Header */}
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalHeaderTitle}>Generate Invoice</Text>
-                  <TouchableOpacity onPress={onClose}>
-                    <CloseIcon width={24} height={24} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Content Area */}
-                <ScrollView style={styles.invoiceModalContent} showsVerticalScrollIndicator={false}>
-                  {/* Selected Buyer Info */}
-                  {buyer && (
-                    <View style={styles.selectedBuyerCard}>
-                      <View style={styles.selectedBuyerContent}>
-                        {buyer.profileImage ? (
-                          <AppImage source={{ uri: buyer.profileImage }} style={styles.selectedBuyerAvatar} />
-                        ) : (
-                          <View style={[styles.selectedBuyerAvatar, styles.buyerAvatarPlaceholder]}>
-                            <Text style={styles.buyerAvatarText}>
-                              {buyerName.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <View style={styles.selectedBuyerInfo}>
-                          <Text style={styles.selectedBuyerName}>{buyerName}</Text>
-                          {buyer.email && (
-                            <Text style={styles.selectedBuyerEmail}>{buyer.email}</Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  )}
-
-                  <View style={styles.invoiceFormContainer}>
-                    <Text style={styles.invoiceDescription}>
-                      Enter the transaction number to generate and send an invoice via email.
-                    </Text>
-
-                    {/* Transaction Number Input */}
-                    <View style={styles.invoiceInputContainer}>
-                      <Text style={styles.invoiceLabel}>Transaction Number *</Text>
-                      <TextInput
-                        style={styles.invoiceInput}
-                        placeholder="Enter transaction number"
-                        placeholderTextColor="#9CA3AF"
-                        value={transactionNumber}
-                        onChangeText={setTransactionNumber}
-                        autoCapitalize="none"
-                        editable={!loading}
-                      />
-                    </View>
-
-                    {/* Plant Code Input (Optional) */}
-                    <View style={styles.invoiceInputContainer}>
-                      <Text style={styles.invoiceLabel}>Plant Code (Optional)</Text>
-                      <Text style={styles.invoiceOptionalLabel}>Leave empty to generate invoice for all plants in the order</Text>
-                      <TextInput
-                        style={styles.invoiceInput}
-                        placeholder="Enter plant code (optional)"
-                        placeholderTextColor="#9CA3AF"
-                        value={plantCode}
-                        onChangeText={setPlantCode}
-                        autoCapitalize="none"
-                        editable={!loading}
-                      />
-                    </View>
-
-                    {/* Generate Button */}
-                    <TouchableOpacity
-                      style={[styles.invoiceGenerateButton, loading && styles.invoiceGenerateButtonDisabled]}
-                      onPress={handleGenerate}
-                      disabled={loading}>
-                      {loading ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <Text style={styles.invoiceGenerateButtonText}>Generate & Send Invoice</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </ScrollView>
-              </SafeAreaView>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
-  );
-};
 
 // Custom Header
 const GenerateInvoiceHeader = ({ navigation }) => {
@@ -307,384 +34,402 @@ const GenerateInvoiceHeader = ({ navigation }) => {
   );
 };
 
-const GenerateInvoice = ({navigation}) => {
-  const [buyers, setBuyers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedBuyer, setSelectedBuyer] = useState(null);
-  const [loadingBuyers, setLoadingBuyers] = useState(false);
-  const [showBuyerModal, setShowBuyerModal] = useState(false);
-  const [buyerSearchQuery, setBuyerSearchQuery] = useState('');
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [transactions, setTransactions] = useState([]);
-  const [loadingTransactions, setLoadingTransactions] = useState(false);
-  const [transactionError, setTransactionError] = useState(null);
-  const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [processingTransaction, setProcessingTransaction] = useState(null);
-  const searchDebounceRef = useRef(null);
+const isPendingPayment = (order) => {
+  const status = String(order?.status || '').toLowerCase().replace(/[\s_]/g, '');
+  return status === 'pendingpayment';
+};
 
-  // Load 10 suggested buyers on mount
-  const fetchBuyers = useCallback(async () => {
-    try {
-      setLoadingBuyers(true);
-      const net = await NetInfo.fetch();
-      if (!net.isConnected || !net.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
+const timestampOf = (date) => {
+  if (!date) return 0;
+  if (typeof date.toDate === 'function') return date.toDate().getTime();
+  if (date.seconds) return date.seconds * 1000;
+  if (date._seconds) return date._seconds * 1000;
+  if (typeof date === 'string') return new Date(date).getTime() || 0;
+  if (typeof date === 'number') return date < 4102444800000 ? date * 1000 : date;
+  return 0;
+};
 
-      const res = await getAllUsersApi({ role: 'buyer', limit: 10, page: 1 });
-      const list =
-        (Array.isArray(res?.data?.users) && res.data.users) ||
-        (Array.isArray(res?.data) && res.data) ||
-        (Array.isArray(res?.results) && res.results) ||
-        (Array.isArray(res?.users) && res.users) ||
-        [];
+const formatInvoiceDate = (dateInput) => {
+  const ms = timestampOf(dateInput);
+  if (!ms) return '—';
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
-      const normalized = list.map(b => ({
-        id: b.id || b.userId || b.uid,
-        name: [b.firstName, b.lastName].filter(Boolean).join(' ') || b.username || b.email || 'Unknown',
-        firstName: b.firstName || '',
-        lastName: b.lastName || '',
-        username: b.username || b.email || '',
-        email: b.email || '',
-        profileImage: b.profileImage || b.avatarUrl || null,
-      })).filter(x => x.id);
+const buyerNameFromOrder = (order) => {
+  const info = order?.buyerInfo || {};
+  const fromInfo = [info.firstName, info.lastName].filter(Boolean).join(' ').trim();
+  return fromInfo || order?.buyerName || '—';
+};
 
-      // Sort alphabetically
-      const sorted = normalized.sort((a, b) => {
-        const nameA = (a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.username || '').toLowerCase();
-        const nameB = (b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.username || '').toLowerCase();
-        return nameA.localeCompare(nameB);
+const isInvoiceOrder = (order) =>
+  !isPendingPayment(order) && Boolean(order?.transactionNumber || order?.trxNumber);
+
+const buyerOptionFromOrder = (order) => {
+  const id = order?.buyerUid || order?.buyerId || order?.buyerInfo?.uid || order?.buyerInfo?.id;
+  if (id == null || id === '') return null;
+  const name = buyerNameFromOrder(order);
+  if (!name || name === '—') return null;
+  const info = order.buyerInfo || {};
+  return {
+    id: String(id),
+    name,
+    email: info.email || order.buyerEmail || '',
+    username: info.username || '',
+    avatar: info.profilePhotoUrl || info.profileImage || info.avatar || '',
+  };
+};
+
+const orderMatchesBuyer = (order, buyerIds, buyerOptions) => {
+  const orderBuyerIds = [
+    order.buyerUid,
+    order.buyerId,
+    order.buyerInfo?.uid,
+    order.buyerInfo?.id,
+  ]
+    .filter((id) => id != null && id !== '')
+    .map((id) => String(id));
+  if (buyerIds.some((id) => orderBuyerIds.includes(id))) return true;
+
+  const selected = buyerOptions.filter((buyer) => buyerIds.includes(String(buyer.id)));
+  const orderName = buyerNameFromOrder(order).trim().toLowerCase();
+  const orderUsername = String(order.buyerInfo?.username || '').trim().toLowerCase();
+  const orderEmail = String(order.buyerInfo?.email || order.buyerEmail || '').trim().toLowerCase();
+  return selected.some((buyer) => {
+    const name = String(buyer.name || '').trim().toLowerCase();
+    const username = String(buyer.username || '').trim().toLowerCase();
+    const email = String(buyer.email || '').trim().toLowerCase();
+    return (
+      (name && name === orderName) ||
+      (username && username === orderUsername) ||
+      (email && email === orderEmail)
+    );
+  });
+};
+
+const formatMoney = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '—';
+  return `$${amount.toFixed(2)}`;
+};
+
+const groupInvoices = (orders) => {
+  const map = new Map();
+  orders.forEach((order) => {
+    const txNumber = order.transactionNumber || order.trxNumber;
+    if (!txNumber) return;
+
+    if (!map.has(txNumber)) {
+      map.set(txNumber, {
+        id: String(txNumber),
+        transactionNumber: txNumber,
+        createdAt: order.createdAt || order.orderDate || order.dateCreated,
+        finalTotal: 0,
+        hasOrderTotal: false,
+        buyerName: buyerNameFromOrder(order),
+        buyerEmail: order.buyerInfo?.email || order.buyerEmail || '',
       });
-
-      setBuyers(sorted);
-    } catch (err) {
-      console.error('Failed to load buyers:', err);
-      setError('Failed to load buyers. Please check your connection and try again.');
-    } finally {
-      setLoadingBuyers(false);
-      setLoading(false);
-    }
-  }, []);
-
-  // Search buyers with debounce
-  useEffect(() => {
-    const q = buyerSearchQuery.trim();
-    
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
     }
 
-    if (q.length === 0) {
-      // Reset to initial 10 buyers when search is cleared
-      fetchBuyers();
-      return;
+    const invoice = map.get(txNumber);
+    const orderTotal = Number(order.finalTotal);
+    if (Number.isFinite(orderTotal) && orderTotal > 0) {
+      invoice.finalTotal = orderTotal;
+      invoice.hasOrderTotal = true;
+    } else if (!invoice.hasOrderTotal) {
+      const line = Number(order.subtotal || order.totalPrice || order.price || 0);
+      if (Number.isFinite(line)) invoice.finalTotal += line;
     }
 
-    if (q.length < 2) {
-      return;
+    const orderDate = order.createdAt || order.orderDate || order.dateCreated;
+    if (timestampOf(orderDate) > timestampOf(invoice.createdAt)) {
+      invoice.createdAt = orderDate;
     }
+    if (invoice.buyerName === '—') invoice.buyerName = buyerNameFromOrder(order);
+    if (!invoice.buyerEmail) {
+      invoice.buyerEmail = order.buyerInfo?.email || order.buyerEmail || '';
+    }
+  });
 
-    searchDebounceRef.current = setTimeout(async () => {
-      try {
-        setLoadingBuyers(true);
-        const net = await NetInfo.fetch();
-        if (!net.isConnected || !net.isInternetReachable) {
-          throw new Error('No internet connection.');
-        }
+  return Array.from(map.values()).sort(
+    (a, b) => timestampOf(b.createdAt) - timestampOf(a.createdAt),
+  );
+};
 
-        const res = await searchBuyersApi({ query: q, limit: 50, offset: 0 });
-        if (!res?.success) {
-          throw new Error(res?.error || 'Failed to search buyers.');
-        }
+const asIdList = (value) => {
+  if (value == null || value === '') return [];
+  if (Array.isArray(value)) return value.map((id) => String(id).trim()).filter(Boolean);
+  return String(value)
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+};
 
-        const searchResults = res.data?.buyers || [];
-        const normalized = searchResults.map(b => ({
-          id: b.id,
-          name: [b.firstName, b.lastName].filter(Boolean).join(' ') || b.username || b.email || 'Unknown',
-          firstName: b.firstName || '',
-          lastName: b.lastName || '',
-          username: b.username || '',
-          email: b.email || '',
-          profileImage: b.profileImage || null,
-        }));
+const isoDay = (value) => {
+  if (value == null || value === '') return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const iso = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (iso) return iso[1];
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${parsed.getFullYear()}-${month}-${day}`;
+    }
+    return null;
+  }
+  const ms = timestampOf(value);
+  if (!ms) return null;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return null;
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+};
 
-        // Sort alphabetically
-        const sorted = normalized.sort((a, b) => {
-          const nameA = (a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name || a.username || '').toLowerCase();
-          const nameB = (b.firstName && b.lastName ? `${b.firstName} ${b.lastName}` : b.name || b.username || '').toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
+const startOfLocalDay = (date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
 
-        setBuyers(sorted);
-      } catch (error) {
-        console.error('Search error:', error);
-        setBuyers([]);
-      } finally {
-        setLoadingBuyers(false);
-      }
-    }, 300);
+const calendarDayForApi = (date) => {
+  if (!date) return null;
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+};
 
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-    };
-  }, [buyerSearchQuery, fetchBuyers]);
+const addFlightDay = (days, value) => {
+  const iso = parseAdminFlightDateTokenToIso(value);
+  if (iso) days.add(iso);
+};
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchBuyers();
-    }, [fetchBuyers])
+const invoicePlantFlightDay = (order) => {
+  const candidates = [
+    order?.flightDateFormatted,
+    order?.plantFlight,
+    order?.plantFlightDate,
+    order?.flightDate,
+  ];
+  if (Array.isArray(order?.products)) {
+    order.products.forEach((product) => {
+      candidates.push(product?.flightDateFormatted, product?.flightDate);
+    });
+  }
+  for (const value of candidates) {
+    const iso = parseAdminFlightDateTokenToIso(value);
+    if (iso && iso !== '2001-11-08') return iso;
+  }
+  return null;
+};
+
+const orderFlightDays = (order) => {
+  const days = new Set();
+  addFlightDay(days, order?.flightDateFormatted);
+  addFlightDay(days, order?.cargoDateFormatted);
+  addFlightDay(days, order?.flightDate);
+  addFlightDay(days, order?.cargoDate);
+  addFlightDay(days, order?.plantFlight);
+  addFlightDay(days, order?.plantFlightDate);
+  if (Array.isArray(order?.products)) {
+    order.products.forEach((product) => {
+      addFlightDay(days, product?.flightDateFormatted);
+      addFlightDay(days, product?.cargoDateFormatted);
+      addFlightDay(days, product?.flightDate);
+      addFlightDay(days, product?.cargoDate);
+    });
+  }
+  return days;
+};
+
+const orderMatchesFilters = (order, filters, buyerOptions) => {
+  const buyerIds = asIdList(filters.buyer);
+  if (buyerIds.length && !orderMatchesBuyer(order, buyerIds, buyerOptions)) return false;
+
+  if (filters.joiner) {
+    const joinerId = String(filters.joiner);
+    const orderJoinerIds = [
+      order.buyerUid,
+      order.joinerInfo?.joinerUid,
+      order.joinerInfo?.uid,
+      order.joinerInfo?.id,
+    ].map((id) => (id == null ? '' : String(id)));
+    if (!order.isJoinerOrder || !orderJoinerIds.includes(joinerId)) return false;
+  }
+
+  if (filters.plantFlight?.length) {
+    const wanted = new Set(
+      filters.plantFlight.map((value) => parseAdminFlightDateTokenToIso(value)).filter(Boolean),
+    );
+    const orderFlights = orderFlightDays(order);
+    const matchesFlight = [...orderFlights].some((day) => wanted.has(day));
+    if (!matchesFlight) return false;
+  }
+
+  if (filters.dateRange?.from || filters.dateRange?.to) {
+    const ms = timestampOf(order.createdAt || order.orderDate || order.dateCreated);
+    if (!ms) return false;
+    const orderDay = startOfLocalDay(new Date(ms));
+    if (filters.dateRange.from && orderDay < startOfLocalDay(filters.dateRange.from)) return false;
+    if (filters.dateRange.to) {
+      const end = startOfLocalDay(filters.dateRange.to);
+      end.setHours(23, 59, 59, 999);
+      if (orderDay > end) return false;
+    }
+  }
+
+  return true;
+};
+
+const GenerateInvoice = ({navigation}) => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [buyerOptions, setBuyerOptions] = useState([]);
+  const [joinerOptions, setJoinerOptions] = useState([]);
+  const [filters, setFilters] = useState({
+    buyer: null,
+    joiner: null,
+    dateRange: null,
+    plantFlight: [],
+  });
+  const [dateOpen, setDateOpen] = useState(false);
+  const [buyerOpen, setBuyerOpen] = useState(false);
+  const [joinerOpen, setJoinerOpen] = useState(false);
+  const [flightOpen, setFlightOpen] = useState(false);
+  const [processingTransaction, setProcessingTransaction] = useState(null);
+  const requestId = useRef(0);
+  const hasLoadedRef = useRef(false);
+
+  const invoiceBuyerOptions = useMemo(() => {
+    const map = new Map();
+    orders.forEach((order) => {
+      if (!isInvoiceOrder(order)) return;
+      const option = buyerOptionFromOrder(order);
+      if (!option) return;
+      const known = buyerOptions.find((buyer) => String(buyer.id) === option.id);
+      map.set(option.id, known ? {...option, ...known, id: option.id, name: option.name || known.name} : option);
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [orders, buyerOptions]);
+
+  const invoiceFlightDates = useMemo(() => {
+    const days = new Set();
+    orders.forEach((order) => {
+      if (!isInvoiceOrder(order)) return;
+      const day = invoicePlantFlightDay(order);
+      if (day) days.add(day);
+    });
+    return Array.from(days).sort((a, b) => b.localeCompare(a));
+  }, [orders]);
+
+  const invoices = useMemo(
+    () => groupInvoices(orders.filter((order) => isInvoiceOrder(order) && orderMatchesFilters(order, filters, invoiceBuyerOptions))),
+    [orders, filters, invoiceBuyerOptions],
   );
 
-  // Fetch paid transactions for selected buyer
-  const fetchTransactions = useCallback(async (buyer) => {
-    if (!buyer) {
-      setTransactions([]);
-      return;
-    }
-
+  const fetchInvoices = useCallback(async (nextPage = 1) => {
+    const id = ++requestId.current;
     try {
-      setLoadingTransactions(true);
-      setTransactionError(null);
+      if (nextPage === 1 && !hasLoadedRef.current) {
+        setLoading(true);
+        setError(null);
+      } else if (nextPage > 1) {
+        setLoadingMore(true);
+      } else {
+        setError(null);
+      }
+
       const net = await NetInfo.fetch();
       if (!net.isConnected || !net.isInternetReachable) {
         throw new Error('No internet connection.');
       }
 
-      // Fetch orders for this buyer - only "Ready to Fly" status
-      // Try multiple identifiers: UID, ID, email, name for better matching
-      // The backend does fuzzy matching on firstName, lastName, email, username
-      const buyerIdentifier = buyer.uid || buyer.id || buyer.email || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim();
-      
-      console.log('[GenerateInvoice] Fetching transactions for buyer:', {
-        identifier: buyerIdentifier,
-        buyer: {
-          id: buyer.id,
-          uid: buyer.uid,
-          email: buyer.email,
-          name: `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim(),
-        }
-      });
-      
+      const buyerIds = asIdList(filters.buyer);
+      const filtersActive = Boolean(
+        buyerIds.length || filters.joiner || filters.dateRange || filters.plantFlight?.length,
+      );
       const response = await getAdminOrdersApi({
-        buyer: buyerIdentifier,
-        status: 'readyToFly', // This maps to "Ready to Fly" in the backend
-        sort: 'latest', // Newest to oldest
-        limit: 100, // Fetch a reasonable number
-        page: 1,
+        status: 'all',
+        sort: 'latest',
+        limit: 200,
+        page: nextPage,
+        buyer: buyerIds.length === 1 ? buyerIds[0] : undefined,
+        joiner: filters.joiner || undefined,
+        dateRange: filters.dateRange
+          ? {
+              from: calendarDayForApi(filters.dateRange.from),
+              to: calendarDayForApi(filters.dateRange.to),
+            }
+          : undefined,
+        plantFlight: filters.plantFlight?.length ? filters.plantFlight.join(',') : undefined,
       });
 
-      console.log('[GenerateInvoice] Full API response:', JSON.stringify(response, null, 2));
-      console.log('[GenerateInvoice] API response keys:', Object.keys(response || {}));
-      console.log('[GenerateInvoice] API response:', {
-        success: response?.success,
-        ordersCount: response?.orders?.length || 0,
-        totalCount: response?.total || 0,
-        hasOrders: !!response?.orders,
-        ordersType: typeof response?.orders,
-        ordersIsArray: Array.isArray(response?.orders),
-      });
-
+      if (id !== requestId.current) return;
       if (!response || !response.success) {
-        throw new Error(response?.error || 'Failed to fetch transactions');
+        throw new Error(response?.error || 'Failed to fetch invoices');
       }
 
-      // Get orders from response - API returns orders directly, not nested under data
-      const allOrders = response.orders || [];
-      
-      console.log('[GenerateInvoice] Extracted allOrders:', allOrders.length, 'Type:', typeof allOrders, 'IsArray:', Array.isArray(allOrders));
-      
-      console.log('[GenerateInvoice] All orders before filtering:', allOrders.length);
-      
-      // Helper function to get timestamp
-      const getTimestamp = (date) => {
-        if (!date) return 0;
-        if (date.toDate && typeof date.toDate === 'function') {
-          return date.toDate().getTime();
+      const pageOrders = (response.orders || []).filter((order) => isInvoiceOrder(order));
+      const clientNarrowing = buyerIds.length > 0 || filters.plantFlight?.length > 0;
+      setOrders((prev) => {
+        if (nextPage > 1 || clientNarrowing) {
+          if (nextPage === 1 && clientNarrowing && pageOrders.length === 0) return prev;
+          const seen = new Set(prev.map((order) => order.id));
+          return prev.concat(pageOrders.filter((order) => order.id && !seen.has(order.id)));
         }
-        if (date.seconds) {
-          return date.seconds * 1000;
-        }
-        if (date._seconds) {
-          return date._seconds * 1000;
-        }
-        if (typeof date === 'string') {
-          return new Date(date).getTime() || 0;
-        }
-        if (typeof date === 'number') {
-          return date < 4102444800000 ? date * 1000 : date;
-        }
-        return 0;
-      };
-      
-      // Filter to exclude pending_payment orders (show all other statuses)
-      // This includes: ready to fly, delivered, completed, cancelled, etc.
-      const readyToFlyOrders = allOrders.filter(order => {
-        const status = (order.status || '').toLowerCase().trim();
-        const isPendingPayment = status === 'pending_payment' || 
-                                status === 'pending payment' || 
-                                status === 'pendingpayment';
-        if (isPendingPayment) {
-          console.log('[GenerateInvoice] Order filtered out (pending payment) - status:', order.status, 'Transaction:', order.transactionNumber);
-        }
-        return !isPendingPayment;
+        if (filtersActive && pageOrders.length === 0 && prev.length) return prev;
+        return pageOrders;
       });
-      
-      console.log('[GenerateInvoice] Paid orders (excluding pending payment) after filtering:', readyToFlyOrders.length);
-      
-      // Helper function to format flight date
-      const formatFlightDate = (dateInput) => {
-        if (!dateInput) return null;
-        try {
-          let date = null;
-          if (dateInput && typeof dateInput === 'object') {
-            if (dateInput.toDate && typeof dateInput.toDate === 'function') {
-              date = dateInput.toDate();
-            } else if (dateInput.seconds) {
-              date = new Date(dateInput.seconds * 1000);
-            } else if (dateInput._seconds) {
-              date = new Date(dateInput._seconds * 1000);
-            }
-          } else if (typeof dateInput === 'string') {
-            date = new Date(dateInput);
-          } else if (typeof dateInput === 'number') {
-            date = new Date(dateInput < 4102444800000 ? dateInput * 1000 : dateInput);
-          }
-          
-          if (!date || isNaN(date.getTime())) return null;
-          
-          return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          });
-        } catch (e) {
-          return null;
-        }
-      };
-
-      // Group orders by transaction number
-      const transactionsMap = new Map();
-      readyToFlyOrders.forEach(order => {
-        const txNumber = order.transactionNumber || order.trxNumber || order.id;
-        if (!txNumber) return;
-        
-        if (!transactionsMap.has(txNumber)) {
-          transactionsMap.set(txNumber, {
-            transactionNumber: txNumber,
-            orders: [],
-            createdAt: order.createdAt || order.orderDate || order.dateCreated,
-            finalTotal: 0,
-            status: order.status,
-            flightDate: null,
-            cargoDate: null,
-            flightDateFormatted: null,
-            cargoDateFormatted: null,
-          });
-        }
-        
-        const transaction = transactionsMap.get(txNumber);
-        transaction.orders.push(order);
-        // Sum up the final total (use the order's finalTotal if available)
-        transaction.finalTotal += (order.finalTotal || order.subtotal || order.totalPrice || 0);
-        // Keep the earliest date for sorting
-        const orderDate = order.createdAt || order.orderDate || order.dateCreated;
-        if (orderDate && (!transaction.createdAt || getTimestamp(orderDate) < getTimestamp(transaction.createdAt))) {
-          transaction.createdAt = orderDate;
-        }
-        
-        // Get flight date from order (prefer cargoDate, then flightDate)
-        const flightDate = order.cargoDate || order.flightDate || order.flightDateFormatted || order.cargoDateFormatted;
-        if (flightDate && !transaction.flightDate) {
-          transaction.flightDate = flightDate;
-          transaction.cargoDate = order.cargoDate || order.flightDate;
-          transaction.flightDateFormatted = formatFlightDate(flightDate);
-          transaction.cargoDateFormatted = order.cargoDateFormatted || order.flightDateFormatted || transaction.flightDateFormatted;
-        }
-        
-        // Also check products array for flight date
-        if (order.products && Array.isArray(order.products) && order.products.length > 0) {
-          const productWithFlightDate = order.products.find(p => p.flightDate || p.cargoDate || p.flightDateFormatted || p.cargoDateFormatted);
-          if (productWithFlightDate && !transaction.flightDate) {
-            const productFlightDate = productWithFlightDate.cargoDate || productWithFlightDate.flightDate || productWithFlightDate.flightDateFormatted || productWithFlightDate.cargoDateFormatted;
-            if (productFlightDate) {
-              transaction.flightDate = productFlightDate;
-              transaction.cargoDate = productWithFlightDate.cargoDate || productWithFlightDate.flightDate;
-              transaction.flightDateFormatted = formatFlightDate(productFlightDate);
-              transaction.cargoDateFormatted = productWithFlightDate.cargoDateFormatted || productWithFlightDate.flightDateFormatted || transaction.flightDateFormatted;
-            }
-          }
-        }
-      });
-      
-      // Convert map to array and sort by date (newest to oldest)
-      const transactions = Array.from(transactionsMap.values());
-      
-      // Sort transactions by date (newest to oldest)
-      const sortedTransactions = transactions.sort((a, b) => {
-        const dateA = getTimestamp(a.createdAt);
-        const dateB = getTimestamp(b.createdAt);
-        return dateB - dateA; // Newest first
-      });
-      
-      console.log('[GenerateInvoice] Transactions grouped and sorted:', sortedTransactions.length);
-      
-      setTransactions(sortedTransactions);
+      setPage(response.currentPage || nextPage);
+      setTotalPages(response.totalPages || 1);
+      if (!buyerIds.length && Array.isArray(response.buyers) && response.buyers.length) {
+        setBuyerOptions(response.buyers);
+      }
+      if (Array.isArray(response.joiners) && response.joiners.length) setJoinerOptions(response.joiners);
     } catch (err) {
-      console.error('Failed to fetch transactions:', err);
-      setTransactionError(err.message || 'Failed to load transactions');
-      setTransactions([]);
+      if (id !== requestId.current) return;
+      console.error('Failed to load invoices:', err);
+      if (nextPage === 1 && !hasLoadedRef.current) {
+        setError(err.message || 'Failed to load invoices');
+        setOrders([]);
+      }
     } finally {
-      setLoadingTransactions(false);
+      if (id === requestId.current) {
+        hasLoadedRef.current = true;
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
-  }, []);
+  }, [filters]);
 
-  // Fetch transactions when buyer is selected
   useEffect(() => {
-    if (selectedBuyer) {
-      fetchTransactions(selectedBuyer);
-    } else {
-      setTransactions([]);
-      setTransactionError(null);
-    }
-  }, [selectedBuyer, fetchTransactions]);
+    fetchInvoices(1);
+  }, [fetchInvoices]);
 
-  const handleSelectBuyer = (buyer) => {
-    setSelectedBuyer(buyer);
-    setShowBuyerModal(false);
-  };
-
-  const handleBuyerClick = (buyer) => {
-    setSelectedBuyer(buyer);
-  };
-
-  const handleViewInvoice = async (transaction) => {
-    const txNumber = transaction.transactionNumber || transaction.trxNumber;
+  const handleViewInvoice = async (invoice) => {
+    const txNumber = invoice.transactionNumber;
     if (!txNumber) {
-      Alert.alert('Error', 'Transaction number is missing');
+      Alert.alert('Error', 'Invoice number is missing');
       return;
     }
-
-    // Prevent multiple simultaneous requests
-    if (processingTransaction) {
-      return;
-    }
+    if (processingTransaction) return;
 
     try {
       setProcessingTransaction(txNumber);
-
-      const viewResponse = await getInvoicePdfApi({
-        transactionNumber: txNumber,
-      });
-
+      const viewResponse = await getInvoicePdfApi({transactionNumber: txNumber});
       if (viewResponse.success && viewResponse.pdfBase64) {
-        // Save and open PDF
         const fileName = viewResponse.filename || `Invoice_${txNumber}_${Date.now()}.pdf`;
         const filePath = `${RNFS.DocumentDirectoryPath}/${fileName}`;
         await RNFS.writeFile(filePath, viewResponse.pdfBase64, 'base64');
-        
         try {
           await FileViewer.open(filePath);
         } catch (viewerError) {
@@ -693,334 +438,268 @@ const GenerateInvoice = ({navigation}) => {
       } else {
         throw new Error(viewResponse.error || 'Failed to load invoice');
       }
-    } catch (error) {
-      console.error('Error viewing invoice:', error);
-      Alert.alert('Error', error.message || 'Failed to view invoice');
+    } catch (viewError) {
+      console.error('Error viewing invoice:', viewError);
+      Alert.alert('Error', viewError.message || 'Failed to view invoice');
     } finally {
       setProcessingTransaction(null);
     }
   };
 
-  const handleSendInvoice = async (transaction) => {
-    const txNumber = transaction.transactionNumber || transaction.trxNumber;
+  const handleSendInvoice = async (invoice) => {
+    const txNumber = invoice.transactionNumber;
     if (!txNumber) {
-      Alert.alert('Error', 'Transaction number is missing');
+      Alert.alert('Error', 'Invoice number is missing');
       return;
     }
-
-    // Prevent multiple simultaneous requests
-    if (processingTransaction) {
-      return;
-    }
+    if (processingTransaction) return;
 
     try {
       setProcessingTransaction(txNumber);
-
-      const emailResponse = await generateInvoiceApi({
-        transactionNumber: txNumber,
-      });
-
+      const emailResponse = await generateInvoiceApi({transactionNumber: txNumber});
       if (emailResponse.success) {
-        const emailAddress = emailResponse.sentTo || emailResponse.details?.sentTo || selectedBuyer?.email || 'the buyer';
+        const emailAddress = emailResponse.sentTo || emailResponse.details?.sentTo || invoice.buyerEmail || 'the buyer';
         Alert.alert(
           'Success',
           `Invoice has been sent successfully to:\n\n${emailAddress}\n\nPlease check the email inbox.`,
-          [{text: 'OK'}]
+          [{text: 'OK'}],
         );
       } else {
         throw new Error(emailResponse.error || 'Failed to send invoice');
       }
-    } catch (error) {
-      console.error('Error sending invoice:', error);
-      Alert.alert('Error', error.message || 'Failed to send invoice');
+    } catch (sendError) {
+      console.error('Error sending invoice:', sendError);
+      Alert.alert('Error', sendError.message || 'Failed to send invoice');
     } finally {
       setProcessingTransaction(null);
     }
   };
 
-  const handleInvoiceGenerated = () => {
-    // Refresh transactions after invoice generation
-    if (selectedBuyer) {
-      fetchTransactions(selectedBuyer);
-    }
+  const filterChips = [
+    {
+      key: 'date',
+      label: 'Date',
+      active: !!filters.dateRange,
+      onPress: () => {
+        if (filters.dateRange) {
+          setFilters((prev) => ({...prev, dateRange: null}));
+          setDateOpen(false);
+          return;
+        }
+        setDateOpen(true);
+      },
+    },
+    {
+      key: 'buyer',
+      label: 'Buyer',
+      active: asIdList(filters.buyer).length > 0,
+      onPress: () => {
+        if (asIdList(filters.buyer).length > 0) {
+          setFilters((prev) => ({...prev, buyer: null}));
+          setBuyerOpen(false);
+          return;
+        }
+        setBuyerOpen(true);
+      },
+    },
+    {
+      key: 'joiner',
+      label: 'Joiner',
+      active: !!filters.joiner,
+      onPress: () => {
+        if (filters.joiner) {
+          setFilters((prev) => ({...prev, joiner: null}));
+          setJoinerOpen(false);
+          return;
+        }
+        setJoinerOpen(true);
+      },
+    },
+    {
+      key: 'plantFlight',
+      label: 'Plant Flight',
+      active: filters.plantFlight?.length > 0,
+      onPress: () => {
+        if (filters.plantFlight?.length > 0) {
+          setFilters((prev) => ({...prev, plantFlight: []}));
+          setFlightOpen(false);
+          return;
+        }
+        setFlightOpen(true);
+      },
+    },
+  ];
+
+  const renderInvoice = ({item}) => {
+    const busy = processingTransaction === item.transactionNumber;
+    return (
+      <View style={styles.invoiceRow}>
+        <View style={styles.invoiceTop}>
+          <Text style={styles.invoiceDate} numberOfLines={1}>
+            {formatInvoiceDate(item.createdAt)}
+          </Text>
+          <Text style={styles.invoiceTotal} numberOfLines={1}>
+            {formatMoney(item.finalTotal)}
+          </Text>
+        </View>
+        <Text style={styles.invoiceNumber} numberOfLines={1}>
+          Invoice # {item.transactionNumber}
+        </Text>
+        <View style={styles.invoiceBottom}>
+          <Text style={styles.invoiceBuyer} numberOfLines={1}>
+            {item.buyerName}
+          </Text>
+          <View style={styles.invoiceActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, busy && styles.buttonDisabled]}
+              onPress={() => handleViewInvoice(item)}
+              disabled={busy}
+              activeOpacity={0.7}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color="#539461" />
+              ) : (
+                <Text style={styles.actionButtonText}>View</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, busy && styles.buttonDisabled]}
+              onPress={() => handleSendInvoice(item)}
+              disabled={busy}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonText}>Email</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <GenerateInvoiceHeader navigation={navigation} />
+  return (
+    <SafeAreaProvider>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <GenerateInvoiceHeader navigation={navigation} />
+
+      <View style={styles.filterRow}>
+        {filterChips.map((chip) => (
+          <Pressable
+            key={chip.key}
+            onPress={chip.onPress}
+            style={[styles.filterChip, chip.active && styles.filterChipActive]}
+          >
+            <Text style={[styles.filterChipText, chip.active && styles.filterChipTextActive]} numberOfLines={1}>
+              {chip.label}
+            </Text>
+            <ArrowDownIcon width={14} height={14} />
+          </Pressable>
+        ))}
+      </View>
+
+      {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#539461" />
-          <Text style={styles.loadingText}>Loading buyers...</Text>
+          <Text style={styles.loadingText}>Loading invoices...</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error && buyers.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <GenerateInvoiceHeader navigation={navigation} />
+      ) : error && invoices.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchBuyers}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchInvoices(1)}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <GenerateInvoiceHeader navigation={navigation} />
-      
-      {/* Buyer Selection Dropdown */}
-      <View style={styles.buyerDropdownContainer}>
-        <TouchableOpacity 
-          style={styles.buyerDropdown}
-          onPress={() => setShowBuyerModal(true)}
-        >
-          <Text style={styles.buyerDropdownText} numberOfLines={1}>
-            {selectedBuyer 
-              ? (selectedBuyer.name || `${selectedBuyer.firstName || ''} ${selectedBuyer.lastName || ''}`.trim() || selectedBuyer.email || 'Selected Buyer')
-              : 'Select Buyer'}
-          </Text>
-          <ArrowDownIcon width={20} height={20} fill="#647276" />
-        </TouchableOpacity>
-        {selectedBuyer && (
-          <TouchableOpacity 
-            style={styles.clearBuyerButton}
-            onPress={() => setSelectedBuyer(null)}
-          >
-            <Text style={styles.clearBuyerText}>Clear</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Buyer Selection Modal */}
-      <BuyerSelectionModal
-        isVisible={showBuyerModal}
-        onClose={() => {
-          setShowBuyerModal(false);
-          setBuyerSearchQuery('');
-        }}
-        onSelectBuyer={handleSelectBuyer}
-        buyers={buyers}
-        loading={loadingBuyers}
-        searchQuery={buyerSearchQuery}
-        onSearchChange={setBuyerSearchQuery}
-      />
-
-      {/* Invoice Generation Modal */}
-      <InvoiceGenerationModal
-        isVisible={showInvoiceModal}
-        onClose={() => {
-          setShowInvoiceModal(false);
-          setSelectedTransaction(null);
-        }}
-        buyer={selectedBuyer}
-        transaction={selectedTransaction}
-        onGenerate={handleInvoiceGenerated}
-      />
-
-      {/* Transactions List (when buyer is selected) or Buyers List */}
-      {selectedBuyer ? (
-        <>
-          {loadingTransactions ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#539461" />
-              <Text style={styles.loadingText}>Loading transactions...</Text>
-            </View>
-          ) : transactionError ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{transactionError}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={() => fetchTransactions(selectedBuyer)}>
-                <Text style={styles.retryButtonText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : transactions.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No paid transactions found for this buyer</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={transactions}
-              keyExtractor={(item) => item.id?.toString() || item.transactionNumber || item.orderId || Math.random().toString()}
-              contentContainerStyle={styles.flatListContent}
-              renderItem={({item: transaction}) => {
-                const formatDate = (dateInput) => {
-                  if (!dateInput) return 'Unknown';
-                  try {
-                    let date = null;
-                    if (dateInput && typeof dateInput === 'object') {
-                      if (dateInput.toDate && typeof dateInput.toDate === 'function') {
-                        date = dateInput.toDate();
-                      } else if (dateInput.seconds) {
-                        date = new Date(dateInput.seconds * 1000);
-                      } else if (dateInput._seconds) {
-                        date = new Date(dateInput._seconds * 1000);
-                      }
-                    } else if (typeof dateInput === 'string') {
-                      date = new Date(dateInput);
-                    } else if (typeof dateInput === 'number') {
-                      date = new Date(dateInput < 4102444800000 ? dateInput * 1000 : dateInput);
-                    }
-                    
-                    if (!date || isNaN(date.getTime())) return 'Unknown';
-                    
-                    return date.toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    });
-                  } catch (e) {
-                    return 'Unknown';
-                  }
-                };
-
-                const txNumber = transaction.transactionNumber || transaction.trxNumber || transaction.id || 'N/A';
-                const status = transaction.status || 'Unknown';
-                const orderDate = formatDate(transaction.createdAt || transaction.orderDate || transaction.dateCreated);
-                const totalPrice = transaction.totalPrice || transaction.price || transaction.finalTotal || 'N/A';
-                
-                // Format flight date
-                const formatFlightDateForDisplay = (dateInput) => {
-                  if (!dateInput) return null;
-                  try {
-                    let date = null;
-                    if (dateInput && typeof dateInput === 'object') {
-                      if (dateInput.toDate && typeof dateInput.toDate === 'function') {
-                        date = dateInput.toDate();
-                      } else if (dateInput.seconds) {
-                        date = new Date(dateInput.seconds * 1000);
-                      } else if (dateInput._seconds) {
-                        date = new Date(dateInput._seconds * 1000);
-                      }
-                    } else if (typeof dateInput === 'string') {
-                      date = new Date(dateInput);
-                    } else if (typeof dateInput === 'number') {
-                      date = new Date(dateInput < 4102444800000 ? dateInput * 1000 : dateInput);
-                    }
-                    
-                    if (!date || isNaN(date.getTime())) return null;
-                    
-                    return date.toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    });
-                  } catch (e) {
-                    return null;
-                  }
-                };
-                
-                const flightDate = transaction.cargoDateFormatted || 
-                                  transaction.flightDateFormatted || 
-                                  formatFlightDateForDisplay(transaction.cargoDate) ||
-                                  formatFlightDateForDisplay(transaction.flightDate);
-                
-                return (
-                  <View style={styles.transactionCard}>
-                    <View style={styles.transactionCardContent}>
-                      <View style={styles.transactionCardInfo}>
-                        <Text style={styles.transactionCardTitle}>Transaction #{txNumber}</Text>
-                        <Text style={styles.transactionCardDate}>{orderDate}</Text>
-                        {flightDate && (
-                          <Text style={styles.transactionCardFlightDate}>Flight Date: {flightDate}</Text>
-                        )}
-                        <View style={styles.transactionCardMeta}>
-                          <Text style={styles.transactionCardStatus}>Status: {status}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.buttonsContainer}>
-                        <TouchableOpacity
-                          style={[
-                            styles.viewButton,
-                            processingTransaction === txNumber && styles.buttonDisabled
-                          ]}
-                          onPress={() => handleViewInvoice(transaction)}
-                          disabled={processingTransaction === txNumber}
-                          activeOpacity={0.7}
-                        >
-                          {processingTransaction === txNumber ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                          ) : (
-                            <Text style={styles.viewButtonText}>View</Text>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.sendButton,
-                            processingTransaction === txNumber && styles.buttonDisabled
-                          ]}
-                          onPress={() => handleSendInvoice(transaction)}
-                          disabled={processingTransaction === txNumber}
-                          activeOpacity={0.7}
-                        >
-                          {processingTransaction === txNumber ? (
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                          ) : (
-                            <Text style={styles.sendButtonText}>Send to Email</Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-          )}
-        </>
       ) : (
-        <>
-          {buyers.length === 0 ? (
+        <FlatList
+          data={invoices}
+          keyExtractor={(item) => item.id}
+          style={styles.invoiceList}
+          contentContainerStyle={styles.flatListContent}
+          renderItem={renderInvoice}
+          ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No buyers available</Text>
+              <Text style={styles.emptyText}>No invoices found</Text>
             </View>
-          ) : (
-            <FlatList
-              data={buyers}
-              keyExtractor={(item) => item.id?.toString() || item.email || Math.random().toString()}
-              contentContainerStyle={styles.flatListContent}
-              renderItem={({item: buyer}) => {
-                const buyerName = buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.email || 'Unknown';
-                const avatarUrl = buyer.profileImage || buyer.avatar || '';
-                
-                return (
-                  <TouchableOpacity
-                    style={styles.buyerCard}
-                    onPress={() => handleBuyerClick(buyer)}
-                    activeOpacity={0.7}
-                  >
-                    {avatarUrl ? (
-                      <AppImage source={{ uri: avatarUrl }} style={styles.buyerCardAvatar} />
-                    ) : (
-                      <View style={[styles.buyerCardAvatar, styles.buyerCardAvatarPlaceholder]}>
-                        <Text style={styles.buyerCardAvatarText}>
-                          {buyerName.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.buyerCardInfo}>
-                      <Text style={styles.buyerCardName}>{buyerName}</Text>
-                      {buyer.email && (
-                        <Text style={styles.buyerCardEmail}>{buyer.email}</Text>
-                      )}
-                      {buyer.username && buyer.username !== buyer.email && (
-                        <Text style={styles.buyerCardUsername}>@{buyer.username}</Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          )}
-        </>
+          }
+          ListFooterComponent={
+            page < totalPages ? (
+              <TouchableOpacity
+                style={styles.loadMoreButton}
+                onPress={() => fetchInvoices(page + 1)}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <ActivityIndicator size="small" color="#539461" />
+                ) : (
+                  <Text style={styles.loadMoreText}>Load more</Text>
+                )}
+              </TouchableOpacity>
+            ) : null
+          }
+        />
       )}
+
+      {(dateOpen || buyerOpen || joinerOpen || flightOpen) ? (
+      <View style={styles.filterHost}>
+      <DateRangeFilter
+        embedded
+        isVisible={dateOpen}
+        onClose={() => setDateOpen(false)}
+        onSelectDateRange={(dateRange) => {
+          setFilters((prev) => ({...prev, dateRange}));
+          setDateOpen(false);
+        }}
+        onReset={() => {
+          setFilters((prev) => ({...prev, dateRange: null}));
+          setDateOpen(false);
+        }}
+      />
+      <BuyerFilter
+        embedded
+        isVisible={buyerOpen}
+        onClose={() => setBuyerOpen(false)}
+        buyers={invoiceBuyerOptions}
+        currentBuyer={filters.buyer}
+        onSelectBuyer={(buyerId) => {
+          setFilters((prev) => ({...prev, buyer: buyerId}));
+          setBuyerOpen(false);
+        }}
+      />
+      <JoinerFilter
+        embedded
+        isVisible={joinerOpen}
+        onClose={() => setJoinerOpen(false)}
+        joiners={joinerOptions}
+        onSelectJoiner={(joinerId) => {
+          setFilters((prev) => ({...prev, joiner: joinerId}));
+          setJoinerOpen(false);
+        }}
+        onReset={() => {
+          setFilters((prev) => ({...prev, joiner: null}));
+          setJoinerOpen(false);
+        }}
+      />
+      <PlantFlightFilter
+        embedded
+        isVisible={flightOpen}
+        onClose={() => setFlightOpen(false)}
+        flightDates={invoiceFlightDates}
+        selectedValues={filters.plantFlight || []}
+        onSelectFlight={(values) => {
+          const next = Array.isArray(values)
+            ? values.filter((value) => typeof value === 'string' && value.trim())
+            : [];
+          setFilters((prev) => ({...prev, plantFlight: next}));
+          setFlightOpen(false);
+        }}
+        onReset={() => {
+          setFilters((prev) => ({...prev, plantFlight: []}));
+          setFlightOpen(false);
+        }}
+      />
+      </View>
+      ) : null}
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 };
 
@@ -1500,4 +1179,183 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
   },
+  invoiceList: {
+    flex: 1,
+  },
+  filterHost: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 30,
+    elevation: 30,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    zIndex: 2,
+  },
+  filterPanel: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    maxHeight: 240,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  filterPanelScroll: {
+    maxHeight: 240,
+  },
+  filterOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F3',
+  },
+  filterOptionText: {
+    fontFamily: 'Inter',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#202325',
+  },
+  filterOptionSub: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#647276',
+    marginTop: 2,
+  },
+  filterEmpty: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#647276',
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+  },
+  filterChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  filterChipActive: {
+    borderColor: '#23C16B',
+    backgroundColor: '#E8F5E9',
+  },
+  filterChipText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#393D40',
+    flexShrink: 1,
+  },
+  filterChipTextActive: {
+    fontWeight: '600',
+    color: '#23C16B',
+  },
+  columnHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 12,
+  },
+  columnHeaderText: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 0.2,
+  },
+  invoiceRow: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F3',
+    gap: 4,
+  },
+  invoiceTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  invoiceDate: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#202325',
+  },
+  invoiceTotal: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#202325',
+  },
+  invoiceNumber: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#647276',
+  },
+  invoiceBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 2,
+  },
+  invoiceBuyer: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#202325',
+  },
+  invoiceActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionButton: {
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#539461',
+  },
+  loadMoreButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  loadMoreText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#539461',
+  },
+
 });

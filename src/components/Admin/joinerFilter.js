@@ -49,7 +49,7 @@ const JoinerItem = ({ name, avatarUrl, onSelect }) => {
   );
 };
 
-const JoinerFilter = ({ isVisible, onClose, onSelectJoiner, onReset, joiners = [] }) => {
+const JoinerFilter = ({ isVisible, onClose, onSelectJoiner, onReset, joiners = [], embedded = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = React.useRef(null);
 
@@ -70,12 +70,7 @@ const JoinerFilter = ({ isVisible, onClose, onSelectJoiner, onReset, joiners = [
     }
   };
 
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}>
+  const sheet = (
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
@@ -199,6 +194,20 @@ const JoinerFilter = ({ isVisible, onClose, onSelectJoiner, onReset, joiners = [
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+  );
+
+  if (embedded) {
+    if (!isVisible) return null;
+    return <View style={{flex: 1}}>{sheet}</View>;
+  }
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}>
+      {sheet}
     </Modal>
   );
 };

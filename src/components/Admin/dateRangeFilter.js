@@ -10,7 +10,7 @@ import CloseIcon from '../../assets/admin-icons/x.svg';
 import CaretLeftIcon from '../../assets/icons/greylight/caret-left-regular.svg';
 import CaretRightIcon from '../../assets/icons/greylight/caret-right-regular.svg';
 
-const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => {
+const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset, embedded = false }) => {
   const now = new Date();
   const [fromDate, setFromDate] = useState(null);
   const [toDate, setToDate] = useState(null);
@@ -204,12 +204,7 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
     return days;
   };
 
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}>
+  const sheet = (
       <View style={styles.modalOverlay}>
         <View style={styles.filterContainer}>
           {/* Action Sheet */}
@@ -352,6 +347,20 @@ const DateRangeFilter = ({ isVisible, onClose, onSelectDateRange, onReset }) => 
           </View>
         </View>
       </View>
+  );
+
+  if (embedded) {
+    if (!isVisible) return null;
+    return <View style={{flex: 1}}>{sheet}</View>;
+  }
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}>
+      {sheet}
     </Modal>
   );
 };

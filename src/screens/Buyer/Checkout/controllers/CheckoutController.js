@@ -2590,12 +2590,14 @@ export const useCheckoutController = (props) => {
           totalShippingCost: orderSummary.totalShippingCost || 0,
           finalShippingCost: orderSummary.finalShippingCost || 0,
           remainingShippingCredit: orderSummary.shippingCreditNote ? (shippingCalculation?.remainingShippingCredit || 0) : 0,
+          codeDiscount: orderSummary.codeDiscount || 0,
+          appliedDiscountCode: appliedDiscount.code || orderSummary.appliedDiscountCode || null,
         },
-        // Include discount information to track usage
-        // Always send discountCode if discountId exists (even if amount is 0, e.g., for freeShipping)
-        ...(appliedDiscount.discountId && {
-          discountId: appliedDiscount.discountId,
-          discountCode: appliedDiscount.code || discountCode.trim().toUpperCase(),
+        // Include discount information to track usage.
+        // Send the code whenever one is applied, even if the id is missing.
+        ...((appliedDiscount.discountId || appliedDiscount.code || discountCode.trim()) && {
+          discountId: appliedDiscount.discountId || null,
+          discountCode: (appliedDiscount.code || discountCode).trim().toUpperCase(),
         }),
       };
 

@@ -89,6 +89,7 @@ const BuyerFilter = ({
   onSearch,
   selectedValues,
   currentBuyer = null,
+  embedded = false,
 }) => {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -206,15 +207,7 @@ const BuyerFilter = ({
   const canShowMoreSearchResults =
     hasActiveSearch && !showAllResults && filteredBuyers.length >= 5;
 
-  return (
-    <Modal
-      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
-      transparent
-      visible={isVisible}
-      onRequestClose={onClose}
-      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
-      statusBarTranslucent={Platform.OS === 'android'}
-    >
+  const sheet = (
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
@@ -328,6 +321,23 @@ const BuyerFilter = ({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+  );
+
+  if (embedded) {
+    if (!isVisible) return null;
+    return <View style={{flex: 1}}>{sheet}</View>;
+  }
+
+  return (
+    <Modal
+      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
+      transparent
+      visible={isVisible}
+      onRequestClose={onClose}
+      presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
+      statusBarTranslucent={Platform.OS === 'android'}
+    >
+      {sheet}
     </Modal>
   );
 };
