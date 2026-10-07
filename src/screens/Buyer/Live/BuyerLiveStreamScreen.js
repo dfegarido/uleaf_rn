@@ -1,4 +1,6 @@
 import AppImage from '../../../components/AppImage/AppImage';
+import PlantListingImage from '../../../components/PlantListingImage/PlantListingImage';
+import { getShopListingImageUri } from '../../../utils/plantListingImage';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -1204,12 +1206,26 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       {/* Only the action column rides the keyboard. It deliberately does NOT wrap the stream:
           KeyboardAvoidingView is a plain View, so an absolute-fill child inside it is confined
           to its (safe-area inset) box and the video letterboxes top and bottom. As a direct
-          child of the SafeAreaView the stream keeps filling the whole screen. `padding` on iOS
-          lifts composer, chat and product card together; Android uses `height` because
-          windowSoftInputMode=adjustResize already shrinks the window there. */}
+          child of the SafeAreaView the stream keeps filling the whole screen.
+
+          `padding` on BOTH platforms. Android used `height` on the assumption that
+          windowSoftInputMode=adjustResize shrinks the window there, but this build is
+          edge-to-edge (android/gradle.properties edgeToEdgeEnabled=true), so the DecorView
+          stays 800dp and the IME is NOT subtracted from it. Under `height` that broke two
+          ways: the avoider's frame never rose with the keyboard, so
+          `frame.y + frame.height - keyboardY` over-counted the keyboard; and because
+          `height` ALSO shrinks the view, the shrink moved the view down, which enlarged the
+          next delta (traced: 203 -> 406 -> 609 -> 1015). `state.bottom` then exceeded
+          `_initialFrameHeight`, so RN rendered `height: 650 - 1015 = -365` and the whole
+          action column (composer, chat, product card) collapsed.
+
+          `padding` cannot do that: it never sets an explicit height, and the non-height
+          branch of `_relativeKeyboardHeight` reads the live frame, so it self-corrects to 0
+          if a future config DOES resize the window. It also matches the iOS path already
+          verified here. */}
       <KeyboardAvoidingView
         style={styles.keyboardAvoider}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         keyboardVerticalOffset={0}>
       <View style={styles.actionBar}>
         <View style={styles.social}>
@@ -1397,13 +1413,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             <GlassView variant="dark" radius={28} style={styles.shopGlass}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
-                <AppImage
-                  source={
-                    activeListing.imagePrimary
-                      ? { uri: activeListing.imagePrimary }
-                      : undefined
-                  }
+                <PlantListingImage
+                  uri={getShopListingImageUri(activeListing)}
                   style={styles.listingThumb}
+                  resizeMode="cover"
                 />
                 <View style={styles.plantName}>
                   {/* The IG<n> index sits with the plant name it identifies, not floating in the

@@ -19,6 +19,7 @@ import SocialIcon from '../../../assets/iconnav/social.svg';
 import CalendarBlankIcon from '../../../assets/icons/greylight/calendar-blank-regular.svg';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import Avatar from '../../../components/Avatar/Avatar';
+import GlassView from '../../../components/Glass/GlassView';
 import SearchHeader from '../../../components/Header/SearchHeader';
 import { resolveSellerDisplayName } from '../../../utils/resolveSellerAlias';
 import { useNavigation } from '@react-navigation/native';
@@ -240,20 +241,31 @@ const LiveFeedCard = ({ stream, cardWidth, index, sellerMap, onPress }) => {
                   </View>
                 )}
                 {isUpcoming && (
-                  <View style={[styles.timeBadge, isCountdown && styles.countdownBadge]}>
-                    <Text style={[styles.timeBadgeText, isCountdown && styles.countdownBadgeText]}>{upcomingText}</Text>
-                  </View>
+                  isCountdown ? (
+                    <View style={[styles.timeBadge, styles.countdownBadge]}>
+                      <Text style={[styles.timeBadgeText, styles.countdownBadgeText]}>{upcomingText}</Text>
+                    </View>
+                  ) : (
+                    <GlassView variant="control" radius={8}>
+                      <View style={styles.timeBadge}>
+                        <Text style={styles.timeBadgeText}>{upcomingText}</Text>
+                      </View>
+                    </GlassView>
+                  )
                 )}
               </View>
               <View style={styles.badgeRow}>
-                <View style={styles.countBadge}>
-                  <SocialIcon width={12} height={12} />
-                  <Text style={styles.countBadgeText}>{formatViewers(stream.totalViewers || 0)}</Text>
-                </View>
+                <GlassView variant="control" radius={8}>
+                  <View style={styles.countBadge}>
+                    <SocialIcon width={12} height={12} />
+                    <Text style={styles.countBadgeText}>{formatViewers(stream.totalViewers || 0)}</Text>
+                  </View>
+                </GlassView>
               </View>
             </View>
 
             <View style={styles.bottomOverlay}>
+              <GlassView variant="dark" radius={0} style={StyleSheet.absoluteFill} />
               <Text style={styles.cardTitle} numberOfLines={2}>
                 {stream.title || 'Untitled Stream'}
               </Text>
@@ -742,8 +754,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 8,
     gap: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.64)',
     borderRadius: 8,
+    // No backgroundColor: the GlassView `control` token supplies the surface for the
+    // scheduled badge. The countdown variant below still paints its own accent, because a
+    // live countdown must not be translucent.
   },
   timeBadgeText: {
     fontFamily: 'Inter',
@@ -763,8 +777,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 8,
     gap: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.64)',
     borderRadius: 8,
+    // Surface comes from the GlassView `control` token wrapping it (see LiveFeedCard).
   },
   countBadgeText: {
     fontFamily: 'Inter',
@@ -779,7 +793,8 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 8,
     paddingTop: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    // Surface comes from the absolute-fill GlassView `dark` token inside it; a fill here
+    // would sit ON TOP of the material and re-darken the title bar.
     zIndex: 1,
   },
   cardTitle: {
