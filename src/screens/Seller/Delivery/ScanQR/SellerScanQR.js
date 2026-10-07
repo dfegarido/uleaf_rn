@@ -23,6 +23,21 @@ import BackSolidIcon from '../../../../assets/iconnav/caret-left-bold.svg';
 import { updateOrderSellerScanned } from '../../../../components/Api/sellerOrderApi';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
 
+const formatScanDate = (value) => {
+  if (value == null || value === '') return 'Date TBD';
+  let parsed;
+  if (typeof value === 'object' && value._seconds) {
+    parsed = moment(value._seconds * 1000);
+  } else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    parsed = moment(value.slice(0, 10), 'YYYY-MM-DD');
+  } else if (typeof value === 'string') {
+    parsed = moment(value, ['MMM DD, YYYY', 'MMM D, YYYY'], true);
+  } else {
+    parsed = moment(value);
+  }
+  return parsed.isValid() ? parsed.format('MMM DD, YYYY') : 'Date TBD';
+};
+
 const DetailRow = ({ label, value, valueBold = false }) => (
   <View style={styles.detailRow}>
     <Text style={styles.detailLabel}>{label}</Text>
@@ -83,7 +98,7 @@ const ScanQRSellerScreen = ({ navigation, route }) => {
           }
           
           setLatestScannedData(filters.orderId + filters.plantCode);
-          const response = await updateOrderSellerScanned(filters, isScanning);
+          const response = await updateOrderSellerScanned(filters);
           
           setPlantData(response.data || {});
           setButtomData('success');
@@ -245,8 +260,8 @@ const ScanQRSellerScreen = ({ navigation, route }) => {
               <View style={styles.transactionSection}>
                 <Text style={styles.sectionTitle}>Transaction Details</Text>
                 <View style={styles.transactionDetailsContainer}>
-                  <DetailRow label="Plant Flight" value={plantData.flightDate ? moment(plantData.flightDate).format('MMM DD, YYYY') : 'Date TBD'} valueBold />
-                  <DetailRow label="Order Date" value={plantData.dateCreated ? moment(plantData.dateCreated._seconds * 1000).format('MMM DD, YYYY') : 'Date TBD'} valueBold />
+                  <DetailRow label="Plant Flight" value={formatScanDate(plantData.flightdate || plantData.flightDate || plantData.flightdateformatted)} valueBold />
+                  <DetailRow label="Order Date" value={formatScanDate(plantData.dateCreated || plantData.datecreated || plantData.orderdate)} valueBold />
                 </View>
               </View>
 

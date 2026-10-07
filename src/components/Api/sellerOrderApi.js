@@ -17,6 +17,37 @@ const toTimestampShape = (iso) => {
   };
 };
 
+/** Prefer a calendar day. "Oct 10, 2026" does not parse on the phone. */
+const isoFlightDate = (value) => {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+};
+
+/** Seller QR scan returns a raw orders row. The sheet reads camelCase names. */
+const normalizeScannedOrder = (row) => {
+  if (!row || typeof row !== 'object') return {};
+  const flightDate = isoFlightDate(row.flightdate)
+    || isoFlightDate(row.flightDate)
+    || row.flightdateformatted
+    || null;
+  const createdRaw = row.dateCreated || row.datecreated || row.createdAt || row.createdat || row.orderdate || null;
+  return {
+    ...row,
+    transactionNumber: row.transactionNumber || row.transactionnumber || '',
+    imagePrimary: row.imagePrimary || row.imageprimary || '',
+    plantCode: row.plantCode || row.plantcode || '',
+    plantSourceCountry: row.plantSourceCountry || row.plantsourcecountry || '',
+    genus: row.genus || '',
+    variegation: row.variegation || '',
+    size: row.size || row.potsizevariation || row.potSizeVariation || '',
+    listingType: row.listingType || row.listingtype || '',
+    orderQty: row.orderQty || row.orderqty || '',
+    flightDate,
+    dateCreated: typeof createdRaw === 'string' ? toTimestampShape(createdRaw) : createdRaw,
+  };
+};
+
 /** Normalize raw order rows from the edge fn into the screen's expected shape. */
 const normalizeOrderRow = (row) => {
   const normalized = { ...row };
@@ -30,12 +61,9 @@ const normalizeOrderRow = (row) => {
   return normalized;
 };
 
-export const updateOrderSellerScanned = async (data, isScanning = false) => {
+export const updateOrderSellerScanned = async (data) => {
   try {
 
-    if (isScanning) {
-      return;
-    }
     const token = await getStoredAuthToken();
     if ((typeof data) === 'string') {      
       data = JSON.parse(data)
@@ -56,7 +84,11 @@ export const updateOrderSellerScanned = async (data, isScanning = false) => {
       throw new Error(`Error ${response.status}: ${errorText}`);
     }
 
-    return await response.json();
+    const json = await response.json();
+    if (json && json.data) {
+      json.data = normalizeScannedOrder(json.data);
+    }
+    return json;
   } catch (error) {
     console.error('updateOrderSellerScanned error:', error.message);
     throw error;
