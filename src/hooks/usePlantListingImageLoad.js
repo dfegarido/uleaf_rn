@@ -23,6 +23,10 @@ const prefetchRemoteImage = async (uri) => {
   }
 };
 
+// A just-captured on-device snapshot (file path) is a valid slot source but has nothing to
+// prefetch and nothing to retry over the network.
+const isRemoteUri = (value) => /^https?:\/\//i.test(value);
+
 export const usePlantListingImageLoad = (
   imageUri,
   {
@@ -73,7 +77,7 @@ export const usePlantListingImageLoad = (
   // one attempt per PLANT_IMAGE_BACKOFF_MAX_MS keeps the JS thread calm while
   // still letting a slow decode eventually land.
   useEffect(() => {
-    if (!uri) {
+    if (!uri || !isRemoteUri(uri)) {
       return undefined;
     }
 
@@ -115,7 +119,7 @@ export const usePlantListingImageLoad = (
   }, [handleLoad]);
 
   const handleError = useCallback(() => {
-    if (imageLoadedRef.current) {
+    if (imageLoadedRef.current || !isRemoteUri(uri)) {
       return;
     }
 
@@ -123,7 +127,7 @@ export const usePlantListingImageLoad = (
       setShowSlowFallback(true);
     }
     setRetryKey(key => key + 1);
-  }, [enableSlowFallback]);
+  }, [enableSlowFallback, uri]);
 
   return {
     uri,

@@ -31,8 +31,15 @@ const PlantListingImage = ({
   staticSource = null,
   enableSlowFallback = true,
   resizeWidth = DEFAULT_IMAGE_WIDTH,
+  // A photo already on the device (the seller's just-taken snapshot). Local-first: it wins
+  // over `uri` while set, so it paints at once with no network or write dependency, and
+  // clearing it hands the slot to the remote photo through the same cross-fade.
+  localUri = null,
 }) => {
-  const resolvedUri = uri ? toResizedSupabaseUri(uri, resizeWidth) : null;
+  const sourceUri = localUri || uri;
+  const resolvedUri = sourceUri
+    ? toResizedSupabaseUri(sourceUri, resizeWidth)
+    : null;
 
   const {
     hasRemoteUri,

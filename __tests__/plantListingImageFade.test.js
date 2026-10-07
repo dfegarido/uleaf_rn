@@ -168,3 +168,67 @@ describe('PlantListingImage photo replacement', () => {
     expect(tree.root.findAllByType(Image).length).toBeGreaterThan(0);
   });
 });
+
+describe('PlantListingImage local-first photo (seller snapshot)', () => {
+  const LOCAL = '/var/mobile/Caches/live_snapshot_X_1.jpg';
+
+  const withLocal = (uri, localUri) => (
+    <PlantListingImage
+      uri={uri}
+      localUri={localUri}
+      style={{width: 56, height: 56}}
+      enableSlowFallback={false}
+    />
+  );
+
+  const mountLocal = (uri, localUri) => {
+    let tree;
+    act(() => {
+      tree = renderer.create(withLocal(uri, localUri));
+    });
+    return tree;
+  };
+
+  const setLocal = (tree, uri, localUri) => {
+    act(() => {
+      tree.update(withLocal(uri, localUri));
+    });
+  };
+
+  it('paints a local-only frame without the missing-image placeholder', () => {
+    const tree = mountLocal(null, LOCAL);
+    expect(incomingImages(tree)).toHaveLength(1);
+    expect(incomingImages(tree)[0].props.source.uri).toBe(LOCAL);
+  });
+
+  it('cross-fades remote -> local with no spinner and keeps the old photo underneath', () => {
+    const tree = mountLocal(FIRST, null);
+    fireLoad(tree);
+
+    setLocal(tree, FIRST, LOCAL);
+
+    expect(paintedImages(tree)).toHaveLength(1);
+    expect(paintedImages(tree)[0].props.source.uri).toContain('listings/a.jpg');
+    expect(incomingImages(tree)[0].props.source.uri).toBe(LOCAL);
+    expect(tree.root.findAllByType(ActivityIndicator)).toHaveLength(0);
+  });
+
+  it('keeps the local photo painted until the remote one decodes, then fades', () => {
+    const tree = mountLocal(FIRST, LOCAL);
+    fireLoad(tree);
+
+    // The write landed and the poll delivered the new remote photo; localUri clears.
+    setLocal(tree, SECOND, null);
+
+    expect(paintedImages(tree)).toHaveLength(1);
+    expect(paintedImages(tree)[0].props.source.uri).toBe(LOCAL);
+    expect(tree.root.findAllByType(ActivityIndicator)).toHaveLength(0);
+    expect(incomingImages(tree)[0].props.source.uri).toContain('listings/b.jpg');
+  });
+
+  it('does not prefetch or retry a local file over the network', () => {
+    Image.prefetch.mockClear();
+    mountLocal(null, LOCAL);
+    expect(Image.prefetch).not.toHaveBeenCalled();
+  });
+});
