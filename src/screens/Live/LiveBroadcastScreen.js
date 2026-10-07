@@ -1,6 +1,7 @@
 import AppImage from '../../components/AppImage/AppImage';
+import GlassView from '../../components/Glass/GlassView';
 
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   Dimensions,
@@ -28,8 +29,6 @@ import MicOffIcon from '../../assets/live-icon/muted.svg';
 import MicOnIcon from '../../assets/live-icon/unmuted.svg';
 
 import KeepAwake from 'react-native-keep-awake';
-import CaretDown from '../../assets/icons/white/caret-down.svg';
-import CaretUp from '../../assets/icons/white/caret-up.svg';
 import NoteIcon from '../../assets/live-icon/notes.svg';
 import ReverseCameraIcon from '../../assets/live-icon/reverse-camera.svg';
 import ScreenshotIcon from '../../assets/live-icon/screenshot.svg';
@@ -66,6 +65,7 @@ import {
   normalizeLiveCommentRow,
   subscribeToLiveComments,
 } from '../../utils/realtimeLiveComments';
+import { buildLiveChatFeed } from '../../utils/liveChatFeed';
 
 const liveShippingLabel = (listing, sellerClass) => {
   const cls = String(sellerClass || '').trim().toLowerCase();
@@ -134,9 +134,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   // listing through this ref instead of depending on the object identity.
   const activeListingRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isJoinListExpanded, setJoinListExpanded] = useState(false);
-  const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
-  const [lastJoinedUser, setLastJoinedUser] = useState(null);
+  // The session's joiners live in `live.joiners[]` (written by addViewerToLiveSession). Kept as
+  // a plain list and interleaved into the chat render below rather than mirrored into its own
+  // state/UI block.
+  const [joinedUsers, setJoinedUsers] = useState([]);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   // Set when the channel join is observed (either via the callback or the
@@ -517,8 +518,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         });
 
         const joinNotifications = data.joiners || [];
-        setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()]);
-        setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null);
+        setJoinedUsers(Array.isArray(joinNotifications) ? joinNotifications : []);
         setStickyNoteText(data.stickyNote || '');
 
         // Heartbeat: keep this session visible as "live" to buyers while the
@@ -634,6 +634,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   };
 
   const handleLongPressComment = (comment) => {
+    // Join notices are not the broadcaster's own comment: no edit/delete affordance.
+    if (comment.isJoin) return;
     const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
     
     if (comment.uid !== userId) return; 
@@ -731,6 +733,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     }
     setStickyNoteModalVisible(true);
   };
+
+  // Messages and join notices as ONE chronological feed. Memoised so the background poll does
+  // not re-sort and re-render the whole list while the broadcaster is reading or typing.
+  const chatFeed = useMemo(
+    () => buildLiveChatFeed(comments, joinedUsers),
+    [comments, joinedUsers],
+  );
 
     const formatViewersLikes = (data) => {
       // Use 'en-US' locale, compact notation, and 0-1 fraction digits
@@ -1124,63 +1133,32 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         <View style={styles.actionBar}>
           <View style={styles.social}>
             <View style={styles.leftColumn}>
-              {lastJoinedUser && (
-                <View style={styles.joinNotificationContainer}>
-                  <TouchableOpacity
-                    style={styles.joinNotificationHeader}
-                    onPress={() => setJoinListExpanded(!isJoinListExpanded)}>
-                    {isJoinListExpanded && (<Text style={styles.joinNotificationText}>
-                        Viewers who joined
-                    </Text>)}
-                    {!isJoinListExpanded &&(<View style={styles.joinedRow}>
-                          <AppImage source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
-                          <View style={styles.joinedContent}>
-                            <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
-                            <Text style={styles.joinedMessage}>👋 joined</Text>
-                          </View>
-                    </View>)}
-                    {isJoinListExpanded ? <CaretUp width={12} height={12} color="#fff" /> : <CaretDown width={12} height={12} color="#fff" />}
-                  </TouchableOpacity>
-                  {isJoinListExpanded && (
-                    <FlatList
-                      data={uniqueJoinedUsers}
-                      keyExtractor={(item) => item?.uid || item?.id}
-                      renderItem={({ item }) => (
-                        // <Text style={styles.joinNotificationText}>
-                        //   {item.displayName} joined 👋
-                        // </Text>
-                
-                        <View style={styles.commentRow}>
-                          <AppImage source={{ uri: item.photoURL }} style={styles.avatar} />
-                          <View style={styles.commentContent}>
-                            <Text style={styles.chatName}>{item.displayName}</Text>
-                            <Text style={styles.chatMessage}>👋 joined</Text>
-                          </View>
-                        </View>
-                      )}
-                      style={styles.joinList}
-                    />
-                  )}
-                </View>
-              )}
+              {/* One feed, one list: join notices and messages interleaved by time. The list is
+                  capped by its own maxHeight and scrolls inside that box. */}
             <View style={styles.comments}>
               <FlatList
                 ref={flatListRef}
-                data={comments}
-                style={{backgroundColor: 'rgba(0, 0, 0, 0.4)', borderRadius: 16}}
+                data={chatFeed}
+                style={styles.commentList}
                 keyExtractor={(item) => item.id}
+                /* Scrolling stays; only the indicator is suppressed, as asked. */
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.commentListContent}
                 renderItem={({ item }) => (
-                  <TouchableOpacity 
-                    style={styles.commentRow} 
-                    onLongPress={() => handleLongPressComment(item)}
-                    activeOpacity={0.7}
-                  >
-                    <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
-                    <View style={styles.commentContent}>
-                      <Text style={styles.chatName}>{item.name}</Text>
-                      <Text style={styles.chatMessage}>{item.message}</Text>
-                    </View>
-                  </TouchableOpacity>
+                  /* Every entry — comment or join notice alike — is one glass pill. */
+                  <GlassView variant="chatRow" style={styles.commentRow}>
+                    <TouchableOpacity
+                      style={styles.commentRowTouch}
+                      onLongPress={() => handleLongPressComment(item)}
+                      activeOpacity={0.7}
+                    >
+                      <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
+                      <View style={styles.commentContent}>
+                        <Text style={styles.chatName}>{item.name}</Text>
+                        <Text style={styles.chatMessage}>{item.message}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </GlassView>
                 )}
               />
               <TextInput
@@ -1512,30 +1490,6 @@ const styles = StyleSheet.create({
     height: '100%',
     marginTop: 250,
   },
-  joinNotificationContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 8,
-    maxHeight: 180,
-  },
-  joinNotificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  joinNotificationText: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: 'Inter',
-    paddingVertical: 2,
-  },
-  joinList: {
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
-  },
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -1545,39 +1499,34 @@ const styles = StyleSheet.create({
     height: 453,
     paddingBottom: 213
   },
+  // The chat list. `maxHeight` is the hard cap the user asked for; `flexShrink: 1` is what makes
+  // it safe — this container is a FIXED 453 tall with 213 bottom padding, so only 240 of content
+  // box is left and the list shares it with the 38pt input + 16 gap. Without the shrink the list
+  // would spill out of the container instead of scrolling, because RN children default to
+  // flexShrink 0.
+  commentList: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 16,
+    maxHeight: 240,
+    flexShrink: 1,
+  },
   commentRow: {
+    // The glass pill around ONE row (GlassView takes the fill/border/radius).
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    overflow: 'hidden',
+  },
+  // Inside the pill: avatar + text, on the row's own padding so the glass edge is not touched.
+  commentRowTouch: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    width: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  joinedRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    width: '90%',
-  },
-  joinedContent: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 2,
-    width: 118,
-  },
-  joinedName: {
-    ...baseFont,
-    fontWeight: '500',
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#FFF',
-  },
-  joinedMessage: {
-    ...baseFont,
-    fontWeight: '500',
-    fontSize: 13,
-    lineHeight: 22,
-    flexWrap: 'wrap',
-    color: '#fff',
-    height: 'auto',
+  // Separates the rows: a gap here, not a row margin, keeps each glass edge clean.
+  commentListContent: {
+    gap: 6,
   },
   avatar: {
     width: 24,

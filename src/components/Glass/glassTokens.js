@@ -10,36 +10,37 @@ export const GLASS_BLUR_ROUNDS = 6;
 
 /**
  * Surface tokens: tint over the blur, hairline border, corner radius, iOS blur type.
- * The tint stays in the 0.20-0.38 band on purpose — the video behind must stay readable
- * through every surface. Anything denser turns the panel into a solid dark rectangle,
- * which is exactly the look these variants exist to avoid.
+ * The tint is a deliberate compromise: dense enough that white text stays readable over a
+ * bright video feed, light enough that the surfaces still read as glass instead of grey
+ * slabs. The reference product card measured ~52% passage at 0.58 and was judged too dark
+ * on device, so the fills below sit near 0.46.
  */
 export const GLASS_VARIANTS = {
   // Large dark panels (product card)
   dark: {
-    fill: 'rgba(20, 20, 20, 0.30)',
-    border: 'rgba(255, 255, 255, 0.20)',
+    fill: 'rgba(20, 20, 20, 0.46)',
+    border: 'rgba(255, 255, 255, 0.30)',
     radius: 28,
     blurType: 'dark',
   },
   // The comment input: a wide flat capsule, so it takes the pill radius.
   pill: {
-    fill: 'rgba(20, 20, 20, 0.30)',
-    border: 'rgba(255, 255, 255, 0.20)',
+    fill: 'rgba(20, 20, 20, 0.46)',
+    border: 'rgba(255, 255, 255, 0.30)',
     radius: 34,
     blurType: 'dark',
   },
   // Small floating controls (top bar pills, IG badge)
   control: {
-    fill: 'rgba(20, 20, 20, 0.26)',
-    border: 'rgba(255, 255, 255, 0.22)',
+    fill: 'rgba(20, 20, 20, 0.42)',
+    border: 'rgba(255, 255, 255, 0.30)',
     radius: 20,
     blurType: 'systemUltraThinMaterialDark',
   },
   // The right action rail: one narrow capsule holding all five actions, not five boxes.
   rail: {
-    fill: 'rgba(20, 20, 20, 0.24)',
-    border: 'rgba(255, 255, 255, 0.20)',
+    fill: 'rgba(20, 20, 20, 0.40)',
+    border: 'rgba(255, 255, 255, 0.30)',
     radius: 36,
     blurType: 'systemUltraThinMaterialDark',
   },
@@ -49,6 +50,14 @@ export const GLASS_VARIANTS = {
     border: 'rgba(255, 255, 255, 0.55)',
     radius: 26,
     blurType: 'light',
+  },
+  // A single chat row (one comment or one join notice) on the live overlays. Small and inline,
+  // so it takes a compact radius; the hairline border is what separates one row from the next.
+  chatRow: {
+    fill: 'rgba(20, 20, 20, 0.46)',
+    border: 'rgba(255, 255, 255, 0.30)',
+    radius: 14,
+    blurType: 'systemUltraThinMaterialDark',
   },
 };
 

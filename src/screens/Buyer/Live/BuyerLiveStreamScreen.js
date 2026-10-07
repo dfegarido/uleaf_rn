@@ -2,11 +2,15 @@ import AppImage from '../../../components/AppImage/AppImage';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   FlatList,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   NativeEventEmitter,
   NativeModules,
@@ -16,6 +20,7 @@ import { ActivityIndicator,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { ChannelProfileType,
@@ -26,9 +31,11 @@ import { ChannelProfileType,
 } from 'react-native-agora';
 import KeepAwake from 'react-native-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CaretDown from '../../../assets/icons/white/caret-down.svg';
+// react-native-svg draws the Buy Now gradient fill. Chosen over react-native-linear-gradient
+// because it is already proven on this build's New Architecture (Podfile :fabric_enabled,
+// android newArchEnabled) and needs no native rebuild for a JS-only change.
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import BackSolidIcon from '../../../assets/icons/white/caret-left-regular.svg';
-import CaretUp from '../../../assets/icons/white/caret-up.svg';
 import ActiveLoveIcon from '../../../assets/live-icon/heart-filled.svg';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import GuideIcon from '../../../assets/live-icon/guide.svg';
@@ -64,6 +71,7 @@ import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { shareLiveStream } from '../../../utils/liveShareLink';
 import { getAgoraUid } from '../../../utils/getAgoraUid';
 import { retryAsync } from '../../../utils/utils';
+import { buildLiveChatFeed } from '../../../utils/liveChatFeed';
 import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
 import GuideModal from './GuideModal'; // Import the new modal
@@ -185,9 +193,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [buyerPendingPayment, setBuyerPendingPayment] = useState(false);
   const [showStickyNote, setShowStickyNote] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
-  const [isJoinListExpanded, setJoinListExpanded] = useState(false);
-  const [uniqueJoinedUsers, setUniqueJoinedUsers] = useState([]);
-  const [lastJoinedUser, setLastJoinedUser] = useState(null);
+  // The session's joiners live in `live.joiners[]` (written by addViewerToLiveSession). Kept as
+  // a plain list and interleaved into the chat render below rather than mirrored into its own
+  // state/UI block.
+  const [joinedUsers, setJoinedUsers] = useState([]);
   const [soldToUser, setSoldToUser] = useState(null);
   const [checkOutData, setCheckOutData] = useState({});
   const [isLiveShopCheckoutVisible, setIsLiveShopCheckoutVisible] = useState(false);
@@ -195,6 +204,27 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // plant detail is still in flight — the modal renders skeletons meanwhile.
   const [isLiveCheckoutPending, setIsLiveCheckoutPending] = useState(false);
   const [editingComment, setEditingComment] = useState(null);
+  // Tracks the composer's focus. The rail slide below is driven off THIS, not the raw keyboard
+  // events, so it stays correct on Android too — where `adjustResize` resizes the window and
+  // keyboard events do not fire. The chat's collapsed height reads the same state.
+  const [isCommentFocused, setIsCommentFocused] = useState(false);
+  // The pill is 46pt tall but the TextInput inside it is only 20pt, so a tap on the padding —
+  // which looks identical to the input — used to do nothing at all: no focus, no keyboard, and
+  // the plant card stayed on screen. The whole pill now routes to the input.
+  const commentInputRef = useRef(null);
+  // The plant card collapses by its own measured height. A pixel target is needed because
+  // `height` cannot be interpolated on this build (an AnimatedInterpolation in the tree crashed
+  // RN 0.87 with "cannot add a new property"), so the value must already BE the height.
+  const cardHeightRef = useRef(0);
+  const cardAnimatingRef = useRef(false);
+  const cardCollapse = useRef(new Animated.Value(0)).current;
+  const cardFade = useRef(new Animated.Value(1)).current;
+  const [cardMeasured, setCardMeasured] = useState(false);
+  // Holds the rail's x-offset in POINTS (0..72). Deliberately NOT run through `interpolate()`:
+  // on RN 0.87 an `AnimatedInterpolation` nested in a transform throws
+  // "cannot add a new property" from `AnimatedWithChildren.__addChild` when it attaches, which
+  // takes the whole screen down. A raw `Animated.Value` in the same position is fine.
+  const sideRailShift = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
       if (!sessionId) return;
@@ -385,6 +415,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   };
 
   const handleLongPressComment = (comment) => {
+    // Join notices are not the viewer's own comment: no edit/delete affordance.
+    if (comment.isJoin) return;
     const userId = currentUserInfo?.uid || currentUserInfo?.id || currentUserInfo?.user?.uid || currentUserInfo?.user?.id;
     
     if (comment.uid !== userId) return; 
@@ -461,6 +493,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         setComments((prev) => prev.filter((c) => c.id !== pendingComment.id));
       }
   };
+
+  // Messages and join notices as ONE chronological feed. Memoised so a background poll (every
+  // 10s) does not re-sort and re-render the whole list while the user is reading or typing.
+  const chatFeed = useMemo(
+    () => buildLiveChatFeed(comments, joinedUsers),
+    [comments, joinedUsers],
+  );
 
   const formatViewersLikes = (data) => {
     // Use 'en-US' locale, compact notation, and 0-1 fraction digits
@@ -609,8 +648,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
          const joinNotifications = data?.joiners || [];
 
-         setUniqueJoinedUsers([...new Map(joinNotifications.slice().reverse().map(item => [item.uid, item])).values()])
-         setLastJoinedUser(joinNotifications.length > 0 ? joinNotifications[joinNotifications.length - 1] : null)
+         setJoinedUsers(Array.isArray(joinNotifications) ? joinNotifications : []);
        } else {
          console.log('Live session document does not exist.');
        }
@@ -989,10 +1027,77 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     
   };
 
+  // Duration-matched to the iOS keyboard so the rail rides the keyboard rather than racing it.
+  // Driven by focus (not keyboard events) so Android, where `adjustResize` resizes the window and
+  // keyboard events do not fire, lands in the same state. `useNativeDriver: false` because the
+  // value drives a plain style on a JS-animated node; the move is two frames of transform either
+  // way and correctness beats the marginal native win here.
+  useEffect(() => {
+    Animated.timing(sideRailShift, {
+      toValue: isCommentFocused ? SIDE_RAIL_HIDDEN_OFFSET : 0,
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [isCommentFocused, sideRailShift]);
+
+  // The card slides down out of the column while the keyboard comes up, and back when it goes.
+  // Same 250ms/curve as the rail so the three movements (rail, card, keyboard) read as one.
+  // The collapsed value is 0 and the expanded value is the measured height, which is why the
+  // `toValue` is inverted relative to focus.
+  useEffect(() => {
+    if (!cardMeasured) return;
+    cardAnimatingRef.current = true;
+    const timing = { duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: false };
+    Animated.parallel([
+      Animated.timing(cardCollapse, {
+        toValue: isCommentFocused ? 0 : cardHeightRef.current,
+        ...timing,
+      }),
+      Animated.timing(cardFade, { toValue: isCommentFocused ? 0 : 1, ...timing }),
+    ]).start(({ finished }) => {
+      cardAnimatingRef.current = !!finished;
+    });
+  }, [isCommentFocused, cardMeasured, cardCollapse, cardFade]);
+
+  // Measure the card so the collapse knows its travel. Layout events also fire throughout the
+  // animation with intermediate heights, and writing those back would fight the running
+  // `timing` (and a collapsed card re-reports 0), so both are ignored.
+  const onCardLayout = event => {
+    const h = event.nativeEvent.layout.height;
+    if (h <= 0 || cardAnimatingRef.current) return;
+    cardHeightRef.current = h;
+    cardCollapse.setValue(h);
+    if (!cardMeasured) setCardMeasured(true);
+  };
+
+  // While the keyboard is up the chat is pinned to a fixed minimal height so the column can
+  // never reach the top bar; otherwise it falls back to its resting 300pt cap. Plain state rather
+  // than an animated node — `minHeight`/`maxHeight` are not interpolatable by the native module,
+  // and the jump is invisible next to the keyboard's own travel.
+  // No `flex` here on purpose: `flex: 1` sets flexBasis 0, and the list measured 43pt (its
+  // minHeight floor) instead of the space it was given. Left alone it sizes to its content and
+  // stops at styles.commentList's 300pt cap, which is what lets it take the room freed by the
+  // hidden plant card while `leftColumn.paddingTop` keeps it off the back button.
+  const chatHeight = { minHeight: CHAT_MIN_HEIGHT };
+
+  // Until the card has been measured there is no height to animate to, so it renders at its
+  // natural size; afterwards the animated pixel height takes over.
+  const cardWrapStyle = cardMeasured
+    ? { height: cardCollapse, opacity: cardFade }
+    : null;
+
+  // The rail's slide-out. Kept as a value rather than an inline style prop so the transform
+  // object is not re-created on every render, and because the linter rejects style literals.
+  const railSlideStyle = { transform: [{ translateX: sideRailShift }] };
+
   const gotoPayToBoard = async () => {
     setIsLoading(true);
     navigation.navigate('Orders', { initialTab: 'Pay to Board' });
   }
+
+  // Dismiss on scroll/drag so the composer never strands the keyboard open over the chat.
+  const dismissKeyboard = () => Keyboard.dismiss();
 
   return (
    <SafeAreaView style={styles.container}>
@@ -1096,69 +1201,54 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             </View>
           )}
           
+      {/* Only the action column rides the keyboard. It deliberately does NOT wrap the stream:
+          KeyboardAvoidingView is a plain View, so an absolute-fill child inside it is confined
+          to its (safe-area inset) box and the video letterboxes top and bottom. As a direct
+          child of the SafeAreaView the stream keeps filling the whole screen. `padding` on iOS
+          lifts composer, chat and product card together; Android uses `height` because
+          windowSoftInputMode=adjustResize already shrinks the window there. */}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}>
       <View style={styles.actionBar}>
         <View style={styles.social}>
               <View style={styles.leftColumn}>
-                {lastJoinedUser && (
-                  <View style={styles.joinNotificationContainer}>
-                    <TouchableOpacity
-                      style={styles.joinNotificationHeader}
-                      onPress={() => setJoinListExpanded(!isJoinListExpanded)}>
-                      {isJoinListExpanded && (<Text style={styles.joinNotificationText}>
-                          Viewers who joined
-                      </Text>)}
-                      {!isJoinListExpanded &&(<View style={styles.joinedRow}>
-                            <AppImage source={{ uri: lastJoinedUser.photoURL }} style={styles.avatar} />
-                            <View style={styles.joinedContent}>
-                              <Text style={styles.joinedName}>{lastJoinedUser.displayName}</Text>
-                              <Text style={styles.joinedMessage}>👋 joined</Text>
-                            </View>
-                      </View>)}
-                      {isJoinListExpanded ? <CaretUp width={12} height={12} color="#fff" /> : <CaretDown width={12} height={12} color="#fff" />}
-                    </TouchableOpacity>
-                    {isJoinListExpanded && (
-                      <FlatList
-                        data={uniqueJoinedUsers}
-                        keyExtractor={(item) => item?.uid || item?.id}
-                        renderItem={({ item }) => (
-                          // <Text style={styles.joinNotificationText}>
-                          //   {item.displayName} joined 👋
-                          // </Text>
-                        
-                           <View style={styles.commentRow}>
-                            <AppImage source={{ uri: item.photoURL }} style={styles.avatar} />
-                            <View style={styles.commentContent}>
-                              <Text style={styles.chatName}>{item.displayName}</Text>
-                              <Text style={styles.chatMessage}>👋 joined</Text>
-                            </View>
-                          </View>
-                        )}
-                        style={styles.joinList}
-                      />
-                    )}
-                  </View>
-                )}
+                {/* One feed, one list: join notices and messages interleaved by time. The
+                    list is capped by styles.commentList (maxHeight) and scrolls inside that
+                    box, so a long session can never push the panel over the video. */}
               <View style={styles.comments}>
                 <FlatList
-                  style={styles.commentList}
+                  style={[styles.commentList, chatHeight]}
                   contentContainerStyle={styles.commentListContent}
                   ref={flatListRef}
-                  data={comments}
+                  data={chatFeed}
                   keyExtractor={(item) => item.id}
+                  /* Scrolling stays; only the indicator is suppressed, as asked. */
+                  showsVerticalScrollIndicator={false}
+                  keyboardDismissMode="on-drag"
+                  keyboardShouldPersistTaps="handled"
+                  onScrollBeginDrag={dismissKeyboard}
                   renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={styles.commentRow} 
-                      onLongPress={() => handleLongPressComment(item)}
-                      activeOpacity={0.7}
-                    >
-                      <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
-                      {/* One wrapping line: bold name then the message, as in the reference.
-                          A nested Text keeps them inline while the whole run still wraps. */}
-                      <Text style={styles.chatLine} numberOfLines={4}>
-                        <Text style={styles.chatName}>{item.name}</Text>
-                        <Text style={styles.chatMessage}>{`: ${item.message}`}</Text>
-                      </Text>
-                    </TouchableOpacity>
+                    /* Every entry — comment or join notice alike — is one glass pill. The row
+                       owns no surface of its own; GlassView supplies the fill, hairline border
+                       and clip. `commentRow` is still what measures/aligns the avatar + text. */
+                    <GlassView variant="chatRow" style={styles.commentRow}>
+                      <TouchableOpacity
+                        style={styles.commentRowTouch}
+                        onLongPress={() => handleLongPressComment(item)}
+                        activeOpacity={0.7}
+                      >
+                        <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
+                        {/* One wrapping line: bold name then the message, as in the reference.
+                            A nested Text keeps them inline while the whole run still wraps. A join
+                            notice is the same shape, so it needs no branch. */}
+                        <Text style={styles.chatLine} numberOfLines={4}>
+                          <Text style={styles.chatName}>{item.name}</Text>
+                          <Text style={styles.chatMessage}>{`: ${item.message}`}</Text>
+                        </Text>
+                      </TouchableOpacity>
+                    </GlassView>
                   )}
                 />
             </View>
@@ -1188,13 +1278,21 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             />
 
           </View> */}
-          <GlassView variant="rail" style={styles.sideActions}>
+              {/*
+                * This rail is a SIBLING of the chat column, not an overlay, so it cannot be
+                * drawn behind the keyboard — the only way to get it out of the composer's way
+                * is to slide it off the right edge. SIDE_RAIL_HIDDEN_OFFSET carries the measured
+                * value; the style is a hoisted object because `StyleSheet.create` freezes its
+                * values in DEV and the animated styles must stay writable.
+                */}
+              <Animated.View style={[styles.railWrap, railSlideStyle]}>
+              <GlassView variant="rail" style={styles.sideActions}>
               <TouchableOpacity
                 style={styles.sideAction}
                 onPress={() => shareLiveStream(sessionId, brodcasterId)}
                 accessibilityLabel="Share live">
                 <View style={styles.sideActionIconWrap}>
-                  <ShareReferralIcon width={32} height={32} />
+                  <ShareReferralIcon width={26} height={26} />
                 </View>
                 <Text style={styles.sideActionNotesText}>Share</Text>
               </TouchableOpacity>
@@ -1203,14 +1301,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 return liveStats?.lovedByUids && liveStats?.lovedByUids.includes(userId) ? (
                   <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
                     <View style={styles.sideActionIconWrap}>
-                      <ActiveLoveIcon width={32} height={32} />
+                      <ActiveLoveIcon width={26} height={26} />
                     </View>
                     <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity onPress={() => toggleLove()} style={styles.sideAction}>
                     <View style={styles.sideActionIconWrap}>
-                      <LoveIcon width={32} height={32} />
+                      <LoveIcon width={26} height={26} />
                     </View>
                     <Text style={styles.sideActionText}>{formatViewersLikes(liveStats.likeCount)}</Text>
                   </TouchableOpacity>
@@ -1218,25 +1316,26 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               })()}
               <TouchableOpacity onPress={() => setShowStickyNote(!showStickyNote)} style={styles.sideAction}>
                 <View style={styles.sideActionIconWrap}>
-                  <NoteIcon width={32} height={32} />
+                  <NoteIcon width={26} height={26} />
                 </View>
                 <Text style={styles.sideActionNotesText}>Notes</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.sideAction} onPress={() => setIsShopModalVisible(true)}>
                 <View style={styles.sideActionIconWrap}>
-                  <ShopIcon width={32} height={32} />
+                  <ShopIcon width={26} height={26} />
                 </View>
                 <Text style={styles.sideActionNotesText}>Shop</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.sideAction} onPress={() => navigation.navigate('ScreenCart')}>
                 <View style={styles.sideActionIconWrap}>
-                  <CartIconSelected width={32} height={32} />
+                  <CartIconSelected width={26} height={26} />
                 </View>
                 <Text style={styles.sideActionNotesText}>Cart</Text>
               </TouchableOpacity>
 
              
           </GlassView>
+              </Animated.View>
         </View>
         {/* The comment pill belongs to the full-width column, not the 48% chat column: it
             spans the screen like the product card below it. Kept above the card so the
@@ -1249,13 +1348,23 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               explicit height pins the native view and stops it re-measuring). Return
               still SENDS: `submitBehavior` replaces `blurOnSubmit` on a multiline input,
               whose default would be 'newline'. */}
+          {/* The touchable owns the pill's padding rather than sitting inside it. Padding on the
+              pill itself is OUTSIDE this child, so taps on it fell straight through: measured
+              card-visible after a tap at x=28 (pill padding) and x=200,y=575 (top padding), while
+              the same tap on the 20pt text band focused correctly. The pill is 46pt tall, so that
+              dead band was over half of it. */}
+          <TouchableWithoutFeedback onPress={() => commentInputRef.current?.focus()}>
+          <View style={styles.commentPillTouch}>
           <TextInput
+              ref={commentInputRef}
               style={styles.commentInput}
               placeholder="Ask a question or comment..."
               placeholderTextColor="rgba(255, 255, 255, 0.62)"
               value={newComment}
               onChangeText={setNewComment}
               onSubmitEditing={handleSendComment}
+              onFocus={() => setIsCommentFocused(true)}
+              onBlur={() => setIsCommentFocused(false)}
               returnKeyType="send"
               submitBehavior="blurAndSubmit"
               multiline
@@ -1266,13 +1375,26 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               numberOfLines={newComment === '' ? 1 : 4}
               textAlignVertical="top"
           />
+          </View>
+          </TouchableWithoutFeedback>
         </GlassView>
         {soldToUser && (
           <View style={styles.soldToContainer}>
             <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
           </View>
         )}
-        {activeListing && (<GlassView variant="dark" radius={28} style={styles.shopGlass}>
+        {/* The plant card slides down and fades while typing, freeing its ~208pt for the chat.
+            It is animated rather than unmounted: an instant conditional removal read as a jump,
+            and the column below the chat would reflow in a single frame. Height animates by the
+            card's own measured px, so no interpolation is involved. */}
+        {activeListing && (
+          <Animated.View
+            onLayout={onCardLayout}
+            style={[styles.plantCardWrap, cardWrapStyle]}
+            pointerEvents={isCommentFocused ? 'none' : 'auto'}
+            accessibilityElementsHidden={isCommentFocused}
+            importantForAccessibility={isCommentFocused ? 'no-hide-descendants' : 'auto'}>
+            <GlassView variant="dark" radius={28} style={styles.shopGlass}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
                 <AppImage
@@ -1334,23 +1456,40 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 <>
                   <LiveStreamAddToCartButton
                     onPress={() => handleAddToCart(activeListing)}
-                    variant="glass"
-                    radius={14}
-                    style={{ flex: 1, width: undefined }}
+                    variant="gradientLight"
+                    radius={18}
+                    style={styles.addToCartButton}
                   />
-                  <TouchableOpacity onPress={() => {
-                    buyNow(activeListing);
-                  }} style={[styles.actionButtonTouch, {flex: 1, width: undefined}]}>
-                    <Text style={styles.actionText}>Buy Now</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      buyNow(activeListing);
+                    }}
+                    style={styles.buyNowButton}
+                    activeOpacity={0.85}>
+                    {/* The gradient is a painting layer only: the Svg is an absolute fill, so it
+                        sits behind the label and contributes no layout height of its own. */}
+                    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+                      <Defs>
+                        <SvgLinearGradient id="buyNowGradient" x1="0" y1="0" x2="0" y2="1">
+                          <Stop offset="0" stopColor="#7CC97C" />
+                          <Stop offset="1" stopColor="#2E6B3E" />
+                        </SvgLinearGradient>
+                      </Defs>
+                      <Rect x="0" y="0" width="100%" height="100%" rx="18" ry="18" fill="url(#buyNowGradient)" />
+                    </Svg>
+                    <Text style={[styles.actionText, styles.buyNowText]}>Buy Now</Text>
                   </TouchableOpacity>
                 </>
               )} 
             </View>
-        </GlassView>)}
+            </GlassView>
+          </Animated.View>
+        )}
         {!activeListing && (<View style={styles.shop}>
                       <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
                     </View>)}
           </View>
+      </KeyboardAvoidingView>
         </>
       )}
        <GuideModal
@@ -1381,6 +1520,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 };
 
 export default BuyerLiveStreamScreen;
+
+// Reserved band at the top of the chat column for the header overlay, which floats on the
+// stream rather than being laid out above it. Back button measures y=73..117pt on the iPhone 17
+// sim; 130 clears its bottom edge with a 13pt margin.
+const HEADER_CLEARANCE = 130;
+// One chat row measures 36pt with its `gap`, so this floor leaves a line of context visible.
+const CHAT_MIN_HEIGHT = 44;
+// The rail is 56pt wide, sits 8pt from the right edge, and its left edge lands at x=322 when
+// closed — so it needs 80pt to clear the 402pt screen. 100 is that plus a margin; the screen
+// edge does the clipping.
+const SIDE_RAIL_HIDDEN_OFFSET = 100;
 
 const baseFont = {
   fontFamily: 'Inter',
@@ -1443,7 +1593,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingLeft: 16,
+    // No left inset here on purpose: the chat column carries the 16pt screen inset in its own
+    // padding, so its rows land on the SAME content line as the back button above and the
+    // comment pill below (was 16 + 10 inside the column = ~30pt, which read as a margin).
+    paddingLeft: 0,
     paddingRight: 8,
   },
   video: { flex: 1 },
@@ -1581,10 +1734,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   leftColumn: {
-    // A rounded chat surface in the middle-left. It HUGS its messages and grows upward from
-    // the bottom (justifyContent flex-end), so a quiet chat stays a small card instead of an
-    // empty half-screen box; maxHeight + flexShrink stop a busy chat from pushing past the
-    // column the parent gives it.
+    // Bare left column: it HUGS its messages and grows upward from the bottom (justifyContent
+    // flex-end), so a quiet chat stays a small block instead of an empty half-screen box;
+    // maxHeight + flexShrink stop a busy chat from pushing past the column the parent gives it.
+    // It carries NO surface of its own — the video runs edge to edge behind the messages.
     flexDirection: 'column',
     justifyContent: 'flex-end',
     // Pinned to the bottom of the row and only as tall as its messages, so a quiet chat is a
@@ -1596,38 +1749,25 @@ const styles = StyleSheet.create({
     // to the panel, and the `flex: 1` text column resolved to zero — the avatars drew while
     // every message vanished.
     width: '66%',
-    backgroundColor: 'rgba(20, 20, 20, 0.34)',
+    // Bare overlay: no chat surface behind the messages. The video shows straight through, so
+    // any future legibility work has to live on the text itself (shadow, not a panel tint).
+    backgroundColor: 'transparent',
     borderRadius: 16,
-    paddingHorizontal: 10,
+    // 16 aligns the avatars with the screen's content line (back button, comment pill); the
+    // previous 10 was stacked on top of social's own 16 and read as an unindented panel.
+    paddingHorizontal: 0,
     paddingVertical: 10,
+    // The header (back button, viewer pill) is an absolute overlay on the stream, so the column
+    // underneath it is free to grow to the very top of the screen. Reserving the header's band
+    // here is what stops the chat from sliding up under the back button when the keyboard is up
+    // and the list is allowed to take all the space the hidden plant card freed. Without it the
+    // rows measured y=20 and y=66 against a back button at y=73..117.
+    paddingTop: HEADER_CLEARANCE,
     overflow: 'hidden',
   },
-  // The join notice is just the first chat row in the reference, not a second tinted box
-  // stacked on top of the message list. Keeping it transparent removes the double-panel
-  // clutter; the caret and expand/collapse behaviour are unchanged.
-  joinNotificationContainer: {
-    backgroundColor: 'transparent',
-    paddingVertical: 2,
-    marginBottom: 4,
-    maxHeight: 180,
-    width: '100%',
-  },
-  joinNotificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  joinNotificationText: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: 'Inter',
-    paddingVertical: 2,
-  },
-  joinList: {
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.2)',
-  },
+  // The join notice is no longer a separate block: joiners are interleaved into the chat feed
+  // above, so the old joinNotification*/joinList*/joined* styles are gone. `commentContent` IS
+  // still used — by the commented-out legacy list further down the render.
   comments: {
     flexDirection: 'column',
     justifyContent: 'flex-end',
@@ -1637,53 +1777,47 @@ const styles = StyleSheet.create({
   },
   // FlatList has no intrinsic height: without flex it collapses to 0 inside the panel and the
   // chat silently renders nothing. It must own the remaining height of the panel.
+  // `maxHeight` is the comment-height LIMIT the user asked for: the list stops at 300pt and
+  // scrolls inside that box, so a busy session cannot fill the screen with chat. `flexShrink: 1`
+  // is what lets it give height back to the input pill below it instead of overflowing.
+  // Clips the plant card as it animates to zero height. The card's own shadow is clipped with
+  // it, which is only visible mid-animation.
+  plantCardWrap: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  // The rail is a flex child of the 48% chat column, so it needs centring once translated.
+  railWrap: {
+    alignSelf: 'center',
+  },
   commentList: {
     width: '100%',
     borderRadius: 16,
-  },
-  // The rows hug their content; the panel (leftColumn) carries flexShrink + maxHeight, so a
-  // busy chat shrinks and scrolls while a quiet one stays a small card. Giving the list itself
-  // `flex: 1` instead made it fill the whole column and stranded the messages in a tall box.
-  commentListContent: {
-    flexGrow: 0,
+    maxHeight: 300,
+    flexShrink: 1,
   },
   commentRow: {
+    // The glass pill around ONE row (GlassView takes the fill/border/radius). `alignSelf` keeps
+    // it hugging its content instead of stretching to the list width, so a short comment is a
+    // short pill. Gap between rows lives in `commentListContent` — a glass sibling never uses
+    // margin, which would break the border clip.
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    overflow: 'hidden',
+  },
+  // Inside the pill: avatar + text, on the row's own padding so the glass edge is not touched.
+  commentRowTouch: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    width: '100%',
-    
-    // marginBottom: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-    joinedRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  // The rows need to be visually separate now that each carries its own border: a gap here
+  // (not a row margin) is what keeps a glass sibling's edge clean.
+  commentListContent: {
+    flexGrow: 0,
     gap: 8,
-    flex: 1,
-    flexShrink: 1,
-  },
-  joinedContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 2,
-    flex: 1,
-    flexShrink: 1,
-  },
-  joinedName: {
-    ...baseFont,
-    fontWeight: '700',
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#FFF',
-  },
-  joinedMessage: {
-    ...baseFont,
-    fontWeight: '400',
-    fontSize: 13,
-    lineHeight: 22,
-    flexWrap: 'wrap',
-    color: '#fff',
-    height: 'auto',
   },
   avatar: {
     width: 24,
@@ -1692,15 +1826,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#539461',
   },
-  commentContent: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 2,
-    flex: 1,
-    flexShrink: 1,
-  },
+  // The row hugs its content, so this Text must NOT be `flex: 1` — a flexed child inside a
+  // shrink-to-fit row resolves to zero width and the message disappears. Its intrinsic width
+  // sets the pill's width; `flexShrink` lets it wrap once the row hits `commentRow.maxWidth`.
   chatLine: {
-    flex: 1,
     flexShrink: 1,
   },
   chatName: {
@@ -1733,10 +1862,17 @@ const styles = StyleSheet.create({
     // whole text block re-centring on every keystroke.
     alignItems: 'flex-start',
     width: '100%',
-    // No fixed height: 13 + one 20pt line + 13 = 46pt, the measured reference height,
+    // No fixed height and no padding here: both moved to commentPillTouch so the whole capsule
+    // is one touch target. 13 + one 20pt line + 13 = 46pt still, the measured reference height,
     // so the single-line look is unchanged; the pill only grows once text wraps.
-    paddingVertical: 13,
     borderRadius: 23,
+  },
+  // Carries the pill's padding (and therefore the pill's full touch area). Same 46pt as before.
+  commentPillTouch: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 13,
     paddingHorizontal: 20,
   },
   // NOT multiline: a multiline TextInput aligns its text to the TOP of the box, which left the
@@ -1766,13 +1902,21 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
-  // While typing, the pill stays a pill: it only grows the fixed height, never squarer.
+  // Keyboard-avoider host. `flex: 1` is what makes iOS `behavior="padding"` lift the overlay
+  // column rather than squashing it, and it keeps the `height` behaviour honest on Android.
+  keyboardAvoider: {
+    flex: 1,
+  },
+  // Hugs the 56pt rail so the Animated translate is measured from the rail's own edge.
+  sideActionsWrap: {
+    alignSelf: 'center',
+  },
   sideActions: {
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-    width: 76,
+    width: 56,
     paddingVertical: 14,
     paddingHorizontal: 6,
     // Narrow floating capsule. No fixed height: it sizes to its five actions so it can never
@@ -1781,7 +1925,7 @@ const styles = StyleSheet.create({
   sideAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 60,
+    width: 56,
     paddingVertical: 6,
   },
   sideActionIconWrap: {
@@ -1789,6 +1933,10 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
+    // The icons are fixed white with stroke-width 2 in their .svg sources, which read heavy at
+    // a 32pt render. Dimming here instead of editing the assets leaves the seller screens (which
+    // share notes-outline / heart-outline) untouched.
+    opacity: 0.82,
   },
   shopGlass: {
     flexDirection: 'column',
@@ -1924,12 +2072,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     width: '100%',
-    height: 60,
+    // 48pt, not the old 60: the pair reads as compact controls inside the product card. Every
+    // child in this row must carry the same height or it overflows the row's box.
+    height: 48,
   },
   // Single-child states (Pending Payment / Awaiting new item) stretch full width; the
   // two-button state keeps each child at flex:1 through this override.
   actionButtonRow: {
     justifyContent: 'space-between',
+  },
+  // Buy Now: the row's `gap` covers horizontal spacing but never vertical, and
+  // `height: '100%'` on a child resolves against the row's auto height (the label's), not its
+  // explicit 48 — which left the two pills different heights. `alignSelf: 'stretch'` and a
+  // literal 48 are what actually equalise them.
+  buyNowButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+    width: undefined,
+    height: 48,
+    alignSelf: 'stretch',
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  buyNowText: {
+    color: '#FFFFFF',
+  },
+  // Geometrically identical to `buyNowButton` so the pair never shows a size jump. The live
+  // button's own base style carries a 60pt minHeight, so it has to be reset here.
+  addToCartButton: {
+    flex: 1,
+    width: undefined,
+    height: 48,
+    minHeight: 48,
+    alignSelf: 'stretch',
   },
   actionButtonTouch: {
     justifyContent: 'center',
