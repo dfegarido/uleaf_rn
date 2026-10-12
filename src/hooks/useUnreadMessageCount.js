@@ -17,9 +17,9 @@ import { getChatsApi } from '../components/Api/chatApi';
  * time. `messages` still streams live inside an open chat, so conversations are
  * unaffected — only the tab badge lags by up to UNREAD_POLL_MS.
  *
- * The count itself is computed server-side (`unreadChatCount`), BEFORE the
- * endpoint filters chat-shop groups out of the Rooms list. Counting client-side
- * from `memberChats` would miss shop groups that carry unread flags.
+ * The count itself is computed server-side (`unreadChatCount`): rooms this user
+ * was invited to and has not joined. Shop unreads are not included — those show
+ * on each shop in the Shops tab.
  */
 
 /** Poll cadence — badge latency is at most this. */
@@ -86,7 +86,7 @@ export const useUnreadMessageCount = () => {
           return;
         }
 
-        // Server-computed, includes chat-shop groups (see the endpoint's note).
+        // Server-computed invited-room count (same number as the Rooms tab).
         if (typeof res?.data?.unreadChatCount === 'number') {
           scheduleEmitCount(res.data.unreadChatCount);
           return;

@@ -25,6 +25,7 @@ export const LEAF_TRAIL_STATUS_OPTIONS = [
   { label: 'For Shipping', value: 'shipping' },
   { label: 'In-transit', value: 'shipped' },
   { label: 'Delivered', value: 'delivered' },
+  { label: 'Others', value: 'others' },
   { label: 'Removed from Flight', value: 'removedFromFlight' },
 ];
 
@@ -49,8 +50,10 @@ export const ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS = [
   { label: 'Packed', value: 'packed' },
   { label: 'For Shipping', value: 'shipping' },
   { label: 'In-transit', value: 'shipped' },
+  { label: 'Delivered', value: 'delivered' },
   { label: 'Missing', value: 'missing' },
   { label: 'Damaged', value: 'damaged' },
+  { label: 'Others', value: 'others' },
   { label: 'Needs to Stay', value: 'needsToStay' },
 ];
 
@@ -136,6 +139,7 @@ export const formatLeafTrailStatusDisplayLabel = (rawStatus) => {
   if (key === 'shipping') return 'For Shipping';
   if (key === 'delivered') return 'Delivered';
   if (key === 'shipped') return 'In-transit';
+  if (key === 'others') return 'Others';
   const normalizedKey = key.replace(/[\s_-]+/g, '');
   if (REMOVED_FROM_FLIGHT_LEAF_STATUSES.has(normalizedKey)) return 'Removed from Flight';
   const spaced = String(rawStatus).trim().replace(/([A-Z])/g, ' $1');

@@ -271,7 +271,10 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
         </View>
 
         <View style={styles.dates}>
-          <DateCell label="Live sale" value={seed.liveSaleDate} />
+          <DateCell
+            label={seed.saleChannel === 'chat' ? 'Chat Sale Date' : 'Live sale'}
+            value={seed.liveSaleDate}
+          />
           <DateCell label="Order date" value={seed.orderDate} />
           <DateCell label="Scan date" value={seed.scanDate} />
         </View>

@@ -59,6 +59,18 @@ const groupValue = (item, groupBy) => {
   return raw;
 };
 
+const saleHeading = (item, groupBy) =>
+  groupBy === 'liveSaleDate' && item?.saleChannel === 'chat'
+    ? 'Chat Sale Date'
+    : GROUP_TITLE[groupBy];
+
+const groupKey = (item, groupBy) => {
+  const value = groupValue(item, groupBy);
+  if (groupBy !== 'liveSaleDate') return value;
+  const channel = item?.saleChannel === 'chat' ? 'chat' : 'live';
+  return `${channel}\u0000${value}`;
+};
+
 const parseGroupDate = label => {
   const timestamp = Date.parse(label);
   return Number.isNaN(timestamp) ? null : timestamp;
@@ -118,7 +130,8 @@ const payoutsToCsv = items => {
     'Order',
     'Business',
     'Country',
-    'Live Sale Date',
+    'Sale Date',
+    'Sale Type',
     'Order Date',
     'Scan Date',
     'Listed Price',
@@ -135,6 +148,7 @@ const payoutsToCsv = items => {
       item.businessName,
       item.country,
       item.liveSaleDate,
+      item.saleChannel === 'chat' ? 'Chat Sale Date' : 'Live sale date',
       item.orderDate,
       item.scanDate,
       item.listedPrice,
@@ -258,22 +272,25 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const groups = useMemo(() => {
     const map = {};
     filtered.forEach(item => {
-      const key = groupValue(item, groupBy);
+      const key = groupKey(item, groupBy);
       if (!map[key]) {
         map[key] = [];
       }
       map[key].push(item);
     });
     const fallback = GROUP_FALLBACK[groupBy];
+    const dateOf = key => (String(key).includes('\u0000') ? String(key).split('\u0000')[1] : key);
     return Object.entries(map).sort(([a], [b]) => {
-      if (a === fallback && b !== fallback) {
+      const labelA = dateOf(a);
+      const labelB = dateOf(b);
+      if (labelA === fallback && labelB !== fallback) {
         return 1;
       }
-      if (a !== fallback && b === fallback) {
+      if (labelA !== fallback && labelB === fallback) {
         return -1;
       }
-      const dateA = parseGroupDate(a);
-      const dateB = parseGroupDate(b);
+      const dateA = parseGroupDate(labelA);
+      const dateB = parseGroupDate(labelB);
       if (dateA != null && dateB != null) {
         return dateA - dateB;
       }
@@ -449,11 +466,12 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
         ) : (
           groups.map(([date, items]) => {
             const net = items.reduce((sum, row) => sum + (rowAmount(row) || 0), 0);
+            const dateLabel = String(date).includes('\u0000') ? String(date).split('\u0000')[1] : date;
             return (
               <View key={date} style={styles.dateBlock}>
                 <View style={styles.dateHead}>
                   <Text style={styles.dateTitle}>
-                    {GROUP_TITLE[groupBy]} · {date}
+                    {saleHeading(items[0], groupBy)} · {dateLabel}
                   </Text>
                   <Text style={[styles.dateNet, net < 0 && styles.negative]}>
                     {formatUsd(net)}
@@ -568,7 +586,7 @@ const PayoutCard = React.memo(({item, groupBy, onPress}) => {
             #{item.orderId} · {item.potSize} · {item.businessName}
           </Text>
           <Text style={styles.groupMeta}>
-            {GROUP_TITLE[groupBy]} · {groupedDate}
+            {saleHeading(item, groupBy)} · {groupedDate}
           </Text>
         </View>
         <View style={styles.amountCol}>

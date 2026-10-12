@@ -1,7 +1,9 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -228,20 +230,19 @@ const ScreenB2BFeeConfig = ({navigation}) => {
     setNewBusiness(emptyBusiness);
   };
 
-  const selectedGardenHint = useMemo(() => {
-    if (!newBusiness.name) {
-      return null;
-    }
-    if (newBusiness.sellerCode) {
-      return `Selected garden · seller ${newBusiness.sellerCode.slice(0, 8)}…`;
-    }
-    return 'Selected garden';
-  }, [newBusiness.name, newBusiness.sellerCode]);
+  const selectedGardenHint = newBusiness.name ? 'Selected garden' : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <MockupHeader navigation={navigation} title="B2B fees" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode="interactive">
         <Text style={styles.sourceNote}>
           {loadError
             ? 'Couldn’t load fee settings. Try again in a moment.'
@@ -344,10 +345,7 @@ const ScreenB2BFeeConfig = ({navigation}) => {
                   <View style={styles.bizRow}>
                     <View style={{flex: 1}}>
                       <Text style={styles.bizName}>{row.name}</Text>
-                      <Text style={styles.bizCountry}>
-                        {row.country}
-                        {row.sellerCode ? ` · ${row.sellerCode.slice(0, 8)}…` : ''}
-                      </Text>
+                      <Text style={styles.bizCountry}>{row.country}</Text>
                     </View>
                     <TextInput
                       style={styles.smallInput}
@@ -444,6 +442,7 @@ const ScreenB2BFeeConfig = ({navigation}) => {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -474,7 +473,8 @@ const Toggle = ({label, value, onChange}) => (
 
 const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#fff'},
-  content: {padding: 20, paddingBottom: 40},
+  flex: {flex: 1},
+  content: {padding: 20, paddingBottom: 160},
   sourceNote: {
     color: '#7F8D91',
     fontSize: 12,

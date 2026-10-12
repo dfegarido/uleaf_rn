@@ -163,6 +163,10 @@ const MessagesScreen = ({navigation}) => {
   const [publicGroupChats, setPublicGroupChats] = useState([]);
   const [chatShops, setChatShops] = useState([]);
   const [loadingChatShops, setLoadingChatShops] = useState(true);
+  // Same count as the bottom Chat tab: rooms this user was invited to.
+  const [invitedRoomCount, setInvitedRoomCount] = useState(0);
+  // groupChatId -> how many new listing messages that shop has.
+  const [shopNewListings, setShopNewListings] = useState({});
 
   const avatarMapRef = useRef(avatarMap);
   const usernameMapRef = useRef(usernameMap);
@@ -305,6 +309,8 @@ const MessagesScreen = ({navigation}) => {
       setAdminGroupChats([]);
       setPublicGroupChats([]);
       setMessages([]);
+      setInvitedRoomCount(0);
+      setShopNewListings({});
       setLoading(false);
       return;
     }
@@ -335,6 +341,14 @@ const MessagesScreen = ({navigation}) => {
         }
         setAdminGroupChats([...pendingRooms, ...serverGroups]);
         setPublicGroupChats(res.publicGroupChats || []);
+        setInvitedRoomCount(
+          typeof res.data?.unreadChatCount === 'number' ? res.data.unreadChatCount : 0,
+        );
+        setShopNewListings(
+          res.data?.shopNewListings && typeof res.data.shopNewListings === 'object'
+            ? res.data.shopNewListings
+            : {},
+        );
       } catch (error) {
         if (!cancelled) {
           fetchCompletedRef.current = true;
@@ -1033,24 +1047,19 @@ const MessagesScreen = ({navigation}) => {
     return messages.filter(msg => !isRoom(msg));
   }, [messages, selectedTab]);
 
-  const { unreadMessages, unreadGroups } = useMemo(() => {
-    const unreadMessagesCount = messages.filter(
+  const unreadMessages = useMemo(() => {
+    return messages.filter(
       msg =>
         msg.unreadBy &&
         msg.unreadBy.includes(currentUserUid) &&
         !msg.isGroup &&
         (!msg.participants || msg.participants.length <= 2),
     ).length;
-
-    const unreadGroupsCount = messages.filter(
-      msg =>
-        msg.unreadBy &&
-        msg.unreadBy.includes(currentUserUid) &&
-        (msg.isGroup || msg.type === 'group' || (msg.participants && msg.participants.length > 2)),
-    ).length;
-
-    return { unreadMessages: unreadMessagesCount, unreadGroups: unreadGroupsCount };
   }, [messages, currentUserUid]);
+
+  const shopsWithNewListings = useMemo(() => {
+    return chatShops.filter(shop => (shopNewListings[shop.groupChatId] || 0) > 0).length;
+  }, [chatShops, shopNewListings]);
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}} edges={["top", "left", "right"]}>
@@ -1107,10 +1116,10 @@ const MessagesScreen = ({navigation}) => {
               <Text style={[styles.tabText, selectedTab === 'groups' && styles.tabTextActive]}>
                 Rooms
               </Text>
-              {unreadGroups > 0 && (
+              {invitedRoomCount > 0 && (
                 <View style={styles.tabBadge}>
                   <Text style={styles.tabBadgeText}>
-                    {unreadGroups > 99 ? '99+' : unreadGroups}
+                    {invitedRoomCount > 99 ? '99+' : invitedRoomCount}
                   </Text>
                 </View>
               )}
@@ -1124,6 +1133,13 @@ const MessagesScreen = ({navigation}) => {
               <Text style={[styles.tabText, selectedTab === 'chatshops' && styles.tabTextActive]}>
                 Shops
               </Text>
+              {shopsWithNewListings > 0 && (
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>
+                    {shopsWithNewListings > 99 ? '99+' : shopsWithNewListings}
+                  </Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -1168,6 +1184,15 @@ const MessagesScreen = ({navigation}) => {
                         {item.groupChatName || 'Tap to join the group chat'}
                       </Text>
                     </View>
+                    {(shopNewListings[item.groupChatId] || 0) > 0 && (
+                      <View style={styles.tabBadge}>
+                        <Text style={styles.tabBadgeText}>
+                          {shopNewListings[item.groupChatId] > 99
+                            ? '99+'
+                            : shopNewListings[item.groupChatId]}
+                        </Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 )}
                 contentContainerStyle={[

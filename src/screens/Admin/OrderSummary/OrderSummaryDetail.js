@@ -63,7 +63,7 @@ const getPlantStatusTheme = (displayStatus) => {
 
 const getLeafTrailTheme = (rawLeaf) => {
   const leaf = String(rawLeaf || '').toLowerCase().trim();
-  if (['missing', 'damaged', 'needstostay', 'cancelled', 'canceled'].includes(leaf)) {
+  if (['missing', 'damaged', 'needstostay', 'cancelled', 'canceled', 'others'].includes(leaf)) {
     return getPlantStatusTheme(formatLabel(rawLeaf));
   }
   if (['delivered', 'shipped', 'shipping'].includes(leaf)) {
@@ -190,7 +190,7 @@ const OrderSummaryDetail = ({ navigation, route }) => {
       setDeliveredModalVisible(false);
     } else if (statusLower === 'cancelled' || statusLower === 'canceled') {
       setRawOrderStatus('cancelled');
-    } else if (!['missing', 'damaged', 'needstostay'].includes(statusLower)) {
+    } else if (!['missing', 'damaged', 'needstostay', 'others'].includes(statusLower)) {
       setRawOrderStatus((prev) => {
         const p = String(prev || '').toLowerCase();
         if (p === 'cancelled' || p === 'canceled') return 'Ready to Fly';
