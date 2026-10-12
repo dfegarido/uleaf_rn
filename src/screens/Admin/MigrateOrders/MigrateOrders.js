@@ -72,6 +72,7 @@ const MigrateOrders = () => {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState([]);
+  const [selectingAll, setSelectingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedBuyers, setSelectedBuyers] = useState([]); // [{ id, name, email, ... }]
@@ -363,18 +364,74 @@ const MigrateOrders = () => {
     label.toLowerCase().includes(genusSearch.trim().toLowerCase()),
   );
 
-  const allVisibleSelected =
-    orders.length > 0 && orders.every((order) => selectedOrders.includes(order.id));
+  const entireListSelected =
+    orders.length > 0 &&
+    !hasMore &&
+    orders.every((order) => selectedOrders.includes(order.id));
 
-  const toggleSelectAll = () => {
-    if (allVisibleSelected) {
-      const visibleIds = new Set(orders.map((order) => order.id));
-      setSelectedOrders((prev) => prev.filter((id) => !visibleIds.has(id)));
+  const buildListBody = (lastDocId, limit) => {
+    const buyerUids = (selectedBuyersRef.current || []).map((b) => b.id).filter(Boolean);
+    const genera = (selectedGeneraRef.current || [])
+      .map((g) => String(g || '').trim())
+      .filter(Boolean);
+    const body = {
+      limit,
+      sort: sortOrder,
+      lastDocId,
+      ...buildSearchParams(searchQueryRef.current),
+    };
+    if (buyerUids.length > 0) {
+      body.buyerUids = buyerUids;
+      if (buyerUids.length === 1) body.buyerUid = buyerUids[0];
+    }
+    if (genera.length > 0) {
+      body.genera = genera;
+      if (genera.length === 1) body.genus = genera[0];
+    }
+    return body;
+  };
+
+  // One tap loads every matching Pay to Board order, not just the page on screen.
+  const toggleSelectAll = async () => {
+    if (selectingAll || fetchingRef.current) return;
+    if (entireListSelected) {
+      setSelectedOrders([]);
       return;
     }
-    setSelectedOrders((prev) => [
-      ...new Set([...prev, ...orders.map((order) => order.id).filter(Boolean)]),
-    ]);
+
+    setSelectingAll(true);
+    fetchingRef.current = true;
+    try {
+      const collected = [];
+      const seen = new Set();
+      let cursor = null;
+      const pageSize = 200;
+      for (let page = 0; page < 100; page += 1) {
+        const data = await listPayToBoardOrdersApi(buildListBody(cursor, pageSize));
+        if (!data.success) {
+          throw new Error(data.error || data.message || 'Failed to load orders');
+        }
+        const batch = (data.data || []).filter((order) => order?.id);
+        batch.forEach((order) => {
+          if (!seen.has(order.id)) {
+            seen.add(order.id);
+            collected.push(order);
+          }
+        });
+        const nextCursor = data.lastDocId || null;
+        if (batch.length < pageSize || !nextCursor || nextCursor === cursor) break;
+        cursor = nextCursor;
+      }
+      setOrders(collected);
+      lastDocIdRef.current = collected.length ? collected[collected.length - 1].id : null;
+      setHasMore(false);
+      setSelectedOrders(collected.map((order) => order.id));
+    } catch (error) {
+      Alert.alert('Select all', error.message || 'Could not select every order');
+    } finally {
+      fetchingRef.current = false;
+      setSelectingAll(false);
+    }
   };
 
   const loadInitialBuyers = useCallback(async () => {
@@ -678,14 +735,25 @@ const MigrateOrders = () => {
 
       {orders.length > 0 && (
         <View style={styles.selectAllRow}>
-          <TouchableOpacity style={styles.selectAllButton} onPress={toggleSelectAll} activeOpacity={0.7}>
-            <CheckBox
-              isChecked={allVisibleSelected}
-              onToggle={toggleSelectAll}
-              checkedColor="#539461"
-            />
+          <TouchableOpacity
+            style={styles.selectAllButton}
+            onPress={toggleSelectAll}
+            activeOpacity={0.7}
+            disabled={selectingAll}
+          >
+            <View pointerEvents="none">
+              <CheckBox
+                isChecked={entireListSelected}
+                onToggle={() => {}}
+                checkedColor="#539461"
+              />
+            </View>
             <Text style={styles.selectAllText}>
-              {allVisibleSelected ? 'Deselect all' : 'Select all'} ({orders.length})
+              {selectingAll
+                ? 'Selecting all…'
+                : entireListSelected
+                  ? `Deselect all (${orders.length})`
+                  : 'Select all'}
             </Text>
           </TouchableOpacity>
         </View>
