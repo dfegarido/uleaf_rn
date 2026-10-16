@@ -1112,6 +1112,10 @@ const ListingsViewer = ({ navigation }) => {
     );
   }, [selectMode]);
 
+  const handleImagePress = useCallback((listing, imageUrl) => {
+    navigation.navigate('ListingsViewerDetail', { listing, imageUrl });
+  }, [navigation]);
+
   const exitSelectMode = () => {
     setSelectMode(false);
     setSelectedIds([]);
@@ -1835,6 +1839,7 @@ const ListingsViewer = ({ navigation }) => {
                       <ListingRow
                         listing={item}
                         onPress={handleListingPress}
+                        onImagePress={handleImagePress}
                         columns={filteredColumns}
                         onToggleStatus={handleToggleStatus}
                         isProcessing={!!activatingPlantCodes[item.plantCode]}
