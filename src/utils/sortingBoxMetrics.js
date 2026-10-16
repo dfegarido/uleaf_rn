@@ -42,6 +42,10 @@ export function computeSortingBoxMetrics(plants = []) {
   const sortedCount = plants.filter(
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'sorted',
   ).length;
+  const receivedSeparatelyCount = plants.filter(isReceivedSeparatelyPlant).length;
+  const receivedAndSortedTogetherCount = plants.filter(
+    (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'sorted' && p?.receivedWithSort === true,
+  ).length;
 
   /** Handwritten: "Total Plants to Fulfill" */
   const totalPlantsToFulfill = Math.max(
@@ -63,6 +67,8 @@ export function computeSortingBoxMetrics(plants = []) {
     forReceivingCount,
     receivedCount,
     sortedCount,
+    receivedSeparatelyCount,
+    receivedAndSortedTogetherCount,
     needsToStayCount,
     othersCount,
     missingCount,
@@ -97,15 +103,35 @@ export function isSortedPlant(plant) {
   return normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'sorted';
 }
 
+/** Received and sorted in one Sorting-card scan. Never also "received separately". */
+export function isReceivedAndSortedTogether(plant) {
+  return isSortedPlant(plant) && plant?.receivedWithSort === true;
+}
+
+/**
+ * Scanned in the Receiving card, whether or not it has been sorted since.
+ * Mutually exclusive with isReceivedAndSortedTogether.
+ */
+export function isReceivedSeparatelyPlant(plant) {
+  if (plant?.receivedWithSort === true) return false;
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  return status === 'received' || status === 'needstostay' || status === 'sorted';
+}
+
+export function isForReceivingPlant(plant) {
+  return normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'forreceiving';
+}
+
 /**
  * Plants still waiting for a sort scan in this receiver box.
+ * For receiving plants are included so one Sorting scan can receive and sort them.
  * Missing / Damaged / Others are excluded from Sorting (managed on Receiving).
  * Needs to Stay remains visible in Sorting.
  */
 export function isAwaitingSortPlant(plant) {
   if (isSortedPlant(plant)) return false;
   const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
-  return status === 'received' || status === 'needstostay';
+  return status === 'forreceiving' || status === 'received' || status === 'needstostay';
 }
 
 /**
@@ -151,7 +177,7 @@ export function describeSortingScanPlantOutcome(plant) {
     return {
       tone: 'success',
       lines: [
-        'This plant is listed under the Sorted tab in this receiver box (not Awaiting to sort).',
+        'This plant is listed under the Sorted tab in this receiver box.',
         'It counts toward Total Plants to Fulfill for this box.',
         'Go back to the box and open Sorted to confirm.',
       ],
@@ -162,8 +188,9 @@ export function describeSortingScanPlantOutcome(plant) {
     return {
       tone: 'warning',
       lines: [
-        'This plant is not hub-received yet.',
-        'It will not appear in Total Plants to Fulfill or Awaiting to sort until it is received at the hub.',
+        'This plant is still For receiving.',
+        'A scan in this Sorting card should mark it received and sorted together.',
+        'This scan did not update it.',
         `Current status: ${displayStatus}.`,
       ],
     };
@@ -188,7 +215,7 @@ export function describeSortingScanPlantOutcome(plant) {
       tone: 'warning',
       lines: [
         `This plant is excluded from Total Plants to Fulfill (${reason}).`,
-        'It will not appear under Awaiting to sort for fulfillment work.',
+        'It is not listed under For Receiving or Received Separately.',
         `Current status: ${displayStatus}.`,
       ],
     };
@@ -199,7 +226,7 @@ export function describeSortingScanPlantOutcome(plant) {
       tone: 'warning',
       lines: [
         'This scan did not mark the plant as sorted.',
-        'It should still appear under Awaiting to sort in this receiver box.',
+        'It should still appear under Received Separately in this receiver box.',
         `Current status: ${displayStatus}.`,
       ],
     };

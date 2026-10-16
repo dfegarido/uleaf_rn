@@ -65,9 +65,10 @@ const ScanQRScreen = ({ navigation, route }) => {
   
   const {hasPermission, requestPermission} = useCameraPermission();
   const device = useCameraDevice('back');
-  const [latestScannedData, setLatestScannedData] = useState(null);
   const [buttomData, setButtomData] = useState("scan");
-  const [isScanning, setIsScanning] = useState(false);
+  // Refs, not state: the camera fires onCodeScanned many times per second, faster than re-renders.
+  const scanBusyRef = useRef(false);
+  const lastScannedCodeRef = useRef(null);
   const [plantData, setPlantData] = useState();
   const {
     leafTrailStatus = null,
@@ -154,91 +155,91 @@ const ScanQRScreen = ({ navigation, route }) => {
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
     onCodeScanned: useCallback(async (codes) => {
-      let filters = codes[0].value;
-      if ((typeof filters) === 'string') {      
-        filters = JSON.parse(filters)
-      }
-      if (isScanning && latestScannedData === (filters.orderId + filters.plantCode)) {
+      const rawCode = codes?.[0]?.value;
+      // The same code stays blocked until "Scan next" or a different QR, so a code
+      // left in view doesn't re-scan and flip the details below.
+      if (!rawCode || scanBusyRef.current || rawCode === lastScannedCodeRef.current) {
         return;
       }
-
-      setIsScanning(true);
+      scanBusyRef.current = true;
+      lastScannedCodeRef.current = rawCode;
       setButtomData('loading');
 
+      let failed = false;
       try {
-        if (codes.length > 0 && codes[0]?.value) {
-          console.log('codes[0].valuecodes[0].value', typeof codes[0].value);
+        const filters = typeof rawCode === 'string' ? JSON.parse(rawCode) : rawCode;
+        if (!(filters?.orderId) || !(filters?.plantCode)) {
+          throw new Error('Invalid QR Code Data');
+        }
 
-          if (!(filters?.orderId) || !(filters?.plantCode)) {
-            throw new Error('Invalid QR Code Data');
-          }
-          
-          setLatestScannedData(filters.orderId + filters.plantCode);
-          const response = await getAdminScanQr(
-            filters,
-            leafTrailStatus,
-            isScanning,
-            {
-              ...(sortingBoxMode ? { expectedBoxKey } : {}),
-              ...(packingTrayMode ? { expectedSortingTrayNumber } : {}),
-            },
-          );
+        const response = await getAdminScanQr(
+          filters,
+          leafTrailStatus,
+          false,
+          {
+            ...(sortingBoxMode ? { expectedBoxKey } : {}),
+            ...(packingTrayMode ? { expectedSortingTrayNumber } : {}),
+          },
+        );
 
-          if (response?.wrongBox) {
-            setPlantData(response);
-            setButtomData('wrongBox');
-            setSetAsideConfirmed(false);
-            Vibration.vibrate([0, 120, 60, 120]);
-            setTimeout(() => {
-              setIsScanning(false);
-            }, 3000);
-            return;
-          }
-
-          if (response?.wrongTray) {
-            setPlantData(response);
-            setButtomData('wrongTray');
-            setSetAsideConfirmed(false);
-            Vibration.vibrate([0, 120, 60, 120]);
-            setTimeout(() => {
-              setIsScanning(false);
-            }, 3000);
-            return;
-          }
-
+        if (response?.wrongBox) {
           setPlantData(response);
-          const outcome = describeScanQrOutcome(response, {
-            intakeMode,
-            sortingBoxMode,
-            packingTrayMode,
-            sourceTabKey,
-            targetLeafTrailStatus: leafTrailStatus,
-          });
-          setButtomData('success');
-          if (outcome?.tone === 'warning') {
-            Vibration.vibrate([0, 120, 60, 120]);
-          } else {
-            Vibration.vibrate();
-          }
-          if (isNewReceivingIntakeScan(response, { intakeMode, sourceTabKey })) {
-            lastReceivingIntakeSuccessRef.current = true;
-            scheduleReceivingAutoReturn();
-          }
-          setTimeout(() => {
-            setIsScanning(false);
-          }, 5000);
+          setButtomData('wrongBox');
+          setSetAsideConfirmed(false);
+          Vibration.vibrate([0, 120, 60, 120]);
+          return;
+        }
+
+        if (response?.wrongTray) {
+          setPlantData(response);
+          setButtomData('wrongTray');
+          setSetAsideConfirmed(false);
+          Vibration.vibrate([0, 120, 60, 120]);
+          return;
+        }
+
+        setPlantData(response);
+        const outcome = describeScanQrOutcome(response, {
+          intakeMode,
+          sortingBoxMode,
+          packingTrayMode,
+          sourceTabKey,
+          targetLeafTrailStatus: leafTrailStatus,
+        });
+        setButtomData('success');
+        if (outcome?.tone === 'warning') {
+          Vibration.vibrate([0, 120, 60, 120]);
+        } else {
+          Vibration.vibrate();
+        }
+        if (isNewReceivingIntakeScan(response, { intakeMode, sourceTabKey })) {
+          lastReceivingIntakeSuccessRef.current = true;
+          scheduleReceivingAutoReturn();
         }
       } catch (error) {
+        failed = true;
         setButtomData('invalid');
         if (sortingBoxMode || packingTrayMode) {
           Vibration.vibrate([0, 120, 60, 120]);
         }
       } finally {
         setTimeout(() => {
-          setIsScanning(false);
-        }, 5000);
+          scanBusyRef.current = false;
+          if (failed && lastScannedCodeRef.current === rawCode) {
+            lastScannedCodeRef.current = null;
+          }
+        }, failed ? 5000 : 2000);
       }
-    }),
+    }, [
+      leafTrailStatus,
+      sortingBoxMode,
+      packingTrayMode,
+      expectedBoxKey,
+      expectedSortingTrayNumber,
+      intakeMode,
+      sourceTabKey,
+      scheduleReceivingAutoReturn,
+    ]),
   });
 
     const handlePressIn = () => {
@@ -274,9 +275,9 @@ const ScanQRScreen = ({ navigation, route }) => {
     clearAutoReturnTimer();
     lastReceivingIntakeSuccessRef.current = false;
     setPlantData(null);
-    setLatestScannedData(null);
+    lastScannedCodeRef.current = null;
+    scanBusyRef.current = false;
     setButtomData('scan');
-    setIsScanning(false);
     setSetAsideConfirmed(false);
   };
 
@@ -286,7 +287,7 @@ const ScanQRScreen = ({ navigation, route }) => {
       const response = await updateLeafTrailStatus(plantData?.orderId || null, status);
       if (response.success) {
         setPlantData(null)
-        setLatestScannedData(null)
+        lastScannedCodeRef.current = null
         setButtomData('scan')
         setIsLoading(false)
         Alert.alert(

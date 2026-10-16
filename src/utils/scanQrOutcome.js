@@ -80,6 +80,20 @@ function alreadyScannedLines(displayStatus, previousStatus, statusUpdated) {
   return lines;
 }
 
+function receivedAndSortedTogetherOutcome(plant) {
+  const previousStatus = formatLeafTrailStatusLabel(plant?.previousLeafTrailStatus);
+  return outcome('Received & Sorted Together', 'success', [
+    'This plant was still For receiving.',
+    'This scan marked it received and sorted.',
+    previousStatus ? `Updated from ${previousStatus} to Sorted.` : '',
+    'It counts as Received & Sorted Together on this card.',
+  ]);
+}
+
+function wasForReceiving(plant) {
+  return normalizeLeafTrailStatus(plant?.previousLeafTrailStatus) === 'forreceiving';
+}
+
 function updatedLines(displayStatus, previousStatus) {
   const lines = [`Status is now ${displayStatus}.`];
   if (previousStatus && previousStatus !== displayStatus) {
@@ -164,6 +178,9 @@ export function describeScanQrOutcome(plant, context = {}) {
   }
 
   if (sortingBoxMode) {
+    if (statusUpdated && status === 'sorted' && wasForReceiving(plant)) {
+      return receivedAndSortedTogetherOutcome(plant);
+    }
     if (statusUpdated && status === 'sorted') {
       return outcome('Marked as Sorted', 'success', [
         'This plant was sorted into this receiver box.',
@@ -221,6 +238,9 @@ export function describeScanQrOutcome(plant, context = {}) {
   }
 
   if (targetStatus === 'sorted') {
+    if (statusUpdated && status === 'sorted' && wasForReceiving(plant)) {
+      return receivedAndSortedTogetherOutcome(plant);
+    }
     if (statusUpdated && status === 'sorted') {
       return outcome('Marked as Sorted', 'success', [
         'This plant was marked as Sorted.',
