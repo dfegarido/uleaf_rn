@@ -1,0 +1,104 @@
+diff --git a/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt b/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
+index f170d71..1e078c0 100644
+--- a/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
++++ b/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
+@@ -1,11 +1,13 @@
+ package io.swan.rnbrowser
+ 
++import android.content.Context
+ import android.content.Intent
+ import android.os.Build
+ 
+ import androidx.annotation.ColorInt
+ import androidx.browser.customtabs.CustomTabColorSchemeParams
+ import androidx.browser.customtabs.CustomTabsIntent
++import androidx.browser.customtabs.CustomTabsService
+ import androidx.core.content.ContextCompat
+ import androidx.core.graphics.ColorUtils
+ import androidx.core.net.toUri
+@@ -14,7 +16,7 @@ import com.facebook.react.bridge.Promise
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.bridge.ReadableMap
+ 
+-import io.swan.rnbrowser.helpers.CustomTabActivityHelper
++import io.swan.rnbrowser.helpers.CustomTabsHelper
+ 
+ object RNSwanBrowserModuleImpl {
+   const val NAME = "RNSwanBrowser"
+@@ -79,13 +81,72 @@ object RNSwanBrowserModuleImpl {
+       }
+     }
+ 
+-    CustomTabActivityHelper.openCustomTab(
+-      activity, customTabsIntent, url.toUri()
+-    ) { currentActivity, uri ->
+-      currentActivity.startActivity(Intent(Intent.ACTION_VIEW, uri))
++    // Hand the URL only to a browser that implements Custom Tabs.
++    //
++    // The library's default behaviour is to fall back to a plain ACTION_VIEW, which lands in
++    // whatever the device calls its browser — on many OEM phones that is a WebView shell, and
++    // PayPal/Venmo cannot complete a payment there. The failure is also invisible to JS:
++    // launchUrl() never throws, so the promise still resolves and the app believes it worked.
++    // So instead of that silent fallback we refuse, and the app tells the buyer to install Chrome.
++    val packageName = CustomTabsHelper.getPackageNameToUse(activity)
++      ?: knownCustomTabsPackage(activity)
++
++    if (packageName == null) {
++      return promise.reject(
++        "swan_browser_unavailable",
++        "No installed browser supports Custom Tabs; a WebView-based browser cannot complete this payment"
++      ).let { false }
++    }
++
++    customTabsIntent.intent.setPackage(packageName)
++
++    try {
++      customTabsIntent.launchUrl(activity, url.toUri())
++    } catch (e: Exception) {
++      return promise.reject("swan_browser_launch_failed", e.message).let { false }
+     }
+ 
+     promise.resolve(null)
+     return true
+   }
++
++  /**
++   * Second-pass lookup for a Custom Tabs browser, by exact package name.
++   *
++   * `CustomTabsHelper.getPackageNameToUse` enumerates every app that handles ACTION_VIEW, and
++   * Android 11+ filters that enumeration by package visibility unless the intent signature is
++   * declared in <queries>. Package-name queries are never filtered that way, so this second pass
++   * keeps a device that does have a Custom Tabs browser from being misreported as "no browser" —
++   * which would block a buyer who can pay today. The list mirrors the packages the Custom Tabs
++   * helpers know about plus the browsers that ship on the phones this app targets.
++   */
++  private val KNOWN_CUSTOM_TABS_PACKAGES = listOf(
++    "com.android.chrome",
++    "com.chrome.beta",
++    "com.chrome.dev",
++    "com.google.android.apps.chrome",
++    "com.brave.browser",
++    "com.microsoft.emmx",
++    "com.sec.android.app.sbrowser",
++    "org.mozilla.firefox",
++    "com.opera.browser",
++    "com.vivaldi.browser",
++    "com.duckduckgo.mobile.android",
++    "com.miui.browser",
++    "com.android.browser",
++  )
++
++  private fun knownCustomTabsPackage(context: Context): String? {
++    val packageManager = context.packageManager
++    val serviceIntent = Intent(CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION)
++
++    for (name in KNOWN_CUSTOM_TABS_PACKAGES) {
++      serviceIntent.setPackage(name)
++      if (packageManager.resolveService(serviceIntent, 0) != null) {
++        return name
++      }
++    }
++
++    return null
++  }
+ }

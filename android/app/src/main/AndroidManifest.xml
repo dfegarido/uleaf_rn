@@ -1,6 +1,47 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      Package visibility (Android 11+) for the payment-browser check in openPaymentSheet.
+      The Custom Tabs service intent keeps every browser that can open an in-app payment sheet
+      visible to the library's lookup; the http/https VIEW signature covers the default-browser
+      enumeration; the explicit packages are the never-filtered second pass
+      (see RNSwanBrowserModuleImpl.knownCustomTabsPackage) so a buyer who does have a proper
+      browser is never wrongly told to install Chrome.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+        <!-- Browsers that can handle a web VIEW. The platform's parser allows at most
+             ONE <data> scheme per <intent> inside <queries> ("intent tag may have at most
+             one data scheme"), and aapt2 does NOT catch this — it only fails at install.
+             Keep http and https as separate intents. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
+        <package android:name="com.android.chrome" />
+        <package android:name="com.chrome.beta" />
+        <package android:name="com.chrome.dev" />
+        <package android:name="com.google.android.apps.chrome" />
+        <package android:name="com.brave.browser" />
+        <package android:name="com.microsoft.emmx" />
+        <package android:name="com.sec.android.app.sbrowser" />
+        <package android:name="org.mozilla.firefox" />
+        <package android:name="com.opera.browser" />
+        <package android:name="com.vivaldi.browser" />
+        <package android:name="com.duckduckgo.mobile.android" />
+        <package android:name="com.miui.browser" />
+        <package android:name="com.android.browser" />
+    </queries>
+
     <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-permission android:name="android.permission.VIBRATE" />

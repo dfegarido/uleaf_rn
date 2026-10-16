@@ -15,6 +15,7 @@ import { AuthContext } from '../../auth/AuthProvider';
 import { navigationRef } from '../../navigation/navigationRef';
 import { normalizeDeepLinkPlantCode } from '../../utils/plantDeepLinkParse';
 import { isUsBusinessUser } from '../../utils/b2bShell';
+import { closePaymentSheet, showInstallChromeHelp } from '../../utils/openPaymentSheet';
 import BuyerTabNavigator from './BuyerTabNavigator';
 import { useSellerOrderCounts } from '../../hooks/useSellerOrderCounts';
 
@@ -1332,6 +1333,31 @@ const AppNavigation = () => {
 
     const handleIncomingUrl = async url => {
       if (!url) {
+        return;
+      }
+      if (
+        url.startsWith('ileafu://payment-success') ||
+        url.startsWith('ileafu://payment-cancel')
+      ) {
+        // The hosted payment page returned from inside the in-app browser sheet: dismiss the
+        // sheet so the app is visible again. Navigation stays with the checkout screen's own
+        // listener — no navigation here, so there is no double navigation.
+        console.log('💳 [payment-sheet] return from page, dismissing sheet:', url.slice(0, 80));
+        closePaymentSheet();
+        return;
+      }
+
+      if (url.startsWith('ileafu://payment-needs-browser')) {
+        // The hosted page itself reported that it cannot run (it saw a WebView user agent). The
+        // sheet is useless here: dismiss it, then tell the buyer what to install. The 450 ms wait
+        // is the same presenter rule as the sheet — never present while a controller is animating
+        // away.
+        console.log(
+          '💳 [payment-sheet] page reports it cannot run in this browser:',
+          url.slice(0, 80),
+        );
+        closePaymentSheet();
+        setTimeout(() => showInstallChromeHelp(), 450);
         return;
       }
       const rawExtracted = extractPlantCode(url);

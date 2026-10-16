@@ -11,6 +11,7 @@ import { View,
 import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import {getOrderDetailApi} from '../../../components/Api/orderManagementApi';
+import {openPaymentSheet} from '../../../utils/openPaymentSheet';
 
 // Import icons
 import BackIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -1197,20 +1198,9 @@ const OrderDetailsScreen = () => {
                 
                 console.log('💳 Opening payment for order:', transactionNumber, 'Amount:', orderTotal);
                 
-                // Import paymentPaypalVenmoUrl from config
-                const { paymentPaypalVenmoUrl } = require('../../../../config');
-                const { Linking } = require('react-native');
-                
-                // Open payment URL directly - same flow as checkout screen
-                const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
-                
-                Linking.openURL(paymentUrl).catch(err => {
-                  console.error('Failed to open payment URL:', err);
-                  Alert.alert(
-                    'Payment Error',
-                    'Unable to open payment page. Please try again or contact support.',
-                    [{ text: 'OK' }]
-                  );
+                // Same in-app browser sheet as the checkout flow (no browser hand-off).
+                openPaymentSheet(transactionNumber, orderTotal, {
+                  onGaveUp: () => navigation.navigate('Orders'),
                 });
               }}>
               <View style={styles.buttonTextContainer}>

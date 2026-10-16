@@ -1,7 +1,7 @@
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Linking } from 'react-native';
-import { paymentPaypalVenmoUrl } from '../../../../../config';
+import { Alert, Animated, Easing } from 'react-native';
+import { openPaymentSheet } from '../../../../utils/openPaymentSheet';
 import { getAddressBookEntriesApi, getMyReceiverRequestApi } from '../../../../components/Api';
 import { checkoutApi } from '../../../../components/Api/checkoutApi';
 import { checkoutJoinerApi } from '../../../../components/Api/checkoutJoinerApi';
@@ -2633,8 +2633,7 @@ export const useCheckoutController = (props) => {
         
         setTransactionNum(transactionNumber);
         
-        // Redirect to payment page (same as Pay to Board flow)
-        const paymentUrl = `${paymentPaypalVenmoUrl}?amount=${orderTotal}&ileafuOrderId=${transactionNumber}`;
+        // Payment page is opened by openPaymentSheet() below (same as the Pay to Board flow)
         if (transactionNumber && orderTotal > 0 && vaultedPaymentId) {
           setLoading(true);
           const paymentResponse = await createAndCapturePaypalOrder({
@@ -2665,13 +2664,8 @@ export const useCheckoutController = (props) => {
                 'Payment failed. Please try again or contact support.',
                 [
                   { text: 'Retry Payment', onPress: () =>  
-                    Linking.openURL(paymentUrl).catch(err => {
-                      console.error('❌ [handleCheckout] Failed to open payment URL:', err);
-                      Alert.alert(
-                        'Payment Error',
-                        'Unable to open payment page. Please try again or contact support.',
-                        [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
-                      );
+                    openPaymentSheet(transactionNumber, orderTotal, {
+                      onGaveUp: () => isLive ? null : navigation.navigate('Orders'),
                     })
                   },
                   {
@@ -2698,27 +2692,21 @@ export const useCheckoutController = (props) => {
             
         } else if (transactionNumber && orderTotal > 0) {
           
-          console.log('💳 [handleCheckout] Redirecting to payment:', paymentUrl);
+          console.log('💳 [handleCheckout] Opening payment sheet for:', transactionNumber);
           
-          // Open payment URL in browser/app
-          Linking.openURL(paymentUrl).catch(err => {
-            console.error('❌ [handleCheckout] Failed to open payment URL:', err);
-            Alert.alert(
-              'Payment Error',
-              'Unable to open payment page. Please try again or contact support.',
-              [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
-            );
+          // In-app browser sheet over the current screen (falls back to the external browser).
+          // Leave this screen only once the sheet is gone — tearing its presenter down while the
+          // sheet is up makes iOS dismiss the sheet and strand a touch-blocking overlay.
+          openPaymentSheet(transactionNumber, orderTotal, {
+            onGaveUp: () => isLive ? null : navigation.navigate('Orders'),
+            onClose: () => {
+              if (isLive && onClose) {
+                setTimeout(onClose, 300);
+              } else if (!isLive) {
+                setTimeout(() => navigation.navigate('Orders'), 300);
+              }
+            },
           });
-          
-          // Navigate to Orders screen after opening payment URL
-          // Small delay to ensure payment URL opens first
-          setTimeout(() => {
-            if (isLive && onClose) {
-              onClose();
-            } else if (!isLive) {
-              navigation.navigate('Orders');
-            }
-          }, 500);
         } else {
           // If transaction number or total is missing, show success alert then navigate
           Alert.alert('Success', 'Order placed successfully!', [

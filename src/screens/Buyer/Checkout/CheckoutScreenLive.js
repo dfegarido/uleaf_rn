@@ -22,7 +22,7 @@ import { ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
-import { paymentPaypalVenmoUrl } from '../../../../config';
+import { openPaymentSheet } from '../../../utils/openPaymentSheet';
 import {
   AIR_CARGO_DOCUMENTATION_FEE_LABEL,
   HANDLING_FEE_CREDIT_LABEL,
@@ -244,6 +244,9 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
 
   const [loading, setLoading] = useState(false);
   const [transactionNum, setTransactionNum] = useState(null);
+  // The order is created on tap, then confirmed here before the payment sheet is opened.
+  const [pendingPaymentAmount, setPendingPaymentAmount] = useState(null);
+  const [confirmPaymentVisible, setConfirmPaymentVisible] = useState(false);
   const [deliveryDetails, setDeliveryDetails] = useState({
     address: {
       street: '123 Main St',
@@ -1712,18 +1715,14 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           result.data;
         setTransactionNum(transactionNumber);
 
-        // Stop loading before navigation
         setLoading(false);
 
-        // Navigate to Orders screen immediately after order creation
-        // This prevents the issue where user returns to empty cart after payment cancellation
-        onClose();
-        // Automatically redirect to PayPal/Venmo payment page after a brief delay
-        setTimeout(() => {
-          Linking.openURL(
-            `${paymentPaypalVenmoUrl}?amount=${orderSummary.finalTotal}&ileafuOrderId=${transactionNumber}`,
-          );
-        }, 500);
+        // The order is created and on hold. Ask the buyer to confirm before handing them to the
+        // payment page: this is a plain in-screen overlay (no extra view controller), and the sheet
+        // is presented later, on a human tap — so nothing is being dismissed around the
+        // presentation. See the presenter note in src/utils/openPaymentSheet.js.
+        setPendingPaymentAmount(orderSummary.finalTotal);
+        setConfirmPaymentVisible(true);
       } else {
         // Stop loading before showing error
         setLoading(false);
@@ -1742,6 +1741,28 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Confirm on the pre-payment overlay. This screen stays mounted while the sheet is up — it is
+   * the sheet's presenter, so leaving it early strands an invisible touch-blocking overlay.
+   */
+  const handleConfirmPayment = () => {
+    setConfirmPaymentVisible(false);
+    openPaymentSheet(transactionNum, pendingPaymentAmount, {
+      // Once the sheet is gone (paid, cancelled or dismissed) it is safe to leave this screen.
+      // On a paid return the deep-link listener above also navigates to Orders.
+      onClose: () => setTimeout(onClose, 300),
+    });
+  };
+
+  /**
+   * Cancel on the pre-payment overlay. The order stays on hold and can be paid from Orders at any
+   * time, so this is the old post-Place-Order behaviour: leave the checkout.
+   */
+  const handleCancelPendingPayment = () => {
+    setConfirmPaymentVisible(false);
+    onClose();
   };
 
   const handleUpdateDeliveryDetails = () => {
@@ -2568,6 +2589,34 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
           </View>
         </View>
       </Modal>
+
+      {/* Pre-payment confirmation. Deliberately an in-screen overlay and not another <Modal>:
+          the payment sheet is presented *from* this screen, so no view controller may be
+          dismissing while it opens (see src/utils/openPaymentSheet.js). */}
+      {confirmPaymentVisible && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Complete your payment</Text>
+            <Text style={styles.confirmMessage}>
+              Order {transactionNum} is created and on hold.{'\n\n'}
+              Pay {formatCurrencyFull(pendingPaymentAmount || 0)} now to confirm it. You can also
+              pay later from Orders.
+            </Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmCancelButton]}
+                onPress={handleCancelPendingPayment}>
+                <Text style={styles.confirmCancelLabel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmConfirmButton]}
+                onPress={handleConfirmPayment}>
+                <Text style={styles.confirmConfirmLabel}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
       </View>
     </Modal>
   );
@@ -4444,6 +4493,77 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   // Loading Modal Styles
+  confirmOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 20,
+  },
+  confirmCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#202325',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  confirmMessage: {
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    marginTop: 20,
+    width: '100%',
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmCancelButton: {
+    backgroundColor: '#F3F3F5',
+    marginRight: 6,
+  },
+  confirmConfirmButton: {
+    backgroundColor: '#2E7D32',
+    marginLeft: 6,
+  },
+  confirmCancelLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#202325',
+    fontFamily: 'Inter',
+  },
+  confirmConfirmLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+    fontFamily: 'Inter',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

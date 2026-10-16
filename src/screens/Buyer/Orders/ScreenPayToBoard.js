@@ -10,8 +10,7 @@ import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../co
 import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 import {getBuyerOrdersApi, getBuyerOrdersGroupedApi} from '../../../components/Api/orderManagementApi';
 import {checkoutApi} from '../../../components/Api/checkoutApi';
-import {paymentPaypalVenmoUrl} from '../../../../config';
-import {Linking} from 'react-native';
+import {openPaymentSheet} from '../../../utils/openPaymentSheet';
 import NetInfo from '@react-native-community/netinfo';
 import {useAuth} from '../../../auth/AuthProvider';
 import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
@@ -329,13 +328,8 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                 'Payment failed. Please try again or contact support.',
                 [
                   { text: 'Retry Payment', onPress: () =>  
-                    Linking.openURL(`${paymentPaypalVenmoUrl}?amount=${total}&ileafuOrderId=${transactionNumber}`).catch(err => {
-                      console.error('❌ [handleCheckout] Failed to open payment URL:', err);
-                      Alert.alert(
-                        'Payment Error',
-                        'Unable to open payment page. Please try again or contact support.',
-                        [{ text: 'OK', onPress: () => navigation.navigate('Orders') }]
-                      );
+                    openPaymentSheet(transactionNumber, total, {
+                      onGaveUp: () => navigation.navigate('Orders'),
                     })
                   },
                   {
@@ -357,14 +351,11 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
         }
           
       } else {
-        navigation.navigate('Orders');
-
-        setTimeout(() => {
-          console.log('💳 Opening payment page for existing order:', transactionNumber);
-          Linking.openURL(
-            `${paymentPaypalVenmoUrl}?amount=${total}&ileafuOrderId=${transactionNumber}`,
-          );
-        }, 500);
+        console.log('💳 Opening payment page for existing order:', transactionNumber);
+        // Open the sheet over this screen and only navigate away once it is gone (presenter safety).
+        openPaymentSheet(transactionNumber, total, {
+          onClose: () => setTimeout(() => navigation.navigate('Orders'), 300),
+        });
       }
       
     } catch (error) {
