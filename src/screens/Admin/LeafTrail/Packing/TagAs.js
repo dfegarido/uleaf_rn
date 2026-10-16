@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BoxIcon from '../../../../assets/admin-icons/box-black.svg';
+import CheckIcon from '../../../../assets/admin-icons/check-icon.svg';
 import CrossIcon from '../../../../assets/admin-icons/cross-icon.svg';
 import RightArrowIcon from '../../../../assets/admin-icons/rigth-arrow.svg';
 
 const OptionItem = ({
   isCrossIcon,
+  isCheckIcon,
   isBoxIcon,
   title,
   hasRightArrow = false,
@@ -30,6 +32,7 @@ const OptionItem = ({
       <View style={styles.listLeft}>
         <View style={styles.iconContainer}>
           {isCrossIcon && <CrossIcon />}
+          {isCheckIcon && <CheckIcon />}
           {isBoxIcon && <BoxIcon />}
         </View>
         <Text style={styles.listTitle}>{title}</Text>
@@ -111,6 +114,30 @@ const TagAsOptions = ({
                 hasRightArrow
                 setTagAs={setTagAs}
                 status="damaged"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+            <View>
+              <OptionItem
+                isCheckIcon
+                title="Tag as Others"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="others"
+              />
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+              </View>
+            </View>
+            <View>
+              <OptionItem
+                isCheckIcon
+                title="Tag as Needs to Stay"
+                hasRightArrow
+                setTagAs={setTagAs}
+                status="needsToStay"
               />
               <View style={styles.dividerContainer}>
                 <View style={styles.divider} />
