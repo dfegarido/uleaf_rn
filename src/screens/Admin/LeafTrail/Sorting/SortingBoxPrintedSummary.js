@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 const StatCell = ({ label, value, accent }) => (
   <View style={styles.statCell}>
-    <Text style={styles.statCellLabel}>{label}</Text>
+    <Text style={styles.statCellLabel} numberOfLines={2}>{label}</Text>
     <Text style={[styles.statCellValue, accent && styles.statCellValueAccent]}>{value}</Text>
   </View>
 );
@@ -36,6 +36,8 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
     forReceivingCount = 0,
     receivedCount = 0,
     sortedCount = 0,
+    receivedSeparatelyCount = 0,
+    receivedAndSortedTogetherCount = 0,
     needsToStayCount = 0,
     othersCount = 0,
     totalPlantsToFulfill = 0,
@@ -79,13 +81,23 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
       <View style={styles.statRow}>
         <StatCell label="For Receiving" value={String(forReceivingCount)} />
         <View style={styles.statDivider} />
-        <StatCell label="Received" value={`${receivedCount}/${denom}`} />
+        <StatCell label="Received Separately" value={`${receivedSeparatelyCount}/${denom}`} />
         <View style={styles.statDivider} />
         <StatCell label="Sorted" value={`${sortedCount}/${denom}`} accent />
       </View>
 
-      <ProgressRow label="Received at the hub" current={receivedCount} total={denom} color="#539461" />
-      <ProgressRow label="Sorted" current={sortedCount} total={denom} color="#2F8C4F" />
+      <ProgressRow
+        label="Received Separately"
+        current={receivedSeparatelyCount}
+        total={denom}
+        color="#539461"
+      />
+      <ProgressRow
+        label="Received & Sorted Together"
+        current={receivedAndSortedTogetherCount}
+        total={denom}
+        color="#2F8C4F"
+      />
 
       {(needsToStayCount > 0 || othersCount > 0) && (
         <View style={styles.excludedSection}>
@@ -131,12 +143,13 @@ const styles = StyleSheet.create({
   },
   statCell: { flex: 1, alignItems: 'center' },
   statCellLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#647276',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.2,
     marginBottom: 4,
+    textAlign: 'center',
   },
   statCellValue: {
     fontSize: 20,
@@ -155,7 +168,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  progressLabel: { fontSize: 14, fontWeight: '600', color: '#556065' },
+  progressLabel: { flex: 1, marginRight: 8, fontSize: 14, fontWeight: '600', color: '#556065' },
   progressFraction: { fontSize: 14 },
   progressCurrent: { fontWeight: '800', color: '#202325' },
   progressOf: { fontWeight: '500', color: '#647276' },

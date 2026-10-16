@@ -113,8 +113,17 @@ const ShippingInfo = ({ upsShipping, plantFlight }) => (
   </View>
 );
 
+const formatPackedDate = (plant) => {
+  const raw = plant?.hubPackDetails?.hubPackedDate || plant?.hubPackDetails?.dateScanned;
+  if (!raw) return '';
+  const date = moment(raw);
+  return date.isValid() ? date.format('M/D/YYYY') : '';
+};
+
 const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
   const boxNumber = String(plant?.packingData?.boxNumber || '').trim();
+  const isPacked = plant?.leafTrailStatus === 'packed';
+  const packedDate = isPacked ? formatPackedDate(plant) : '';
   const setTags = () => {
     openTagAs(boxNumber || null, plant.id);
   };
@@ -136,11 +145,16 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
     <View style={styles.plantCard}>
       <View>
         <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
-        {plant?.leafTrailStatus === 'packed' && !boxNumber ? (
+        {isPacked && !boxNumber ? (
           <View style={styles.packedBadgeContainer}>
             <View style={styles.packedBadge}>
               <Text style={styles.packedBadgeText}>PACKED</Text>
             </View>
+          </View>
+        ) : null}
+        {packedDate ? (
+          <View style={styles.packedDateBadge}>
+            <Text style={styles.packedDateText}>{packedDate}</Text>
           </View>
         ) : null}
         {canSelect ? (
@@ -243,9 +257,18 @@ const ViewPackingScreen = ({ navigation, route }) => {
       setTagAsVisible(false);
     } else {
       setIsLoading(true);
-      setTagAsVisible(!isTagAsVisible);
-      const response = await updateLeafTrailStatus(orderId, status);
-      if (response.success) {
+      setTagAsVisible(false);
+      let response;
+      try {
+        // Needs to Stay goes through its own endpoint so hubNeedsToStay (the date the buyer sees) is saved.
+        response =
+          status === 'needsToStay'
+            ? await updatePlantsToNeedsToStay({ orderIds: [orderId] })
+            : await updateLeafTrailStatus(orderId, status);
+      } catch (error) {
+        response = { success: false, message: error?.message };
+      }
+      if (response?.success) {
         await fetchData();
         setIsLoading(false)
         Alert.alert(
@@ -838,6 +861,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '700',
     fontSize: 14,
+  },
+  packedDateBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#F06BC4',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  packedDateText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 11,
   },
   joinerUserRow: {
     flexDirection: 'row',

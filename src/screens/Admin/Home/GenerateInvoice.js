@@ -311,6 +311,10 @@ const GenerateInvoice = ({navigation}) => {
 
   const invoiceBuyerOptions = useMemo(() => {
     const map = new Map();
+    buyerOptions.forEach((buyer) => {
+      if (buyer?.id == null || buyer.id === '' || !buyer.name) return;
+      map.set(String(buyer.id), {...buyer, id: String(buyer.id)});
+    });
     orders.forEach((order) => {
       if (!isInvoiceOrder(order)) return;
       const option = buyerOptionFromOrder(order);

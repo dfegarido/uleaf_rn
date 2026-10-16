@@ -57,6 +57,7 @@ import EventGiftFixed from '../../screens/Admin/Discounts/EventGiftFixed';
 import FreeShipping from '../../screens/Admin/Discounts/FreeShipping';
 import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
+import ListingsViewerDetail from '../../screens/Admin/ListingsViewer/ListingsViewerDetail';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
 import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
 import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
@@ -248,6 +249,7 @@ function AdminTabs() {
       
       {/* Listings Viewer */}
       <Stack.Screen name="ListingsViewer" options={{headerShown: false}} component={ListingsViewer} />
+      <Stack.Screen name="ListingsViewerDetail" options={{headerShown: false}} component={ListingsViewerDetail} />
       {/* Discounts */}
       <Stack.Screen name="AdminDiscounts" options={{headerShown: false}} component={Discounts} />
       <Stack.Screen name="AdminDiscountAmountOffPlants" options={{headerShown: false}} component={AmountOffPlants} />

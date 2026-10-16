@@ -3,12 +3,11 @@ import AppImage from '../../../../components/AppImage/AppImage';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,11 +28,12 @@ import {
   SORTING_BOX_COLOR_COMPLETE,
   SORTING_BOX_COLOR_INCOMPLETE,
   computeSortingBoxMetrics,
-  isAwaitingSortPlant as plantAwaitingSort,
+  isForReceivingPlant,
   isIncludedInSortingPlantList,
+  isReceivedAndSortedTogether,
+  isReceivedSeparatelyPlant,
   isSortedPlant as plantIsSorted,
   sortPlantsForSortingBoxList,
-  sortingPlantStatusLabel,
 } from '../../../../utils/sortingBoxMetrics';
 import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 import SortingBoxPrintedSummary from './SortingBoxPrintedSummary';
@@ -65,72 +65,97 @@ const buildTagAsFlagsForPlant = (plant) => {
   return status;
 };
 
-const SortingPlantRow = ({ plant, index, onOpenTagAs }) => {
-  const sorted = plantIsSorted(plant);
-  const statusLabel = sortingPlantStatusLabel(plant);
+function receivedSeparatelyLabel(plant) {
+  const leaf = String(plant?.leafTrailStatus || '').toLowerCase().replace(/[\s_-]+/g, '');
+  return leaf === 'needstostay' ? 'Needs to Stay' : 'Received';
+}
+
+function formatScanStamp(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+const SortingPlantRow = ({ plant, boxNumber, actionLabel, statusLabel, statusTone, onOpenTagAs, onScan }) => {
+  const scannedAt = formatScanStamp(plant.receivedAt);
   return (
-    <View
-      style={[
-        styles.plantCard,
-        sorted ? styles.plantCardDone : styles.plantCardPending,
-      ]}>
-      <View style={styles.plantIndexWrap}>
-        <Text style={styles.plantIndex}>{index + 1}</Text>
-      </View>
+    <View style={styles.plantCard}>
       <AppImage source={{ uri: plant.plantImage }} style={styles.plantImage} />
       <View style={styles.plantDetails}>
-        <Text style={styles.plantCode}>{plant.plantCode}</Text>
         <Text style={styles.plantName} numberOfLines={2}>
           {plant.genus} {plant.species}
         </Text>
-        <Text style={styles.plantMeta} numberOfLines={1}>
-          {plant.variegation} · {plant.size}
-        </Text>
-        {plant.listingType ? (
-          <View style={styles.typeChip}>
-            <Text style={styles.typeChipText}>{plant.listingType}</Text>
+        {plant.variegation ? (
+          <Text style={styles.plantMeta} numberOfLines={1}>{plant.variegation}</Text>
+        ) : null}
+        {plant.gardenName ? (
+          <Text style={styles.plantMeta} numberOfLines={1}>{plant.gardenName}</Text>
+        ) : null}
+        <Text style={styles.plantCode}>{plant.plantCode}</Text>
+        {boxNumber ? (
+          <View style={styles.boxChip}>
+            <Text style={styles.boxChipText}>Box {boxNumber}</Text>
           </View>
         ) : null}
       </View>
       <View style={styles.plantRight}>
         <View style={styles.plantRightTop}>
-          <CountryFlagIcon code={plant.countryCode} width={28} height={18} />
+          <CountryFlagIcon code={plant.countryCode} width={22} height={14} />
           <TouchableOpacity
             onPress={() => onOpenTagAs?.(plant)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel="Tag plant status">
-            <OptionsIcon width={22} height={22} />
+            <OptionsIcon width={20} height={20} />
           </TouchableOpacity>
         </View>
         <View
           style={[
             styles.statusPill,
-            sorted ? styles.statusPillDone : styles.statusPillPending,
+            statusTone === 'waiting' ? styles.statusPillWaiting : styles.statusPillDone,
           ]}>
           <Text
             style={[
               styles.statusPillText,
-              sorted ? styles.statusPillTextDone : styles.statusPillTextPending,
+              statusTone === 'waiting' ? styles.statusPillTextWaiting : styles.statusPillTextDone,
             ]}>
             {statusLabel}
           </Text>
         </View>
+        {scannedAt ? <Text style={styles.scanStamp}>{scannedAt}</Text> : null}
+        {plant.receivedBy ? (
+          <Text style={styles.scanBy} numberOfLines={1}>by {plant.receivedBy}</Text>
+        ) : null}
+        {actionLabel ? (
+          <TouchableOpacity style={styles.rowScanButton} onPress={onScan} activeOpacity={0.85}>
+            <ScanQrIcon width={16} height={16} />
+            <Text style={styles.rowScanButtonText}>{actionLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
 };
 
-const BOX_PLANT_TABS = {
-  awaiting: 'awaiting',
-  sorted: 'sorted',
-};
+const BOX_PLANT_TABS = [
+  { key: 'forReceiving', label: 'For Receiving', empty: 'No plants are still For receiving.' },
+  { key: 'receivedSeparately', label: 'Received Separately', empty: 'No plants were received separately.' },
+  { key: 'together', label: 'Received & Sorted Together', empty: 'No plants were received and sorted together.' },
+  { key: 'sorted', label: 'Sorted', empty: 'No sorted plants yet.' },
+];
 
 const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
   const insets = useSafeAreaInsets();
   const [finishPromptVisible, setFinishPromptVisible] = useState(false);
   const [traySheetVisible, setTraySheetVisible] = useState(false);
-  const [plantTab, setPlantTab] = useState(BOX_PLANT_TABS.awaiting);
+  const [plantTab, setPlantTab] = useState('forReceiving');
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [tagOrderId, setTagOrderId] = useState(null);
   const [tagFlags, setTagFlags] = useState({
@@ -163,29 +188,39 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
     [boxPlants],
   );
 
-  const awaitingPlants = useMemo(
-    () => alphabeticalPlants.filter(plantAwaitingSort),
+  const forReceivingPlants = useMemo(
+    () => alphabeticalPlants.filter(isForReceivingPlant),
     [alphabeticalPlants],
   );
-
+  const receivedSeparatelyPlants = useMemo(
+    () => alphabeticalPlants.filter(isReceivedSeparatelyPlant),
+    [alphabeticalPlants],
+  );
+  const togetherPlants = useMemo(
+    () => alphabeticalPlants.filter(isReceivedAndSortedTogether),
+    [alphabeticalPlants],
+  );
   const sortedPlantsList = useMemo(
     () => alphabeticalPlants.filter(plantIsSorted),
     [alphabeticalPlants],
   );
-
-  const visiblePlants =
-    plantTab === BOX_PLANT_TABS.sorted ? sortedPlantsList : awaitingPlants;
+  const plantsByTab = {
+    forReceiving: forReceivingPlants,
+    receivedSeparately: receivedSeparatelyPlants,
+    together: togetherPlants,
+    sorted: sortedPlantsList,
+  };
+  const visiblePlants = plantsByTab[plantTab] || [];
+  const activeTab = BOX_PLANT_TABS.find((tab) => tab.key === plantTab) || BOX_PLANT_TABS[0];
 
   const handlePrintVisiblePlants = useCallback(() => {
-    const tabLabel =
-      plantTab === BOX_PLANT_TABS.sorted ? 'sorted' : 'awaiting sort';
     printOrderIds(
       visiblePlants.map((p) => p.id).filter(Boolean),
       {
-        emptyMessage: `No ${tabLabel} plants in this box to print.`,
+        emptyMessage: `No ${activeTab.label} plants in this box to print.`,
       },
     );
-  }, [plantTab, printOrderIds, visiblePlants]);
+  }, [activeTab.label, printOrderIds, visiblePlants]);
 
   const openTagAs = useCallback((plant) => {
     if (!plant?.id) return;
@@ -228,7 +263,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
 
   React.useEffect(() => {
     if (visible && box?.boxKey) {
-      setPlantTab(BOX_PLANT_TABS.awaiting);
+      setPlantTab('forReceiving');
       setTraySheetVisible(false);
       closeTagAs();
       prevSortedCountRef.current = (box?.plants || [])
@@ -253,7 +288,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
     if (!visible) return;
     const sortedCount = sortedPlantsList.length;
     if (sortedCount > prevSortedCountRef.current) {
-      setPlantTab(BOX_PLANT_TABS.sorted);
+      setPlantTab('sorted');
     }
     prevSortedCountRef.current = sortedCount;
   }, [visible, sortedPlantsList.length]);
@@ -327,12 +362,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
 
         <TouchableOpacity style={styles.scanCta} onPress={openScan} activeOpacity={0.85}>
           <ScanQrIcon width={28} height={28} />
-          <View style={styles.scanCtaTextWrap}>
-            <Text style={styles.scanCtaTitle}>Scan to sort plants</Text>
-            <Text style={styles.scanCtaSub}>
-              Scan a plant QR — sorted plants move to the Sorted tab and count toward fulfill
-            </Text>
-          </View>
+          <Text style={styles.scanCtaTitle}>Scan QR Code to Receive/Sort</Text>
         </TouchableOpacity>
       </View>
 
@@ -340,55 +370,31 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
         <Text style={styles.sectionTitle}>Plants in this box</Text>
       </View>
 
-      <View style={styles.plantTabsRow}>
-        <TouchableOpacity
-          style={[
-            styles.plantTab,
-            plantTab === BOX_PLANT_TABS.awaiting && styles.plantTabActive,
-          ]}
-          onPress={() => setPlantTab(BOX_PLANT_TABS.awaiting)}
-          activeOpacity={0.85}>
-          <Text
-            style={[
-              styles.plantTabText,
-              plantTab === BOX_PLANT_TABS.awaiting && styles.plantTabTextActive,
-            ]}>
-            Awaiting to sort
-          </Text>
-          <Text
-            style={[
-              styles.plantTabCount,
-              plantTab === BOX_PLANT_TABS.awaiting && styles.plantTabCountActive,
-            ]}>
-            {awaitingPlants.length}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.plantTab,
-            plantTab === BOX_PLANT_TABS.sorted && styles.plantTabActive,
-          ]}
-          onPress={() => setPlantTab(BOX_PLANT_TABS.sorted)}
-          activeOpacity={0.85}>
-          <Text
-            style={[
-              styles.plantTabText,
-              plantTab === BOX_PLANT_TABS.sorted && styles.plantTabTextActive,
-            ]}>
-            Sorted
-          </Text>
-          <Text
-            style={[
-              styles.plantTabCount,
-              plantTab === BOX_PLANT_TABS.sorted && styles.plantTabCountActive,
-            ]}>
-            {sortedPlantsList.length}
-          </Text>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.plantListHint}>
-        {metrics.totalPlantsToFulfill} plant(s) to fulfill · Scanned sorted plants appear under
-        Sorted, not Awaiting
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.plantTabsRow}>
+        {BOX_PLANT_TABS.map((tab) => {
+          const active = plantTab === tab.key;
+          const count = (plantsByTab[tab.key] || []).length;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.plantTab, active && styles.plantTabActive]}
+              onPress={() => setPlantTab(tab.key)}
+              activeOpacity={0.85}>
+              <Text style={[styles.plantTabText, active && styles.plantTabTextActive]}>
+                {tab.label}
+              </Text>
+              <Text style={[styles.plantTabCount, active && styles.plantTabCountActive]}>
+                {count}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+      <Text style={styles.tabSummary}>
+        {activeTab.label} {visiblePlants.length}/{metrics.forReceivingCount}
       </Text>
     </View>
   );
@@ -421,11 +427,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
                 disabled={printLoading}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  plantTab === BOX_PLANT_TABS.sorted
-                    ? 'Reprint QR labels for sorted plants'
-                    : 'Reprint QR labels for awaiting sort plants'
-                }>
+                accessibilityLabel={`Reprint QR labels for ${activeTab.label} plants`}>
                 <PrintIcon width={22} height={22} />
               </TouchableOpacity>
               <TouchableOpacity
@@ -448,7 +450,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
                 onPress={openScan}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel="Scan to sort plants">
+                accessibilityLabel="Scan QR Code to Receive/Sort">
                 <ScanQrIcon width={32} height={32} />
               </TouchableOpacity>
             </View>
@@ -459,9 +461,36 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           keyExtractor={(item) => item.id}
           extraData={plantTab}
           ListHeaderComponent={listHeader}
-          renderItem={({ item, index }) => (
-            <SortingPlantRow plant={item} index={index} onOpenTagAs={openTagAs} />
-          )}
+          renderItem={({ item }) => {
+            const forReceiving = isForReceivingPlant(item);
+            const awaitingSort = isReceivedSeparatelyPlant(item) && !plantIsSorted(item);
+            const together = isReceivedAndSortedTogether(item);
+            let statusLabel = 'Sorted';
+            let statusTone = 'done';
+            let actionLabel = null;
+            if (forReceiving) {
+              statusLabel = 'Not Yet Received';
+              statusTone = 'waiting';
+              actionLabel = 'Receive & Sort';
+            } else if (awaitingSort) {
+              statusLabel = receivedSeparatelyLabel(item);
+              statusTone = statusLabel === 'Needs to Stay' ? 'waiting' : 'done';
+              actionLabel = 'Sort';
+            } else if (together) {
+              statusLabel = 'Received & Sorted';
+            }
+            return (
+              <SortingPlantRow
+                plant={item}
+                boxNumber={box?.boxNumber}
+                actionLabel={actionLabel}
+                statusLabel={statusLabel}
+                statusTone={statusTone}
+                onOpenTagAs={openTagAs}
+                onScan={openScan}
+              />
+            );
+          }}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
             styles.listContent,
@@ -472,11 +501,7 @@ const SortingBoxDetail = ({ visible, box, navigation, onClose, onRefresh }) => {
           refreshing={false}
           ListEmptyComponent={
             <View style={styles.emptyPlants}>
-              <Text style={styles.emptyPlantsText}>
-                {plantTab === BOX_PLANT_TABS.sorted
-                  ? 'No sorted plants yet. Scan plants to sort them.'
-                  : 'All plants in this box are sorted.'}
-              </Text>
+              <Text style={styles.emptyPlantsText}>{activeTab.empty}</Text>
             </View>
           }
           />
@@ -718,16 +743,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 14,
   },
-  scanCtaTextWrap: { flex: 1 },
   scanCtaTitle: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  scanCtaSub: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -743,30 +763,25 @@ const styles = StyleSheet.create({
     color: '#202325',
   },
   plantTabsRow: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#E8ECEA',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
   },
-  plantListHint: {
+  tabSummary: {
     marginHorizontal: 16,
     marginBottom: 12,
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#647276',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#202325',
   },
   plantTab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#E8ECEA',
   },
   plantTabActive: {
     backgroundColor: '#FFFFFF',
@@ -834,22 +849,18 @@ const styles = StyleSheet.create({
     gap: 10,
     overflow: 'hidden',
   },
-  plantCardPending: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#F5A623',
+  boxChip: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    backgroundColor: '#F4F6F7',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  plantCardDone: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#2F8C4F',
-  },
-  plantIndexWrap: {
-    width: 24,
-    paddingTop: 4,
-  },
-  plantIndex: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#A8B4B8',
+  boxChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#556065',
   },
   plantImage: {
     width: 76,
@@ -906,11 +917,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  statusPillPending: { backgroundColor: '#FFF3E0' },
+  statusPillWaiting: { backgroundColor: '#FFF4D6' },
   statusPillDone: { backgroundColor: '#EAF7EF' },
   statusPillText: { fontSize: 11, fontWeight: '700' },
-  statusPillTextPending: { color: '#E65100' },
+  statusPillTextWaiting: { color: '#8A6A12' },
   statusPillTextDone: { color: '#1B7A43' },
+  scanStamp: {
+    fontSize: 11,
+    color: '#556065',
+    textAlign: 'right',
+  },
+  scanBy: {
+    fontSize: 11,
+    color: '#7F8D91',
+    textAlign: 'right',
+  },
+  rowScanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1F8A4C',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  rowScanButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   emptyPlants: {
     padding: 32,
     alignItems: 'center',

@@ -6,7 +6,7 @@ import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
 import CountryFlagIcon from '../../../components/CountryFlagIcon';
 
-const getStatusColor = (status) => {
+export const getStatusColor = (status) => {
   switch ((status || '').toLowerCase()) {
     case 'active': return '#27ae60'; // green
     case 'inactive': return '#e67e22'; // orange
@@ -21,7 +21,7 @@ const getStatusColor = (status) => {
   }
 };
 
-const formatDateListed = (value) => {
+export const formatDateListed = (value) => {
   if (!value) return null;
 
   let dateObj = null;
@@ -112,6 +112,30 @@ const getPrimaryImage = (listing) => {
   for (const c of otherCandidates) {
     const s = asString(c);
     if (s) return s;
+  }
+
+  return null;
+};
+
+// Resolve a short country code for flag rendering
+export const resolveCountryCode = (country, localCurrency) => {
+  const c = (country || '').toString().trim();
+  const lc = (localCurrency || '').toString().trim().toUpperCase();
+
+  if (c) {
+    const lower = c.toLowerCase();
+    if (lower.includes('philipp') || lower === 'ph' || lower === 'phillipines') return 'PH';
+    if (lower.includes('thailand') || lower === 'th') return 'TH';
+    if (lower.includes('indonesia') || lower === 'id') return 'ID';
+    if (lower.includes('united states') || lower === 'us' || lower === 'usa') return 'US';
+  }
+
+  // Fallback to currency mapping
+  if (lc) {
+    if (lc.includes('PHP') || lc.includes('₱')) return 'PH';
+    if (lc.includes('THB') || lc.includes('฿')) return 'TH';
+    if (lc.includes('IDR') || lc.includes('RP')) return 'ID';
+    if (lc.includes('USD') || lc.includes('$')) return 'US';
   }
 
   return null;
@@ -233,30 +257,6 @@ const renderCell = (key, listing, activeStatusFilter = null) => {
       );
     }
     case 'country': {
-      // Resolve a short country code for flag rendering
-      const resolveCountryCode = (country, localCurrency) => {
-        const c = (country || '').toString().trim();
-        const lc = (localCurrency || '').toString().trim().toUpperCase();
-
-        if (c) {
-          const lower = c.toLowerCase();
-          if (lower.includes('philipp') || lower === 'ph' || lower === 'phillipines') return 'PH';
-          if (lower.includes('thailand') || lower === 'th') return 'TH';
-          if (lower.includes('indonesia') || lower === 'id') return 'ID';
-          if (lower.includes('united states') || lower === 'us' || lower === 'usa') return 'US';
-        }
-
-        // Fallback to currency mapping
-        if (lc) {
-          if (lc.includes('PHP') || lc.includes('₱')) return 'PH';
-          if (lc.includes('THB') || lc.includes('฿')) return 'TH';
-          if (lc.includes('IDR') || lc.includes('RP')) return 'ID';
-          if (lc.includes('USD') || lc.includes('$')) return 'US';
-        }
-
-        return null;
-      };
-
       const code = resolveCountryCode(listing.country, listing.localCurrency || listing.localCurrencySymbol);
       return (
         <View style={styles.countryRow}>
@@ -282,6 +282,7 @@ const imageAvailabilityCache = new Map(); // url -> boolean
 const ListingRow = ({
   listing,
   onPress = () => {},
+  onImagePress = null,
   columns = [],
   onToggleStatus = () => {},
   isProcessing = false,
@@ -358,7 +359,13 @@ const ListingRow = ({
         </View>
       ) : null}
       {/* Image cell (fixed width matching design) */}
-      <View style={styles.plantImage}>
+      <TouchableOpacity
+        style={styles.plantImage}
+        activeOpacity={0.8}
+        onPress={() =>
+          selectMode || !onImagePress ? onPress(listing) : onImagePress(listing, selectedUri)
+        }
+      >
         {selectedUri ? (
           <AppImage source={{ uri: selectedUri }} style={styles.plantImageActual} />
         ) : loadingImage ? (
@@ -366,7 +373,7 @@ const ListingRow = ({
         ) : (
           <View style={styles.imagePlaceholder}><Text style={styles.imagePlaceholderText}>No Img</Text></View>
         )}
-      </View>
+      </TouchableOpacity>
 
       {/* Render each configured column in order */}
       <View style={styles.contentContainer}>

@@ -38,7 +38,7 @@ import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
 import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
 import HeartIcon from '../../../assets/buyer-icons/heart.svg';
 // Import API
-import { getAdminListingsApi } from '../../../components/Api/getAdminListingsApi';
+import { getAdminListingsApi, getAdminListingGardensApi } from '../../../components/Api/getAdminListingsApi';
 import { postListingDeactivateActionApi } from '../../../components/Api/postListingDeactivateActionApi';
 import { postListingActivateActionApi } from '../../../components/Api/postListingActivateActionApi';
 import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
@@ -120,6 +120,10 @@ const ListingsViewer = ({ navigation }) => {
   const [gardenOptionsState, setGardenOptionsState] = useState([]);
   const [gardenCounts, setGardenCounts] = useState({});
   const [gardenModalVisible, setGardenModalVisible] = useState(false);
+  // Full seller list from the backend — the page-derived list misses any
+  // nursery whose listings aren't on the loaded page.
+  const [sellerGardens, setSellerGardens] = useState(null);
+  const [sellerGardensLoading, setSellerGardensLoading] = useState(false);
   const [countryOptionsState, setCountryOptionsState] = useState([]);
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [countryLoading, setCountryLoading] = useState(false);
@@ -269,7 +273,6 @@ const ListingsViewer = ({ navigation }) => {
       }
 
       const response = await getAdminListingsApi(filters);
-
       if (response.success) {
         // Debug logging for expired status results
         if (filters.status && filters.status.includes('expired')) {
@@ -717,7 +720,38 @@ const ListingsViewer = ({ navigation }) => {
   // from the entire filtered result set (not just the current page). This
   // will be used by the modal when the user requests "View More" or when
   // auto-filling to reach PAGE_SIZE items.
+  const loadSellerGardens = async () => {
+    if (sellerGardens) return sellerGardens;
+    setSellerGardensLoading(true);
+    try {
+      const res = await getAdminListingGardensApi();
+      if (!res.success || !res.gardens.length) return null;
+      const counts = {};
+      const names = [];
+      res.gardens.forEach((g) => {
+        const key = normalizeGardenName(g?.name);
+        if (!key) return;
+        counts[key] = (counts[key] || 0) + (Number(g?.count) || 0);
+        names.push(key);
+      });
+      const value = {
+        gardens: Array.from(new Set(names)).sort((a, b) => a.localeCompare(b)),
+        counts,
+      };
+      setSellerGardens(value);
+      return value;
+    } finally {
+      setSellerGardensLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (gardenModalVisible) loadSellerGardens();
+  }, [gardenModalVisible]);
+
   const fetchFullGardenList = async () => {
+    const fullList = await loadSellerGardens();
+    if (fullList) return fullList;
     try {
       // Reuse the same filters used by loadListings but request a large
       // limit so we retrieve all matching listings in one call. This keeps
@@ -1111,6 +1145,10 @@ const ListingsViewer = ({ navigation }) => {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }, [selectMode]);
+
+  const handleImagePress = useCallback((listing, imageUrl) => {
+    navigation.navigate('ListingsViewerDetail', { listing, imageUrl });
+  }, [navigation]);
 
   const exitSelectMode = () => {
     setSelectMode(false);
@@ -1745,8 +1783,9 @@ const ListingsViewer = ({ navigation }) => {
             isVisible={gardenModalVisible}
             onClose={() => setGardenModalVisible(false)}
             onSelectGarden={handleGardenSelect}
-            gardens={gardenOptionsState}
-            gardenCounts={gardenCounts}
+            gardens={sellerGardens?.gardens || gardenOptionsState}
+            gardenCounts={sellerGardens?.counts || gardenCounts}
+            gardensLoading={sellerGardensLoading}
             fetchFullGardenList={fetchFullGardenList}
             onCountsFetched={setGardenCounts}
             currentGarden={selectedFilters.garden}
@@ -1835,6 +1874,7 @@ const ListingsViewer = ({ navigation }) => {
                       <ListingRow
                         listing={item}
                         onPress={handleListingPress}
+                        onImagePress={handleImagePress}
                         columns={filteredColumns}
                         onToggleStatus={handleToggleStatus}
                         isProcessing={!!activatingPlantCodes[item.plantCode]}

@@ -8,6 +8,7 @@ import { Modal,
   TouchableWithoutFeedback,
   View,
   KeyboardAvoidingView,
+  Keyboard,
   Platform} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import GardenIcon from '../../assets/admin-icons/garden-avatar.svg';
@@ -275,10 +276,16 @@ const GardenFilter = ({
     if (!debouncedSearchQuery.trim()) {
       return source;
     }
-    const queryLower = debouncedSearchQuery.toLowerCase();
+    // Keyboards insert different apostrophe look-alikes (B'ayu, B’ayu, Bʼayu),
+    // so ignore them entirely when matching.
+    const searchKey = (s) =>
+      (normalizeGardenName(s) || '')
+        .toLowerCase()
+        .replace(/['`´ʹʻʼʽˈ‘’‚‛′‵]/g, '');
+    const query = searchKey(debouncedSearchQuery);
     return source.filter(garden => {
       if (typeof garden !== 'string') return false;
-      return garden.toLowerCase().includes(queryLower);
+      return searchKey(garden).includes(query);
     });
   }, [overrideGardens, allGardens, debouncedSearchQuery]);
 
@@ -298,6 +305,9 @@ const GardenFilter = ({
   const handleToggle = (garden) => {
     const normThis = normalizeGardenName(garden || '');
     if (!normThis) return;
+    // On Android the keyboard covers the View button, and Back closes the
+    // modal without applying the selection.
+    Keyboard.dismiss();
 
     setSelectedGardens((prev) => {
       const already = prev.some((g) => normalizeGardenName(g) === normThis);

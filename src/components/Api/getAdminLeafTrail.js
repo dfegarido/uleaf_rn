@@ -507,7 +507,7 @@ export const updatePlantsToNeedsToStay = async (data) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ ...data, action: 'updatePlantsToNeedsToStay' })
       },
     );
 
@@ -519,7 +519,7 @@ export const updatePlantsToNeedsToStay = async (data) => {
     const json = await response.json();
     return json;
   } catch (error) {
-    console.error('updatePlantsToSorted error:', error.message);
+    console.error('updatePlantsToNeedsToStay error:', error.message);
     throw error; // optionally rethrow for use in UI
   }
 };
@@ -536,7 +536,7 @@ export const updatePlantsToSorted = async (data) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ ...data, action: 'updatePlantsToSorted' })
       },
     );
 
