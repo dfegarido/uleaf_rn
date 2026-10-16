@@ -150,6 +150,33 @@ export const getAdminListingsApi = async (filters = {}) => {
 };
 
 /**
+ * Every seller/garden name across all listings, for the Garden filter.
+ * @returns {Promise<{success: boolean, gardens: Array<{name: string, count: number}>}>}
+ */
+export const getAdminListingGardensApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    if (!authToken) return { success: false, gardens: [] };
+
+    const response = await fetch(`${API_ENDPOINTS.GET_ADMIN_LISTINGS}?action=gardens`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return { success: true, gardens: data?.data?.gardens || [] };
+  } catch (error) {
+    console.error('Get admin listing gardens API error:', error);
+    return { success: false, gardens: [] };
+  }
+};
+
+/**
  * Get admin listing detail by plant code
  * @param {string} plantCode - Plant code
  * @returns {Promise<Object>} API response with listing detail
