@@ -79,3 +79,6 @@ ios/assets/
 .env
 .env.local
 .env.*.local
+
+# APNs / Apple private keys
+*.p8

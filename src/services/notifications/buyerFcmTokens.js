@@ -4,7 +4,7 @@ import { getStoredAuthToken } from '../../utils/getStoredAuthToken';
 /**
  * FCM device-token registration for push notifications.
  *
- * Tokens live in Supabase `buyer.fcmtokens` (a jsonb array). Push sending
+ * Tokens live in Supabase `buyer.fcmtokens` (a text column holding a JSON array). Push sending
  * (`send-everyone-mention-notification`) reads from there, so registering only in
  * Firestore would leave those devices unreachable.
  *
