@@ -1,7 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import VenmoLogoIcon from '../../../assets/buyer-icons/venmo-logo.svg';
@@ -20,6 +20,17 @@ import {
   getCountryCode,
   getCountryFlag,
 } from '../../../utils/buyerOrderCardTransform';
+import CustomAlert from '../../../components/CustomAlert/CustomAlert';
+import {on} from '../../../services/notifications/notificationEvents';
+import {
+  createPaymentProgressState,
+  markPaymentInProgress,
+  clearPaymentInProgress,
+  isPaymentInProgress,
+  paymentProgressBannerText,
+  loadPaymentProgress,
+  savePaymentProgress,
+} from '../../../utils/paymentProgress';
 
 const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const navigation = useNavigation();
@@ -42,6 +53,16 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const [error, setError] = useState(null);
   const [expandedTransactions, setExpandedTransactions] = useState(new Set());
   const [payingTransaction, setPayingTransaction] = useState(null);
+  // Which order the buyer tapped Pay on, while the confirmation dialog is up. The
+  // dialog is the app's own CustomAlert (frosted variant) rather than Alert.alert, so
+  // iOS and Android show the buyer the same confirmation.
+  const [confirmPayGroup, setConfirmPayGroup] = useState(null);
+  // Transactions the buyer started paying for and that have not been confirmed yet. The payment
+  // completes in the browser, so the app cannot know the outcome when the sheet closes - the
+  // backend confirms it and pushes a "payment confirmed" notification. Until then the buyer sees
+  // a banner and the Pay button is disabled, so they cannot start a second payment for the same
+  // order.
+  const [paymentInProgress, setPaymentInProgress] = useState(createPaymentProgressState);
   const [vaultedPaymentId, setVaultedPaymentId] = useState(null);
   const [vaultedPaymentUsername, setVaultedPaymentUsername] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -352,6 +373,10 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
           
       } else {
         console.log('💳 Opening payment page for existing order:', transactionNumber);
+        // The payment completes in the browser, so from here on the outcome is unknown: the
+        // backend confirms it and pushes a "payment confirmed" notification. Mark the order as
+        // awaiting confirmation so the Pay button is disabled and the buyer sees the banner.
+        setPaymentInProgress(prev => markPaymentInProgress(prev, transactionNumber));
         // Open the sheet over this screen and only navigate away once it is gone (presenter safety).
         openPaymentSheet(transactionNumber, total, {
           onClose: () => setTimeout(() => navigation.navigate('Orders'), 300),
@@ -379,6 +404,45 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     }
   }, [route.params?.refreshData]);
 
+  // Restore the transactions that are still awaiting confirmation. The checkout flow opens the
+  // payment sheet and then navigates here, so the flag has to survive the screen change.
+  useEffect(() => {
+    let active = true;
+    loadPaymentProgress().then(state => {
+      if (active && state.size > 0) {
+        setPaymentInProgress(state);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Persist on every change, so the banner is still there after a navigation.
+  useEffect(() => {
+    savePaymentProgress(paymentInProgress);
+  }, [paymentInProgress]);
+
+  // The backend pushes "payment confirmed" once it has marked the order paid. That is the
+  // moment the order is no longer awaiting confirmation, so the banner goes away and the list
+  // is refreshed to show the new status.
+  //
+  // loadOrders is not memoized, so it is kept in a ref: subscribing on every render would
+  // churn the listener for no reason.
+  const loadOrdersRef = useRef(loadOrders);
+  loadOrdersRef.current = loadOrders;
+
+  useEffect(() => {
+    const unsubscribe = on('payment_confirmed', ({transactionNumber}) => {
+      console.log('✅ Payment confirmed for', transactionNumber);
+      if (transactionNumber) {
+        setPaymentInProgress(prev => clearPaymentInProgress(prev, transactionNumber));
+      }
+      loadOrdersRef.current(true);
+    });
+    return unsubscribe;
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadOrders(true);
@@ -401,6 +465,8 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     const middle = '*'.repeat(Math.min(username.length - 2, 8));
     return `@${firstChar}${secondChar}${middle}${secondToTheLastChar}${lastChar}`;
   };
+
+  const bannerText = paymentProgressBannerText(paymentInProgress.size);
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.container}>
@@ -447,6 +513,18 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
             </View>
           )}
 
+          {paymentInProgress.size > 0 && (
+            <View style={styles.paymentBanner}>
+              <View style={styles.paymentBannerIcon}>
+                <ActivityIndicator size="small" color="#0b6b3a" />
+              </View>
+              <View style={styles.paymentBannerTextWrap}>
+                <Text style={styles.paymentBannerTitle}>{bannerText.title}</Text>
+                <Text style={styles.paymentBannerBody}>{bannerText.body}</Text>
+              </View>
+            </View>
+          )}
+
           {orders.length === 0 && !error ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No Pay to Board orders found</Text>
@@ -460,6 +538,9 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
               const isExpanded = expandedTransactions.has(transactionNumber);
               const total = calculateTransactionTotal(group);
               const plantCount = group.plants?.length || 0;
+              // This order is waiting for the backend to confirm its payment: the Pay button
+              // stays disabled so the buyer cannot start a second payment for the same order.
+              const awaitingConfirmation = isPaymentInProgress(paymentInProgress, transactionNumber);
               
               return (
                 <View key={transactionNumber} style={styles.transactionGroup}>
@@ -489,58 +570,42 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                       </View>
                     </TouchableOpacity>
                     {!vaultedPaymentId && (<TouchableOpacity
-                      style={styles.payButton}
-                      onPress={() => {
-                        Alert.alert('Are you sure?', '', [
-                              {
-                                text: 'No',
-                                onPress: () => {
-                                  return null;
-                                },
-                                style: 'cancel'
-                              },
-                              {
-                                text: 'Yes',
-                                onPress: () => {
-                                  handlePayTransaction(group);
-                                },
-                              },
-                            ])
-                        }}
+                      style={[
+                        styles.payButton,
+                        awaitingConfirmation && styles.payButtonDisabled,
+                      ]}
+                      onPress={() => setConfirmPayGroup(group)}
                       activeOpacity={0.7}
-                      disabled={payingTransaction === group.transactionNumber}
+                      disabled={
+                        payingTransaction === group.transactionNumber ||
+                        awaitingConfirmation
+                      }
                     >
                       {payingTransaction === group.transactionNumber ? (
                         <ActivityIndicator size="small" color="#fff" />
+                      ) : awaitingConfirmation ? (
+                        <Text style={styles.payButtonText}>Payment in progress</Text>
                       ) : (
                         <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
                       )}
                     </TouchableOpacity>)}
 
                     {vaultedPaymentId && (<TouchableOpacity
-                      style={styles.payButton}
-                      onPress={() => {
-                        Alert.alert('Are you sure?', '', [
-                              {
-                                text: 'No',
-                                onPress: () => {
-                                  return null;
-                                },
-                                style: 'cancel'
-                              },
-                              {
-                                text: 'Yes',
-                                onPress: () => {
-                                  handlePayTransaction(group);
-                                },
-                              },
-                            ])
-                        }}
+                      style={[
+                        styles.payButton,
+                        awaitingConfirmation && styles.payButtonDisabled,
+                      ]}
+                      onPress={() => setConfirmPayGroup(group)}
                       activeOpacity={0.7}
-                      disabled={payingTransaction === group.transactionNumber}
+                      disabled={
+                        payingTransaction === group.transactionNumber ||
+                        awaitingConfirmation
+                      }
                     >
                       {payingTransaction === group.transactionNumber ? (
                         <ActivityIndicator size="small" color="#fff" />
+                      ) : awaitingConfirmation ? (
+                        <Text style={styles.payButtonText}>Payment in progress</Text>
                       ) : (
                         <View style={styles.venmoButtonContent}>
                           <View style={styles.venmoFirstLine}>
@@ -601,6 +666,24 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
 
         </ScrollView>
       )}
+
+      {/* Payment confirmation — the app's own dialog, so iOS and Android show the buyer
+          the same thing. `Yes` runs the same handler the native alert used to (open the
+          payment sheet, or capture the vaulted charge); the seam already waits out a
+          dismissal animation before it presents, so a dialog closing first is fine. */}
+      <CustomAlert
+        visible={!!confirmPayGroup}
+        variant="frosted"
+        title="Are you sure?"
+        buttons={[
+          {text: 'No', style: 'cancel'},
+          {
+            text: 'Yes',
+            onPress: () => confirmPayGroup && handlePayTransaction(confirmPayGroup),
+          },
+        ]}
+        onDismiss={() => setConfirmPayGroup(null)}
+      />
     </SafeAreaView>
   );
 };
@@ -653,6 +736,40 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#fecaca',
+  },
+  // The payment is made in the browser, so the app cannot show the outcome straight away. The
+  // banner says so instead of leaving the buyer looking at a pending order.
+  paymentBanner: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  paymentBannerIcon: {
+    marginRight: 12,
+    paddingTop: 2,
+  },
+  paymentBannerTextWrap: {
+    flex: 1,
+  },
+  paymentBannerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0b6b3a',
+    fontFamily: 'Inter',
+    marginBottom: 3,
+  },
+  paymentBannerBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#3f6212',
+    fontFamily: 'Inter',
   },
   errorText: {
     fontSize: 14,
@@ -750,6 +867,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
+  },
+  payButtonDisabled: {
+    backgroundColor: '#a7f3d0',
   },
   payButtonText: {
     fontSize: 16,

@@ -2,6 +2,11 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Animated, Easing } from 'react-native';
 import { openPaymentSheet } from '../../../../utils/openPaymentSheet';
+import {
+  loadPaymentProgress,
+  markPaymentInProgress,
+  savePaymentProgress,
+} from '../../../../utils/paymentProgress';
 import { getAddressBookEntriesApi, getMyReceiverRequestApi } from '../../../../components/Api';
 import { checkoutApi } from '../../../../components/Api/checkoutApi';
 import { checkoutJoinerApi } from '../../../../components/Api/checkoutJoinerApi';
@@ -2693,7 +2698,14 @@ export const useCheckoutController = (props) => {
         } else if (transactionNumber && orderTotal > 0) {
           
           console.log('💳 [handleCheckout] Opening payment sheet for:', transactionNumber);
-          
+
+          // The payment completes in the browser, so the outcome is unknown when the sheet
+          // closes. Mark the order as awaiting confirmation so the Orders screen shows the
+          // banner and keeps the Pay button disabled until the backend confirms it.
+          loadPaymentProgress()
+            .then(state => savePaymentProgress(markPaymentInProgress(state, transactionNumber)))
+            .catch(() => {});
+
           // In-app browser sheet over the current screen (falls back to the external browser).
           // Leave this screen only once the sheet is gone — tearing its presenter down while the
           // sheet is up makes iOS dismiss the sheet and strand a touch-blocking overlay.

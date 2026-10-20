@@ -183,6 +183,18 @@ class NotificationService {
 
   _handleTap(remoteMessage) {
     const data = (remoteMessage && remoteMessage.data) || {};
+
+    // "Payment confirmed" - the backend completed the order after the buyer approved it in the
+    // browser. Tell the app so the order list can show it as paid. This is not a navigation
+    // event, so it does not take over the screen.
+    if (data.type === 'payment_confirmed') {
+      emit('payment_confirmed', {
+        transactionNumber: data.transactionNumber || '',
+        amount: data.amount || '',
+      });
+      return;
+    }
+
     if (data.type !== 'live_started') return;
     const sessionId = data.sessionId;
     if (!sessionId) return;
