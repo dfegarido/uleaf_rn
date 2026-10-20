@@ -1,6 +1,6 @@
 # ULeaf React Native App
 
-This is a React Native e-commerce application built with [**React Native**](https://reactnative.dev) 0.75.4, featuring buyer and seller interfaces for a plant marketplace.
+This is a React Native e-commerce application built with [**React Native**](https://reactnative.dev) 0.87.1, featuring buyer and seller interfaces for a plant marketplace.
 
 ## 🚀 Quick Start
 
@@ -77,27 +77,61 @@ npx react-native run-android --deviceId=YOUR_DEVICE_ID
 For a complete production build, follow these steps:
 
 ```bash
-# 1. Clean previous builds
-npm run clean
-
-# 2. Install fresh dependencies
-npm install
-
-# 3. Clean Android build cache
-cd android && ./gradlew clean && cd ..
-
-# 4. Start Metro with cache reset (in one terminal)
-npm start -- --reset-cache
-
-# 5. Build release APK (in another terminal)
 cd android && ./gradlew assembleRelease
 ```
 
+To build a single ABI (roughly half the native compile time):
+
+```bash
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+```
+
+> ### ⚠️ Do not run `gradlew clean` before a build
+>
+> `npm run clean` and `npm run clean:android` both call `./gradlew clean`.
+> On a New-Architecture project that deletes **every** library's generated
+> C++ (`node_modules/<pkg>/android/build/generated/source/codegen/…`), and
+> the next build then fails in libraries you never touched:
+>
+> ```
+> CMake Error … Cannot find source file: …/ReactNativeBlurViewSpec-generated.cpp
+> No SOURCES given to target: react_codegen_ReactNativeBlurViewSpec
+> ninja: error: rebuilding 'build.ninja': subcommand failed
+> -- GLOB mismatch!
+> ```
+>
+> **If the build fails this way**, regenerate the codegen and rebuild:
+>
+> ```bash
+> cd android
+> ./gradlew generateCodegenArtifactsFromSchema   # regenerates it for every project
+> ./gradlew assembleRelease
+> ```
+>
+> "Clean and rebuild" is circular advice here — it wipes exactly what the
+> build needs.
+
 ### Build Output
-Your APK will be generated at:
+ABI splits are enabled, so there is one APK per ABI:
 ```
-android/app/build/outputs/apk/release/app-release.apk
+android/app/build/outputs/apk/release/app-arm64-v8a-release.apk     # any phone from ~2017
+android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk   # older phones
 ```
+
+### Signing
+Release builds are signed with the upload key configured in
+`android/gradle.properties`:
+
+```properties
+MYAPP_UPLOAD_STORE_FILE=my-release-key.jks
+MYAPP_UPLOAD_KEY_ALIAS=upload
+MYAPP_UPLOAD_STORE_PASSWORD=…
+MYAPP_UPLOAD_KEY_PASSWORD=…
+```
+
+The keystore lives at `android/app/my-release-key.jks`. **Keep a backup of it
+and its password** — losing it means you can no longer ship updates under the
+same package id. Do not commit it.
 
 ### Build for Google Play Store (AAB)
 ```bash
@@ -108,10 +142,17 @@ Output: `android/app/build/outputs/bundle/release/app-release.aab`
 ## 📋 Available Scripts
 
 ```bash
-npm start              # Start Metro bundler
-npm run android        # Run on Android
-npm run clean          # Clean all caches and reinstall
-npm run reset-cache    # Reset Metro cache
+npm start                  # Start Metro bundler
+npm run android            # Run on Android
+npm run ios                # Run on iOS
+npm run lint               # ESLint
+npm test                   # Jest
+npm run build:android-apk  # Release APK (NODE_ENV=production)
+npm run build:android-aab  # Release AAB for Play
+npm run reset-cache        # Reset Metro cache
+
+# ⚠️ npm run clean / clean:android / clean:all call `gradlew clean`, which
+#    breaks the New-Arch build. See "Building for Production" before using them.
 ```
 
 ## 🛠️ Development
@@ -137,6 +178,55 @@ src/
 - 🔐 **Authentication**: Firebase-based auth system
 - 📱 **Responsive Design**: Optimized for mobile devices
 
+## 💳 Venmo / PayPal payments
+
+The app does **not** render a payment form. It opens a hosted page in a
+browser (a Chrome Custom Tab on Android, `SFSafariViewController` on iOS)
+and that page drives PayPal and hands the buyer back to the app.
+
+```
+app  ──open──▶  <payment page>?amount=<n>&ileafuOrderId=<TXN>
+                     │  POST createPaypalOrder
+                     │  buyer approves in the Venmo app
+                     │  POST capturePaypalOrder
+                     └──▶  ileafu://payment-success?…   (or payment-cancel)
+```
+
+### Which page the app opens
+
+`config.js` (repo root):
+
+```js
+export const paymentPaypalVenmoUrl = 'https://payment.ileafu.com/';
+```
+
+Pointing this at a Firebase **preview channel** is how a new page is tested
+from a real APK before it goes live. The page itself lives in a separate
+repository — see `venmo-ileafu-payment-page/README.md`.
+
+### The amount must match the order
+
+The backend compares the `amount` the page sends against the order's stored
+`finalTotal` and refuses a mismatch with `{"error":"Amount mismatch"}`. So
+the amount the app sends has to be the **order's** total, including any
+discount code — never an optimistic/placeholder value.
+
+Discount codes are validated server-side against the **Firestore**
+`discount` collection, while the catalogue is administered in **Supabase**.
+A code that exists only in Supabase is rejected as "Invalid discount code",
+the order keeps the undiscounted price, and the payment then fails with
+"Amount mismatch". When a new code is created in Supabase, make sure it is
+also present in Firestore.
+
+### The sheet
+
+On Android the payment page opens in a Chrome Custom Tab. It can be shown as
+a partial (bottom-sheet) Custom Tab via `initialActivityHeightPx` and
+`toolbarCornerRadiusDp`, but the browser only honours those when it can
+identify the calling app — Chromium reads that from a Custom Tabs session or
+from the `org.chromium.chrome.browser.calling_activity_package` extra, and
+silently falls back to a full-screen tab otherwise.
+
 ## 🐛 Troubleshooting
 
 ### Common Issues
@@ -151,10 +241,16 @@ npm install react-native-file-viewer  # Install missing packages
 npm start -- --reset-cache
 ```
 
-**Android Build Fails:**
+**Android Build Fails with a CMake / codegen error**
+(`Cannot find source file: …-generated.cpp`, `No SOURCES given to target`,
+`GLOB mismatch!`):
+
+`gradlew clean` deleted the New-Arch codegen of every library. Regenerate it
+instead of cleaning again — see [Building for Production](#-building-for-production).
+
+**Android Build Fails with a missing dependency:**
 ```bash
-cd android && ./gradlew clean && cd ..
-rm -rf node_modules && npm install
+npm install react-native-file-viewer
 ```
 
 **Memory Issues:**
@@ -164,7 +260,6 @@ org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
 ```
 
 ### Getting Help
-- Check [BUILD_DOCUMENTATION.md](./BUILD_DOCUMENTATION.md) for detailed build instructions
 - Review [React Native Troubleshooting](https://reactnative.dev/docs/troubleshooting)
 - Check the [Issues](../../issues) section of this repository
 
@@ -189,13 +284,14 @@ Before starting development:
 ## 📚 Learn More
 
 ### Project Resources
-- [BUILD_DOCUMENTATION.md](./BUILD_DOCUMENTATION.md) - Comprehensive build guide
 - [React Native Documentation](https://reactnative.dev) - Official RN docs
 - [Android Developer Guide](https://developer.android.com/guide) - Android-specific guidance
 
 ### Key Technologies
-- **React Native** 0.75.4 - Cross-platform mobile framework
-- **Firebase** - Authentication and backend services
+- **React Native** 0.87.1 - Cross-platform mobile framework (New Architecture)
+- **Hermes** - JavaScript engine
+- **Supabase** - Postgres (orders, discounts, listings) + Edge Functions
+- **Firebase** - Authentication, Firestore (legacy order store) and Cloud Functions
 - **React Navigation** - Navigation library
 - **SVG Icons** - Custom vector graphics
 - **AsyncStorage** - Local data persistence
