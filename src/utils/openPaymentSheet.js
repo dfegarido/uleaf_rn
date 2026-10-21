@@ -1,6 +1,7 @@
-import {Alert, Linking, Platform} from 'react-native';
+import {Alert, Dimensions, Linking, PixelRatio, Platform} from 'react-native';
 import {openBrowser, closeBrowser} from '@swan-io/react-native-browser';
 import {paymentPaypalVenmoUrl} from '../../config';
+import {getStoredAuthToken} from './getStoredAuthToken';
 
 /**
  * Opens the hosted PayPal/Venmo page in an in-app browser sheet
@@ -46,12 +47,25 @@ const delayFor = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Hosted payment page for an order.
+ *
+ * The page talks to the Supabase payment endpoint, which verifies the buyer's Firebase token -
+ * so the token travels with the URL. It is a short-lived ID token for the buyer's own account,
+ * and the page is the buyer's own browser, so it never leaves the device.
+ *
  * @param {string} transactionNumber - order transaction number (ileafuOrderId)
  * @param {number|string} amount - amount to pay
+ * @param {string} [authToken] the buyer's Firebase ID token
  * @returns {string}
  */
-export function getPaymentPageUrl(transactionNumber, amount) {
-  return `${paymentPaypalVenmoUrl}?amount=${amount}&ileafuOrderId=${transactionNumber}`;
+export function getPaymentPageUrl(transactionNumber, amount, authToken) {
+  const params = new URLSearchParams({
+    amount: String(amount),
+    ileafuOrderId: String(transactionNumber),
+  });
+  if (authToken) {
+    params.set('token', authToken);
+  }
+  return `${paymentPaypalVenmoUrl}?${params.toString()}`;
 }
 
 /**
@@ -206,6 +220,42 @@ function openInExternalBrowser(url, onGaveUp) {
 }
 
 /**
+ * Android: ask Chrome for a *partial* Custom Tab — its own bottom sheet — so the payment page
+ * reads like the iOS sheet, which the system draws for SFSafariViewController (rounded top
+ * corners with the app still visible above it). A full-screen Custom Tab has no equivalent, so
+ * this is the only route to that look on Android.
+ *
+ * Geometry measured off the iOS sheet (886x1924px capture of the 402x874pt screen): its top edge
+ * sits 82.6pt down, so it covers the bottom 90.5% and leaves a strip of the app showing above.
+ *
+ * Chrome honours these from 107 (side sheets from 120). A browser that does not implement partial
+ * Custom Tabs ignores both extras and opens a full-screen tab — documented Chrome behaviour — and
+ * iOS ignores them outright, hence the platform guard. Read by the patched native module, see
+ * patches/@swan-io+react-native-browser+1.1.2.patch.
+ */
+const ANDROID_SHEET_HEIGHT_FRACTION = 0.905;
+/**
+ * Rounded top corners on that sheet. `CustomTabsIntent.Builder#setToolbarCornerRadiusDp` rejects
+ * anything above 16dp, so this is the roundest the public API allows — the iOS corner measures
+ * ~42pt, so the Android sheet reads squarer however we set it.
+ */
+const ANDROID_SHEET_CORNER_RADIUS_DP = 16;
+
+/** Android-only partial-tab extras. On iOS this returns null and spreading it is a no-op. */
+function androidSheetOptions() {
+  if (Platform.OS !== 'android') {
+    return null;
+  }
+  // The native side clamps this against the real display metrics (half the screen .. full), so a
+  // disagreement between Dimensions and the display can only produce a valid extra.
+  const screenHeightPx = Dimensions.get('screen').height * PixelRatio.get();
+  return {
+    initialActivityHeightPx: Math.round(screenHeightPx * ANDROID_SHEET_HEIGHT_FRACTION),
+    toolbarCornerRadiusDp: ANDROID_SHEET_CORNER_RADIUS_DP,
+  };
+}
+
+/**
  * Opens the payment page in the in-app sheet, falling back to the external browser and then to
  * the "no browser" dialog — never to a bare error.
  *
@@ -217,15 +267,30 @@ function openInExternalBrowser(url, onGaveUp) {
  * @param {number} [options.delay] - ms to wait before presenting (default SHEET_OPEN_DELAY_MS)
  * @returns {Promise<void>} resolves once the sheet is presented (or the fallback is decided)
  */
-export function openPaymentSheet(transactionNumber, amount, options = {}) {
-  const url = getPaymentPageUrl(transactionNumber, amount);
+export async function openPaymentSheet(transactionNumber, amount, options = {}) {
   const delay = options.delay === undefined ? SHEET_OPEN_DELAY_MS : options.delay;
+
+  // The page needs the buyer's Firebase token to reach the Supabase payment endpoint.
+  let url = getPaymentPageUrl(transactionNumber, amount);
+  try {
+    const token = await getStoredAuthToken();
+    if (token) {
+      url = getPaymentPageUrl(transactionNumber, amount, token);
+    } else {
+      console.warn('⚠️ [payment] no auth token; the payment page will not be able to pay');
+    }
+  } catch (error) {
+    console.error('❌ [payment] could not read the auth token:', error);
+  }
 
   const present = () => {
     console.log(`💳 [payment-sheet] presenting after ${delay}ms`);
+    const androidSheet = androidSheetOptions();
+    console.log(`💳 [payment-sheet] sheet extras: ${JSON.stringify(androidSheet)}`);
     return openBrowser(url, {
       animationType: 'slide',
       dismissButtonStyle: 'close',
+      ...androidSheet,
       onClose: () => {
         // Reached both when the user closes the sheet and when closePaymentSheet() dismisses it —
         // a dismissal with no matching "return from page" log means the sheet was torn down.
