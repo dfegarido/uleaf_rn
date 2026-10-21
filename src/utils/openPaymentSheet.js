@@ -1,12 +1,11 @@
-import {Alert, Dimensions, Linking, PixelRatio, Platform} from 'react-native';
+import {Alert, AppState, Linking, Platform} from 'react-native';
 import {openBrowser, closeBrowser} from '@swan-io/react-native-browser';
 import {paymentPaypalVenmoUrl} from '../../config';
 import {getStoredAuthToken} from './getStoredAuthToken';
 
 /**
- * Opens the hosted PayPal/Venmo page in an in-app browser sheet
- * (SFSafariViewController on iOS, Chrome Custom Tabs on Android) instead of
- * handing the whole app over to a separate browser.
+ * Opens the hosted PayPal/Venmo page: in an in-app browser sheet on iOS
+ * (SFSafariViewController), in the browser app on Android (see openInBrowserApp).
  *
  * The return contract is unchanged: the page redirects to
  * `ileafu://payment-success|payment-cancel`, which the existing Linking
@@ -220,39 +219,30 @@ function openInExternalBrowser(url, onGaveUp) {
 }
 
 /**
- * Android: ask Chrome for a *partial* Custom Tab — its own bottom sheet — so the payment page
- * reads like the iOS sheet, which the system draws for SFSafariViewController (rounded top
- * corners with the app still visible above it). A full-screen Custom Tab has no equivalent, so
- * this is the only route to that look on Android.
+ * Android opens the page in the browser app, not a Custom Tab. A Custom Tab keeps every link
+ * inside itself (the library sets `setSendToExternalDefaultHandlerEnabled(false)`), so Venmo's
+ * app link never reached the installed Venmo app and the buyer got Venmo's web login instead.
+ * The browser app hands that link to Venmo, as the app did up to 1.0.68 (Linking.openURL).
  *
- * Geometry measured off the iOS sheet (886x1924px capture of the 402x874pt screen): its top edge
- * sits 82.6pt down, so it covers the bottom 90.5% and leaves a strip of the app showing above.
- *
- * Chrome honours these from 107 (side sheets from 120). A browser that does not implement partial
- * Custom Tabs ignores both extras and opens a full-screen tab — documented Chrome behaviour — and
- * iOS ignores them outright, hence the platform guard. Read by the patched native module, see
- * patches/@swan-io+react-native-browser+1.1.2.patch.
+ * `onClose` fires when the buyer comes back to the app - the equivalent of the sheet closing.
  */
-const ANDROID_SHEET_HEIGHT_FRACTION = 0.905;
-/**
- * Rounded top corners on that sheet. `CustomTabsIntent.Builder#setToolbarCornerRadiusDp` rejects
- * anything above 16dp, so this is the roundest the public API allows — the iOS corner measures
- * ~42pt, so the Android sheet reads squarer however we set it.
- */
-const ANDROID_SHEET_CORNER_RADIUS_DP = 16;
-
-/** Android-only partial-tab extras. On iOS this returns null and spreading it is a no-op. */
-function androidSheetOptions() {
-  if (Platform.OS !== 'android') {
-    return null;
-  }
-  // The native side clamps this against the real display metrics (half the screen .. full), so a
-  // disagreement between Dimensions and the display can only produce a valid extra.
-  const screenHeightPx = Dimensions.get('screen').height * PixelRatio.get();
-  return {
-    initialActivityHeightPx: Math.round(screenHeightPx * ANDROID_SHEET_HEIGHT_FRACTION),
-    toolbarCornerRadiusDp: ANDROID_SHEET_CORNER_RADIUS_DP,
-  };
+function openInBrowserApp(url, options) {
+  let leftApp = false;
+  const subscription = AppState.addEventListener('change', state => {
+    if (state === 'background') {
+      leftApp = true;
+    } else if (state === 'active' && leftApp) {
+      subscription.remove();
+      if (options.onClose) {
+        options.onClose();
+      }
+    }
+  });
+  return Linking.openURL(url).catch(error => {
+    subscription.remove();
+    console.error('❌ [payment] no browser could open the payment page:', error);
+    alertNothingOpens(options.onGaveUp);
+  });
 }
 
 /**
@@ -283,14 +273,15 @@ export async function openPaymentSheet(transactionNumber, amount, options = {}) 
     console.error('❌ [payment] could not read the auth token:', error);
   }
 
+  if (Platform.OS === 'android') {
+    return openInBrowserApp(url, options);
+  }
+
   const present = () => {
     console.log(`💳 [payment-sheet] presenting after ${delay}ms`);
-    const androidSheet = androidSheetOptions();
-    console.log(`💳 [payment-sheet] sheet extras: ${JSON.stringify(androidSheet)}`);
     return openBrowser(url, {
       animationType: 'slide',
       dismissButtonStyle: 'close',
-      ...androidSheet,
       onClose: () => {
         // Reached both when the user closes the sheet and when closePaymentSheet() dismisses it —
         // a dismissal with no matching "return from page" log means the sheet was torn down.
