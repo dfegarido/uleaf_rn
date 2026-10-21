@@ -2,11 +2,6 @@ import { useFocusEffect,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import { collection,
-  onSnapshot,
-  query,
-  where
-} from 'firebase/firestore';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
@@ -32,7 +27,6 @@ import {
   PROMO_FREE_AIR_CARGO_MIN_SUBTOTAL,
   REFUNDABLE_AIR_CARGO_DOCUMENTATION_FEE,
 } from '../../../config/shippingConstants';
-import { db } from '../../../../firebase';
 import LocationIcon from '../../../assets/buyer-icons/address.svg';
 import IndonesiaFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import LeafIcon from '../../../assets/buyer-icons/leaf-green.svg';
@@ -1435,31 +1429,6 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
       }
     }
   }, [fromBuyNow, plantData]);
-
-  useEffect(() => {
-    
-    const q = query(collection(db, 'order'), 
-    where('status', '==', 'Ready to Fly'), 
-    where('payoutStatus', '==', 'Complete'), 
-    where('transactionNumber', '==', transactionNum));
-
-    // onSnapshot returns an "unsubscribe" function
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const orders = [];
-      querySnapshot.forEach((doc) => {
-        orders.push({ id: doc.id, ...doc.data() });
-      });
-      
-      if (orders.length > 0) {
-        navigation.navigate('Orders');
-      }
-    }, (error) => {
-    });
-
-    // --- CRITICAL STEP ---
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [transactionNum, navigation]); // Empty array means this effect runs once on mount
 
   useEffect(() => {
     // Handle when app is opened from deep link

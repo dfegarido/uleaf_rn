@@ -1,6 +1,7 @@
 // API Configuration for local and production environments
 import { LOCAL_BASE_URL as ENV_LOCAL_BASE_URL } from '@env';
 import { LOCAL_SUPABASE_URL as ENV_LOCAL_SUPABASE_URL } from '@env';
+import { STAGING_SUPABASE_REF as ENV_STAGING_SUPABASE_REF } from '@env';
 import { USE_LOCAL_SUPABASE as ENV_USE_LOCAL_SUPABASE } from '@env';
 
 // Automatically detect environment based on __DEV__ flag and NODE_ENV
@@ -43,6 +44,20 @@ const USE_LOCAL_SUPABASE =
   /^https?:\/\//i.test(LOCAL_SUPABASE_BASE_URL);
 const getSupabaseBaseUrl = () =>
   USE_LOCAL_SUPABASE ? LOCAL_SUPABASE_BASE_URL.replace(/\/$/, '') : PROD_SUPABASE_BASE_URL;
+
+// The STAGING Supabase project (a database branch), used by the endpoints that are
+// still being ported. The checkout is the first: it writes the order straight to
+// Postgres, so the ported path can be exercised before production is switched.
+//
+// It is only honoured in a dev build - a release build always talks to production,
+// so a mis-set .env can never point a shipped app at the staging branch.
+const STAGING_SUPABASE_REF = String(ENV_STAGING_SUPABASE_REF || '').trim();
+const USE_STAGING_SUPABASE =
+  __DEV__ === true && /^[a-z0-9]{20}$/.test(STAGING_SUPABASE_REF);
+const getStagingSupabaseBaseUrl = () =>
+  USE_STAGING_SUPABASE
+    ? `https://${STAGING_SUPABASE_REF}.supabase.co/functions/v1`
+    : getSupabaseBaseUrl();
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -218,10 +233,10 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   GENERATE_RECEIVER_BOX_LABELS: `${getSupabaseBaseUrl()}/generate-receiver-box-labels`,
   
   // Cart APIs
-  ADD_TO_CART: `${getSupabaseBaseUrl()}/add-to-cart`,
-  GET_CART_ITEMS: `${getSupabaseBaseUrl()}/cart-items`,
-  UPDATE_CART_ITEM: `${getSupabaseBaseUrl()}/cart-update`,
-  REMOVE_FROM_CART: `${getSupabaseBaseUrl()}/cart-remove`,
+  ADD_TO_CART: `${getStagingSupabaseBaseUrl()}/add-to-cart`,
+  GET_CART_ITEMS: `${getStagingSupabaseBaseUrl()}/cart-items`,
+  UPDATE_CART_ITEM: `${getStagingSupabaseBaseUrl()}/cart-update`,
+  REMOVE_FROM_CART: `${getStagingSupabaseBaseUrl()}/cart-remove`,
   
   // Shop APIs
   GET_SORT: `${getBaseUrl()}/getSort`,
@@ -233,12 +248,14 @@ GET_VARIEGATION: `${getSupabaseBaseUrl()}/get-variegation`,
   GET_SHIPPING_INDEX: `${getSupabaseBaseUrl()}/dropdown-shipping-index`,
   GET_ACCLIMATION_INDEX: `${getSupabaseBaseUrl()}/dropdown-acclimation-index`,
   BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
-  BROWSE_PLANTS_BY_GENUS: `${getSupabaseBaseUrl()}/browse-plants-by-genus`,
+  BROWSE_PLANTS_BY_GENUS: `${getStagingSupabaseBaseUrl()}/browse-plants-by-genus`,
   GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
 SEARCH_LISTING: `${getSupabaseBaseUrl()}/search-listing`,
-  SEARCH_PLANTS: `${getSupabaseBaseUrl()}/plant-search`,
+  // The BUYER search. It has to come from the same project as the cart and the
+  // checkout, or the app lists a plant the checkout cannot find.
+  SEARCH_PLANTS: `${getStagingSupabaseBaseUrl()}/plant-search`,
   GET_BUYER_LISTINGS: `${getSupabaseBaseUrl()}/buyer-listings`,
-  GET_BUYER_LISTING: `${getSupabaseBaseUrl()}/listing-detail`, // Single plant detail
+  GET_BUYER_LISTING: `${getStagingSupabaseBaseUrl()}/listing-detail`, // Single plant detail
 GET_BUYER_LISTING_LIVE: `${getSupabaseBaseUrl()}/buyer-listing-live`, // Single plant detail
   GET_PRICE_DROP_BADGE_LISTINGS: `${getSupabaseBaseUrl()}/price-drop-badge`, // Price Drop badge
   GET_PLANT_RECOMMENDATIONS: `${getSupabaseBaseUrl()}/plant-recommendations`,
@@ -327,12 +344,12 @@ GET_CHAT_FIND_PRIVATE: `${getSupabaseBaseUrl()}/chat-find-private`,
   // This is an external Cloud Run endpoint that accepts POST { interval }
   
   // Checkout & Payment APIs
-  CHECKOUT: `${getBaseUrl()}/checkout`,
-  CHECKOUT_JOINER: `${getBaseUrl()}/checkoutJoiner`,
-  CALCULATE_CHECKOUT_SHIPPING: `${getSupabaseBaseUrl()}/checkout-shipping`,
-  CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getBaseUrl()}/calculateCheckoutShippingJoiner`,
-  CREATE_PAYMENT_INTENT: `${getBaseUrl()}/createPaymentIntent`,
-  CAPTURE_PAYMENT: `${getBaseUrl()}/capturePayment`,
+  // The checkout (the Supabase edge function) writes the order straight to Postgres.
+  // Joiners use the checkout in joiner mode (`?joiner=1`) and their own shipping endpoint.
+  CHECKOUT_SUPABASE: `${getStagingSupabaseBaseUrl()}/checkout`,
+  CHECKOUT_JOINER: `${getStagingSupabaseBaseUrl()}/checkout?joiner=1`,
+  CALCULATE_CHECKOUT_SHIPPING: `${getStagingSupabaseBaseUrl()}/checkout-shipping`,
+  CALCULATE_CHECKOUT_SHIPPING_JOINER: `${getStagingSupabaseBaseUrl()}/checkout-shipping-joiner`,
 
   // Discount Code APIs
   VALIDATE_DISCOUNT_CODE: `${getSupabaseBaseUrl()}/validate-discount`,
@@ -345,8 +362,10 @@ GET_DISCOUNT: `${getSupabaseBaseUrl()}/get-discount`,
   // Order APIs
 GET_ORDERS: `${getSupabaseBaseUrl()}/get-orders`,
 GET_ORDER_FOR_RECEIVING: `${getSupabaseBaseUrl()}/order-for-receiving`,
-  GET_BUYER_ORDERS: `${getSupabaseBaseUrl()}/buyer-orders`,
-  GET_BUYER_ORDERS_GROUPED: `${getSupabaseBaseUrl()}/buyer-orders-grouped`,
+  // The order list has to come from the same project the checkout wrote to, otherwise
+  // the app shows "No Ready to Fly orders" for an order that exists.
+  GET_BUYER_ORDERS: `${getStagingSupabaseBaseUrl()}/buyer-orders`,
+  GET_BUYER_ORDERS_GROUPED: `${getStagingSupabaseBaseUrl()}/buyer-orders-grouped`,
   GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
   GET_ADMIN_ORDERS: `${getSupabaseBaseUrl()}/admin-orders`,
   GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
@@ -412,7 +431,7 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   
   // Shipping Buddy endpoints (moved to Supabase block below — see SUBMIT_RECEIVER_REQUEST etc.)
   // Address Book APIs
-  GET_ADDRESS_BOOK_ENTRIES: `${getSupabaseBaseUrl()}/address-book`,
+  GET_ADDRESS_BOOK_ENTRIES: `${getStagingSupabaseBaseUrl()}/address-book`,
   GET_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
   CREATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
   UPDATE_ADDRESS_BOOK_ENTRY: `${getSupabaseBaseUrl()}/address-book`,
@@ -450,7 +469,7 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   GET_FLIGHT_SCHEDULE: `${getSupabaseBaseUrl()}/flight-schedule`,
   UPDATE_FLIGHT_DATE_STATUS: `${getSupabaseBaseUrl()}/flight-date-status`,
   UPDATE_FLIGHT_DATE_FOR_SCHEDULE: `${getSupabaseBaseUrl()}/flight-date-schedule-update`,
-  GET_ACTIVE_FLIGHT_DATES: `${getSupabaseBaseUrl()}/active-flight-dates`,
+  GET_ACTIVE_FLIGHT_DATES: `${getStagingSupabaseBaseUrl()}/active-flight-dates`,
 
   // Leaf Trail endpoints
   UPDATE_LEAF_TRAIL_STATUS: `${getSupabaseBaseUrl()}/leaf-trail-status`,
