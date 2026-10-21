@@ -1,3 +1,10 @@
-// Replace with your actual live PayPal/Venmo URL https://i-leaf-u.web.app/
-// for testing purposes, you can use the staging URL https://uleaf-36de7.web.app/
-export const paymentPaypalVenmoUrl = 'https://i-leaf-u.web.app/'; 
+// The hosted payment page.
+//
+// It is served from the preview channel, which is the build that talks to the Supabase
+// payment endpoints (payment-completion / payment-status). The live channel still serves
+// the older build that calls the Firebase functions.
+//
+// Preview channel (expires 2026-11-20):
+// https://i-leaf-u--supabase-payment-e4rvymck.web.app
+// The custom domain payment.ileafu.com points at the live channel.
+export const paymentPaypalVenmoUrl = 'https://i-leaf-u--supabase-payment-e4rvymck.web.app/';
