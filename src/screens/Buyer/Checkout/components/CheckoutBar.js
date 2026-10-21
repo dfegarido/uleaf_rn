@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CaretDownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
 import WhiteCaretLeftIcon from '../../../../assets/icons/white/caret-left-regular.svg';
 import VenmoLogoIcon from '../../../../assets/buyer-icons/venmo-logo.svg';
@@ -17,6 +18,10 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
   // LIVE bottom sheet styling. Deliberately NOT keyed off `isLive` — the full
   // CheckoutScreen can also be opened with isLive: true (ScreenPlantDetailPurge).
   const isLiveModal = variant === 'liveModal';
+  const insets = useSafeAreaInsets();
+  // The bar is pinned to the screen bottom and Android draws edge-to-edge, so
+  // it must clear the system navigation bar or Place Order sits under it.
+  const barInsetStyle = isLiveModal ? null : { paddingBottom: Math.max(16, insets.bottom + 10) };
 
   const maskUsername = (username) => {
     if (!username || username.length < 3) {
@@ -32,7 +37,7 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
   };
 
   return (
-    <View style={styles.checkoutBar}>
+    <View style={[styles.checkoutBar, barInsetStyle]}>
       {/* Minimum order warning - only show if flight date is selected */}
       {isBelowMinimum && selectedFlightDateIso && (
         <View style={styles.warningContainer}>
