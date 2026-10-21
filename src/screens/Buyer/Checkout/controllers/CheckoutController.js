@@ -5,6 +5,7 @@ import { openPaymentSheet } from '../../../../utils/openPaymentSheet';
 import {
   loadPaymentProgress,
   markPaymentInProgress,
+  clearPaymentInProgress,
   savePaymentProgress,
 } from '../../../../utils/paymentProgress';
 import { getAddressBookEntriesApi, getMyReceiverRequestApi } from '../../../../components/Api';
@@ -2712,6 +2713,12 @@ export const useCheckoutController = (props) => {
           openPaymentSheet(transactionNumber, orderTotal, {
             onGaveUp: () => isLive ? null : navigation.navigate('Orders'),
             onClose: () => {
+              // The buyer is back in the app without a confirmed payment, so the order is
+              // still payable: release the flag so the Pay button comes back. A payment that
+              // did complete clears it from the backend push instead.
+              loadPaymentProgress()
+                .then(state => savePaymentProgress(clearPaymentInProgress(state, transactionNumber)))
+                .catch(() => {});
               if (isLive && onClose) {
                 setTimeout(onClose, 300);
               } else if (!isLive) {
