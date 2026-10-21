@@ -498,6 +498,11 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
 
   // Payment Management APIs
   GET_PENDING_PAYMENT_ORDERS: `${getSupabaseBaseUrl()}/admin-payment-management`,
+  // The hosted-page payment. The page (not the app) calls these; they are here so the
+  // endpoints are discoverable in one place.
+  PAYMENT_COMPLETION: `${getSupabaseBaseUrl()}/payment-completion`,
+  PAYMENT_STATUS: `${getSupabaseBaseUrl()}/payment-status`,
+  PAYMENT_WEBHOOK: `${getSupabaseBaseUrl()}/payment-webhook`,
   UPDATE_ORDER_READY_TO_FLY: `${getSupabaseBaseUrl()}/admin-payment-management`,
   DELETE_PENDING_ORDER: `${getSupabaseBaseUrl()}/admin-payment-management`,
   ADMIN_MIGRATE_ORDERS: `${getSupabaseBaseUrl()}/admin-migrate-orders`,
