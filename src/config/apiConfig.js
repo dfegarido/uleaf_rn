@@ -34,30 +34,21 @@ if (__DEV__ && !ENV_LOCAL_BASE_URL) {
   console.warn('⚠️ LOCAL_BASE_URL not found in .env, using default: http://localhost:5001/i-leaf-u/us-central1');
 }
 
-// Shop/live/profile/B2B all hit this host. A phone cannot reach the Mac LAN
-// URL, so local Supabase is opt-in only (USE_LOCAL_SUPABASE=true in .env).
-const LOCAL_SUPABASE_BASE_URL = ENV_LOCAL_SUPABASE_URL || '';
+// The Supabase environment. USE_LOCAL_SUPABASE=true in .env switches a DEV build to
+// STAGING: the staging branch's functions and the sandbox payment page (PayPal sandbox,
+// fake money). Otherwise - and always in a release build / APK - it is PRODUCTION with
+// live PayPal, so a mis-set .env can never point a shipped app at staging.
+// LOCAL_SUPABASE_URL (optional) overrides the staging URL, e.g. the Mac's local server.
 const PROD_SUPABASE_BASE_URL = 'https://pjcquavlxknhmuszjmyh.supabase.co/functions/v1';
-const USE_LOCAL_SUPABASE =
-  __DEV__ === true &&
-  String(ENV_USE_LOCAL_SUPABASE || '').toLowerCase() === 'true' &&
-  /^https?:\/\//i.test(LOCAL_SUPABASE_BASE_URL);
-const getSupabaseBaseUrl = () =>
-  USE_LOCAL_SUPABASE ? LOCAL_SUPABASE_BASE_URL.replace(/\/$/, '') : PROD_SUPABASE_BASE_URL;
-
-// The STAGING Supabase project (a database branch), used by the endpoints that are
-// still being ported. The checkout is the first: it writes the order straight to
-// Postgres, so the ported path can be exercised before production is switched.
-//
-// It is only honoured in a dev build - a release build always talks to production,
-// so a mis-set .env can never point a shipped app at the staging branch.
-const STAGING_SUPABASE_REF = String(ENV_STAGING_SUPABASE_REF || '').trim();
-const USE_STAGING_SUPABASE =
-  __DEV__ === true && /^[a-z0-9]{20}$/.test(STAGING_SUPABASE_REF);
-const getStagingSupabaseBaseUrl = () =>
-  USE_STAGING_SUPABASE
-    ? `https://${STAGING_SUPABASE_REF}.supabase.co/functions/v1`
-    : getSupabaseBaseUrl();
+const STAGING_SUPABASE_REF = String(ENV_STAGING_SUPABASE_REF || '').trim() || 'tihkfikghkgbtvrvwvsv';
+const STAGING_SUPABASE_BASE_URL =
+  String(ENV_LOCAL_SUPABASE_URL || '').trim().replace(/\/$/, '') ||
+  `https://${STAGING_SUPABASE_REF}.supabase.co/functions/v1`;
+export const USE_STAGING =
+  __DEV__ === true && String(ENV_USE_LOCAL_SUPABASE || '').toLowerCase() === 'true';
+const getSupabaseBaseUrl = () => (USE_STAGING ? STAGING_SUPABASE_BASE_URL : PROD_SUPABASE_BASE_URL);
+// Kept for the endpoints that were written against the staging switch; same host now.
+const getStagingSupabaseBaseUrl = getSupabaseBaseUrl;
 
 // Production endpoints
 const PROD_BASE_URL = 'https://us-central1-i-leaf-u.cloudfunctions.net';
@@ -154,7 +145,7 @@ const getBaseUrl = () => {
   if (__DEV__ && !getBaseUrl._logged) {
     console.log('[apiConfig] API Base URL:', {
       USE_LOCAL_API,
-      USE_LOCAL_SUPABASE,
+      USE_STAGING,
       LOCAL_BASE_URL: LOCAL_BASE_URL || 'NOT SET',
       supabaseBaseUrl: getSupabaseBaseUrl(),
       selectedBaseUrl: baseUrl,
