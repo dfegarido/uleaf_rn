@@ -1,5 +1,5 @@
 diff --git a/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt b/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
-index f170d71..7fd0fb1 100644
+index f170d71..289d9bb 100644
 --- a/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
 +++ b/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
 @@ -1,11 +1,13 @@
@@ -38,8 +38,14 @@ index f170d71..7fd0fb1 100644
    internal fun open(
      reactContext: ReactApplicationContext,
      url: String,
-@@ -39,6 +49,35 @@ object RNSwanBrowserModuleImpl {
-       setSendToExternalDefaultHandlerEnabled(false)
+@@ -36,9 +46,40 @@ object RNSwanBrowserModuleImpl {
+       setBookmarksButtonEnabled(false)
+       setDownloadButtonEnabled(false)
+       setInstantAppsEnabled(false)
+-      setSendToExternalDefaultHandlerEnabled(false)
++      // Hand links that an installed app owns (Venmo's app link) to that app instead of loading
++      // them in the tab - otherwise the buyer gets Venmo's web login instead of the Venmo app.
++      setSendToExternalDefaultHandlerEnabled(true)
        setShowTitle(false)
  
 +      // Partial Custom Tab. A launch height turns the tab into Chrome's own bottom sheet with
@@ -74,7 +80,7 @@ index f170d71..7fd0fb1 100644
        if (options.getString("animationType") == "fade") {
          setStartAnimations(activity, com.facebook.react.R.anim.catalyst_fade_in, R.anim.inert)
          setExitAnimations(activity, R.anim.inert, com.facebook.react.R.anim.catalyst_fade_out)
-@@ -79,13 +118,82 @@ object RNSwanBrowserModuleImpl {
+@@ -79,13 +120,82 @@ object RNSwanBrowserModuleImpl {
        }
      }
  
