@@ -64,6 +64,14 @@ const LiveSetup = () => {
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
   };
 
+  const liveSaleHoursLabel = (item) => {
+    const liveType = String(item?.liveType || item?.livetype || 'live').toLowerCase();
+    if (liveType === 'purge') return null;
+    const hours = Number(item?.sessionData?.durationHours ?? item?.sessionData?.duration);
+    if (!Number.isInteger(hours) || hours < 2 || hours > 5) return null;
+    return `${hours} hours`;
+  };
+
   const fetchLiveRequests = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -77,6 +85,7 @@ const LiveSetup = () => {
       if (!response.success) throw new Error(response.error || 'Failed to fetch live requests');
       const allRequests = (response.data || []).map((data) => ({
         ...data,
+        liveType: data.liveType || data.livetype || 'live',
         requestedAt: data.requestedAt?.toDate ? data.requestedAt.toDate() : data.requestedAt,
         requestedDate: data.requestedDate?.toDate ? data.requestedDate.toDate() : data.requestedDate,
         reviewedAt: data.reviewedAt?.toDate ? data.reviewedAt.toDate() : data.reviewedAt,
@@ -394,6 +403,9 @@ const LiveSetup = () => {
           <Text style={styles.sellerEmail}>{item.sellerEmail || '—'}</Text>
           <Text style={styles.requestTitle}>{item.title || 'Untitled Request'}</Text>
           <Text style={styles.requestTime}>{formatTime(item.requestedDate)}</Text>
+          {liveSaleHoursLabel(item) ? (
+            <Text style={styles.requestTime}>{liveSaleHoursLabel(item)}</Text>
+          ) : null}
         </View>
       </TouchableOpacity>
     );
@@ -502,6 +514,11 @@ const LiveSetup = () => {
                   <Text style={styles.detailLabel}>Requested Date & Time</Text>
                   <Text style={styles.detailValue}>{formatDisplayDate(selectedRequest.requestedDate)}</Text>
                   <Text style={styles.detailValue}>{formatTime(selectedRequest.requestedDate)}</Text>
+                  {liveSaleHoursLabel(selectedRequest) ? (
+                    <Text style={styles.detailValue}>{liveSaleHoursLabel(selectedRequest)}</Text>
+                  ) : String(selectedRequest.liveType || '').toLowerCase() !== 'purge' ? (
+                    <Text style={styles.detailValue}>Duration not set. Live sales need 2 to 5 hours.</Text>
+                  ) : null}
                 </View>
 
                 {selectedRequest.sessionData?.coverPhoto ? (

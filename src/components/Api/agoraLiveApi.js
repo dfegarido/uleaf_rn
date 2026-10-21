@@ -63,7 +63,14 @@ export const updateLiveSession = async (sessionId, data) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
+      let message = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        message = parsed.message || parsed.error || errorText;
+      } catch (_parseError) {
+        message = errorText;
+      }
+      throw new Error(message);
     }
 
     return await response.json();

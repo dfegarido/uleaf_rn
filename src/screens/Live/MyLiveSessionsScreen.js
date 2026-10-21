@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,6 +29,8 @@ import { updateLiveSession } from '../../components/Api/agoraLiveApi';
 import { deleteLiveSessionApi, getMyLiveSessionsApi, liveRequestWriteApi } from '../../components/Api/liveRequestApi';
 import { InputBox } from '../../components/Input';
 import Toast from '../../components/Toast/Toast';
+import LiveSaleScheduleCalendar, { LiveSaleDurationPicker, useLiveSaleBookings } from './LiveSaleScheduleCalendar';
+import { combineDateAndTime, findOverlappingBooking, isLiveSaleHours, overlapAlert } from '../../utils/liveSaleSchedule';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MARGIN = 8;
@@ -105,6 +108,8 @@ const MyLiveSessionsScreen = ({ navigation }) => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [newTitle, setNewTitle] = useState('');
   const [newScheduledAt, setNewScheduledAt] = useState(new Date());
+  const [durationHours, setDurationHours] = useState(2);
+  const { bookings, loading: scheduleLoading, error: scheduleError } = useLiveSaleBookings();
   const [newCoverPhoto, setNewCoverPhoto] = useState(null);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
@@ -218,6 +223,10 @@ const MyLiveSessionsScreen = ({ navigation }) => {
         setNewScheduledAt(new Date());
       }
     }
+    const rawHours = item._isPendingRequest
+      ? (item.sessionData?.durationHours ?? item.sessionData?.duration)
+      : item.duration;
+    setDurationHours(isLiveSaleHours(rawHours) ? Number(rawHours) : 2);
     setNewCoverPhoto(null); // Reset photo on each open
     setEditModalVisible(true);
   };
@@ -295,10 +304,26 @@ const MyLiveSessionsScreen = ({ navigation }) => {
 
     setActionLoading(true);
     try {
+      if (newScheduledAt <= new Date()) {
+        Alert.alert('Invalid Date', 'Pick a future date and time.');
+        setActionLoading(false);
+        return;
+      }
       if (selectedSession._isPendingRequest) {
         // Editing a live request
         if (!newTitle.trim()) {
           Alert.alert('Missing Title', 'Please enter a title.');
+          setActionLoading(false);
+          return;
+        }
+        if (!isLiveSaleHours(durationHours)) {
+          Alert.alert('Duration', 'Choose a live sale length from 2 to 5 hours.');
+          setActionLoading(false);
+          return;
+        }
+        const requestClash = findOverlappingBooking(newScheduledAt, durationHours, bookings, selectedSession.id);
+        if (requestClash) {
+          Alert.alert('Time already booked', overlapAlert(requestClash));
           setActionLoading(false);
           return;
         }
@@ -328,13 +353,17 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           // Keep liveSessionId linked so re-approval updates the same doc instead of creating an orphan duplicate
         }
 
-        await liveRequestWriteApi({
+        const writeRes = await liveRequestWriteApi({
           mode: 'update',
           requestId: selectedSession.id,
           title: updates.title,
           requestedDate: updates.requestedDate,
-          ...(updates.sessionData ? { sessionData: updates.sessionData } : {}),
+          durationHours,
+          ...(updates.sessionData ? { sessionData: { ...updates.sessionData, durationHours, duration: durationHours } } : {}),
         });
+        if (!writeRes || writeRes.success === false) {
+          throw new Error(writeRes?.error || 'Failed to update the request.');
+        }
         Alert.alert(
           'Success',
           selectedSession.status === 'approved'
@@ -349,10 +378,22 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           setActionLoading(false);
           return;
         }
+        if (!isLiveSaleHours(durationHours)) {
+          Alert.alert('Duration', 'Choose a live sale length from 2 to 5 hours.');
+          setActionLoading(false);
+          return;
+        }
+        const sessionClash = findOverlappingBooking(newScheduledAt, durationHours, bookings, selectedSession.id);
+        if (sessionClash) {
+          Alert.alert('Time already booked', overlapAlert(sessionClash));
+          setActionLoading(false);
+          return;
+        }
 
         const sessionData = {
           title: newTitle.trim(),
           scheduledAt: newScheduledAt.toISOString(),
+          duration: durationHours,
         };
 
         if (newCoverPhoto) {
@@ -361,7 +402,10 @@ const MyLiveSessionsScreen = ({ navigation }) => {
           sessionData.mimeType = newCoverPhoto.type;
         }
 
-        await updateLiveSession(selectedSession.id, sessionData);
+        const sessionRes = await updateLiveSession(selectedSession.id, sessionData);
+        if (!sessionRes || sessionRes instanceof Error || sessionRes.success === false) {
+          throw new Error(sessionRes?.message || sessionRes?.error || 'Failed to update the session.');
+        }
         Alert.alert('Success', 'Session details updated.');
         setEditModalVisible(false);
       }
@@ -414,6 +458,11 @@ const MyLiveSessionsScreen = ({ navigation }) => {
             {item.title}
           </Text>
           <Text style={styles.cardDate}>Scheduled for: {scheduledDate}</Text>
+          {isLiveSaleHours(isPending ? (item.sessionData?.durationHours ?? item.sessionData?.duration) : item.duration) ? (
+            <Text style={styles.cardDate}>
+              {Number(isPending ? (item.sessionData?.durationHours ?? item.sessionData?.duration) : item.duration)} hours
+            </Text>
+          ) : null}
           {item.status !== 'ended' && (
             <View style={styles.deleteButtonContainer}>
               {item.status !== 'rejected' && (
@@ -504,7 +553,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
                 <BackSolidIcon />
               </TouchableOpacity>
             </View>
-            <View style={styles.modalContent}>
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent}>
               <Text style={styles.label}>Title</Text>
               <InputBox
                 placeholder="Enter a catchy title"
@@ -512,21 +561,34 @@ const MyLiveSessionsScreen = ({ navigation }) => {
                 setValue={setNewTitle}
               />
 
-              <Text style={styles.label}>{selectedSession?._isPendingRequest ? 'Requested Date & Time' : 'Live Date & Time'}</Text>
+              <Text style={styles.label}>Live sale length</Text>
+              <LiveSaleDurationPicker value={durationHours} onChange={setDurationHours} />
+
+              <Text style={styles.label}>Date</Text>
+              <LiveSaleScheduleCalendar
+                selectedDate={newScheduledAt}
+                onSelectDate={(day) => setNewScheduledAt((current) => combineDateAndTime(day, current))}
+                bookings={bookings}
+                loading={scheduleLoading}
+                error={scheduleError}
+              />
+
+              <Text style={styles.label}>Start time</Text>
               <TouchableOpacity onPress={() => setDatePickerVisibility(true)} style={styles.input}>
-                <Text style={{color: '#000'}}>{newScheduledAt.toLocaleString()} {getLocalTzAbbr()}</Text>
+                <Text style={{color: '#000'}}>
+                  {newScheduledAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {getLocalTzAbbr()}
+                </Text>
               </TouchableOpacity>
 
               <DateTimePickerModal
                 isVisible={isDatePickerVisible}
-                mode="datetime"
-                onConfirm={(date) => {
-                  setNewScheduledAt(date);
+                mode="time"
+                onConfirm={(time) => {
+                  setNewScheduledAt((current) => combineDateAndTime(current, time));
                   setDatePickerVisibility(false);
                 }}
                 onCancel={() => setDatePickerVisibility(false)}
                 date={newScheduledAt}
-                minimumDate={new Date()}
                 display="spinner"
                 pickerComponentStyleIOS={{ height: 200 }}
               />
@@ -550,7 +612,7 @@ const MyLiveSessionsScreen = ({ navigation }) => {
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -760,6 +822,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  modalScroll: { maxHeight: 560 },
   modalContent: {
     padding: 20,
   },

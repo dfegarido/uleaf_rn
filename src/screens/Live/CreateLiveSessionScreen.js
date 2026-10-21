@@ -21,6 +21,8 @@ import { createLiveSession } from '../../components/Api/agoraLiveApi';
 import { createLiveRequestApi } from '../../components/Api/liveRequestApi';
 import { scheduleLiveReminderApi } from '../../components/Api/liveReminderApi';
 import { AuthContext } from '../../auth/AuthProvider';
+import LiveSaleScheduleCalendar, { LiveSaleDurationPicker, useLiveSaleBookings } from './LiveSaleScheduleCalendar';
+import { combineDateAndTime, findOverlappingBooking, isLiveSaleHours, overlapAlert } from '../../utils/liveSaleSchedule';
 
 const getLocalTzAbbr = () => {
   try {
@@ -36,8 +38,10 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   const {userInfo} = useContext(AuthContext);
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('');
+  const [durationHours, setDurationHours] = useState(2);
   const [coverPhoto, setCoverPhoto] = useState(null); // { uri, base64, fileName, type }
   const [isLoading, setIsLoading] = useState(false);
+  const { bookings, loading: scheduleLoading, error: scheduleError } = useLiveSaleBookings();
   const { isPurge=false } = route.params;
 
   // State for date and time picker
@@ -104,6 +108,15 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
     hideDatePicker();
   };
 
+  const handleSelectSaleDay = (day) => {
+    setPurgeDateTime((current) => combineDateAndTime(day, current));
+  };
+
+  const handleConfirmSaleTime = (time) => {
+    setPurgeDateTime((current) => combineDateAndTime(current, time));
+    hideDatePicker();
+  };
+
   const handleGoLive = async (liveType) => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a title for your live stream.');
@@ -117,6 +130,18 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
     if (isPurge && !duration) {
       Alert.alert('Missing Duration', 'Please enter a duration for your live stream.');
       return;
+    }
+
+    if (!isPurge) {
+      if (!isLiveSaleHours(durationHours)) {
+        Alert.alert('Duration', 'Choose a live sale length from 2 to 5 hours.');
+        return;
+      }
+      const clash = findOverlappingBooking(purgeDateTime, durationHours, bookings);
+      if (clash) {
+        Alert.alert('Time already booked', overlapAlert(clash));
+        return;
+      }
     }
 
     if (purgeDateTime <= new Date()) {
@@ -138,7 +163,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           coverPhoto: coverPhoto.base64,
           filename: coverPhoto.fileName,
           mimeType: coverPhoto.type,
-          duration: isPurge ? parseInt(duration, 10) || 0 : null,
+          duration: isPurge ? parseInt(duration, 10) || 0 : durationHours,
+          durationHours: isPurge ? null : durationHours,
         };
 
         const response = await createLiveRequestApi(requestData);
@@ -160,7 +186,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
           filename: coverPhoto.fileName,
           mimeType: coverPhoto.type,
           liveType,
-          duration: parseInt(duration, 10) || 0,
+          duration: isPurge ? parseInt(duration, 10) || 0 : durationHours,
+          durationHours: isPurge ? null : durationHours,
           scheduledAt: purgeDateTime.toISOString(),
         };
 
@@ -231,10 +258,35 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
             />
           </>)}
 
-        <Text style={styles.label}>{isPurge ? 'Purge' : 'Live'} Date & Time</Text>
+          {!isPurge && (<>
+            <Text style={styles.label}>Live sale length</Text>
+            <Text style={styles.hint}>2 to 5 hours. An approved live sale cannot overlap another.</Text>
+            <LiveSaleDurationPicker value={durationHours} onChange={setDurationHours} />
+
+            <Text style={styles.label}>Date</Text>
+            <LiveSaleScheduleCalendar
+              selectedDate={purgeDateTime}
+              onSelectDate={handleSelectSaleDay}
+              bookings={bookings}
+              loading={scheduleLoading}
+              error={scheduleError}
+            />
+
+            <Text style={styles.label}>Start time</Text>
+            <Text style={styles.hint}>Any time. Pick one that does not overlap a booking on this day.</Text>
+            <TouchableOpacity onPress={showDatePicker} style={styles.input}>
+              <Text style={{color: '#000'}}>
+                {purgeDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {getLocalTzAbbr()}
+              </Text>
+            </TouchableOpacity>
+          </>)}
+
+        {isPurge && (<>
+        <Text style={styles.label}>Purge Date & Time</Text>
             <TouchableOpacity onPress={showDatePicker} style={styles.input}>
             <Text style={{color: '#000'}}>{purgeDateTime.toLocaleString()} {getLocalTzAbbr()}</Text>
         </TouchableOpacity>
+        </>)}
 
           <Text style={styles.label}>Cover Photo</Text>
           <TouchableOpacity style={styles.imagePicker} onPress={handleChoosePhoto}>
@@ -252,11 +304,11 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
 
       <DateTimePickerModal
         isVisible={isDatePickerVisible}
-        mode="datetime"
-        onConfirm={handleConfirmDateTime}
+        mode={isPurge ? 'datetime' : 'time'}
+        onConfirm={isPurge ? handleConfirmDateTime : handleConfirmSaleTime}
         onCancel={hideDatePicker}
         date={purgeDateTime}
-        minimumDate={new Date()}
+        {...(isPurge ? { minimumDate: new Date() } : {})}
         display="spinner"
         pickerComponentStyleIOS={{ height: 200 }}
       />
@@ -288,6 +340,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   container: { padding: 20, paddingBottom: 40 },
   label: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
+  hint: { fontSize: 13, color: '#6B777B', marginTop: -4, marginBottom: 8 },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',

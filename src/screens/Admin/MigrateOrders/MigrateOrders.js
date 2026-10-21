@@ -70,9 +70,7 @@ const MigrateOrders = () => {
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState([]);
-  const [selectingAll, setSelectingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedBuyers, setSelectedBuyers] = useState([]); // [{ id, name, email, ... }]
@@ -87,15 +85,13 @@ const MigrateOrders = () => {
   const [genusSearch, setGenusSearch] = useState('');
   const [genusOptions, setGenusOptions] = useState([]);
   const [genusLoading, setGenusLoading] = useState(false);
-  const fetchingRef = useRef(false);
-  const lastDocIdRef = useRef(null);
   const searchQueryRef = useRef('');
   const selectedBuyersRef = useRef([]);
   const selectedGeneraRef = useRef([]);
   const buyerSearchDebounceRef = useRef(null);
   const fetchRequestIdRef = useRef(0);
-  const PAGE_SIZE = 10;
-  const BUYER_PAGE_SIZE = 100;
+  const FETCH_PAGE_SIZE = 200;
+  const MAX_FETCH_PAGES = 100;
 
   /** Backend uses exact match; normalize TXN / plant code for reliable search. */
   const buildSearchParams = (raw) => {
@@ -123,102 +119,86 @@ const MigrateOrders = () => {
     return { plantCode: upper };
   };
 
-  const fetchOrders = async (reset = false, buyerOverride = undefined, generaOverride = undefined) => {
-    // Allow forced refresh (e.g. Apply buyer filter) even if a fetch is in flight.
-    if (fetchingRef.current && buyerOverride === undefined && generaOverride === undefined && !reset) return;
+  const buildListBody = (lastDocId, buyers, generaList) => {
+    const buyerUids = (buyers || [])
+      .map((b) => (typeof b === 'string' ? b : b.id))
+      .filter(Boolean);
+    const genera = (generaList || []).map((g) => String(g || '').trim()).filter(Boolean);
+    const body = {
+      limit: FETCH_PAGE_SIZE,
+      sort: sortOrder,
+      lastDocId,
+      ...buildSearchParams(searchQueryRef.current),
+    };
+    if (buyerUids.length > 0) {
+      body.buyerUids = buyerUids;
+      if (buyerUids.length === 1) body.buyerUid = buyerUids[0];
+    }
+    if (genera.length > 0) {
+      body.genera = genera;
+      if (genera.length === 1) body.genus = genera[0];
+    }
+    return body;
+  };
 
+  // Loads every matching Pay to Board order (not one page), so "Select all"
+  // covers the whole list without scrolling.
+  const fetchOrders = async (buyerOverride = undefined, generaOverride = undefined) => {
     const requestId = ++fetchRequestIdRef.current;
-    fetchingRef.current = true;
     setLoading(true);
 
+    const buyers = buyerOverride !== undefined ? buyerOverride : selectedBuyersRef.current;
+    const genera = generaOverride !== undefined ? generaOverride : selectedGeneraRef.current;
+
     try {
-      const buyerUids =
-        buyerOverride !== undefined
-          ? (buyerOverride || []).map((b) => (typeof b === 'string' ? b : b.id)).filter(Boolean)
-          : (selectedBuyersRef.current || []).map((b) => b.id).filter(Boolean);
-      const genera =
-        generaOverride !== undefined
-          ? (generaOverride || []).map((g) => String(g || '').trim()).filter(Boolean)
-          : (selectedGeneraRef.current || []).map((g) => String(g || '').trim()).filter(Boolean);
-      const hasFilter = buyerUids.length > 0 || genera.length > 0;
-      const body = {
-        limit: hasFilter ? BUYER_PAGE_SIZE : PAGE_SIZE,
-        sort: sortOrder,
-        lastDocId: reset ? null : lastDocIdRef.current,
-        ...buildSearchParams(searchQueryRef.current),
-      };
-      if (buyerUids.length > 0) {
-        body.buyerUids = buyerUids;
-        if (buyerUids.length === 1) body.buyerUid = buyerUids[0];
-      }
-      if (genera.length > 0) {
-        body.genera = genera;
-        if (genera.length === 1) body.genus = genera[0];
-      }
-
-      console.log('[MigrateOrders] fetchOrders', { requestId, reset, buyerUids, genera, body });
-      const data = await listPayToBoardOrdersApi(body);
-
-      // Ignore stale responses from an older in-flight request.
-      if (requestId !== fetchRequestIdRef.current) {
-        console.log('[MigrateOrders] ignoring stale response', requestId);
-        return;
-      }
-
-      if (data.success) {
-        const newOrders = (data.data || []).filter((order) => Boolean(order?.id));
-        console.log('[MigrateOrders] got orders', newOrders.length);
-        if (reset) {
-          setOrders(newOrders);
-        } else {
-          setOrders((prev) => {
-            const mergedById = new Map(prev.map((order) => [order.id, order]));
-            newOrders.forEach((order) => mergedById.set(order.id, order));
-            return Array.from(mergedById.values());
-          });
+      const collected = [];
+      const seen = new Set();
+      let cursor = null;
+      for (let page = 0; page < MAX_FETCH_PAGES; page += 1) {
+        const data = await listPayToBoardOrdersApi(buildListBody(cursor, buyers, genera));
+        if (requestId !== fetchRequestIdRef.current) return;
+        if (!data.success) {
+          throw new Error(data.error || data.message || 'Unknown error');
         }
-        lastDocIdRef.current = data.lastDocId || null;
-        const pageLimit = hasFilter ? BUYER_PAGE_SIZE : PAGE_SIZE;
-        setHasMore(newOrders.length >= pageLimit && !!data.lastDocId);
-      } else {
-        const msg = data.error || data.message || 'Unknown error';
-        console.error('Failed to fetch orders:', msg, data);
-        if (reset) setOrders([]);
-        setHasMore(false);
-        Alert.alert('Migrate Orders', msg);
+        const batch = (data.data || []).filter((order) => order?.id);
+        batch.forEach((order) => {
+          if (!seen.has(order.id)) {
+            seen.add(order.id);
+            collected.push(order);
+          }
+        });
+        const nextCursor = data.lastDocId || null;
+        if (batch.length < FETCH_PAGE_SIZE || !nextCursor || nextCursor === cursor) break;
+        cursor = nextCursor;
       }
+      setOrders(collected);
+      setSelectedOrders((prev) => prev.filter((id) => seen.has(id)));
     } catch (error) {
       if (requestId !== fetchRequestIdRef.current) return;
       console.error('Error fetching orders:', error);
-      if (reset) setOrders([]);
-      setHasMore(false);
+      setOrders([]);
+      Alert.alert('Migrate Orders', error.message || 'Failed to load orders');
     } finally {
-      if (requestId === fetchRequestIdRef.current) {
-        fetchingRef.current = false;
-        setLoading(false);
-      }
+      if (requestId === fetchRequestIdRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    lastDocIdRef.current = null;
-    fetchOrders(true);
+    fetchOrders();
   }, [sortOrder]);
 
   const handleSearch = () => {
     searchQueryRef.current = searchQuery.trim();
     setSearchQuery(searchQueryRef.current);
-    lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true);
+    fetchOrders();
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
     searchQueryRef.current = '';
-    lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true);
+    fetchOrders();
   };
 
   const openBuyerModal = () => {
@@ -253,9 +233,8 @@ const MigrateOrders = () => {
     // Clear plant/TXN search so it doesn't AND with buyer filter and return empty.
     setSearchQuery('');
     searchQueryRef.current = '';
-    lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true, next, undefined);
+    fetchOrders(next, undefined);
   };
 
   const clearBuyerFilter = () => {
@@ -264,9 +243,8 @@ const MigrateOrders = () => {
     setDraftBuyers([]);
     setBuyerModalVisible(false);
     setBuyerSearch('');
-    lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true, [], undefined);
+    fetchOrders([], undefined);
   };
 
   const buyerFilterLabel = () => {
@@ -292,9 +270,8 @@ const MigrateOrders = () => {
     selectedGeneraRef.current = next;
     setGenusModalVisible(false);
     setGenusSearch('');
-    lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true, undefined, next);
+    fetchOrders(undefined, next);
   };
 
   const clearGenusFilter = () => {
@@ -303,9 +280,8 @@ const MigrateOrders = () => {
     setDraftGenera([]);
     setGenusModalVisible(false);
     setGenusSearch('');
-    lastDocIdRef.current = null;
     setSelectedOrders([]);
-    fetchOrders(true, undefined, []);
+    fetchOrders(undefined, []);
   };
 
   const genusFilterLabel = () => {
@@ -365,73 +341,10 @@ const MigrateOrders = () => {
   );
 
   const entireListSelected =
-    orders.length > 0 &&
-    !hasMore &&
-    orders.every((order) => selectedOrders.includes(order.id));
+    orders.length > 0 && orders.every((order) => selectedOrders.includes(order.id));
 
-  const buildListBody = (lastDocId, limit) => {
-    const buyerUids = (selectedBuyersRef.current || []).map((b) => b.id).filter(Boolean);
-    const genera = (selectedGeneraRef.current || [])
-      .map((g) => String(g || '').trim())
-      .filter(Boolean);
-    const body = {
-      limit,
-      sort: sortOrder,
-      lastDocId,
-      ...buildSearchParams(searchQueryRef.current),
-    };
-    if (buyerUids.length > 0) {
-      body.buyerUids = buyerUids;
-      if (buyerUids.length === 1) body.buyerUid = buyerUids[0];
-    }
-    if (genera.length > 0) {
-      body.genera = genera;
-      if (genera.length === 1) body.genus = genera[0];
-    }
-    return body;
-  };
-
-  // One tap loads every matching Pay to Board order, not just the page on screen.
-  const toggleSelectAll = async () => {
-    if (selectingAll || fetchingRef.current) return;
-    if (entireListSelected) {
-      setSelectedOrders([]);
-      return;
-    }
-
-    setSelectingAll(true);
-    fetchingRef.current = true;
-    try {
-      const collected = [];
-      const seen = new Set();
-      let cursor = null;
-      const pageSize = 200;
-      for (let page = 0; page < 100; page += 1) {
-        const data = await listPayToBoardOrdersApi(buildListBody(cursor, pageSize));
-        if (!data.success) {
-          throw new Error(data.error || data.message || 'Failed to load orders');
-        }
-        const batch = (data.data || []).filter((order) => order?.id);
-        batch.forEach((order) => {
-          if (!seen.has(order.id)) {
-            seen.add(order.id);
-            collected.push(order);
-          }
-        });
-        const nextCursor = data.lastDocId || null;
-        if (batch.length < pageSize || !nextCursor || nextCursor === cursor) break;
-        cursor = nextCursor;
-      }
-      setOrders(collected);
-      lastDocIdRef.current = collected.length ? collected[collected.length - 1].id : null;
-      setHasMore(false);
-      setSelectedOrders(collected.map((order) => order.id));
-    } catch (error) {
-      Alert.alert('Select all', error.message || 'Could not select every order');
-    } finally {
-      fetchingRef.current = false;
-      setSelectingAll(false);
-    }
+  const toggleSelectAll = () => {
+    setSelectedOrders(entireListSelected ? [] : orders.map((order) => order.id));
   };
 
   const loadInitialBuyers = useCallback(async () => {
@@ -542,11 +455,6 @@ const MigrateOrders = () => {
     }
   }, [buyerSearch, buyerModalVisible, loadInitialBuyers]);
 
-  const handleLoadMore = () => {
-    if (!hasMore || loading || fetchingRef.current || orders.length === 0) return;
-    fetchOrders(false);
-  };
-
   const toggleSelection = (id) => {
     setSelectedOrders((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -568,9 +476,8 @@ const MigrateOrders = () => {
               setLoading(false);
               if (data.success) {
                 Alert.alert('Success', data.message);
-                lastDocIdRef.current = null;
-                fetchOrders(true);
                 setSelectedOrders([]);
+                fetchOrders();
               } else {
                 Alert.alert('Error', data.error || data.message || 'Failed to migrate order');
               }
@@ -601,9 +508,8 @@ const MigrateOrders = () => {
               setLoading(false);
               if (data.success) {
                 Alert.alert('Success', data.message);
-                lastDocIdRef.current = null;
-                fetchOrders(true);
                 setSelectedOrders([]);
+                fetchOrders();
               } else {
                 Alert.alert('Error', data.error || data.message || 'Failed to clear order');
               }
@@ -739,7 +645,7 @@ const MigrateOrders = () => {
             style={styles.selectAllButton}
             onPress={toggleSelectAll}
             activeOpacity={0.7}
-            disabled={selectingAll}
+            disabled={loading}
           >
             <View pointerEvents="none">
               <CheckBox
@@ -749,11 +655,9 @@ const MigrateOrders = () => {
               />
             </View>
             <Text style={styles.selectAllText}>
-              {selectingAll
-                ? 'Selecting all…'
-                : entireListSelected
-                  ? `Deselect all (${orders.length})`
-                  : 'Select all'}
+              {entireListSelected
+                ? `Deselect all (${orders.length})`
+                : `Select all (${orders.length})`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -771,8 +675,9 @@ const MigrateOrders = () => {
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.listContent}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.2}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
         ListFooterComponent={loading && orders.length > 0 ? <ActivityIndicator color="#539461" /> : null}
         ListEmptyComponent={
           loading ? (

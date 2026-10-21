@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import { createLiveRequestApi } from '../../components/Api/liveRequestApi';
 import { AuthContext } from '../../auth/AuthProvider';
+import LiveSaleScheduleCalendar, { LiveSaleDurationPicker, useLiveSaleBookings } from './LiveSaleScheduleCalendar';
+import { combineDateAndTime, findOverlappingBooking, isLiveSaleHours, overlapAlert } from '../../utils/liveSaleSchedule';
 
 const getLocalTzAbbr = () => {
   try {
@@ -31,9 +33,12 @@ const RequestLiveScreen = ({navigation}) => {
   const [title, setTitle] = useState('');
   const [liveType, setLiveType] = useState('live');
   const [requestedDate, setRequestedDate] = useState(new Date());
+  const [durationHours, setDurationHours] = useState(2);
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const { bookings, loading: scheduleLoading, error: scheduleError } = useLiveSaleBookings();
+  const isLiveSale = liveType === 'live';
 
   const showDatePicker = () => setDatePickerVisibility(true);
   const hideDatePicker = () => setDatePickerVisibility(false);
@@ -43,10 +48,31 @@ const RequestLiveScreen = ({navigation}) => {
     hideDatePicker();
   };
 
+  const handleSelectSaleDay = (day) => {
+    setRequestedDate((current) => combineDateAndTime(day, current));
+  };
+
+  const handleConfirmSaleTime = (time) => {
+    setRequestedDate((current) => combineDateAndTime(current, time));
+    hideDatePicker();
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a title for your live stream request.');
       return;
+    }
+
+    if (isLiveSale) {
+      if (!isLiveSaleHours(durationHours)) {
+        Alert.alert('Duration', 'Choose a live sale length from 2 to 5 hours.');
+        return;
+      }
+      const clash = findOverlappingBooking(requestedDate, durationHours, bookings);
+      if (clash) {
+        Alert.alert('Time already booked', overlapAlert(clash));
+        return;
+      }
     }
 
     if (requestedDate <= new Date()) {
@@ -61,6 +87,7 @@ const RequestLiveScreen = ({navigation}) => {
         liveType,
         requestedDate: requestedDate.toISOString(),
         description: description.trim(),
+        ...(isLiveSale ? { duration: durationHours, durationHours } : {}),
       };
 
       const response = await createLiveRequestApi(data);
@@ -126,18 +153,45 @@ const RequestLiveScreen = ({navigation}) => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.label}>Requested Date & Time</Text>
-        <TouchableOpacity onPress={showDatePicker} style={styles.input}>
-          <Text style={{color: '#000'}}>{requestedDate.toLocaleString()} {getLocalTzAbbr()}</Text>
-        </TouchableOpacity>
+        {isLiveSale ? (
+          <>
+            <Text style={styles.label}>Live sale length</Text>
+            <Text style={styles.hint}>2 to 5 hours. An approved live sale cannot overlap another.</Text>
+            <LiveSaleDurationPicker value={durationHours} onChange={setDurationHours} />
+
+            <Text style={styles.label}>Date</Text>
+            <LiveSaleScheduleCalendar
+              selectedDate={requestedDate}
+              onSelectDate={handleSelectSaleDay}
+              bookings={bookings}
+              loading={scheduleLoading}
+              error={scheduleError}
+            />
+
+            <Text style={styles.label}>Start time</Text>
+            <Text style={styles.hint}>Any time. Pick one that does not overlap a booking on this day.</Text>
+            <TouchableOpacity onPress={showDatePicker} style={styles.input}>
+              <Text style={{color: '#000'}}>
+                {requestedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {getLocalTzAbbr()}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Requested Date & Time</Text>
+            <TouchableOpacity onPress={showDatePicker} style={styles.input}>
+              <Text style={{color: '#000'}}>{requestedDate.toLocaleString()} {getLocalTzAbbr()}</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
-          mode="datetime"
-          onConfirm={handleConfirmDate}
+          mode={isLiveSale ? 'time' : 'datetime'}
+          onConfirm={isLiveSale ? handleConfirmSaleTime : handleConfirmDate}
           onCancel={hideDatePicker}
           date={requestedDate}
-          minimumDate={new Date()}
+          {...(isLiveSale ? {} : { minimumDate: new Date() })}
           display="spinner"
           pickerComponentStyleIOS={{ height: 200 }}
         />
@@ -178,6 +232,7 @@ const styles = StyleSheet.create({
   scrollView: {flex: 1},
   container: {padding: 20, paddingBottom: 40},
   label: {fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8},
+  hint: {fontSize: 13, color: '#6B777B', marginTop: -4, marginBottom: 8},
   input: {
     borderWidth: 1,
     borderColor: '#ccc',

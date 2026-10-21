@@ -6,9 +6,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +14,7 @@ import { ActivityIndicator,
   View,
   Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AirplaneIcon from '../../../../assets/admin-icons/airplane.svg';
 import CopyIcon from '../../../../assets/admin-icons/Copy.svg';
 import CubeIcon from '../../../../assets/admin-icons/cube-blue.svg';
 import MapPinIcon from '../../../../assets/admin-icons/map-pin.svg';
@@ -98,7 +97,7 @@ const TrackingInput = ({ trackingNumber, setTrackingNumber, onSave, isLoading })
 
 const UserInfo = ({ user }) => (
   <View style={styles.userCard}>
-    <AppImage source={{ uri: user.avatar }} style={styles.userAvatar} />
+    <AppImage source={{ uri: user.avatar }} style={styles.userAvatar} resizeWidth={96} />
     <View style={styles.userDetails}>
       <View style={styles.userNameRow}>
         <Text style={styles.userName}>{user.name}</Text>
@@ -147,12 +146,21 @@ const BoxSpecs = ({ dimensions, weight }) => (
     </View>
 );
 
-const PlantCard = ({ plant }) => {
+const PlantSeparator = () => <View style={styles.plantSeparator} />;
+
+const plantFlightLabel = (plant) => {
+  const flight = moment(plant?.flightDate, ['YYYY-MM-DD', moment.ISO_8601], true);
+  if (flight.isValid()) return flight.format('MMM D');
+  return String(plant?.flightDateFormatted || '').replace(/,?\s*\d{4}$/, '').trim();
+};
+
+const PlantCard = React.memo(({ plant }) => {
+  const flightLabel = plantFlightLabel(plant);
   return (
   <View style={styles.plantCardContainer}>
     {plant?.isJoinerOrder && (
       <View style={styles.joinerUserRow}>
-        <AppImage source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+        <AppImage source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} resizeWidth={64} />
         <View>
           <View style={styles.joinerUserNameRow}>
             <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
@@ -164,7 +172,13 @@ const PlantCard = ({ plant }) => {
     )}
     <View style={styles.plantCard}>
       <View>
-        <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
+        <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} resizeWidth={192} />
+        {flightLabel ? (
+          <View style={styles.flightBadge}>
+            <AirplaneIcon width={11} height={11} />
+            <Text style={styles.flightBadgeText} numberOfLines={1}>{flightLabel}</Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.plantDetails}>
         <View>
@@ -192,7 +206,7 @@ const PlantCard = ({ plant }) => {
       </View>
     </View>
   </View>
-)};
+)});
 
 const ViewShippingScreen = ({ navigation, route }) => {
   const hubSpecEnabled = isLeafTrailHubSpecEnabled();
@@ -323,12 +337,15 @@ const ViewShippingScreen = ({ navigation, route }) => {
     }
   };
 
-  const fullAddress = [
-      shippingDetails.deliveryDetails?.address?.street || '',
-      shippingDetails.deliveryDetails?.address?.city || '',
-      (shippingDetails.deliveryDetails?.address?.state || '') + ' ' + (shippingDetails.deliveryDetails?.address?.zipCode || ''),
-      shippingDetails.deliveryDetails?.address?.country || ''
-  ].filter(Boolean).join(', ');
+  const address = shippingDetails.deliveryDetails?.address || {};
+  const addressParts = [
+      address.street,
+      address.city,
+      [address.state, address.zipCode].filter(Boolean).join(' '),
+  ].map((part) => String(part || '').trim()).filter(Boolean);
+  const fullAddress = addressParts.length
+      ? [...addressParts, String(address.country || '').trim()].filter(Boolean).join(', ')
+      : '';
 
   const dimensions = shippingDetails?.packingData?.dimensions;
   const weight = shippingDetails?.packingData?.weight;
@@ -341,6 +358,8 @@ const ViewShippingScreen = ({ navigation, route }) => {
       emptyMessage: 'No plants in this box to print.',
     });
   };
+
+  const renderPlant = useCallback(({ item: plant }) => <PlantCard plant={plant} />, []);
 
   return (
     <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>
@@ -358,74 +377,81 @@ const ViewShippingScreen = ({ navigation, route }) => {
       ) : (
         <Header title="Box Details" navigation={navigation} />
       )}
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <BoxInfo
-          boxNumber={formatReceiverBoxNumberLabel(shippingDetails) || shippingDetails.boxNumber || '—'}
-          label="Box Number"
-        />
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={styles.scrollContent}
+        data={isLoading ? [] : plantList}
+        keyExtractor={(plant) => String(plant.id)}
+        renderItem={renderPlant}
+        ItemSeparatorComponent={PlantSeparator}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
+        ListHeaderComponent={
+          <>
+            <BoxInfo
+              boxNumber={formatReceiverBoxNumberLabel(shippingDetails) || shippingDetails.boxNumber || '—'}
+              label="Box Number"
+            />
 
-        <TrackingInput
-          trackingNumber={trackingNumber}
-          setTrackingNumber={setTrackingNumber}
-          onSave={handleSaveTrackingNumber}
-          isLoading={isSavingTracking}
-        />
+            <TrackingInput
+              trackingNumber={trackingNumber}
+              setTrackingNumber={setTrackingNumber}
+              onSave={handleSaveTrackingNumber}
+              isLoading={isSavingTracking}
+            />
 
-        <DeliveryDateTimeInput
-          deliveryDate={deliveryDate}
-          setDeliveryDate={setDeliveryDate}
-          deliveryTime={deliveryTime}
-          setDeliveryTime={setDeliveryTime}
-          isDelayed={isDelayed}
-          setIsDelayed={setIsDelayed}
-          onSave={handleSaveDeliveryDetails}
-          isLoading={isSavingDelivery}
-        />
+            <DeliveryDateTimeInput
+              deliveryDate={deliveryDate}
+              setDeliveryDate={setDeliveryDate}
+              deliveryTime={deliveryTime}
+              setDeliveryTime={setDeliveryTime}
+              isDelayed={isDelayed}
+              setIsDelayed={setIsDelayed}
+              onSave={handleSaveDeliveryDetails}
+              isLoading={isSavingDelivery}
+            />
 
-        <View style={styles.deliveryDetailsSection}>
-          <Text style={styles.sectionTitle}>Delivery Details</Text>
-          <View style={{paddingHorizontal: 12, paddingTop: 12}}>
-            <UserInfo user={{
-                name: shippingDetails.name,
-                username: shippingDetails.username,
-                avatar: shippingDetails.avatar,
-                role: 'Receiver'
-            }} />
-          </View>
-          <View style={{paddingHorizontal: 12, paddingTop: 12}}>
-            <AddressInfo address={fullAddress || 'No address provided'} />
-          </View>
-          <ShippingInfo
-            upsShipping={shippingDetails.upsShippingDate ? moment(shippingDetails.upsShippingDate).format('MMM DD, YYYY') : 'Date TBD'}
-            plantFlight={shippingDetails.flightDateFormatted || 'Date TBD'}
-          />
-        </View>
+            <View style={styles.deliveryDetailsSection}>
+              <Text style={styles.sectionTitle}>Delivery Details</Text>
+              <View style={{paddingHorizontal: 12, paddingTop: 12}}>
+                <UserInfo user={{
+                    name: shippingDetails.name,
+                    username: shippingDetails.username,
+                    avatar: shippingDetails.avatar,
+                    role: 'Receiver'
+                }} />
+              </View>
+              <View style={{paddingHorizontal: 12, paddingTop: 12}}>
+                <AddressInfo address={fullAddress || 'No address provided'} />
+              </View>
+              <ShippingInfo
+                upsShipping={shippingDetails.upsShippingDate ? moment(shippingDetails.upsShippingDate).format('MMM DD, YYYY') : 'Date TBD'}
+                plantFlight={shippingDetails.flightDateFormatted || 'Date TBD'}
+              />
+            </View>
 
-        <BoxSpecs 
-            dimensions={dimensions ? `${dimensions.length}x${dimensions.width}x${dimensions.height} in` : 'N/A'}
-            weight={weight ? `${weight.value} ${weight.unit}` : 'N/A'}
-        />
+            <BoxSpecs
+                dimensions={dimensions ? `${dimensions.length}x${dimensions.width}x${dimensions.height} in` : 'N/A'}
+                weight={weight ? `${weight.value} ${weight.unit}` : 'N/A'}
+            />
 
-        <View style={styles.divider} />
+            <View style={styles.divider} />
 
-        <View style={styles.plantListSection}>
-            <View style={styles.plantListHeader}>
-                <Text style={styles.sectionTitle}>Plant List</Text>
-                <Text style={styles.plantListCount}>{plantList.length} plant(s)</Text>
+            <View style={styles.plantListSection}>
+              <View style={styles.plantListHeader}>
+                  <Text style={styles.sectionTitle}>Plant List</Text>
+                  <Text style={styles.plantListCount}>{plantList.length} plant(s)</Text>
+              </View>
             </View>
             {isLoading ? (
                 <ActivityIndicator size="large" color="#699E73" style={{marginTop: 20}}/>
-            ) : (
-                <FlatList
-                    data={plantList}
-                    keyExtractor={(plant) => plant.id.toString()}
-                    renderItem={({ item: plant }) => <PlantCard plant={plant} />}
-                    scrollEnabled={false}
-                    ItemSeparatorComponent={() => <View style={{height: 6}} />}
-                />
-            )}
-        </View>
-      </ScrollView>
+            ) : null}
+          </>
+        }
+      />
       {(isLoading || isSavingTracking || isSavingDelivery) && (
         <Modal
           transparent
@@ -448,7 +474,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16, backgroundColor: '#FFFFFF', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   headerTitle: { fontFamily: 'Inter', fontWeight: '700', fontSize: 18, color: '#202325' },
+  list: { flex: 1 },
   scrollContent: { paddingTop: 40, paddingBottom: 34 },
+  plantSeparator: { height: 6 },
   boxInfoContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12, marginTop: 60 },
   boxInfoContainerIos: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 15, gap: 12 },
   boxIconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#48A7F8', justifyContent: 'center', alignItems: 'center' },
@@ -488,6 +516,8 @@ const styles = StyleSheet.create({
   plantCardContainer: { backgroundColor: '#F5F6F6', paddingHorizontal: 12, paddingVertical: 6 },
   plantCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, flexDirection: 'row', gap: 12 },
   plantImage: { width: 96, height: 128, borderRadius: 8 },
+  flightBadge: { position: 'absolute', top: 6, left: 6, maxWidth: 84, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255, 255, 255, 0.92)', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
+  flightBadgeText: { fontFamily: 'Inter', fontWeight: '600', fontSize: 11, color: '#202325' },
   plantDetails: { flex: 1, justifyContent: 'space-between', gap: 8 },
   plantHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   plantCodeContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -188,6 +188,28 @@ export const deleteLiveSessionApi = async (sessionId) => {
   }
 };
 
+/** Approved live sales for the garden/business schedule calendar. */
+export const getLiveSaleScheduleApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.LIVE_SALE_SCHEDULE, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error('getLiveSaleScheduleApi error:', error);
+    return { success: false, bookings: [], error: error.message };
+  }
+};
+
 /** Seller write to liveRequests (create/update/delete) via Supabase live-request-write. */
 export const liveRequestWriteApi = async ({ mode, requestId, ...rest }) => {
   try {
