@@ -160,6 +160,7 @@ const optimisticPlantDataFromListing = listing => {
 const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [joined, setJoined] = useState(false);
   const rtcEngineRef = useRef(null);
+  const saleEndedRef = useRef(false);
   const [remoteUid, setRemoteUid] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
@@ -640,6 +641,13 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
          const data = res.session;
          console.log('Live session data updated:', data);
          setLiveStats(data);
+
+         if (String(data.status || '').toLowerCase() === 'ended' && !saleEndedRef.current) {
+           saleEndedRef.current = true;
+           Alert.alert('Live sale ended', 'This live sale time is over.');
+           goBack();
+           return;
+         }
 
          // Authoritative broadcaster uid comes from the live session, not the
          // share URL's ?seller= param — normal navigation and deep links both

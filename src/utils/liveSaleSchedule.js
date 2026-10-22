@@ -5,6 +5,27 @@ export function isLiveSaleHours(value) {
   return Number.isInteger(n) && n >= 2 && n <= 5;
 }
 
+/** End of a live sale. A missing duration uses the 2-hour minimum. */
+function toMs(value) {
+  if (value == null) return NaN;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (typeof value === 'object' && value.seconds != null) return Number(value.seconds) * 1000;
+  return new Date(value).getTime();
+}
+
+export function liveSaleEndsAt(start, durationHours) {
+  const startMs = toMs(start);
+  if (!Number.isFinite(startMs)) return null;
+  const hours = isLiveSaleHours(durationHours) ? Number(durationHours) : 2;
+  return new Date(startMs + hours * 60 * 60 * 1000);
+}
+
+export function isLiveSaleWindowOver(start, durationHours, now = new Date()) {
+  const end = liveSaleEndsAt(start, durationHours);
+  return !!end && now.getTime() >= end.getTime();
+}
+
 export function findOverlappingBooking(start, durationHours, bookings, excludeId) {
   const startMs = new Date(start).getTime();
   if (!isLiveSaleHours(durationHours) || !Number.isFinite(startMs)) return null;

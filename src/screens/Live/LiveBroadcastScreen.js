@@ -75,6 +75,7 @@ import {
   subscribeToLiveComments,
 } from '../../utils/realtimeLiveComments';
 import { buildLiveChatFeed } from '../../utils/liveChatFeed';
+import { isLiveSaleHours, liveSaleEndsAt } from '../../utils/liveSaleSchedule';
 
 const liveShippingLabel = (listing, sellerClass) => {
   const cls = String(sellerClass || '').trim().toLowerCase();
@@ -133,6 +134,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [error, setError] = useState(null);
   const [liveStats, setLiveStats] = useState({ viewerCount: 0, likeCount: 0 });
   const [sessionDetails, setSessionDetails] = useState(null);
+  const liveSaleEndedRef = useRef(false);
   const [isCreateListingModalVisible, setCreateListingModalVisible] = useState(false); // New state for modal visibility
   const [isLiveListingModalVisible, setLiveListingModalVisible] = useState(false); // State for the listings modal
   const [activeListing, setActiveListing] = useState(null); // State for the currently displayed listing
@@ -587,6 +589,37 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       if (pollTimer) clearInterval(pollTimer);
     };
   }, [sessionId]);
+
+  // A live sale ends when its booked hours are over, even if the seller does
+  // not tap End. The next garden is booked right after that window.
+  const saleEndMs = liveSaleEndsAt(sessionDetails?.scheduledAt, sessionDetails?.duration)?.getTime() ?? null;
+  useEffect(() => {
+    if (!sessionDetails || !sessionId || liveSaleEndedRef.current || saleEndMs == null) return;
+    const liveType = String(sessionDetails.liveType || 'live').toLowerCase();
+    if (liveType === 'purge') return;
+
+    const finish = async () => {
+      if (liveSaleEndedRef.current) return;
+      liveSaleEndedRef.current = true;
+      const hours = isLiveSaleHours(sessionDetails.duration) ? Number(sessionDetails.duration) : 2;
+      Alert.alert('Live sale ended', `Your ${hours} hour live sale is over, so the next garden can start.`);
+      try {
+        await updateLiveSessionStatusApi(sessionId, 'ended');
+      } catch (endError) {
+        console.error('Auto-end live sale failed:', endError);
+      }
+      if (navigation.canGoBack()) navigation.goBack();
+      else navigation.navigate('Live');
+    };
+
+    const delay = saleEndMs - Date.now();
+    if (delay <= 0) {
+      finish();
+      return undefined;
+    }
+    const timer = setTimeout(finish, delay);
+    return () => clearTimeout(timer);
+  }, [saleEndMs, sessionDetails?.liveType, sessionId, navigation]);
 
   // Effect for fetching comments. The 10s poll is a FALLBACK: realtime pushes
   // inserts/edits/deletes (including the end-of-session purge) and the poll only

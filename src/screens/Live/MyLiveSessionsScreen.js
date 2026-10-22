@@ -30,7 +30,7 @@ import { deleteLiveSessionApi, getMyLiveSessionsApi, liveRequestWriteApi } from 
 import { InputBox } from '../../components/Input';
 import Toast from '../../components/Toast/Toast';
 import LiveSaleScheduleCalendar, { LiveSaleDurationPicker, useLiveSaleBookings } from './LiveSaleScheduleCalendar';
-import { combineDateAndTime, findOverlappingBooking, isLiveSaleHours, overlapAlert } from '../../utils/liveSaleSchedule';
+import { combineDateAndTime, findOverlappingBooking, isLiveSaleHours, isLiveSaleWindowOver, overlapAlert } from '../../utils/liveSaleSchedule';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_MARGIN = 8;
@@ -194,6 +194,11 @@ const MyLiveSessionsScreen = ({ navigation }) => {
       if (scheduledTime && new Date() < scheduledTime) {
         const localTimeStr = moment(scheduledTime).format('MMM DD, YYYY hh:mmA');
         Alert.alert('Not Yet Time', `You can go live at ${localTimeStr}. Please wait until then.`);
+        return;
+      }
+      const hours = isLiveSaleHours(item.duration) ? Number(item.duration) : 2;
+      if (scheduledTime && isLiveSaleWindowOver(scheduledTime, hours)) {
+        Alert.alert('Live sale ended', `Your ${hours} hour live sale is over, so the next garden can start.`);
         return;
       }
       navigation.navigate('LiveBroadcastScreen', { sessionId: item.sessionId });
