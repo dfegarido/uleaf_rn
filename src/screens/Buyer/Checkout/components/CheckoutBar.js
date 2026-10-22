@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import CustomAlert from '../../../../components/CustomAlert/CustomAlert';
 import CaretDownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
 import WhiteCaretLeftIcon from '../../../../assets/icons/white/caret-left-regular.svg';
 import VenmoLogoIcon from '../../../../assets/buyer-icons/venmo-logo.svg';
@@ -17,6 +18,9 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
   // LIVE bottom sheet styling. Deliberately NOT keyed off `isLive` — the full
   // CheckoutScreen can also be opened with isLive: true (ScreenPlantDetailPurge).
   const isLiveModal = variant === 'liveModal';
+  // The Place Order confirm is the app's own CustomAlert (frosted), as on Pay to Board, so iOS
+  // and Android show the same dialog instead of each platform's Alert.alert.
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const maskUsername = (username) => {
     if (!username || username.length < 3) {
@@ -70,23 +74,7 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
             isDisabled && (vaultedPaymentId ? styles.venmoButtonDisabled : styles.placeOrderButtonDisabled)
           ]}
           // onPress={onCheckoutPress}
-          onPress={() => {
-            Alert.alert('Are you sure?', '', [
-                  {
-                    text: 'No',
-                    onPress: () => {
-                      return null;
-                    },
-                    style: 'cancel'
-                  },
-                  {
-                    text: 'Yes',
-                    onPress: () => {
-                      onCheckoutPress();
-                    },
-                  },
-                ])
-            }}
+          onPress={() => setConfirmVisible(true)}
           disabled={isDisabled}
         >
           <View style={styles.buttonText}>
@@ -117,6 +105,17 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
           </View>
         </TouchableOpacity>
       </View>
+
+      <CustomAlert
+        visible={confirmVisible}
+        variant="frosted"
+        title="Are you sure?"
+        buttons={[
+          {text: 'No', style: 'cancel'},
+          {text: 'Yes', onPress: () => onCheckoutPress()},
+        ]}
+        onDismiss={() => setConfirmVisible(false)}
+      />
     </View>
   );
 };
