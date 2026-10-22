@@ -63,7 +63,10 @@ export function getPaymentPageUrl(transactionNumber, amount, authToken) {
     ileafuOrderId: String(transactionNumber),
   });
   if (authToken) {
-    params.set('token', authToken);
+    // `authToken`, not `token`: PayPal appends its own `token` (the PayPal order id) to the
+    // page URL when it returns the buyer from the Venmo app, and a second `token` there makes
+    // the page send the wrong value as the bearer token.
+    params.set('authToken', authToken);
   }
   return `${paymentPaypalVenmoUrl}?${params.toString()}`;
 }
