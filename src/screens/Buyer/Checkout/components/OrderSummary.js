@@ -411,7 +411,7 @@ const OrderSummary = ({
             <TouchableOpacity
               style={styles.discountApplyButton}
               onPress={onApplyDiscount}>
-              <Text style={styles.discountApplyButtonText}>Apply</Text>
+              <Text style={styles.discountApplyButtonText} numberOfLines={1}>Apply</Text>
             </TouchableOpacity>
           </View>
 
