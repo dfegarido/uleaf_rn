@@ -1,5 +1,5 @@
 diff --git a/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt b/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
-index f170d71..1e078c0 100644
+index f170d71..289d9bb 100644
 --- a/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
 +++ b/node_modules/@swan-io/react-native-browser/android/src/main/java/io/swan/rnbrowser/RNSwanBrowserModuleImpl.kt
 @@ -1,11 +1,13 @@
@@ -16,7 +16,7 @@ index f170d71..1e078c0 100644
  import androidx.core.content.ContextCompat
  import androidx.core.graphics.ColorUtils
  import androidx.core.net.toUri
-@@ -14,7 +16,7 @@ import com.facebook.react.bridge.Promise
+@@ -14,12 +16,20 @@ import com.facebook.react.bridge.Promise
  import com.facebook.react.bridge.ReactApplicationContext
  import com.facebook.react.bridge.ReadableMap
  
@@ -25,7 +25,62 @@ index f170d71..1e078c0 100644
  
  object RNSwanBrowserModuleImpl {
    const val NAME = "RNSwanBrowser"
-@@ -79,13 +81,72 @@ object RNSwanBrowserModuleImpl {
+   const val ON_CLOSE_EVENT = "swanBrowserOnClose"
+ 
++  /**
++   * IntentHandler.EXTRA_CALLING_ACTIVITY_PACKAGE — how Chromium learns which package launched a
++   * Custom Tab when the launch carries no Custom Tabs session token. Without it the partial
++   * Custom Tab height is discarded and the tab opens full-screen.
++   */
++  private const val CALLING_ACTIVITY_PACKAGE_EXTRA =
++    "org.chromium.chrome.browser.calling_activity_package"
++
+   internal fun open(
+     reactContext: ReactApplicationContext,
+     url: String,
+@@ -36,9 +46,40 @@ object RNSwanBrowserModuleImpl {
+       setBookmarksButtonEnabled(false)
+       setDownloadButtonEnabled(false)
+       setInstantAppsEnabled(false)
+-      setSendToExternalDefaultHandlerEnabled(false)
++      // Hand links that an installed app owns (Venmo's app link) to that app instead of loading
++      // them in the tab - otherwise the buyer gets Venmo's web login instead of the Venmo app.
++      setSendToExternalDefaultHandlerEnabled(true)
+       setShowTitle(false)
+ 
++      // Partial Custom Tab. A launch height turns the tab into Chrome's own bottom sheet with
++      // rounded top corners instead of a full-screen activity — the closest Android gets to the
++      // sheet iOS hands us from SFSafariViewController. Both extras are opt-in and a browser that
++      // does not implement partial Custom Tabs ignores them and opens full-screen (Chrome's
++      // documented behaviour), so passing them can never break the launch.
++      if (options.hasKey("initialActivityHeightPx")) {
++        // The builder throws on a height <= 0 and Chrome ignores anything under half the screen,
++        // so clamp against the real display metrics: a wrong measurement from JS can only ever
++        // produce a valid extra.
++        val screenHeight = activity.resources.displayMetrics.heightPixels
++        // A JS number crosses the bridge as a double, hence getDouble. The resize behaviour is
++        // passed explicitly: the one-arg overload sends ACTIVITY_HEIGHT_DEFAULT (0), which leaves
++        // the decision to the browser; ADJUSTABLE is the documented "resizable bottom sheet".
++        val heightPx = options.getDouble("initialActivityHeightPx").toInt()
++            .coerceIn(screenHeight / 2, screenHeight)
++        setInitialActivityHeightPx(heightPx, CustomTabsIntent.ACTIVITY_HEIGHT_ADJUSTABLE)
++        android.util.Log.i(
++          "iLeafU",
++          "payment sheet: partial Custom Tab requested height=${heightPx}px of ${screenHeight}px " +
++            "behaviour=ADJUSTABLE caller=${activity.packageName}"
++        )
++      }
++
++      if (options.hasKey("toolbarCornerRadiusDp")) {
++        // The builder throws above CustomTabsIntent.Builder.MAX_TOOLBAR_CORNER_RADIUS_DP (16 dp),
++        // so clamp rather than let a larger value from JS crash the payment launch.
++        setToolbarCornerRadiusDp(options.getDouble("toolbarCornerRadiusDp").toInt().coerceIn(0, 16))
++      }
++
+       if (options.getString("animationType") == "fade") {
+         setStartAnimations(activity, com.facebook.react.R.anim.catalyst_fade_in, R.anim.inert)
+         setExitAnimations(activity, R.anim.inert, com.facebook.react.R.anim.catalyst_fade_out)
+@@ -79,13 +120,82 @@ object RNSwanBrowserModuleImpl {
        }
      }
  
@@ -49,6 +104,16 @@ index f170d71..1e078c0 100644
 +        "No installed browser supports Custom Tabs; a WebView-based browser cannot complete this payment"
 +      ).let { false }
 +    }
++
++    // Chromium identifies a Custom Tab's caller from a session token or from this extra, and drops
++    // the partial-Custom-Tab height entirely when it can identify neither:
++    // CustomTabIntentDataProvider.getInitialActivityHeight() returns 0 unless the intent is
++    // "trusted" or the caller's package resolves against the third-party policy (the feature
++    // ships enabled with an empty denylist, so any resolvable package is allowed). androidx sets
++    // neither, which is why the tab still came up full-screen with square corners even though the
++    // height and corner extras demonstrably arrived — the browser zeroed the height before using
++    // it. The value here is this app: the activity genuinely launching the tab.
++    customTabsIntent.intent.putExtra(CALLING_ACTIVITY_PACKAGE_EXTRA, activity.packageName)
 +
 +    customTabsIntent.intent.setPackage(packageName)
 +
@@ -102,3 +167,81 @@ index f170d71..1e078c0 100644
 +    return null
 +  }
  }
+diff --git a/node_modules/@swan-io/react-native-browser/dist/commonjs/index.js b/node_modules/@swan-io/react-native-browser/dist/commonjs/index.js
+index 9746480..4f180a3 100644
+--- a/node_modules/@swan-io/react-native-browser/dist/commonjs/index.js
++++ b/node_modules/@swan-io/react-native-browser/dist/commonjs/index.js
+@@ -48,6 +48,12 @@ const openBrowser = (url, options = {}) => {
+   } = options;
+   const barTintColor = convertColorToNumber(options.barTintColor);
+   const controlTintColor = convertColorToNumber(options.controlTintColor);
++  // Android partial Custom Tab extras, added by this project's local patch (see
++  // patches/@swan-io+react-native-browser+1.1.2.patch).
++  const {
++    initialActivityHeightPx,
++    toolbarCornerRadiusDp
++  } = options;
+   setupOnCloseListener(options.onClose);
+   return _NativeRNSwanBrowser.default.open(url, {
+     ...(animationType != null && {
+@@ -61,6 +67,12 @@ const openBrowser = (url, options = {}) => {
+     }),
+     ...(controlTintColor != null && {
+       controlTintColor
++    }),
++    ...(initialActivityHeightPx != null && {
++      initialActivityHeightPx
++    }),
++    ...(toolbarCornerRadiusDp != null && {
++      toolbarCornerRadiusDp
+     })
+   }).then(() => {});
+ };
+diff --git a/node_modules/@swan-io/react-native-browser/dist/module/index.js b/node_modules/@swan-io/react-native-browser/dist/module/index.js
+index 46516d6..9b66c7d 100644
+--- a/node_modules/@swan-io/react-native-browser/dist/module/index.js
++++ b/node_modules/@swan-io/react-native-browser/dist/module/index.js
+@@ -43,6 +43,14 @@ export const openBrowser = (url, options = {}) => {
+   } = options;
+   const barTintColor = convertColorToNumber(options.barTintColor);
+   const controlTintColor = convertColorToNumber(options.controlTintColor);
++  // Android partial Custom Tab extras, added by this project's local patch (see
++  // patches/@swan-io+react-native-browser+1.1.2.patch). RNSwanBrowserModuleImpl turns a height
++  // into a bottom-sheet Custom Tab and a radius into rounded top corners. iOS ignores both, and
++  // so does any browser that does not implement partial Custom Tabs.
++  const {
++    initialActivityHeightPx,
++    toolbarCornerRadiusDp
++  } = options;
+   setupOnCloseListener(options.onClose);
+   return NativeModule.open(url, {
+     ...(animationType != null && {
+@@ -56,6 +64,12 @@ export const openBrowser = (url, options = {}) => {
+     }),
+     ...(controlTintColor != null && {
+       controlTintColor
++    }),
++    ...(initialActivityHeightPx != null && {
++      initialActivityHeightPx
++    }),
++    ...(toolbarCornerRadiusDp != null && {
++      toolbarCornerRadiusDp
+     })
+   }).then(() => {});
+ };
+diff --git a/node_modules/@swan-io/react-native-browser/src/specs/NativeRNSwanBrowser.ts b/node_modules/@swan-io/react-native-browser/src/specs/NativeRNSwanBrowser.ts
+index f7de81b..0477198 100644
+--- a/node_modules/@swan-io/react-native-browser/src/specs/NativeRNSwanBrowser.ts
++++ b/node_modules/@swan-io/react-native-browser/src/specs/NativeRNSwanBrowser.ts
+@@ -6,6 +6,11 @@ type Options = {
+   dismissButtonStyle?: string;
+   barTintColor?: number;
+   controlTintColor?: number;
++  // Local ileafu patch: partial Custom Tab geometry. Codegen builds a typed struct
++  // from this type and copies only the fields declared here, so an undeclared key
++  // is dropped before the native module ever sees the options map.
++  initialActivityHeightPx?: number;
++  toolbarCornerRadiusDp?: number;
+ };
+ 
+ export interface Spec extends TurboModule {

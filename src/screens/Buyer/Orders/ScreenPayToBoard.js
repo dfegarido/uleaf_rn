@@ -379,7 +379,14 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
         setPaymentInProgress(prev => markPaymentInProgress(prev, transactionNumber));
         // Open the sheet over this screen and only navigate away once it is gone (presenter safety).
         openPaymentSheet(transactionNumber, total, {
-          onClose: () => setTimeout(() => navigation.navigate('Orders'), 300),
+          onClose: () => {
+            // The sheet is gone and the buyer is back in the app. The payment is only confirmed
+            // by the backend push, so until that arrives the order is still payable. Releasing
+            // the flag here is what keeps a buyer who closed the sheet - or cancelled in PayPal -
+            // able to pay again instead of being locked out of the button forever.
+            setPaymentInProgress(prev => clearPaymentInProgress(prev, transactionNumber));
+            setTimeout(() => navigation.navigate('Orders'), 300);
+          },
         });
       }
       

@@ -34,7 +34,9 @@ describe('getPaymentPageUrl', () => {
 
   it('carries the auth token when there is one', () => {
     const url = getPaymentPageUrl('TXN123', 40, 'header.payload.signature');
-    expect(url).toContain('token=header.payload.signature');
+    // `authToken`, not `token`: PayPal appends its own `token` (the PayPal order id) to the
+    // page URL when it returns the buyer from the Venmo app.
+    expect(url).toContain('authToken=header.payload.signature');
   });
 
   it('omits the token when there is none', () => {
@@ -47,7 +49,7 @@ describe('getPaymentPageUrl', () => {
     const url = getPaymentPageUrl('TXN123', 40, 'a&b=c d');
     const query = url.split('?')[1];
     const params = new URLSearchParams(query);
-    expect(params.get('token')).toBe('a&b=c d');
+    expect(params.get('authToken')).toBe('a&b=c d');
     expect(params.get('ileafuOrderId')).toBe('TXN123');
     expect(params.get('amount')).toBe('40');
   });

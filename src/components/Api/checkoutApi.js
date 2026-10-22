@@ -24,7 +24,7 @@ export const checkoutApi = async (orderData) => {
     });
     
     const response = await fetch(
-      API_ENDPOINTS.CHECKOUT,
+      API_ENDPOINTS.CHECKOUT_SUPABASE,
       {
         method: 'POST',
         headers: {
