@@ -80,14 +80,6 @@ export const GLASS_VARIANTS = {
     radius: 26,
     blurType: 'light',
   },
-  // A single chat row (one comment or one join notice) on the live overlays. Small and inline,
-  // so it takes a compact radius; the hairline border is what separates one row from the next.
-  chatRow: {
-    fill: smallDarkFill(),
-    border: 'rgba(255, 255, 255, 0.30)',
-    radius: 14,
-    blurType: 'systemUltraThinMaterialDark',
-  },
 };
 
 /** Drop shadow shared by every glass surface. */

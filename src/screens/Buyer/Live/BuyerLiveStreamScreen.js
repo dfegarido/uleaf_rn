@@ -1,4 +1,3 @@
-import AppImage from '../../../components/AppImage/AppImage';
 import PlantListingImage from '../../../components/PlantListingImage/PlantListingImage';
 import { getShopListingImageUri } from '../../../utils/plantListingImage';
 
@@ -68,6 +67,7 @@ import {
 } from '../../../components/Api/liveApi';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
+import ChatAvatar from '../../../components/ChatAvatar';
 import GlassView from '../../../components/Glass/GlassView';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { shareLiveStream } from '../../../utils/liveShareLink';
@@ -1066,7 +1066,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       }),
       Animated.timing(cardFade, { toValue: isCommentFocused ? 0 : 1, ...timing }),
     ]).start(({ finished }) => {
-      cardAnimatingRef.current = !!finished;
+      // Still animating only if this run was interrupted by a newer one. (Was `!!finished`, which
+      // left the flag stuck on after the first run, so every later re-measure was ignored and a
+      // card with a longer plant name was clipped.)
+      cardAnimatingRef.current = !finished;
     });
   }, [isCommentFocused, cardMeasured, cardCollapse, cardFade]);
 
@@ -1077,7 +1080,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     const h = event.nativeEvent.layout.height;
     if (h <= 0 || cardAnimatingRef.current) return;
     cardHeightRef.current = h;
-    cardCollapse.setValue(h);
+    // While collapsed for typing, only remember the height; the blur animation restores it.
+    if (!isCommentFocused) cardCollapse.setValue(h);
     if (!cardMeasured) setCardMeasured(true);
   };
 
@@ -1164,6 +1168,20 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           (the "transparent black at half the screen"). Each surface keeps its own tint. */}
       <View pointerEvents="none" style={styles.scrimBase} />
 
+      {/* Bottom fade behind the chat, card and rail: starts fully transparent, so unlike the old
+          flat 46% band it has no edge, and it darkens toward the bottom where the messages sit so
+          white text stays readable on a bright video. */}
+      <Svg pointerEvents="none" style={styles.bottomFade} width="100%" height="100%">
+        <Defs>
+          <SvgLinearGradient id="chatBottomFade" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#000" stopOpacity="0" />
+            <Stop offset="0.45" stopColor="#000" stopOpacity="0.35" />
+            <Stop offset="1" stopColor="#000" stopOpacity="0.7" />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#chatBottomFade)" />
+      </Svg>
+
       {/* Only show UI components when stream is active */}
       {joined && remoteUid && (
         <>
@@ -1236,7 +1254,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         behavior="padding"
         keyboardVerticalOffset={0}>
       <View style={styles.actionBar}>
-        <View style={styles.social}>
+        {/* Column 1: chat, composer and product card, stacked to the bottom. */}
+        <View style={styles.mainColumn}>
               <View style={styles.leftColumn}>
                 {/* One feed, one list: join notices and messages interleaved by time. The
                     list is capped by styles.commentList (maxHeight) and scrolls inside that
@@ -1254,16 +1273,15 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   keyboardShouldPersistTaps="handled"
                   onScrollBeginDrag={dismissKeyboard}
                   renderItem={({ item }) => (
-                    /* Every entry — comment or join notice alike — is one glass pill. The row
-                       owns no surface of its own; GlassView supplies the fill, hairline border
-                       and clip. `commentRow` is still what measures/aligns the avatar + text. */
-                    <GlassView variant="chatRow" style={styles.commentRow}>
+                    /* Every entry — comment or join notice alike — sits straight on the video, no
+                       pill; the text shadow keeps it legible. */
+                    <View style={styles.commentRow}>
                       <TouchableOpacity
                         style={styles.commentRowTouch}
                         onLongPress={() => handleLongPressComment(item)}
                         activeOpacity={0.7}
                       >
-                        <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
+                        <ChatAvatar uri={item.avatar} name={item.name} style={styles.avatar} />
                         {/* One wrapping line: bold name then the message, as in the reference.
                             A nested Text keeps them inline while the whole run still wraps. A join
                             notice is the same shape, so it needs no branch. */}
@@ -1272,7 +1290,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                           <Text style={styles.chatMessage}>{`: ${item.message}`}</Text>
                         </Text>
                       </TouchableOpacity>
-                    </GlassView>
+                    </View>
                   )}
                 />
             </View>
@@ -1284,7 +1302,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <View style={styles.commentRow}>
-                  <AppImage source={{ uri: item.avatar }} style={styles.avatar} />
+                  <ChatAvatar uri={item.avatar} name={item.name} style={styles.avatar} />
                   <View style={styles.commentContent}>
                     <Text style={styles.chatName}>{item.name}</Text>
                     <Text style={styles.chatMessage}>{item.message}</Text>
@@ -1302,11 +1320,163 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             />
 
           </View> */}
+        {/* The comment pill belongs to the full-width column, not the 48% chat column: it
+            spans the screen like the product card below it. Kept above the card so the
+            reading order stays chat -> input -> product. */}
+        <GlassView
+            variant="pill"
+            style={styles.commentPill}>
+          {/* Auto-grows to a 4-line ceiling, then scrolls inside. Sizing is left to the
+              NATIVE side (minHeight/maxHeight + multiline, no explicit `height` — an
+              explicit height pins the native view and stops it re-measuring). Return
+              still SENDS: `submitBehavior` replaces `blurOnSubmit` on a multiline input,
+              whose default would be 'newline'. */}
+          {/* The touchable owns the pill's padding rather than sitting inside it. Padding on the
+              pill itself is OUTSIDE this child, so taps on it fell straight through: measured
+              card-visible after a tap at x=28 (pill padding) and x=200,y=575 (top padding), while
+              the same tap on the 20pt text band focused correctly. The pill is 46pt tall, so that
+              dead band was over half of it. */}
+          <TouchableWithoutFeedback onPress={() => commentInputRef.current?.focus()}>
+          <View style={styles.commentPillTouch}>
+          <TextInput
+              ref={commentInputRef}
+              style={styles.commentInput}
+              placeholder="Ask a question or comment..."
+              placeholderTextColor="rgba(255, 255, 255, 0.62)"
+              value={newComment}
+              onChangeText={setNewComment}
+              onSubmitEditing={handleSendComment}
+              onFocus={() => setIsCommentFocused(true)}
+              onBlur={() => setIsCommentFocused(false)}
+              returnKeyType="send"
+              submitBehavior="blurAndSubmit"
+              multiline
+              // The visible 4-line cap. Also the shrink trigger: Fabric skips the
+              // re-measure when the value is cleared, so crossing empty/non-empty must
+              // change this prop or the box stays tall and empty after send
+              // (facebook/react-native#54570, iOS Fabric).
+              numberOfLines={newComment === '' ? 1 : 4}
+              textAlignVertical="top"
+          />
+          </View>
+          </TouchableWithoutFeedback>
+        </GlassView>
+        {soldToUser && (
+          <View style={styles.soldToContainer}>
+            <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
+          </View>
+        )}
+        {/* The plant card slides down and fades while typing, freeing its ~208pt for the chat.
+            It is animated rather than unmounted: an instant conditional removal read as a jump,
+            and the column below the chat would reflow in a single frame. Height animates by the
+            card's own measured px, so no interpolation is involved. */}
+        {activeListing && (
+          <Animated.View
+            style={[styles.plantCardWrap, cardWrapStyle]}
+            pointerEvents={isCommentFocused ? 'none' : 'auto'}
+            accessibilityElementsHidden={isCommentFocused}
+            importantForAccessibility={isCommentFocused ? 'no-hide-descendants' : 'auto'}>
+            {/* Measured here, not on the wrapper: the wrapper is pinned to the animated height, so it
+                never reported a taller card and a plant with a longer name was clipped. */}
+            <GlassView variant="dark" radius={28} style={styles.shopGlass} onLayout={onCardLayout}>
+            <View style={styles.plant}>
+              <View style={styles.plantDetails}>
+                <PlantListingImage
+                  uri={getShopListingImageUri(activeListing)}
+                  style={styles.listingThumb}
+                  resizeMode="cover"
+                />
+                <View style={styles.plantName}>
+                  {/* The IG<n> index sits with the plant name it identifies, not floating in the
+                      header. It is the same sessionListingIndexMap value the shop list uses. */}
+                  <View style={styles.nameRow}>
+                    {sessionListingIndexMap[activeListing.id] ? (
+                      <View style={styles.listingIndexBadge}>
+                        <Text style={styles.listingIndexBadgeText}>
+                          {sessionListingIndexMap[activeListing.id]}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.name, styles.nameRowText]} numberOfLines={1}>{activeListing.genus}</Text>
+                  </View>
+                  <Text style={styles.name} numberOfLines={2}>{activeListing.species}</Text>
+                  {activeListing.variegation ? (
+                    <Text style={styles.variegation} numberOfLines={1}>
+                      {activeListing.variegation}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.price}>
+                  <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                  {/* Discount logic can be added here if available in data */}
+                      {/* <View style={styles.discount}>
+                        <Text style={styles.discountText}>33% OFF</Text>
+                      </View> */}
+                </View>
+              </View>
+              <View style={styles.shipping}>
+                  <View style={styles.shipDays}>
+                    <TruckIcon width={18} height={18} />
+                    <Text style={styles.shipText} numberOfLines={2}>{liveShippingLabel(activeListing)}</Text>
+                  </View>
+                </View>
+            </View>
+            <View style={[styles.actionButton, styles.actionButtonRow]}>
+              {buyerPendingPayment?.status === 'pending_payment' && (
+                <TouchableOpacity onPress={() => {gotoPayToBoard()}} style={styles.actionButtonTouch}>
+                  <Text style={styles.actionText}>Pending Payment</Text>
+                </TouchableOpacity>
+              )} 
+
+              {orderStatus === 'Ready to Fly' && (
+                <TouchableOpacity onPress={() => {
+                }} style={styles.waitingButtonTouch}>
+                  <Text style={styles.actionText}>Awaiting new item</Text>
+                </TouchableOpacity>
+              )} 
+
+              {!orderStatus && (
+                <>
+                  <LiveStreamAddToCartButton
+                    onPress={() => handleAddToCart(activeListing)}
+                    variant="gradientLight"
+                    radius={14}
+                    style={styles.addToCartButton}
+                    textStyle={styles.addToCartText}
+                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      buyNow(activeListing);
+                    }}
+                    style={styles.buyNowButton}
+                    activeOpacity={0.85}>
+                    {/* The gradient is a painting layer only: the Svg is an absolute fill, so it
+                        sits behind the label and contributes no layout height of its own. */}
+                    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+                      <Defs>
+                        <SvgLinearGradient id="buyNowGradient" x1="0" y1="0" x2="0" y2="1">
+                          <Stop offset="0" stopColor="#7CC97C" />
+                          <Stop offset="1" stopColor="#2E6B3E" />
+                        </SvgLinearGradient>
+                      </Defs>
+                      <Rect x="0" y="0" width="100%" height="100%" rx="14" ry="14" fill="url(#buyNowGradient)" />
+                    </Svg>
+                    <Text style={[styles.actionText, styles.buyNowText]}>Buy Now</Text>
+                  </TouchableOpacity>
+                </>
+              )} 
+            </View>
+            </GlassView>
+          </Animated.View>
+        )}
+        {!activeListing && (<View style={styles.shop}>
+                      <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
+                    </View>)}
+        </View>
               {/*
-                * This rail is a SIBLING of the chat column, not an overlay, so it cannot be
-                * drawn behind the keyboard — the only way to get it out of the composer's way
-                * is to slide it off the right edge. SIDE_RAIL_HIDDEN_OFFSET carries the measured
-                * value; the style is a hoisted object because `StyleSheet.create` freezes its
+                * Column 2: the tool rail, bottom-aligned beside column 1. It cannot be drawn
+                * behind the keyboard, so it slides off the right edge while typing.
+                * SIDE_RAIL_HIDDEN_OFFSET carries the measured value; the style is a hoisted object because `StyleSheet.create` freezes its
                 * values in DEV and the animated styles must stay writable.
                 */}
               <Animated.View style={[styles.railWrap, railSlideStyle]}>
@@ -1360,155 +1530,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
              
           </GlassView>
               </Animated.View>
-        </View>
-        {/* The comment pill belongs to the full-width column, not the 48% chat column: it
-            spans the screen like the product card below it. Kept above the card so the
-            reading order stays chat -> input -> product. */}
-        <GlassView
-            variant="pill"
-            style={styles.commentPill}>
-          {/* Auto-grows to a 4-line ceiling, then scrolls inside. Sizing is left to the
-              NATIVE side (minHeight/maxHeight + multiline, no explicit `height` — an
-              explicit height pins the native view and stops it re-measuring). Return
-              still SENDS: `submitBehavior` replaces `blurOnSubmit` on a multiline input,
-              whose default would be 'newline'. */}
-          {/* The touchable owns the pill's padding rather than sitting inside it. Padding on the
-              pill itself is OUTSIDE this child, so taps on it fell straight through: measured
-              card-visible after a tap at x=28 (pill padding) and x=200,y=575 (top padding), while
-              the same tap on the 20pt text band focused correctly. The pill is 46pt tall, so that
-              dead band was over half of it. */}
-          <TouchableWithoutFeedback onPress={() => commentInputRef.current?.focus()}>
-          <View style={styles.commentPillTouch}>
-          <TextInput
-              ref={commentInputRef}
-              style={styles.commentInput}
-              placeholder="Ask a question or comment..."
-              placeholderTextColor="rgba(255, 255, 255, 0.62)"
-              value={newComment}
-              onChangeText={setNewComment}
-              onSubmitEditing={handleSendComment}
-              onFocus={() => setIsCommentFocused(true)}
-              onBlur={() => setIsCommentFocused(false)}
-              returnKeyType="send"
-              submitBehavior="blurAndSubmit"
-              multiline
-              // The visible 4-line cap. Also the shrink trigger: Fabric skips the
-              // re-measure when the value is cleared, so crossing empty/non-empty must
-              // change this prop or the box stays tall and empty after send
-              // (facebook/react-native#54570, iOS Fabric).
-              numberOfLines={newComment === '' ? 1 : 4}
-              textAlignVertical="top"
-          />
-          </View>
-          </TouchableWithoutFeedback>
-        </GlassView>
-        {soldToUser && (
-          <View style={styles.soldToContainer}>
-            <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
-          </View>
-        )}
-        {/* The plant card slides down and fades while typing, freeing its ~208pt for the chat.
-            It is animated rather than unmounted: an instant conditional removal read as a jump,
-            and the column below the chat would reflow in a single frame. Height animates by the
-            card's own measured px, so no interpolation is involved. */}
-        {activeListing && (
-          <Animated.View
-            onLayout={onCardLayout}
-            style={[styles.plantCardWrap, cardWrapStyle]}
-            pointerEvents={isCommentFocused ? 'none' : 'auto'}
-            accessibilityElementsHidden={isCommentFocused}
-            importantForAccessibility={isCommentFocused ? 'no-hide-descendants' : 'auto'}>
-            <GlassView variant="dark" radius={28} style={styles.shopGlass}>
-            <View style={styles.plant}>
-              <View style={styles.plantDetails}>
-                <PlantListingImage
-                  uri={getShopListingImageUri(activeListing)}
-                  style={styles.listingThumb}
-                  resizeMode="cover"
-                />
-                <View style={styles.plantName}>
-                  {/* The IG<n> index sits with the plant name it identifies, not floating in the
-                      header. It is the same sessionListingIndexMap value the shop list uses. */}
-                  <View style={styles.nameRow}>
-                    {sessionListingIndexMap[activeListing.id] ? (
-                      <View style={styles.listingIndexBadge}>
-                        <Text style={styles.listingIndexBadgeText}>
-                          {sessionListingIndexMap[activeListing.id]}
-                        </Text>
-                      </View>
-                    ) : null}
-                    <Text style={[styles.name, styles.nameRowText]} numberOfLines={1}>{activeListing.genus}</Text>
-                  </View>
-                  <Text style={styles.name} numberOfLines={2}>{activeListing.species}</Text>
-                  <Text style={styles.variegation} numberOfLines={1}>
-                    {activeListing.variegation} {activeListing?.variegation ? '•' : ''} {activeListing.potSize}
-                  </Text>
-                </View>
-                <View style={styles.price}>
-                  <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
-                  {/* Discount logic can be added here if available in data */}
-                      {/* <View style={styles.discount}>
-                        <Text style={styles.discountText}>33% OFF</Text>
-                      </View> */}
-                </View>
-              </View>
-              <View style={styles.shipping}>
-                  <View style={styles.shipDays}>
-                    <TruckIcon width={24} height={24} />
-                    <Text style={styles.shipText} numberOfLines={2}>{liveShippingLabel(activeListing)}</Text>
-                  </View>
-                </View>
-            </View>
-            <View style={[styles.actionButton, styles.actionButtonRow]}>
-              {buyerPendingPayment?.status === 'pending_payment' && (
-                <TouchableOpacity onPress={() => {gotoPayToBoard()}} style={styles.actionButtonTouch}>
-                  <Text style={styles.actionText}>Pending Payment</Text>
-                </TouchableOpacity>
-              )} 
-
-              {orderStatus === 'Ready to Fly' && (
-                <TouchableOpacity onPress={() => {
-                }} style={styles.waitingButtonTouch}>
-                  <Text style={styles.actionText}>Awaiting new item</Text>
-                </TouchableOpacity>
-              )} 
-
-              {!orderStatus && (
-                <>
-                  <LiveStreamAddToCartButton
-                    onPress={() => handleAddToCart(activeListing)}
-                    variant="gradientLight"
-                    radius={18}
-                    style={styles.addToCartButton}
-                  />
-                  <TouchableOpacity
-                    onPress={() => {
-                      buyNow(activeListing);
-                    }}
-                    style={styles.buyNowButton}
-                    activeOpacity={0.85}>
-                    {/* The gradient is a painting layer only: the Svg is an absolute fill, so it
-                        sits behind the label and contributes no layout height of its own. */}
-                    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-                      <Defs>
-                        <SvgLinearGradient id="buyNowGradient" x1="0" y1="0" x2="0" y2="1">
-                          <Stop offset="0" stopColor="#7CC97C" />
-                          <Stop offset="1" stopColor="#2E6B3E" />
-                        </SvgLinearGradient>
-                      </Defs>
-                      <Rect x="0" y="0" width="100%" height="100%" rx="18" ry="18" fill="url(#buyNowGradient)" />
-                    </Svg>
-                    <Text style={[styles.actionText, styles.buyNowText]}>Buy Now</Text>
-                  </TouchableOpacity>
-                </>
-              )} 
-            </View>
-            </GlassView>
-          </Animated.View>
-        )}
-        {!activeListing && (<View style={styles.shop}>
-                      <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
-                    </View>)}
           </View>
       </KeyboardAvoidingView>
         </>
@@ -1597,28 +1618,17 @@ const styles = StyleSheet.create({
   // A single flat scrim over the whole frame so white chat text keeps contrast on a bright
   // video. Kept deliberately light, and uniform: the video is the hero, so there must be no
   // band or edge anywhere in it.
+  // Bottom 60% of the screen; the gradient inside does the fading.
+  bottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '60%',
+  },
   scrimBase: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.12)',
-  },
-  // Full-bleed transparent overlay: it positions the chat column (left) and the rail
-  // (right edge) independently. A space-between row would otherwise let the rail's width
-  // push the chat off-centre, and this is also the only way to pin the rail to the screen
-  // edge while the 16pt-inset content below keeps its alignment line.
-  social: {
-    // A normal flex child of the actionBar column, NOT an absolute overlay. As an overlay it
-    // inherited the whole column height and centred itself, which rode its top ~42pt up into
-    // the header and ran the chat column straight through the back button and viewer pill.
-    // As a flex child the column bounds it between the header above and the comment pill below.
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    // No left inset here on purpose: the chat column carries the 16pt screen inset in its own
-    // padding, so its rows land on the SAME content line as the back button above and the
-    // comment pill below (was 16 + 10 inside the column = ~30pt, which read as a margin).
-    paddingLeft: 0,
-    paddingRight: 8,
   },
   video: { flex: 1 },
   connectingText: {
@@ -1732,15 +1742,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   actionBar: {
-    // The full-width column: the comment pill and the product card both live here, so they
-    // share one 16pt inset. The chat column + rail float separately in the absolute overlay
-    // (styles.social) and are therefore NOT laid out inside this column.
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
+    // Two bottom-aligned columns: chat + composer + product card on the left, tool rail on the
+    // right. Both share the one 16pt screen inset.
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 8,
     width: '100%',
     flex: 1,
+  },
+  mainColumn: {
+    // Takes what the rail leaves; the chat list inside shrinks first when space runs out.
+    flex: 1,
+    alignSelf: 'stretch',
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+    gap: 12,
   },
   soldToContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
@@ -1764,12 +1781,12 @@ const styles = StyleSheet.create({
     // Pinned to the bottom of the row and only as tall as its messages, so a quiet chat is a
     // small card sitting on the input. A forced height:'100%' here turned it into a tall empty
     // box with the messages stranded at the bottom.
-    alignSelf: 'flex-end',
     maxHeight: '100%',
+    flexShrink: 1,
     // A DEFINITE width. With only `maxWidth` the panel sized to its content, the content sized
     // to the panel, and the `flex: 1` text column resolved to zero — the avatars drew while
     // every message vanished.
-    width: '66%',
+    width: '100%',
     // Bare overlay: no chat surface behind the messages. The video shows straight through, so
     // any future legibility work has to live on the text itself (shadow, not a panel tint).
     backgroundColor: 'transparent',
@@ -1809,7 +1826,7 @@ const styles = StyleSheet.create({
   },
   // The rail is a flex child of the 48% chat column, so it needs centring once translated.
   railWrap: {
-    alignSelf: 'center',
+    alignSelf: 'flex-end',
   },
   commentList: {
     width: '100%',
@@ -1818,27 +1835,24 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   commentRow: {
-    // The glass pill around ONE row (GlassView takes the fill/border/radius). `alignSelf` keeps
-    // it hugging its content instead of stretching to the list width, so a short comment is a
-    // short pill. Gap between rows lives in `commentListContent` — a glass sibling never uses
-    // margin, which would break the border clip.
+    // ONE row, no surface of its own. `alignSelf` keeps it hugging its content.
     alignSelf: 'flex-start',
     maxWidth: '100%',
     overflow: 'hidden',
   },
-  // Inside the pill: avatar + text, on the row's own padding so the glass edge is not touched.
+  // Avatar + text.
   commentRowTouch: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 2,
   },
   // The rows need to be visually separate now that each carries its own border: a gap here
   // (not a row margin) is what keeps a glass sibling's edge clean.
   commentListContent: {
     flexGrow: 0,
-    gap: 8,
+    gap: 2,
   },
   avatar: {
     width: 24,
@@ -1859,21 +1873,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    // Tight dark outline rather than a wide faint glow: holds each letter on a bright frame.
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   chatMessage: {
     ...baseFont,
     fontWeight: '400',
     fontSize: 13,
-    lineHeight: 22,
+    lineHeight: 18,
     flexWrap: 'wrap',
     color: '#fff',
     height: 'auto',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    // Tight dark outline rather than a wide faint glow: holds each letter on a bright frame.
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   // 46pt to match the reference pill, whose edges measure at y 625.5 and y 669.5 on an 874pt
   // screen (44pt) with a 13.5pt placeholder band. Radius at half the height keeps it a capsule.
@@ -1961,9 +1977,9 @@ const styles = StyleSheet.create({
   },
   shopGlass: {
     flexDirection: 'column',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
     width: '100%',
     // No marginBottom: this card is the last child of the column, so a bottom margin is pure
     // dead space below it. The actionBar gap already separates it from the comment pill.
@@ -1982,19 +1998,19 @@ const styles = StyleSheet.create({
   plant: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 6,
     width: '100%',
   },
   plantDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   listingThumb: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
+    width: 52,
+    height: 52,
+    borderRadius: 8,
     backgroundColor: '#1a1a1a',
   },
   plantName: {
@@ -2006,15 +2022,15 @@ const styles = StyleSheet.create({
   name: {
     ...baseFont,
     fontWeight: '700',
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 16,
   },
   variegation: {
     ...baseFont,
     color: 'rgba(255, 255, 255, 0.70)',
     fontWeight: '500',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 14,
   },
   price: {
     flexDirection: 'column',
@@ -2027,8 +2043,8 @@ const styles = StyleSheet.create({
   plantPrice: {
     ...baseFont,
     fontWeight: '800',
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 26,
   },
   discount: {
     flexDirection: 'row',
@@ -2075,9 +2091,9 @@ const styles = StyleSheet.create({
   },
   shipDays: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
+    alignItems: 'center',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
     gap: 6,
     borderRadius: 8,
   },
@@ -2085,17 +2101,17 @@ const styles = StyleSheet.create({
     ...baseFont,
     color: 'rgba(255, 255, 255, 0.70)',
     fontWeight: '500',
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 16,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 10,
     width: '100%',
-    // 48pt, not the old 60: the pair reads as compact controls inside the product card. Every
-    // child in this row must carry the same height or it overflows the row's box.
-    height: 48,
+    // 38pt compact pair inside the product card. Every child in this row must carry the same
+    // height or it overflows the row's box.
+    height: 38,
   },
   // Single-child states (Pending Payment / Awaiting new item) stretch full width; the
   // two-button state keeps each child at flex:1 through this override.
@@ -2111,10 +2127,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     width: undefined,
-    height: 48,
+    height: 38,
     alignSelf: 'stretch',
-    borderRadius: 18,
+    borderRadius: 14,
     overflow: 'hidden',
+  },
+  // Size only: the button component owns the label colour for its light gradient.
+  addToCartText: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   buyNowText: {
     color: '#FFFFFF',
@@ -2124,33 +2145,31 @@ const styles = StyleSheet.create({
   addToCartButton: {
     flex: 1,
     width: undefined,
-    height: 48,
-    minHeight: 48,
+    height: 38,
+    minHeight: 38,
     alignSelf: 'stretch',
   },
   actionButtonTouch: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
     flex: 1,
-    height: 60,
+    height: 38,
     backgroundColor: '#55AE68',
-    borderRadius: 22,
+    borderRadius: 14,
   },
   waitingButtonTouch: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
     width: '100%',
-    height: 60,
+    height: 38,
     backgroundColor: '#bdc5bfff',
-    borderRadius: 22,
+    borderRadius: 14,
   },
   actionText: {
     ...baseFont,
     fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 18,
   },
   stickyNoteContainer: {
     position: 'absolute',

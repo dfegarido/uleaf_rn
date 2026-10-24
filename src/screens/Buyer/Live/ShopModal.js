@@ -12,8 +12,8 @@ import { FlatList,
   Dimensions,
 } from 'react-native';
 import ImageZoom from 'react-native-image-pan-zoom';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
-import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import { getLiveListingsBySessionApi } from '../../../components/Api/agoraLiveApi';
 import { liveOrderLookupApi } from '../../../components/Api/liveApi';
 
@@ -169,22 +169,71 @@ const ShopModal = ({
         ) : null}
       </View>
 
-      <View style={styles.overlayDetailsContainer}>
-        <Text style={styles.plantGenus} numberOfLines={1}>
-          {item.genus}
-        </Text>
-        <Text style={styles.plantSpecies} numberOfLines={2}>
-          {item.species}
-        </Text>
-        <Text style={styles.priceLabel}>${item.usdPrice}</Text>
-        <Text style={styles.quantityText}>Qty: {item.availableQty}</Text>
-        <TouchableOpacity style={styles.buyButton} onPress={() => onBuyNow(item)}>
-          <Text style={styles.buyButtonText}>Buy Now</Text>
-        </TouchableOpacity>
-        <LiveStreamAddToCartButton
-          style={styles.addToCartButtonSlot}
-          onPress={() => onAddToCart && onAddToCart(item)}
-        />
+      <View style={styles.listingOverlay}>
+        {/* Clear at the top, dark at the bottom: the photo stays bright, the text stays legible. */}
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
+          <Defs>
+            <SvgLinearGradient id="shopCardFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#000" stopOpacity="0" />
+              <Stop offset="1" stopColor="#000" stopOpacity="0.8" />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#shopCardFade)" />
+        </Svg>
+        <View style={styles.listingContent}>
+        <View style={styles.infoRow}>
+          <View style={styles.nameCol}>
+            <Text style={styles.plantGenus} numberOfLines={1}>
+              {item.genus}
+            </Text>
+            <Text style={styles.plantSpecies} numberOfLines={2}>
+              {item.species}
+            </Text>
+          </View>
+          <View style={styles.priceCol}>
+            <Text style={styles.priceLabel}>${item.usdPrice}</Text>
+            <Text style={styles.quantityText}>Qty: {item.availableQty}</Text>
+          </View>
+        </View>
+        <View style={styles.ctaRow}>
+          {/* Same green gradient as the Buy Now on the live stream card. */}
+          <TouchableOpacity style={styles.buyButton} onPress={() => onBuyNow(item)} activeOpacity={0.85}>
+            <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+              <Defs>
+                <SvgLinearGradient id="shopBuyNowGradient" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#7CC97C" />
+                  <Stop offset="1" stopColor="#2E6B3E" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" rx="17" ry="17" fill="url(#shopBuyNowGradient)" />
+            </Svg>
+            <Text style={styles.buyButtonText}>Buy Now</Text>
+          </TouchableOpacity>
+          {/* Same light gradient as the stream card's Add to Cart, as an icon-only circle. The cart
+              path is drawn inline because the cart-outline.svg asset has its white stroke baked in. */}
+          <TouchableOpacity
+            style={styles.cartCircle}
+            onPress={() => onAddToCart && onAddToCart(item)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Add to cart">
+            <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+              <Defs>
+                <SvgLinearGradient id="shopCartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#F8FCF7" />
+                  <Stop offset="1" stopColor="#A9D9A9" />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" rx="17" ry="17" fill="url(#shopCartGradient)" />
+            </Svg>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path d="M3 4.5H5.6L7.8 15.5H17.4L19.4 7.5H6.2" stroke="#1F4D2B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <Circle cx={9.6} cy={19} r={1.4} stroke="#1F4D2B" strokeWidth={2} />
+              <Circle cx={16.2} cy={19} r={1.4} stroke="#1F4D2B" strokeWidth={2} />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+        </View>
       </View>
     </View>
   );
@@ -499,7 +548,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 10,
     paddingBottom: 10,
-    paddingTop: 24,
+    paddingTop: 16,
     backgroundColor: 'rgba(0, 0, 0, 0.28)',
   },
   plantGenus: {
@@ -524,7 +573,6 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   priceLabel: {
-    marginTop: 2,
     color: '#F5F5F7',
     fontSize: 18,
     fontWeight: '800',
@@ -535,24 +583,63 @@ const styles = StyleSheet.create({
   quantityText: {
     fontSize: 10,
     color: '#F0F0F0',
-    marginTop: 2,
-    marginBottom: 6,
+    marginTop: 1,
     fontFamily: 'Inter',
   },
-  buyButton: {
-    backgroundColor: '#22B553',
-    borderRadius: 10,
-    paddingVertical: 12,
+  // The live card's overlay. No flat tint: an SVG fade (absolute fill) sits behind the content.
+  // No padding here on purpose: Yoga insets absolute children by the parent's padding, which
+  // cut the fade short and left a hard edge. The padding lives on listingContent instead.
+  listingOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  listingContent: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    paddingTop: 40,
+    gap: 8,
+  },
+  // Two columns: plant name on the left, price + qty on the right.
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  nameCol: {
+    flex: 1,
+  },
+  priceCol: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+  },
+  // One 34pt row: Buy Now takes the width, Add to Cart is a 34pt circle beside it.
+  ctaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
+    gap: 6,
+  },
+  buyButton: {
+    flex: 1,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   buyButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: 'bold',
   },
-  addToCartButtonSlot: {
-    marginTop: 6,
+  cartCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   soldToText: {
     fontSize: 12,
