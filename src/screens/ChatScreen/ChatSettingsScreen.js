@@ -98,6 +98,12 @@ const DeleteGroupIcon = ({ width = 24, height = 24, color = '#647276' }) => (
   </Svg>
 );
 
+// An alert opened while a modal is still closing shows on screen, but its
+// button does not respond. Wait until the add-member and loading modals close.
+const alertAfterModalsClose = (title, message) => {
+  setTimeout(() => Alert.alert(title, message), 600);
+};
+
 const ChatSettingsScreen = ({navigation, route}) => {
   const { participants: initialParticipants, chatId, type, name } = route.params || {};
   const {userInfo} = useContext(AuthContext);
@@ -862,10 +868,12 @@ const ChatSettingsScreen = ({navigation, route}) => {
       setFilteredUsers(prev => prev.filter(u => u.uid !== user.uid));
 
       setAddMemberModalVisible(false);
-      Alert.alert('Success', `${user.name} has been added to the group.`);
+      setLoading(false);
+      alertAfterModalsClose('Success', `${user.name} has been added to the group.`);
     } catch (error) {
       console.log('Error adding member:', error);
-      Alert.alert('Error', 'Failed to add member. Please try again.');
+      setLoading(false);
+      alertAfterModalsClose('Error', 'Failed to add member. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -924,17 +932,19 @@ const ChatSettingsScreen = ({navigation, route}) => {
       setAvailableUsers(prev => prev.filter(u => !addedUids.has(u.uid)));
       setFilteredUsers(prev => prev.filter(u => !addedUids.has(u.uid)));
 
-      // Clear selection
+      const addedCount = selectedUsersToAdd.length;
       setSelectedUsersToAdd([]);
       setAddMemberModalVisible(false);
+      setLoading(false);
 
-      Alert.alert(
+      alertAfterModalsClose(
         'Success',
-        `${selectedUsersToAdd.length} ${selectedUsersToAdd.length === 1 ? 'member has' : 'members have'} been added to the group.`
+        `${addedCount} ${addedCount === 1 ? 'member has' : 'members have'} been added to the group.`
       );
     } catch (error) {
       console.log('Error adding members:', error);
-      Alert.alert('Error', 'Failed to add members. Please try again.');
+      setLoading(false);
+      alertAfterModalsClose('Error', 'Failed to add members. Please try again.');
     } finally {
       setLoading(false);
     }
