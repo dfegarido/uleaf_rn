@@ -54,7 +54,6 @@ import { addViewerToLiveSession,
   getLiveListingsBySessionApi,
   removeViewerFromLiveSession,
   toggleLoveLiveSession,
-  updateLiveSessionStatusApi
 } from '../../../components/Api/agoraLiveApi';
 import {
   addLiveCommentApi,
@@ -215,11 +214,16 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // which looks identical to the input — used to do nothing at all: no focus, no keyboard, and
   // the plant card stayed on screen. The whole pill now routes to the input.
   const commentInputRef = useRef(null);
+  // Android's back button / swipe hides the keyboard but leaves the input focused, so onBlur never
+  // fires and the plant card and rail stayed hidden with no keyboard on screen. Blur on hide.
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidHide', () => commentInputRef.current?.blur());
+    return () => sub.remove();
+  }, []);
   // The plant card collapses by its own measured height. A pixel target is needed because
   // `height` cannot be interpolated on this build (an AnimatedInterpolation in the tree crashed
   // RN 0.87 with "cannot add a new property"), so the value must already BE the height.
   const cardHeightRef = useRef(0);
-  const cardAnimatingRef = useRef(false);
   const cardCollapse = useRef(new Animated.Value(0)).current;
   const cardFade = useRef(new Animated.Value(1)).current;
   const [cardMeasured, setCardMeasured] = useState(false);
@@ -825,8 +829,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     };
   }, [token, appId, channelName]);
 
+  // A viewer only leaves. It must never end the session: this ran when a buyer's video failed to
+  // connect within 8s, which ended the seller's live for everyone (the server now refuses it too).
   const endLiveSession = () => {
-      updateLiveSessionStatusApi(sessionId, 'ended');
       navigation.navigate('Live');
   };
 
@@ -1057,7 +1062,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // `toValue` is inverted relative to focus.
   useEffect(() => {
     if (!cardMeasured) return;
-    cardAnimatingRef.current = true;
     const timing = { duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: false };
     Animated.parallel([
       Animated.timing(cardCollapse, {
@@ -1065,23 +1069,22 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         ...timing,
       }),
       Animated.timing(cardFade, { toValue: isCommentFocused ? 0 : 1, ...timing }),
-    ]).start(({ finished }) => {
-      // Still animating only if this run was interrupted by a newer one. (Was `!!finished`, which
-      // left the flag stuck on after the first run, so every later re-measure was ignored and a
-      // card with a longer plant name was clipped.)
-      cardAnimatingRef.current = !finished;
-    });
+    ]).start();
   }, [isCommentFocused, cardMeasured, cardCollapse, cardFade]);
 
-  // Measure the card so the collapse knows its travel. Layout events also fire throughout the
-  // animation with intermediate heights, and writing those back would fight the running
-  // `timing` (and a collapsed card re-reports 0), so both are ignored.
+  // Measure the card so the collapse knows its travel. The card itself never shrinks (cardMeasure
+  // flexShrink: 0), so its height only changes with its content. Same-height reports still arrive
+  // during the slide and are skipped: `setValue` stops the running parallel animation, fade
+  // included, which left the card half transparent. A real change snaps both values.
   const onCardLayout = event => {
     const h = event.nativeEvent.layout.height;
-    if (h <= 0 || cardAnimatingRef.current) return;
+    if (h <= 0 || h === cardHeightRef.current) return;
     cardHeightRef.current = h;
     // While collapsed for typing, only remember the height; the blur animation restores it.
-    if (!isCommentFocused) cardCollapse.setValue(h);
+    if (!isCommentFocused) {
+      cardCollapse.setValue(h);
+      cardFade.setValue(1);
+    }
     if (!cardMeasured) setCardMeasured(true);
   };
 
@@ -1171,16 +1174,21 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       {/* Bottom fade behind the chat, card and rail: starts fully transparent, so unlike the old
           flat 46% band it has no edge, and it darkens toward the bottom where the messages sit so
           white text stays readable on a bright video. */}
-      <Svg pointerEvents="none" style={styles.bottomFade} width="100%" height="100%">
-        <Defs>
-          <SvgLinearGradient id="chatBottomFade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#000" stopOpacity="0" />
-            <Stop offset="0.45" stopColor="#000" stopOpacity="0.35" />
-            <Stop offset="1" stopColor="#000" stopOpacity="0.7" />
-          </SvgLinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#chatBottomFade)" />
-      </Svg>
+      {/* Positioned by a plain View: on iOS an Svg given an absolute-fill style was laid out in the
+          normal flow and pushed the whole overlay below the screen. */}
+      <View pointerEvents="none" style={styles.bottomFade}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <SvgLinearGradient id="chatBottomFade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#000" stopOpacity="0" />
+              <Stop offset="0.4" stopColor="#000" stopOpacity="0" />
+              <Stop offset="0.65" stopColor="#000" stopOpacity="0.5" />
+              <Stop offset="1" stopColor="#000" stopOpacity="0.85" />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#chatBottomFade)" />
+        </Svg>
+      </View>
 
       {/* Only show UI components when stream is active */}
       {joined && remoteUid && (
@@ -1376,9 +1384,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             pointerEvents={isCommentFocused ? 'none' : 'auto'}
             accessibilityElementsHidden={isCommentFocused}
             importantForAccessibility={isCommentFocused ? 'no-hide-descendants' : 'auto'}>
-            {/* Measured here, not on the wrapper: the wrapper is pinned to the animated height, so it
-                never reported a taller card and a plant with a longer name was clipped. */}
-            <GlassView variant="dark" radius={28} style={styles.shopGlass} onLayout={onCardLayout}>
+            {/* Measured on this plain view, not the wrapper (pinned to the animated height, so it never
+                reported a taller card) and not the GlassView (on iOS a BlurView reports its inner view,
+                inset by the 1pt border, so the card was set 2pt short and its bottom edge clipped). */}
+            <View style={styles.cardMeasure} onLayout={onCardLayout}>
+            <GlassView variant="dark" radius={28} style={styles.shopGlass}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
                 <PlantListingImage
@@ -1467,6 +1477,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               )} 
             </View>
             </GlassView>
+            </View>
           </Animated.View>
         )}
         {!activeListing && (<View style={styles.shop}>
@@ -1618,16 +1629,14 @@ const styles = StyleSheet.create({
   // A single flat scrim over the whole frame so white chat text keeps contrast on a bright
   // video. Kept deliberately light, and uniform: the video is the hero, so there must be no
   // band or edge anywhere in it.
-  // Bottom 60% of the screen; the gradient inside does the fading.
+  // Full screen; the gradient is clear over the top 40% and darkens through the chat area, like
+  // the shop card fade. `absoluteFill`, not `absoluteFillObject`: RN 0.87 removed the latter, and
+  // spreading it added nothing, so this and scrimBase were silently laid out in the normal flow.
   bottomFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '60%',
+    ...StyleSheet.absoluteFill,
   },
   scrimBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.12)',
   },
   video: { flex: 1 },
@@ -1820,6 +1829,12 @@ const styles = StyleSheet.create({
   // is what lets it give height back to the input pill below it instead of overflowing.
   // Clips the plant card as it animates to zero height. The card's own shadow is clipped with
   // it, which is only visible mid-animation.
+  // Holds the card at its natural size inside the collapsing wrapper: a squeezed card reported only
+  // its padding, so it reopened that short after typing. onCardLayout measures this view.
+  cardMeasure: {
+    width: '100%',
+    flexShrink: 0,
+  },
   plantCardWrap: {
     width: '100%',
     overflow: 'hidden',
