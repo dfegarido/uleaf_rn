@@ -12,6 +12,8 @@ import { ActivityIndicator,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import CloseIcon from '../../assets/live-icon/close-x.svg';
 import { useAuth } from '../../auth/AuthProvider';
 import { getLiveListingsBySessionApi, setLiveListingActiveApi } from '../../components/Api/agoraLiveApi';
@@ -41,8 +43,9 @@ const igSequenceNum = (ig) => {
 
 const listingPrice = (item) => Number(item?.usdPrice ?? item?.price ?? 0) || 0;
 
-const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, onAddListing }) => {
+const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, onActiveListingFailed, onAddListing }) => {
   const { userInfo } = useAuth();
+  const insets = useSafeAreaInsets();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -120,24 +123,19 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
       Alert.alert('No Selection', 'Please select a listing to set as active.');
       return;
     }
-    setLoading(true);
+    // Optimistic: show the new active listing and close at once; the parent rolls back and
+    // shows an error toast if the server refuses.
+    const picked = selectedListing;
+    const previous = listings;
+    setListings((rows) => rows.map((l) => ({ ...l, isActiveLiveListing: l.plantCode === picked.plantCode })));
+    onActiveListingSet(picked);
+    onClose();
     try {
-      const response = await setLiveListingActiveApi({
-        sessionId,
-        plantCode: selectedListing.plantCode,
-      });
-
-      if (response.success) {
-        Alert.alert('Success', 'Active listing has been updated.');
-        onActiveListingSet(selectedListing); // Pass new active listing to parent
-        onClose();
-      } else {
-        throw new Error(response.message || 'Failed to set active listing.');
-      }
+      const response = await setLiveListingActiveApi({ sessionId, plantCode: picked.plantCode });
+      if (!response?.success) throw new Error(response?.message || 'Failed to set active listing.');
     } catch (error) {
-      Alert.alert('Error', error.message);
-    } finally {
-      setLoading(false);
+      setListings(previous);
+      onActiveListingFailed?.(error.message || 'Failed to set active listing.');
     }
   };
 
@@ -200,26 +198,33 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
           isActive && styles.activeCard,
         ]}
         onPress={() => setSelectedListing(item)}>
+        {/* Same card as the buyer's Shop sheet: full photo, dark fade, name left, price right. */}
         <AppImage source={{ uri: item.imagePrimary }} style={styles.cardImage} />
         {indexCode ? (
           <View style={styles.indexBadge}>
             <Text style={styles.indexText}>{indexCode}</Text>
           </View>
         ) : null}
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardGenus} numberOfLines={1}>
-            {item.genus}
-          </Text>
-          <Text style={styles.cardSpecies} numberOfLines={2}>
-            {item.species}
-          </Text>
-          <Text style={styles.cardPrice}>${item.variegation} · {item.potSize}</Text>
-        </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.listingType} | {item.availableQty} pcs
-          </Text>
-          <Text style={styles.cardPrice}>${item.usdPrice}</Text>
+        <View style={styles.cardOverlay} pointerEvents="none">
+          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="liveCardFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000" stopOpacity="0" />
+                <Stop offset="1" stopColor="#000" stopOpacity="0.8" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#liveCardFade)" />
+          </Svg>
+          <View style={styles.cardContent}>
+            <View style={styles.nameCol}>
+              <Text style={styles.cardGenus} numberOfLines={1}>{item.genus}</Text>
+              <Text style={styles.cardSpecies} numberOfLines={2}>{item.species}</Text>
+            </View>
+            <View style={styles.priceCol}>
+              <Text style={styles.cardPrice}>${item.usdPrice}</Text>
+              <Text style={styles.cardQty}>Qty: {item.availableQty}</Text>
+            </View>
+          </View>
         </View>
         {isActive && <View style={styles.activeBadge}><Text style={styles.activeText}>Active</Text></View>}
       </TouchableOpacity>
@@ -288,31 +293,52 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
             />
           )}
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: 16 + insets.bottom }]}>
             {typeof onAddListing === 'function' ? (
               <TouchableOpacity
-                style={[styles.button, styles.secondaryButton, loading && styles.disabledButton]}
+                style={[styles.circleButton, loading && styles.dimmed]}
                 onPress={onAddListing}
-                disabled={loading}>
-                <Text style={styles.secondaryButtonText}>Add listing</Text>
+                disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Add listing">
+                <Svg width={24} height={24} viewBox="0 0 24 24">
+                  <Path d="M12 5v14M5 12h14" stroke="#2E6B3E" strokeWidth={2.4} strokeLinecap="round" />
+                </Svg>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity
-              style={[styles.button, styles.secondaryButton, styles.deleteButton, (loading || !selectedListing) && styles.disabledButton]}
+              style={[styles.circleButton, styles.deleteCircle, (loading || !selectedListing) && styles.dimmed]}
               onPress={handleDelete}
               disabled={loading || !selectedListing}
-              accessibilityRole="button">
-              <Text style={styles.deleteButtonText}>Delete</Text>
+              accessibilityRole="button"
+              accessibilityLabel="Delete listing">
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"
+                  stroke="#C23B1E"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, loading && styles.disabledButton]}
+              style={[styles.activeButton, loading && styles.dimmed]}
               onPress={handleSetNewActive}
-              disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Set New Active</Text>
-              )}
+              disabled={loading}
+              activeOpacity={0.85}
+              accessibilityRole="button">
+              {/* Same gradient as the buyer's Buy Now button. */}
+              <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+                <Defs>
+                  <LinearGradient id="setActiveGradient" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor="#7CC97C" />
+                    <Stop offset="1" stopColor="#2E6B3E" />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="100%" height="100%" rx="14" ry="14" fill="url(#setActiveGradient)" />
+              </Svg>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Set New Active</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -323,8 +349,6 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
 
 const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  deleteButton: { borderColor: '#C23B1E' },
-  deleteButtonText: { color: '#C23B1E', fontWeight: '700', fontSize: 15 },
   modalContainer: { height: '75%', backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },
@@ -382,36 +406,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listContainer: { padding: 8 },
-  card: { flex: 1, margin: 8, borderWidth: 2, borderColor: '#eee', borderRadius: 8, overflow: 'hidden' },
+  card: {
+    flex: 1,
+    margin: 6,
+    maxWidth: '48%',
+    height: 260,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#F9F9F9',
+    overflow: 'hidden',
+  },
   selectedCard: { borderColor: '#539461' },
   activeCard: { borderColor: '#E7522F' },
-  cardImage: { width: '100%', height: 120 },
-  cardInfo: { padding: 8, color: '#333' },
-  cardTitle: { fontWeight: '600', fontSize: 14, color: '#333' },
-  cardGenus: {
-    fontWeight: '800',
-    fontSize: 13,
-    color: '#333',
-    textTransform: 'uppercase',
+  cardImage: { width: '100%', height: '100%' },
+  // No padding on the overlay: Yoga insets absolute children by it, which would cut the fade.
+  cardOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  cardContent: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingHorizontal: 10, paddingBottom: 10, paddingTop: 40 },
+  nameCol: { flex: 1 },
+  priceCol: { alignItems: 'flex-end', flexShrink: 0 },
+  cardGenus: { fontSize: 13, fontWeight: '800', fontFamily: 'Inter-SemiBold', textTransform: 'uppercase', color: '#FFF' },
+  cardSpecies: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter-SemiBold', textTransform: 'uppercase', color: '#FFF', marginTop: 1 },
+  cardPrice: { color: '#F5F5F7', fontSize: 18, fontWeight: '800' },
+  cardQty: { fontSize: 10, color: '#F0F0F0', marginTop: 1, fontFamily: 'Inter' },
+  indexBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#333', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+  indexText: { color: 'white', fontWeight: 'bold', fontSize: 11 },
+  activeBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: '#E7522F', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+  activeText: { color: 'white', fontWeight: 'bold', fontSize: 11 },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
   },
-  cardSpecies: {
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#333',
-    textTransform: 'uppercase',
-    marginTop: 1,
+  circleButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1.5,
+    borderColor: '#2E6B3E',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cardPrice: { color: '#555', fontSize: 14, marginTop: 4 },
-  indexBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: '#333', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  indexText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-  activeBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#E7522F', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  activeText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#E0E0E0', gap: 10 },
-  button: { backgroundColor: '#539461', padding: 16, borderRadius: 12, alignItems: 'center' },
-  secondaryButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#539461' },
-  secondaryButtonText: { color: '#539461', fontSize: 18, fontWeight: 'bold' },
-  disabledButton: { backgroundColor: '#A9A9A9' },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  deleteCircle: { borderColor: '#C23B1E' },
+  activeButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dimmed: { opacity: 0.4 },
+  buttonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#888' },
 });

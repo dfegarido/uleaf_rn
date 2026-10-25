@@ -472,8 +472,7 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
         throw new Error(response?.message || 'Publish now failed.');
       }
 
-      onListingCreated(); // Notify parent of new listing
-      showAlertSuccess('Publish Now', 'Listing published successfully!');
+      onListingCreated(); // The live screen shows a success toast.
       onClose();
     } catch (error) {
       console.error('Upload or submission failed:', error);
@@ -552,25 +551,6 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
     setBlockNavEvent(null);
   };
   // On go back
-
-  // Show success alert
-  const showAlertSuccess = (titleText, messageText) => {
-    Alert.alert(
-      titleText,
-      messageText,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-          },
-        },
-      ],
-      {
-        cancelable: false, // 🔒 Prevent dismiss on outside tap or back button
-      },
-    );
-  };
-  // Show success alert
 
   return (
     <View

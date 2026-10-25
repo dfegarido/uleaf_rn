@@ -27,6 +27,7 @@ import { ChannelProfileType,
   createAgoraRtcEngine,
   RtcSurfaceView,
   RtcTextureView,
+  VideoMirrorModeType,
 } from 'react-native-agora';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
@@ -68,6 +69,7 @@ import {
 } from '../../components/Api/liveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
+import Toast from '../../components/Toast/Toast';
 import LiveViewersSheet from './LiveViewersSheet';
 import CohostVideoBox from './CohostVideoBox';
 import InviteAdminSheet from './InviteAdminSheet';
@@ -190,6 +192,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   // poll (or by its own snap, which changes imagePrimary). It reads the current
   // listing through this ref instead of depending on the object identity.
   const activeListingRef = useRef(null);
+  // Success / error toast for listing actions (no blocking popups mid-live).
+  const [toast, setToast] = useState(null);
+  const activeBeforeSetRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   // The session's joiners live in `live.joiners[]` (written by addViewerToLiveSession). Kept as
   // a plain list and interleaved into the chat render below rather than mirrored into its own
@@ -565,8 +570,11 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           setPartnerUid(remoteUid);
         }
       },
-      onUserOffline: (_connection, remoteUid) => {
+      onUserOffline: (_connection, remoteUid, reason) => {
         setPartnerUid((current) => (current === remoteUid ? null : current));
+        // The co-host tapped Leave (reason 0 = quit): show Invite now rather than after the next
+        // 10s poll. A dropped connection (reason 1) keeps Remove, since they may come back.
+        if (!isCohost && reason === 0) setCohostStatus(null);
       },
       onTokenPrivilegeWillExpire: () => fetchTokenAndRejoin(),
       onConnectionStateChanged: (state, reason) => {
@@ -610,6 +618,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       frameRate: 15,
       bitrate: 1130,
       orientationMode: 0,
+      // Send the video mirrored, so buyers see what the seller sees in the (mirrored) selfie preview.
+      mirrorMode: VideoMirrorModeType.VideoMirrorModeEnabled,
     });
     rtc.startPreview();
 
@@ -1137,7 +1147,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       });
 
       const loadActive = async () => {
-        const res = await getActiveLiveListingApi();
+        // A co-host shows the seller's active listing, not its own.
+        const res = await getActiveLiveListingApi(cohost?.sellerUid);
         if (!active) return;
         if (res && res.success && res.data) {
           const next = toCamel(res.data);
@@ -1174,7 +1185,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         active = false;
         if (pollTimer) clearInterval(pollTimer);
       };
-  }, [sessionId]);
+  }, [sessionId, cohost?.sellerUid]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -1556,15 +1567,22 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                             </Text>
                           </View>
                         )}
-                        <Text style={styles.name}>{activeListing.genus}</Text>
+                        {/* One line each, shrunk to fit: narrow phones wrapped the name and crowded the card. */}
+                        <Text style={[styles.name, styles.nameFit]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                          {activeListing.genus}
+                        </Text>
                       </View>
-                      <Text style={styles.name}>{activeListing.species}</Text>
+                      <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                        {activeListing.species}
+                      </Text>
                       {activeListing.variegation ? (
                         <Text style={styles.variegation}>{activeListing.variegation}</Text>
                       ) : null}
                     </View>
                     <View style={styles.price}>
-                      <Text style={styles.plantPrice}>${activeListing.usdPrice}</Text>
+                      <Text style={styles.plantPrice} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                        ${activeListing.usdPrice}
+                      </Text>
                       {/* Discount logic can be added here if available in data */}
                       {/* <View style={styles.discount}>
                         <Text style={styles.discountText}>33% OFF</Text>
@@ -1686,7 +1704,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         <CreateLiveListingScreen
           isVisible={isCreateListingModalVisible}
           onClose={() => setCreateListingModalVisible(false)}
-          onListingCreated={() => setLiveListingModalVisible(true)}
+          onListingCreated={() => setToast({ message: 'Listing published', type: 'success' })}
           sessionId={sessionId}
           navigation={navigation}
           nextIgIndex={
@@ -1712,11 +1730,31 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           onSelectViewer={handleMentionViewer}
         />
 
+        <View pointerEvents="none" style={styles.toastArea}>
+          <Toast
+            visible={!!toast}
+            message={toast?.message || ''}
+            type={toast?.type || 'success'}
+            duration={2000}
+            position="top"
+            onHide={() => setToast(null)}
+          />
+        </View>
+
         <LiveListingsModal
           isVisible={isLiveListingModalVisible}
           onClose={() => setLiveListingModalVisible(false)}
           sessionId={sessionId}
-          onActiveListingSet={() => {}}
+          onActiveListingSet={(listing) => {
+            // Optimistic: show it now; the 10s poll confirms it against the server.
+            activeBeforeSetRef.current = activeListingRef.current;
+            setActiveListing(listing);
+            setToast({ message: 'Active listing updated', type: 'success' });
+          }}
+          onActiveListingFailed={(message) => {
+            setActiveListing(activeBeforeSetRef.current);
+            setToast({ message, type: 'error' });
+          }}
           onAddListing={() => {
             setLiveListingModalVisible(false);
             setCreateListingModalVisible(true);
@@ -1796,6 +1834,12 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1,
     backgroundColor: '#000',
+  },
+  toastArea: {
+    ...StyleSheet.absoluteFill,
+    top: 70,
+    zIndex: 60,
+    elevation: 60,
   },
   stream: {
     position: 'absolute',
@@ -2182,6 +2226,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
   },
+  nameFit: { flexShrink: 1 },
   variegation: {
     ...baseFont,
     color: '#CDD3D4',

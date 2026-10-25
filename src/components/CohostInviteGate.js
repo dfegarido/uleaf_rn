@@ -6,15 +6,22 @@ import { getPendingCohostInviteApi, respondCohostApi } from './Api/liveApi';
 import { getAgoraUid } from '../utils/getAgoraUid';
 import ChatAvatar from './ChatAvatar';
 import NotificationService, { addTokenToBuyer, removeTokenFromBuyer } from '../services/notifications';
-import { on } from '../services/notifications/notificationEvents';
+import { emit, on } from '../services/notifications/notificationEvents';
 
 const POLL_MS = 5000;
+
+// The latest pending invite, shared with CohostInviteBell (admin home header) through the
+// notification event bus: 'cohost_pending' carries it, 'cohost_open' asks the card to show.
+let lastPending = null;
+export const getPendingCohostInvite = () => lastPending;
+const inviteKey = (inv) => (inv ? `${inv.sessionId}|${inv.invitedAt}` : '');
 
 /**
  * Admin app only (mounted by AdminTabNavigator). Shows a co-host invite from a seller who is
  * live: polled every 5 s while the app is open, checked on foreground, and triggered at once by
- * a `cohost_invite` push. Accepting opens the seller's live in co-host mode. Also registers the
- * admin's device for push (the server stores admin tokens since migration 041).
+ * a `cohost_invite` push. Accepting opens the seller's live in co-host mode. "Later" hides the
+ * card but keeps the invite under the header bell until it is answered or expires. Also registers
+ * the admin's device for push (the server stores admin tokens since migration 041).
  */
 const CohostInviteGate = () => {
   const { userInfo } = useContext(AuthContext);
@@ -22,18 +29,21 @@ const CohostInviteGate = () => {
   const [invite, setInvite] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  // An invite the admin dismissed or answered stays hidden even if a poll races the server.
+  // Answered invites never come back; "Later" ones stay off screen until the bell is tapped.
   const handledRef = useRef(new Set());
+  const laterRef = useRef(new Set());
+
+  const publish = (next) => {
+    lastPending = next;
+    emit('cohost_pending', next);
+  };
 
   const check = useCallback(async () => {
     const res = await getPendingCohostInviteApi();
     if (!res.success) return;
-    const next = res.invite;
-    if (!next || handledRef.current.has(`${next.sessionId}|${next.invitedAt}`)) {
-      setInvite(null);
-      return;
-    }
-    setInvite(next);
+    const next = res.invite && !handledRef.current.has(inviteKey(res.invite)) ? res.invite : null;
+    publish(next);
+    setInvite(next && !laterRef.current.has(inviteKey(next)) ? next : null);
   }, []);
 
   useEffect(() => {
@@ -53,10 +63,17 @@ const CohostInviteGate = () => {
       }
     });
     const offPush = on('cohost_invite', () => check());
+    // The header bell: bring a "Later" invite back on screen.
+    const offOpen = on('cohost_open', () => {
+      if (!lastPending) return;
+      laterRef.current.delete(inviteKey(lastPending));
+      setInvite(lastPending);
+    });
     return () => {
       clearInterval(timer);
       appSub.remove();
       offPush();
+      offOpen();
     };
   }, [uid, check]);
 
@@ -68,6 +85,7 @@ const CohostInviteGate = () => {
     const res = await respondCohostApi(invite.sessionId, accept, getAgoraUid(uid));
     setBusy(false);
     handledRef.current.add(key);
+    publish(null);
     if (!res.success) {
       setError(res.status === 410 ? 'This invite has expired.' : res.error || 'Please try again.');
       return;
@@ -84,8 +102,13 @@ const CohostInviteGate = () => {
     setInvite(null);
   };
 
+  const later = () => {
+    laterRef.current.add(inviteKey(invite));
+    setInvite(null);
+  };
+
   return (
-    <Modal transparent animationType="fade" visible={!!invite} onRequestClose={() => answer(false)}>
+    <Modal transparent animationType="fade" visible={!!invite} onRequestClose={later}>
       <View style={styles.overlay}>
         <View style={styles.card}>
           {invite ? (
@@ -118,6 +141,11 @@ const CohostInviteGate = () => {
                   </TouchableOpacity>
                 </View>
               )}
+              {!error ? (
+                <TouchableOpacity onPress={later} disabled={busy} style={styles.laterBtn} accessibilityRole="button">
+                  <Text style={styles.laterText}>Later</Text>
+                </TouchableOpacity>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -151,6 +179,8 @@ const styles = StyleSheet.create({
   decline: { borderWidth: 1, borderColor: '#D0D0D0', alignSelf: 'stretch' },
   accept: { backgroundColor: '#2E6B3E' },
   declineText: { fontFamily: 'Inter', fontWeight: '600', color: '#1A1A1A' },
+  laterBtn: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 16 },
+  laterText: { fontFamily: 'Inter', fontSize: 14, color: '#6B6B6B' },
   acceptText: { fontFamily: 'Inter', fontWeight: '700', color: '#FFFFFF' },
 });
 

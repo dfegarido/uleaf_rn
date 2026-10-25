@@ -66,6 +66,7 @@ const ScreenSingleSellLive = ({
   nextIgIndex,
   sessionId: sessionIdProp,
   onClose,
+  onListingCreated,
   isPurge: isPurgeProp,
   publishRef,
 }) => {
@@ -409,26 +410,17 @@ const ScreenSingleSellLive = ({
       // TODO: Replace this with your actual API call
       // await submitListing(data);
       setLoading(false);
-      Alert.alert(
-        "Success",
-        "Listing published successfully!",
-        [
-          { 
-            text: "Ok",
-            onPress: () => {
-              if (typeof onClose === 'function') {
-                onClose();
-                return;
-              }
-              if (isPurge || sessionId) {
-                navigation.goBack();
-                return;
-              }
-              navigation.navigate('Sell');
-            }
-          },
-        ]
-      );
+      // No success popup: the live screen shows a toast.
+      if (typeof onListingCreated === 'function') onListingCreated();
+      if (typeof onClose === 'function') {
+        onClose();
+        return;
+      }
+      if (isPurge || sessionId) {
+        navigation.goBack();
+        return;
+      }
+      navigation.navigate('Sell');
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);

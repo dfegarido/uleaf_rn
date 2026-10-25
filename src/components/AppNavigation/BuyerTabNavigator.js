@@ -233,7 +233,7 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="BuyerLiveStreamScreen"
         component={BuyerLiveStreamScreen}
-        options={{headerShown: false}}
+        options={{headerShown: false, gestureEnabled: false}}
       />
 
       <Stack.Screen
@@ -263,7 +263,7 @@ function BuyerTabNavigator() {
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}
-        options={{headerShown: false}}
+        options={{headerShown: false, gestureEnabled: false}}
       />
 
       <Stack.Screen

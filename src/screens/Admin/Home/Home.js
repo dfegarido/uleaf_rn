@@ -1,4 +1,5 @@
 import AppImage from '../../../components/AppImage/AppImage';
+import CohostInviteBell from '../../../components/CohostInviteBell';
 
 // Add IconTile component for use in LeafTrailGreenhouse and other sections
 const IconTile = ({title, children, onPress, badgeCount = 0, tileStyle}) => {
@@ -69,6 +70,7 @@ const AdminHeader = ({onPressProfile = () => {}, insets, profilePhotoUri}) => {
       <Text style={styles.headerTitle}>{`Welcome ${firstName}`}</Text>
 
       <View style={styles.headerActions}>
+        <CohostInviteBell />
         {canGoLive && (
           <TouchableOpacity style={styles.liveButton}>
             <LiveIcon width={40} height={39} />

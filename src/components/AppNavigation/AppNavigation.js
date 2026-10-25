@@ -749,7 +749,7 @@ const MainStack = () => {
       <Stack.Screen
         name="LiveBroadcastScreen"
         component={LiveBroadcastScreen}
-        options={{headerShown: false}}
+        options={{headerShown: false, gestureEnabled: false}}
       />
 
       <Stack.Screen

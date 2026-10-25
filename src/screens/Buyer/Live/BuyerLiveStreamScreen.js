@@ -82,6 +82,10 @@ import LiveCartSheet from './LiveCartSheet';
 import CohostVideoBox from '../../Live/CohostVideoBox';
 import { classifyRemoteUid } from '../../../utils/liveCohost';
 import Toast from '../../../components/Toast/Toast';
+
+// The live whose "co-host joined" toast was already shown (once per live, survives remounts).
+let cohostToastShownFor = null;
+const COHOST_TOAST = 'A co-host joined. Tap ⇄ to switch the main video.';
 import {
   createPendingLiveComment,
   mergeLiveComment,
@@ -169,6 +173,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // Co-hosted live: a second broadcaster (an admin) shows in the small box. Only the seller's
   // uid is the main video, and only the seller leaving ends the live for the buyer.
   const [cohostUid, setCohostUid] = useState(null);
+  // Co-hosted live: the buyer can tap the small box to put the co-host full screen (and back).
+  const [cohostSwapped, setCohostSwapped] = useState(false);
+  const mainVideoUid = cohostSwapped && cohostUid ? cohostUid : remoteUid;
+  const boxVideoUid = cohostSwapped && cohostUid ? remoteUid : cohostUid;
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -755,6 +763,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           console.log('👤 Remote user joined:', connection, 'uid:', remoteUid);
           if (brodcasterId && classifyRemoteUid(remoteUid, brodcasterId) === 'cohost') {
             setCohostUid(remoteUid);
+            // Tell the buyer once per live that a second host joined and they can switch.
+            if (cohostToastShownFor !== sessionId) {
+              cohostToastShownFor = sessionId;
+              setCartToast(COHOST_TOAST);
+            }
             return;
           }
 
@@ -781,6 +794,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         onUserOffline: (connection, remoteUid) => {
           if (brodcasterId && classifyRemoteUid(remoteUid, brodcasterId) === 'cohost') {
             setCohostUid((current) => (current === remoteUid ? null : current));
+            // Co-host left: the seller goes back to full screen.
+            setCohostSwapped(false);
             return;
           }
           console.log('Broadcaster left:', remoteUid);
@@ -1167,9 +1182,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         {joined && remoteUid ? (
           Platform.OS === 'ios' ? (
               <RtcSurfaceView
+                key={mainVideoUid}
                 style={styles.video}
                 canvas={{
-                  uid: remoteUid,
+                  uid: mainVideoUid,
                   renderMode: 1, // FIT mode
                   mirrorMode: 0  // No mirror
                 }}
@@ -1177,9 +1193,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               />
             ) : (
               <RtcTextureView
+                key={mainVideoUid}
                 style={styles.video}
                 canvas={{
-                  uid: remoteUid,
+                  uid: mainVideoUid,
                   renderMode: 1, // FIT mode
                   mirrorMode: 0  // No mirror
                 }}
@@ -1198,7 +1215,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         )}
       </View>
 
-      {joined && remoteUid ? <CohostVideoBox uid={cohostUid} /> : null}
+      {joined && remoteUid ? (
+        <CohostVideoBox uid={boxVideoUid} onPress={() => setCohostSwapped((v) => !v)} />
+      ) : null}
       
       {/* A single uniform, edge-less scrim. There is deliberately no separate bottom-weighted
           band: a 46%-tall overlay put a visible hard edge across the middle of the video
@@ -1619,7 +1638,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           visible={!!cartToast}
           message={cartToast || ''}
           type="success"
-          duration={2000}
+          // The co-host tip needs longer to read than "Plant added to cart".
+          duration={cartToast === COHOST_TOAST ? 5000 : 2000}
           position="top"
           onHide={() => setCartToast(null)}
         />

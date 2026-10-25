@@ -226,7 +226,7 @@ function AdminTabs() {
           component={AdminTabs}
           options={{headerShown: false}}
         />
-     <Stack.Screen name="LiveBroadcastScreen" options={{headerShown: false}} component={LiveBroadcastScreen} />
+     <Stack.Screen name="LiveBroadcastScreen" options={{headerShown: false, gestureEnabled: false}} component={LiveBroadcastScreen} />
      <Stack.Screen name="EnrollSeller" options={{headerShown: false}} component={EnrollSeller} />
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
