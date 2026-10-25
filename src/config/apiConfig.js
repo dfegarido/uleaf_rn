@@ -529,6 +529,7 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   // Live Stream Requests
   CREATE_LIVE_REQUEST: `${getBaseUrl()}/createLiveRequest`,
   UPDATE_LIVE_SESSION_STATUS: `${getSupabaseBaseUrl()}/update-live-session-status`,
+  GET_LIVE_VIEWERS: `${getSupabaseBaseUrl()}/live-viewers`,
   UPDATE_LIVE_REQUEST_STATUS: `${getSupabaseBaseUrl()}/update-live-request-status`,
   GET_LIVE_REQUESTS_ADMIN: `${getSupabaseBaseUrl()}/get-live-requests`,
   UPDATE_LIVE_REQUEST: `${getSupabaseBaseUrl()}/update-live-request`,

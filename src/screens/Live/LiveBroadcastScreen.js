@@ -66,6 +66,7 @@ import {
 } from '../../components/Api/liveApi';
 import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
+import LiveViewersSheet from './LiveViewersSheet';
 import {
   createPendingLiveComment,
   mergeLiveComment,
@@ -141,6 +142,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [appId, setAppId] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [isViewersSheetVisible, setViewersSheetVisible] = useState(false);
   
   const [isStickyNoteModalVisible, setStickyNoteModalVisible] = useState(false);
   const [stickyNoteText, setStickyNoteText] = useState('');
@@ -736,6 +738,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     );
   };
 
+  // Picking a viewer in the sheet @mentions them: appended to whatever is already typed.
+  const handleMentionViewer = (viewer) => {
+    setViewersSheetVisible(false);
+    setNewComment(prev => `${prev && !/\s$/.test(prev) ? `${prev} ` : prev}@${viewer.username} `);
+    // ponytail: waits out the sheet's slide-down so focus lands after the Modal is gone; use
+    // Modal onDismiss (iOS only) or an InteractionManager hook if this ever races.
+    setTimeout(() => commentInputRef.current?.focus(), 350);
+  };
+
   const handleSendComment = async () => {
     const commentToSend = newComment;
     if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
@@ -1327,10 +1338,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                     <ReverseCameraIcon width={24} height={24} />
                   </GlassView>
                 </TouchableOpacity>
-                <GlassView variant="control" radius={18} style={styles.liveViewer}>
-                  <ViewersIcon width={18} height={18} />
-                  <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
-                </GlassView>
+                <TouchableOpacity
+                  onPress={() => setViewersSheetVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show viewers">
+                  <GlassView variant="control" radius={18} style={styles.liveViewer}>
+                    <ViewersIcon width={18} height={18} />
+                    <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
+                  </GlassView>
+                </TouchableOpacity>
               </View>
             </View>
         {joined && (
@@ -1549,6 +1566,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               ? Number(sessionDetails.lastIgIndex) + 1
               : sessionListingsCount + 1
           }
+        />
+
+        <LiveViewersSheet
+          isVisible={isViewersSheetVisible}
+          onClose={() => setViewersSheetVisible(false)}
+          sessionId={sessionId}
+          onSelectViewer={handleMentionViewer}
         />
 
         <LiveListingsModal

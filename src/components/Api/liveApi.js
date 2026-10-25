@@ -306,6 +306,25 @@ export const liveOrderLookupApi = async ({ listingId, buyerUid, status }) => {
   }
 };
 
+/** One page of the viewers watching a live now (seller only). Returns { data, total, hasMore }. */
+export const getLiveViewersApi = async ({ sessionId, q = '', limit = 20, offset = 0, signal }) => {
+  try {
+    const params = new URLSearchParams({ sessionId, q, limit: String(limit), offset: String(offset) });
+    const res = await fetch(`${API_ENDPOINTS.GET_LIVE_VIEWERS}?${params.toString()}`, {
+      headers: await authHeaders(),
+      signal,
+    });
+    const body = await parseJson(res);
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return { success: true, data: body.data || [], total: body.total || 0, hasMore: !!body.hasMore };
+  } catch (error) {
+    if (error.name === 'AbortError') return { success: false, aborted: true, data: [], total: 0, hasMore: false };
+    // warn, not error: the sheet shows its own message, and console.error raises the red LogBox.
+    console.warn('getLiveViewersApi error:', error.message);
+    return { success: false, data: [], total: 0, hasMore: false, error: error.message };
+  }
+};
+
 /** Send a heartbeat for a live session (seller keeps it visible as live). */
 export const sendLiveHeartbeatApi = async (sessionId) => {
   try {

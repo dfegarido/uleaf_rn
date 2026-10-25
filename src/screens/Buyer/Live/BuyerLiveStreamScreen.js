@@ -77,6 +77,7 @@ import CheckoutLiveModal from '../../Buyer/Checkout/CheckoutScreenLive';
 import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
 import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
+import LiveViewersSheet from '../../Live/LiveViewersSheet';
 import {
   createPendingLiveComment,
   mergeLiveComment,
@@ -174,6 +175,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
+  const [isViewersSheetVisible, setViewersSheetVisible] = useState(false);
   const flatListRef = useRef(null);
   const { userInfo } = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
@@ -437,6 +439,15 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         { text: 'Delete', style: 'destructive', onPress: () => deleteComment(comment.id) },
       ]
     );
+  };
+
+  // Picking a viewer in the sheet @mentions them: appended to whatever is already typed.
+  const handleMentionViewer = (viewer) => {
+    setViewersSheetVisible(false);
+    setNewComment(prev => `${prev && !/\s$/.test(prev) ? `${prev} ` : prev}@${viewer.username} `);
+    // ponytail: waits out the sheet's slide-down so focus lands after the Modal is gone; use
+    // Modal onDismiss (iOS only) or an InteractionManager hook if this ever races.
+    setTimeout(() => commentInputRef.current?.focus(), 350);
   };
 
   const handleSendComment = async () => {
@@ -1206,10 +1217,16 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   <BackSolidIcon width={24} height={24} />
                 </GlassView>
               </TouchableOpacity>
-              <GlassView variant="control" radius={18} style={styles.liveViewer}>
-                <ViewersIcon width={18} height={18} />
-                <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
-              </GlassView>
+              <TouchableOpacity
+                onPress={() => setViewersSheetVisible(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Show viewers">
+                <GlassView variant="control" radius={18} style={styles.liveViewer}>
+                  <ViewersIcon width={18} height={18} />
+                  <Text style={styles.liveViewerText}>{formatViewersLikes(liveStats?.viewerCount || 0)}</Text>
+                </GlassView>
+              </TouchableOpacity>
             </View>
             <View style={styles.headerSideEnd}>
               {/* <TouchableOpacity style={styles.guide} onPress={() => setIsGuideModalVisible(true)}>
@@ -1548,6 +1565,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
        <GuideModal
         isVisible={isGuideModalVisible}
         onClose={() => setIsGuideModalVisible(false)}
+      />
+      <LiveViewersSheet
+        isVisible={isViewersSheetVisible}
+        onClose={() => setViewersSheetVisible(false)}
+        sessionId={sessionId}
+        onSelectViewer={handleMentionViewer}
       />
       <ShopModal
         isVisible={isShopModalVisible}
