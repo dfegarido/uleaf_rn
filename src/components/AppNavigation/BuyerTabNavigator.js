@@ -1,6 +1,7 @@
 /* eslint-disable react-native/no-inline-styles */
 /* eslint-disable react/no-unstable-nested-components */
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import useTabBarInsetStyle from './useTabBarInsetStyle';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -392,13 +393,14 @@ const UnreadBadge = ({ count }) => {
 
 function BuyerTabs() {
   const navigation = useNavigation();
+  const tabBarInset = useTabBarInsetStyle();
   const { unreadCount } = useUnreadMessageCount();
   
   return (
     <Tab.Navigator
       initialRouteName="Shop"
       screenOptions={({route}) => ({
-        tabBarStyle: [styles.tabBar],
+        tabBarStyle: [styles.tabBar, tabBarInset],
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused

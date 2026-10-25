@@ -163,6 +163,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [shareToastVisible, setShareToastVisible] = useState(false);
   const [shareToastMessage, setShareToastMessage] = useState('');
   const insets = useSafeAreaInsets();
+  // The Add to Cart / Buy Now sheet ends in a 34pt spacer for the iPhone home indicator. Android
+  // draws edge-to-edge and its navigation bar is taller, so the button sat under it; grow the
+  // spacer (and the sheet) by the difference there.
+  const sheetNavExtra = Platform.OS === 'android' ? Math.max(0, insets.bottom + 8 - 34) : 0;
 
   const normalizeQuantity = (value) => {
     if (value === undefined || value === null) {
@@ -1678,7 +1682,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
         onRequestClose={handleCloseModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={[styles.modalContainer, { height: 585 + sheetNavExtra }]}>
             {/* Title */}
             <View style={styles.modalTitle}>
               <Text style={styles.modalTitleText}>
@@ -1871,7 +1875,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
             </View>
 
             {/* Action */}
-            <View style={styles.modalAction}>
+            <View style={[styles.modalAction, { height: 94 + sheetNavExtra }]}>
               <View style={styles.modalActionContent}>
                 <TouchableOpacity
                   style={[
@@ -1890,7 +1894,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.homeIndicator}>
+              <View style={[styles.homeIndicator, { height: 34 + sheetNavExtra }]}>
                 <View style={styles.gestureBar} />
               </View>
             </View>

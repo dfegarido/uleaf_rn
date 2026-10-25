@@ -1,4 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import useTabBarInsetStyle from './useTabBarInsetStyle';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StyleSheet, Text, View } from 'react-native';
@@ -109,13 +110,14 @@ const UnreadBadge = ({ count }) => {
 
 function AdminTabs() {
     const navigation = useNavigation();
+    const tabBarInset = useTabBarInsetStyle();
     const { unreadCount } = useUnreadMessageCount();
     
     return (
       <Tab.Navigator
         initialRouteName="Home"
         screenOptions={({route}) => ({
-          tabBarStyle: [styles.tabBar],
+          tabBarStyle: [styles.tabBar, tabBarInset],
             tabBarActiveTintColor: '#539461',
             tabBarLabel: ({focused, color}) => {
               let labelStyle = focused

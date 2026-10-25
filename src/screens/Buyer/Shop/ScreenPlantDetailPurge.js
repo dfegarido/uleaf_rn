@@ -8,6 +8,7 @@ import { Alert,
   Dimensions,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -79,6 +80,10 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
   const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
   const insets = useSafeAreaInsets();
+  // The Add to Cart / Buy Now sheet ends in a 34pt spacer for the iPhone home indicator. Android
+  // draws edge-to-edge and its navigation bar is taller, so the button sat under it; grow the
+  // spacer (and the sheet) by the difference there.
+  const sheetNavExtra = Platform.OS === 'android' ? Math.max(0, insets.bottom + 8 - 34) : 0;
 
   // Load plant details when screen comes into focus
   useFocusEffect(
@@ -1065,7 +1070,7 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
         onRequestClose={handleCloseModal}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={[styles.modalContainer, { height: 585 + sheetNavExtra }]}>
             {/* Title */}
             <View style={styles.modalTitle}>
               <Text style={styles.modalTitleText}>
@@ -1247,7 +1252,7 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
             </View>
 
             {/* Action */}
-            <View style={styles.modalAction}>
+            <View style={[styles.modalAction, { height: 94 + sheetNavExtra }]}>
               <View style={styles.modalActionContent}>
                 <TouchableOpacity
                   style={styles.addToCartModalButton}
@@ -1258,7 +1263,7 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.homeIndicator}>
+              <View style={[styles.homeIndicator, { height: 34 + sheetNavExtra }]}>
                 <View style={styles.gestureBar} />
               </View>
             </View>

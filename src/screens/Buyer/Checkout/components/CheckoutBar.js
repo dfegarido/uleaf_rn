@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlert from '../../../../components/CustomAlert/CustomAlert';
 import CaretDownIcon from '../../../../assets/icons/greylight/caret-down-regular.svg';
@@ -22,7 +22,13 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
   const insets = useSafeAreaInsets();
   // The bar is pinned to the screen bottom and Android draws edge-to-edge, so
   // it must clear the system navigation bar or Place Order sits under it.
-  const barInsetStyle = isLiveModal ? null : { paddingBottom: Math.max(16, insets.bottom + 10) };
+  // The live sheet's Modal is edge-to-edge on Android too, so it needs the same clearance there;
+  // on iOS its default 28pt bottom padding already clears the home indicator.
+  const barInsetStyle = !isLiveModal
+    ? { paddingBottom: Math.max(16, insets.bottom + 10) }
+    : Platform.OS === 'android'
+      ? { paddingBottom: Math.max(28, insets.bottom + 12) }
+      : null;
   // The Place Order confirm is the app's own CustomAlert (frosted), as on Pay to Board, so iOS
   // and Android show the same dialog instead of each platform's Alert.alert.
   const [confirmVisible, setConfirmVisible] = useState(false);

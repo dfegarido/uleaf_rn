@@ -1,5 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import useTabBarInsetStyle from './useTabBarInsetStyle';
 import { NavigationContainer, StackActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -875,6 +876,7 @@ const SellerOrdersBadge = ({ count }) => {
 
 // Tab navigator containing Home, Vote, Community, and Store screens
 function MainTabNavigator() {
+  const tabBarInset = useTabBarInsetStyle();
   const { badgeCount: sellerOrdersBadgeCount } = useSellerOrderCounts();
 
   return (
@@ -883,7 +885,7 @@ function MainTabNavigator() {
         tabBarStyle:
           route.name === 'ChatScreen' || route.name === 'MessagesScreen'
             ? {display: 'none'}
-            : [styles.tabBar],
+            : [styles.tabBar, tabBarInset],
         tabBarActiveTintColor: '#539461',
         tabBarLabel: ({focused, color}) => {
           let labelStyle = focused

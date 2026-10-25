@@ -7,6 +7,7 @@ import { ActivityIndicator,
   Dimensions,
   Image,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -57,6 +58,10 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
   const [quantity, setQuantity] = useState(1);
   const [modalAction, setModalAction] = useState('buy-now'); // 'add-to-cart' or 'buy-now'
   const insets = useSafeAreaInsets();
+  // The Add to Cart / Buy Now sheet ends in a 34pt spacer for the iPhone home indicator. Android
+  // draws edge-to-edge and its navigation bar is taller, so the button sat under it; grow the
+  // spacer (and the sheet) by the difference there.
+  const sheetNavExtra = Platform.OS === 'android' ? Math.max(0, insets.bottom + 8 - 34) : 0;
 
   // Load plant details when screen comes into focus
   useFocusEffect(
@@ -630,7 +635,7 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
   return (
     <Modal animationType="slide" transparent={true} visible={isVisible} onRequestClose={onClose}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={[styles.modalContainer, { height: 585 + sheetNavExtra }]}>
             {/* Title */}
             <View style={styles.modalTitle}>
               <Text style={styles.modalTitleText}>
@@ -814,7 +819,7 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
             </View>
 
             {/* Action */}
-            <View style={styles.modalAction}>
+            <View style={[styles.modalAction, { height: 94 + sheetNavExtra }]}>
               <View style={styles.modalActionContent}>
                 <TouchableOpacity
                   style={styles.addToCartModalButton}
@@ -825,7 +830,7 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
                   </Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.homeIndicator}>
+              <View style={[styles.homeIndicator, { height: 34 + sheetNavExtra }]}>
                 <View style={styles.gestureBar} />
               </View>
             </View>
