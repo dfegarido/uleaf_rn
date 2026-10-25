@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
+  Easing,
   FlatList,
-  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -48,8 +49,10 @@ const SkeletonRows = ({ count }) => {
  * starts loading half a screen before the end (onEndReachedThreshold 0.5). Picking a viewer
  * hands their username back so the broadcast screen can @mention them in the comment box.
  *
- * Closing keeps the list: reopening shows it instantly with no request (the component stays
- * mounted; only the Modal hides). Pull down to refresh it.
+ * Opens instantly: it is an overlay inside the screen (an Android <Modal> took ~0.5s to present),
+ * and page 1 is fetched in the background as soon as the live has a session, so the first open
+ * already has the list. The list is kept between opens; pull down to refresh it. Render it after
+ * the rest of the live screen so it sits on top.
  */
 const LiveViewersSheet = ({ isVisible, onClose, sessionId, onSelectViewer }) => {
   const [query, setQuery] = useState('');
@@ -65,6 +68,30 @@ const LiveViewersSheet = ({ isVisible, onClose, sessionId, onSelectViewer }) => 
   // `${sessionId}|${search}` of the list on screen; opening again with the same key reuses it.
   const loadedKeyRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [mounted, setMounted] = useState(isVisible);
+  const slide = useRef(new Animated.Value(isVisible ? 0 : 1)).current;
+
+  useEffect(() => {
+    if (isVisible) setMounted(true);
+    Animated.timing(slide, {
+      toValue: isVisible ? 0 : 1,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !isVisible) setMounted(false);
+    });
+  }, [isVisible, slide]);
+
+  // Android back closes the sheet instead of leaving the live.
+  useEffect(() => {
+    if (!isVisible) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isVisible, onClose]);
 
   const loadPage = useCallback(async (reset, q) => {
     if (!sessionId || (loadingRef.current && !reset)) return;
@@ -91,11 +118,12 @@ const LiveViewersSheet = ({ isVisible, onClose, sessionId, onSelectViewer }) => 
     setHasMore(res.hasMore);
   }, [sessionId]);
 
-  // Page 1 on first open, when the search changes (debounced) or the live changes. Reopening
-  // with the same live and search shows the kept list without a request.
+  // Page 1 in the background once the live has a session (so the first open is instant), then
+  // again only when the search changes (debounced) or the live changes. Reopening with the same
+  // live and search shows the kept list without a request.
   useEffect(() => {
-    if (!isVisible) return undefined;
     const q = query.trim();
+    if (!isVisible && q) return undefined;
     if (loadedKeyRef.current === `${sessionId}|${q}`) return undefined;
     const t = setTimeout(() => {
       setViewers([]); // a new search shows skeleton rows, not the previous results
@@ -104,14 +132,17 @@ const LiveViewersSheet = ({ isVisible, onClose, sessionId, onSelectViewer }) => 
     return () => clearTimeout(t);
   }, [isVisible, query, sessionId, loadPage]);
 
-  // A request still running when the sheet closes is dropped; the list it would replace stays.
+  // Closing clears the search and goes back to the full list; a search request still running is
+  // dropped (the full list was kept, so nothing reloads).
   useEffect(() => {
-    if (isVisible) return;
+    if (isVisible || !query) return;
     abortRef.current?.abort();
     loadingRef.current = false;
     setLoading(false);
     setRefreshing(false);
-  }, [isVisible]);
+    setQuery('');
+    loadedKeyRef.current = null;
+  }, [isVisible, query]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -158,11 +189,16 @@ const LiveViewersSheet = ({ isVisible, onClose, sessionId, onSelectViewer }) => 
     </Text>
   );
 
+  if (!mounted) return null;
+
+  const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [0, 700] });
+  const dimOpacity = slide.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+
   return (
-    <Modal animationType="slide" transparent visible={isVisible} onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.sheet}>
+    <View style={styles.overlay} pointerEvents={isVisible ? 'auto' : 'none'}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { opacity: dimOpacity }]} />
+      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} accessibilityLabel="Close viewers" />
+      <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
           <View style={styles.header}>
             <Text style={styles.title}>Viewers</Text>
             {/* 44pt touch area around the 24pt icon: taps that grazed the bare icon missed, which
@@ -199,16 +235,19 @@ const LiveViewersSheet = ({ isVisible, onClose, sessionId, onSelectViewer }) => 
             onRefresh={onRefresh}
             contentContainerStyle={styles.listContent}
           />
-        </View>
-      </View>
-    </Modal>
+      </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFill,
+    zIndex: 50,
+    elevation: 50,
     justifyContent: 'flex-end',
+  },
+  dim: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   backdrop: {
