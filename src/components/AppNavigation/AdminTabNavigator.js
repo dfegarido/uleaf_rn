@@ -1,4 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import CohostInviteGate from '../CohostInviteGate';
+import { LiveBroadcastScreen } from '../../screens/Live';
 import useTabBarInsetStyle from './useTabBarInsetStyle';
 import { useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -215,12 +217,16 @@ function AdminTabs() {
 
   function AdminTabNavigator() {
     return (
+      <>
+      {/* Co-hosted live: invite card + push registration for admins. */}
+      <CohostInviteGate />
       <Stack.Navigator>
         <Stack.Screen
           name="AdminTabs"
           component={AdminTabs}
           options={{headerShown: false}}
         />
+     <Stack.Screen name="LiveBroadcastScreen" options={{headerShown: false}} component={LiveBroadcastScreen} />
      <Stack.Screen name="EnrollSeller" options={{headerShown: false}} component={EnrollSeller} />
      <Stack.Screen name="UserInformation" options={{headerShown: false}} component={UserInformation} />
      <Stack.Screen name="Chat" options={{headerShown: false}} component={MessagesScreen} />
@@ -322,6 +328,7 @@ function AdminTabs() {
       <Stack.Screen name="ScreenB2BFeeConfig" options={{headerShown: false}} component={ScreenB2BFeeConfig} />
       <Stack.Screen name="ScreenB2BUsBuyerAccount" options={{headerShown: false}} component={ScreenB2BUsBuyerAccount} />
       </Stack.Navigator>
+      </>
     );
   }
   

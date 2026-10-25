@@ -31,8 +31,8 @@ export async function addTokenToBuyer(uid, token) {
     });
     if (!res.ok) {
       const text = await res.text();
-      // Asia Business / seller accounts have a supplier row and no buyer row.
-      if (res.status === 404 && text.includes('Buyer not found')) {
+      // Asia Business / seller accounts have a supplier row and no buyer (or admin) row.
+      if (res.status === 404 && (text.includes('Buyer not found') || text.includes('User not found'))) {
         return;
       }
       throw new Error(`Error ${res.status}: ${text}`);

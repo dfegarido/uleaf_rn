@@ -79,6 +79,8 @@ import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
 import LiveViewersSheet from '../../Live/LiveViewersSheet';
 import LiveCartSheet from './LiveCartSheet';
+import CohostVideoBox from '../../Live/CohostVideoBox';
+import { classifyRemoteUid } from '../../../utils/liveCohost';
 import Toast from '../../../components/Toast/Toast';
 import {
   createPendingLiveComment,
@@ -164,6 +166,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const rtcEngineRef = useRef(null);
   const saleEndedRef = useRef(false);
   const [remoteUid, setRemoteUid] = useState(null);
+  // Co-hosted live: a second broadcaster (an admin) shows in the small box. Only the seller's
+  // uid is the main video, and only the seller leaving ends the live for the buyer.
+  const [cohostUid, setCohostUid] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [error, setError] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -748,7 +753,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         },
         onUserJoined: (connection, remoteUid) => {
           console.log('👤 Remote user joined:', connection, 'uid:', remoteUid);
-          
+          if (brodcasterId && classifyRemoteUid(remoteUid, brodcasterId) === 'cohost') {
+            setCohostUid(remoteUid);
+            return;
+          }
+
           try {
             // Setup remote video with different parameters
             rtcEngineRef.current.setupRemoteVideo({
@@ -770,6 +779,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           }
         },
         onUserOffline: (connection, remoteUid) => {
+          if (brodcasterId && classifyRemoteUid(remoteUid, brodcasterId) === 'cohost') {
+            setCohostUid((current) => (current === remoteUid ? null : current));
+            return;
+          }
           console.log('Broadcaster left:', remoteUid);
           setRemoteUid(null);
           setSessionEnded(true);
@@ -1184,6 +1197,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           </View>
         )}
       </View>
+
+      {joined && remoteUid ? <CohostVideoBox uid={cohostUid} /> : null}
       
       {/* A single uniform, edge-less scrim. There is deliberately no separate bottom-weighted
           band: a 46%-tall overlay put a visible hard edge across the middle of the video

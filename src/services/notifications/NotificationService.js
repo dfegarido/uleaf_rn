@@ -195,6 +195,13 @@ class NotificationService {
       return;
     }
 
+    // Co-host invite (admins only): the invite card (CohostInviteGate) shows it. It re-checks the
+    // invite with the server, so an expired one is never shown.
+    if (data.type === 'cohost_invite') {
+      emit('cohost_invite', { sessionId: data.sessionId || '' });
+      return;
+    }
+
     if (data.type !== 'live_started') return;
     const sessionId = data.sessionId;
     if (!sessionId) return;

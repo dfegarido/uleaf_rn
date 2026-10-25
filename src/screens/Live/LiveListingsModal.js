@@ -15,6 +15,7 @@ import { ActivityIndicator,
 import CloseIcon from '../../assets/live-icon/close-x.svg';
 import { useAuth } from '../../auth/AuthProvider';
 import { getLiveListingsBySessionApi, setLiveListingActiveApi } from '../../components/Api/agoraLiveApi';
+import { deleteListingApi } from '../../components/Api/listingManagementApi';
 import { attachOrphanLiveListingsToSession, getSellerUid } from '../../utils/attachLiveListingsToSession';
 
 const SORT_OPTIONS = [
@@ -75,6 +76,34 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
     } finally {
       setLoading(false);
     }
+  };
+
+  // Seller and co-host alike (delete-listing allows the owner or an admin).
+  const handleDelete = () => {
+    if (!selectedListing) {
+      Alert.alert('No Selection', 'Select a listing to delete.');
+      return;
+    }
+    const name = `${selectedListing.genus || ''} ${selectedListing.species || ''}`.trim() || selectedListing.plantCode;
+    Alert.alert('Delete listing?', `${name} will be removed from this live.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            const res = await deleteListingApi({ plantCode: selectedListing.plantCode });
+            if (!res.success) throw new Error(res.error);
+            setSelectedListing(null);
+            await fetchListings();
+          } catch (error) {
+            Alert.alert('Error', error.message || 'Could not delete the listing.');
+            setLoading(false);
+          }
+        },
+      },
+    ]);
   };
 
   useEffect(() => {
@@ -269,6 +298,13 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity
+              style={[styles.button, styles.secondaryButton, styles.deleteButton, (loading || !selectedListing) && styles.disabledButton]}
+              onPress={handleDelete}
+              disabled={loading || !selectedListing}
+              accessibilityRole="button">
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.button, loading && styles.disabledButton]}
               onPress={handleSetNewActive}
               disabled={loading}>
@@ -287,6 +323,8 @@ const LiveListingsModal = ({ isVisible, onClose, sessionId, onActiveListingSet, 
 
 const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  deleteButton: { borderColor: '#C23B1E' },
+  deleteButtonText: { color: '#C23B1E', fontWeight: '700', fontSize: 15 },
   modalContainer: { height: '75%', backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
   headerTitle: { fontSize: 20, fontWeight: 'bold' },

@@ -325,6 +325,41 @@ export const getLiveViewersApi = async ({ sessionId, q = '', limit = 20, offset 
   }
 };
 
+// ---- Co-hosted live (seller invites an admin) ----
+
+const cohostCall = async (url, { method = 'POST', body } = {}) => {
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: await authHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await parseJson(res);
+    if (!res.ok) return { success: false, status: res.status, error: json.error || `HTTP ${res.status}` };
+    return { success: true, ...json };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+/** Active admins the seller can invite, and whether co-hosting is switched on. */
+export const getCohostAdminsApi = (sessionId) =>
+  cohostCall(`${API_ENDPOINTS.LIVE_COHOST_INVITE}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'GET' });
+
+export const inviteCohostApi = (sessionId, adminUid) =>
+  cohostCall(API_ENDPOINTS.LIVE_COHOST_INVITE, { body: { sessionId, adminUid } });
+
+/** accept → { appId, token, channelName, sellerUid, title }; expired invite → status 410. */
+export const respondCohostApi = (sessionId, accept, agoraUid) =>
+  cohostCall(API_ENDPOINTS.LIVE_COHOST_RESPOND, { body: { sessionId, accept, agoraUid } });
+
+export const leaveCohostApi = (sessionId) =>
+  cohostCall(API_ENDPOINTS.LIVE_COHOST_LEAVE, { body: { sessionId } });
+
+/** { invite: null | { sessionId, title, sellerUid, sellerName, sellerPhoto, invitedAt } } */
+export const getPendingCohostInviteApi = () =>
+  cohostCall(API_ENDPOINTS.LIVE_COHOST_PENDING, { method: 'GET' });
+
 /** Send a heartbeat for a live session (seller keeps it visible as live). */
 export const sendLiveHeartbeatApi = async (sessionId) => {
   try {

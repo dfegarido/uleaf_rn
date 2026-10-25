@@ -2,7 +2,7 @@ import PlantListingImage from '../../components/PlantListingImage/PlantListingIm
 import ChatAvatar from '../../components/ChatAvatar';
 import GlassView from '../../components/Glass/GlassView';
 
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator,
   Alert,
   Animated,
@@ -59,6 +59,8 @@ import {
   getLiveDetailApi,
   getLiveSellersApi,
   getLiveSoldToApi,
+  inviteCohostApi,
+  leaveCohostApi,
   sendLiveHeartbeatApi,
   updateLiveCommentApi,
   updateLiveCoverApi,
@@ -67,6 +69,10 @@ import {
 import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
 import LiveViewersSheet from './LiveViewersSheet';
+import CohostVideoBox from './CohostVideoBox';
+import InviteAdminSheet from './InviteAdminSheet';
+import PipIcon from '../../assets/live-icon/picture-in-picture.svg';
+import { classifyRemoteUid } from '../../utils/liveCohost';
 import {
   createPendingLiveComment,
   mergeLiveComment,
@@ -152,7 +158,20 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [isMuted, setIsMuted] = useState(false);
   const [channelName, setChannelName] = useState(null);
   const [sessionId, setSessionId] = useState(route.params?.sessionId);
-  const [isLive, setIsLive] = useState(false);
+  // Co-hosted live: an admin who accepted an invite opens this screen with `cohost` set
+  // ({ sellerUid }). They broadcast on the seller's session with the seller's controls, but never
+  // change the session's status, send the heartbeat or auto-snapshot.
+  const cohost = route.params?.cohost || null;
+  const isCohost = !!cohost;
+  const [isLive, setIsLive] = useState(isCohost);
+  // The other broadcaster's Agora uid, shown in the small box (co-host for the seller, seller
+  // for the co-host).
+  const [partnerUid, setPartnerUid] = useState(null);
+  const [isInviteSheetVisible, setInviteSheetVisible] = useState(false);
+  // Seller side: 'invited' | 'live' | null, from the detail poll and set right after an invite.
+  const [cohostStatus, setCohostStatus] = useState(null);
+  const [cohostEnabled, setCohostEnabled] = useState(false);
+  const inviteSentAtRef = useRef(0);
   const flatListRef = useRef(null);
   const snapshotPendingRef = useRef(null);
   const thumbnailPendingRef = useRef(false);
@@ -272,6 +291,62 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         }
       }
   }
+
+  // ---- Co-hosted live ----
+  const exitCohost = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.popToTop();
+  }, [navigation]);
+
+  // The co-host leaves; the seller's live continues.
+  const handleCohostLeave = () => {
+    Alert.alert('Leave this live?', 'The seller keeps broadcasting.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: async () => {
+          await leaveCohostApi(sessionId);
+          exitCohost();
+        },
+      },
+    ]);
+  };
+
+  const handleInvitePick = async (admin) => {
+    setInviteSheetVisible(false);
+    const res = await inviteCohostApi(sessionId, admin.uid);
+    if (!res.success) {
+      Alert.alert('Could not invite', res.error || 'Please try again.');
+      return;
+    }
+    inviteSentAtRef.current = Date.now();
+    setCohostStatus('invited');
+  };
+
+  // Seller: cancel a pending invite or remove the co-host.
+  const handleCohostRemove = () => {
+    const removing = cohostStatus === 'live';
+    Alert.alert(removing ? 'Remove co-host?' : 'Cancel invite?', removing ? 'They will leave your live.' : '', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: removing ? 'Remove' : 'Cancel invite',
+        style: 'destructive',
+        onPress: async () => {
+          await leaveCohostApi(sessionId);
+          inviteSentAtRef.current = Date.now();
+          setCohostStatus(null);
+        },
+      },
+    ]);
+  };
+
+  // An unanswered invite lapses after 60 s (the server treats it as none from then on).
+  useEffect(() => {
+    if (isCohost || cohostStatus !== 'invited') return undefined;
+    const t = setTimeout(() => setCohostStatus((st) => (st === 'invited' ? null : st)), 60000);
+    return () => clearTimeout(t);
+  }, [cohostStatus, isCohost]);
 
   const updateLiveSessionStatus = async (newStatus) => {
     try {
@@ -483,6 +558,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           );
         }
       },
+      onUserJoined: (_connection, remoteUid) => {
+        // Only broadcasters raise this in a live-broadcast channel. The seller shows any
+        // co-host; the co-host shows only the seller.
+        if (!isCohost || classifyRemoteUid(remoteUid, cohost.sellerUid) === 'seller') {
+          setPartnerUid(remoteUid);
+        }
+      },
+      onUserOffline: (_connection, remoteUid) => {
+        setPartnerUid((current) => (current === remoteUid ? null : current));
+      },
       onTokenPrivilegeWillExpire: () => fetchTokenAndRejoin(),
       onConnectionStateChanged: (state, reason) => {
         console.log('🔌 Connection state changed:', { state, reason });
@@ -537,7 +622,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       publishCameraTrack: true,
       publishMicrophoneTrack: true,
       autoSubscribeAudio: true,
-      autoSubscribeVideo: false,
+      // On for co-hosted lives: the other broadcaster's video shows in the small box.
+      autoSubscribeVideo: true,
     });
 
     return () => {
@@ -579,8 +665,23 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
         // Heartbeat: keep this session visible as "live" to buyers while the
         // seller is actively broadcasting. Fire only when status is live.
-        if (data.status === 'live') {
+        if (data.status === 'live' && !isCohost) {
           sendLiveHeartbeatApi(sessionId).catch((e) => console.error('Heartbeat failed:', e?.message));
+        }
+
+        setCohostEnabled(!!data.cohostEnabled);
+        if (isCohost) {
+          if (data.status === 'ended' || data.cohostStatus !== 'live') {
+            Alert.alert(
+              data.status === 'ended' ? 'Live ended' : 'Co-host ended',
+              data.status === 'ended' ? 'The seller ended the live.' : 'You are no longer co-hosting this live.',
+            );
+            exitCohost();
+          }
+        } else if (Date.now() - inviteSentAtRef.current > 3000) {
+          // Right after sending an invite the poll may still read the old row; keep the local
+          // state for a moment instead of flickering back to Invite.
+          setCohostStatus(data.cohostStatus || null);
         }
       } else {
         console.log('Live session document does not exist.');
@@ -595,13 +696,13 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       active = false;
       if (pollTimer) clearInterval(pollTimer);
     };
-  }, [sessionId]);
+  }, [sessionId, isCohost, exitCohost]);
 
   // A live sale ends when its booked hours are over, even if the seller does
   // not tap End. The next garden is booked right after that window.
   const saleEndMs = liveSaleEndsAt(sessionDetails?.scheduledAt, sessionDetails?.duration)?.getTime() ?? null;
   useEffect(() => {
-    if (!sessionDetails || !sessionId || liveSaleEndedRef.current || saleEndMs == null) return;
+    if (isCohost || !sessionDetails || !sessionId || liveSaleEndedRef.current || saleEndMs == null) return;
     const liveType = String(sessionDetails.liveType || 'live').toLowerCase();
     if (liveType === 'purge') return;
 
@@ -926,7 +1027,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       if (!imageUrl) throw new Error('Upload returned empty URL');
       console.log('[Snapshot] Uploaded, updating listing imagePrimary:', imageUrl);
       // updateListingApi never throws: a failed write comes back as { success: false }.
-      const result = await updateListingApi({ plantCode, imagePrimary: imageUrl });
+      const result = await updateListingApi({ plantCode, imagePrimary: imageUrl, sessionId });
       if (!result?.success) {
         throw new Error(result?.error || 'Listing update failed');
       }
@@ -1177,7 +1278,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     // Arm the one-shot counter only while the seller is actually live. The
     // effect re-runs on the two intended trigger events: pressing Go Live
     // (isLive false -> true) and the active listing changing.
-    if (!activeListing || !joined || !isLive) return;
+    if (isCohost || !activeListing || !joined || !isLive) return;
 
     console.log(
       '[Snapshot] Watching listing',
@@ -1193,7 +1294,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   // Periodic live thumbnail capture — updates the session's coverPhotoUrl
   // so the buyer's shop screen shows a fresh preview of what's currently on stream
   useEffect(() => {
-    if (!joined || !isLive) {
+    if (isCohost || !joined || !isLive) {
       if (thumbnailTimerRef.current) {
         clearInterval(thumbnailTimerRef.current);
         thumbnailTimerRef.current = null;
@@ -1273,6 +1374,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           )}
         </View>
 
+        <CohostVideoBox uid={partnerUid} />
+
         {snapshotCountdown > 0 && (
           <View style={styles.snapshotOverlay} pointerEvents="none">
             <View style={styles.snapshotBadge}>
@@ -1322,7 +1425,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             },
           ]}>
             <View style={styles.topBar}>
-              <TouchableOpacity onPress={() => updateLiveSessionStatus('ended')} activeOpacity={0.8}>
+              <TouchableOpacity
+                onPress={() => (isCohost ? handleCohostLeave() : updateLiveSessionStatus('ended'))}
+                activeOpacity={0.8}>
                 <GlassView variant="control" radius={14} style={styles.backButton}>
                   <BackSolidIcon width={24} height={24} />
                 </GlassView>
@@ -1476,7 +1581,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                     </View>
                 </View>
                 <View style={styles.actionButton}>
-                  {!isLive && (
+                  {isCohost && (
+                    <GradientButton
+                      id="leaveCohostGradient"
+                      label="Leave"
+                      from="#F28B73"
+                      to="#C23B1E"
+                      onPress={handleCohostLeave}
+                    />
+                  )}
+                  {!isCohost && !isLive && (
                     <GradientButton
                       id="goLiveGradient"
                       label="Go Live"
@@ -1485,7 +1599,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       onPress={() => updateLiveSessionStatus('live')}
                     />
                   )}
-                  {isLive && (
+                  {!isCohost && isLive && (
                     <GradientButton
                       id="endLiveGradient"
                       label="End Live"
@@ -1507,6 +1621,20 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 the keyboard, so it slides off the right edge while the composer is focused. */}
             <Animated.View style={[styles.railWrap, railSlideStyle]}>
             <GlassView variant="rail" style={styles.sideActions}>
+                {!isCohost && isLive && cohostEnabled && (
+                  <TouchableOpacity
+                    style={styles.sideAction}
+                    onPress={() => (cohostStatus ? handleCohostRemove() : setInviteSheetVisible(true))}
+                    accessibilityRole="button"
+                    accessibilityLabel={cohostStatus === 'live' ? 'Remove co-host' : cohostStatus ? 'Cancel invite' : 'Invite a co-host'}>
+                    <View style={styles.sideActionIconWrap}>
+                      <PipIcon width={26} height={26} />
+                    </View>
+                    <Text style={styles.sideActionNotesText}>
+                      {cohostStatus === 'live' ? 'Remove' : cohostStatus ? 'Invited' : 'Invite'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity style={styles.sideAction}>
                   <View style={styles.sideActionIconWrap}>
                     <LoveIcon width={26} height={26} />
@@ -1567,6 +1695,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               : sessionListingsCount + 1
           }
         />
+
+        {!isCohost && (
+          <InviteAdminSheet
+            isVisible={isInviteSheetVisible}
+            onClose={() => setInviteSheetVisible(false)}
+            sessionId={sessionId}
+            onPick={handleInvitePick}
+          />
+        )}
 
         <LiveViewersSheet
           isVisible={isViewersSheetVisible}

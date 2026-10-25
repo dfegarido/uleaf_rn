@@ -117,7 +117,8 @@ export const getLiveListingsBySessionApi = async (sessionId, status='Live', sell
   }
 };
 
-export const setLiveListingActiveApi = async ({ plantCode }) => {
+// `sessionId` lets the server act as the session's seller when a co-host calls it.
+export const setLiveListingActiveApi = async ({ plantCode, sessionId }) => {
   try {
     const token = await getStoredAuthToken();
     const response = await fetch(API_ENDPOINTS.SET_ACTIVE_LIVE_LISTING, {
@@ -126,7 +127,7 @@ export const setLiveListingActiveApi = async ({ plantCode }) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ plantCode }),
+      body: JSON.stringify({ plantCode, sessionId }),
     });
 
     return await response.json();
