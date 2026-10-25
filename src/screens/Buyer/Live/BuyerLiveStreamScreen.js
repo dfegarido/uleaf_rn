@@ -78,6 +78,8 @@ import LiveShopCheckoutModal from '../../Buyer/Checkout/LiveShopCheckoutModal';
 import GuideModal from './GuideModal'; // Import the new modal
 import ShopModal from './ShopModal';
 import LiveViewersSheet from '../../Live/LiveViewersSheet';
+import LiveCartSheet from './LiveCartSheet';
+import Toast from '../../../components/Toast/Toast';
 import {
   createPendingLiveComment,
   mergeLiveComment,
@@ -176,6 +178,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [isViewersSheetVisible, setViewersSheetVisible] = useState(false);
+  const [isCartSheetVisible, setCartSheetVisible] = useState(false);
+  const cartSheetRef = useRef(null);
+  const [cartCount, setCartCount] = useState(0);
+  const [cartToast, setCartToast] = useState(null);
   const flatListRef = useRef(null);
   const { userInfo } = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
@@ -930,7 +936,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         throw new Error(response.error || 'Failed to add to cart');
       }
 
-      Alert.alert('Success', 'Plant added to cart successfully!');
+      cartSheetRef.current?.refresh();
+      // An in-app toast, not an Alert: the buyer keeps watching and the badge shows the new count.
+      setCartToast('Plant added to cart');
 
     } catch (error) {
       let errorMessage = 'Failed to add item to cart';
@@ -1548,9 +1556,18 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                 </View>
                 <Text style={styles.sideActionNotesText}>Shop</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.sideAction} onPress={() => navigation.navigate('ScreenCart')}>
-                <View style={styles.sideActionIconWrap}>
-                  <CartIconSelected width={26} height={26} />
+              {/* A sheet over the live: navigating to ScreenCart left the stream. */}
+              <TouchableOpacity style={styles.sideAction} onPress={() => setCartSheetVisible(true)}>
+                {/* Undimmed wrapper so the badge sits on the icon at full colour. */}
+                <View>
+                  <View style={styles.sideActionIconWrap}>
+                    <CartIconSelected width={26} height={26} />
+                  </View>
+                  {cartCount > 0 ? (
+                    <View style={styles.cartBadge} accessibilityLabel={`${cartCount} items in cart`}>
+                      <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.sideActionNotesText}>Cart</Text>
               </TouchableOpacity>
@@ -1581,6 +1598,29 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         onAddToCart={handleAddToCart}
       />
 
+      {/* Offset so the toast lands below the back button / viewer pill instead of over them. */}
+      <View pointerEvents="none" style={styles.cartToastArea}>
+        <Toast
+          visible={!!cartToast}
+          message={cartToast || ''}
+          type="success"
+          duration={2000}
+          position="top"
+          onHide={() => setCartToast(null)}
+        />
+      </View>
+      <LiveCartSheet
+        ref={cartSheetRef}
+        isVisible={isCartSheetVisible}
+        onCountChange={setCartCount}
+        onClose={() => setCartSheetVisible(false)}
+        onCheckout={(cartItems, total) => {
+          setCartSheetVisible(false);
+          setCheckOutData({ cartItems, useCart: true, totalAmount: total, discountAmount: 0 });
+          setIsLiveCheckoutPending(false);
+          setIsLiveShopCheckoutVisible(true);
+        }}
+      />
       <LiveShopCheckoutModal
         isVisible={isLiveShopCheckoutVisible}
         onClose={() => {
@@ -2002,6 +2042,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 56,
     paddingVertical: 6,
+  },
+  cartToastArea: {
+    ...StyleSheet.absoluteFill,
+    top: 70,
+    zIndex: 60,
+    elevation: 60,
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: '#E5534B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   sideActionIconWrap: {
     width: 34,

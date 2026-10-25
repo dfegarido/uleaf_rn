@@ -365,69 +365,72 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
                     authoritative detail is in flight the row renders its skeletons, so
                     the layout does not jump when the payload swaps in. */}
                 <View style={styles.plantList}>
-                  <View style={styles.plantItemWrapper}>
-                    <PlantItemComponent
-                      image={isPending ? null : plantItems[0]?.image}
-                      name={isPending ? '' : plantItems[0]?.name}
-                      variation={isPending ? '' : plantItems[0]?.variation}
-                      size={isPending ? '' : plantItems[0]?.size}
-                      price={isPending ? null : plantItems[0]?.price}
-                      quantity={isPending ? null : plantItems[0]?.quantity}
-                      listingType={isPending ? null : plantItems[0]?.listingType}
-                      discount={isPending ? null : plantItems[0]?.discount}
-                      originalPrice={isPending ? null : plantItems[0]?.originalPrice}
-                      country={plantItems[0]?.country}
-                      isLiveModal
-                      renderCountryFlag={renderCountryFlag}
-                      isLoading={isPending}
-                      onPress={() => {
-                        // Plant detail navigation can be hooked up here when needed.
-                      }}
-                    />
+                  {/* One card per plant: a cart checkout from the live can carry several. */}
+                  {(isPending ? [null] : plantItems).map((item, index) => (
+                    <View key={item?.plantCode || index} style={[styles.plantItemWrapper, index > 0 && styles.plantItemSpacing]}>
+                      <PlantItemComponent
+                        image={isPending ? null : item?.image}
+                        name={isPending ? '' : item?.name}
+                        variation={isPending ? '' : item?.variation}
+                        size={isPending ? '' : item?.size}
+                        price={isPending ? null : item?.price}
+                        quantity={isPending ? null : item?.quantity}
+                        listingType={isPending ? null : item?.listingType}
+                        discount={isPending ? null : item?.discount}
+                        originalPrice={isPending ? null : item?.originalPrice}
+                        country={item?.country}
+                        isLiveModal
+                        renderCountryFlag={renderCountryFlag}
+                        isLoading={isPending}
+                        onPress={() => {
+                          // Plant detail navigation can be hooked up here when needed.
+                        }}
+                      />
 
-                    {/* Divider inside the card, matching the mockup where the
-                        shipping row sits under a hairline in the same card. */}
-                    <View style={styles.cardDivider} />
+                      {/* Divider inside the card, matching the mockup where the
+                          shipping row sits under a hairline in the same card. */}
+                      <View style={styles.cardDivider} />
 
-                    {/* Below the divider the design has ONLY the shipping row — the
-                        plant name is not repeated, and the origin pill moved up beside
-                        the variation/size line. */}
-                    <View style={styles.plantItemDetails}>
-                      {isPending ? (
-                        <View style={{ gap: 8 }}>
-                          <View style={styles.skeletonText} />
-                          <View style={styles.skeletonTextShort} />
-                        </View>
-                      ) : (
-                        <>
-                          <View style={styles.plantShipping}>
-                            <ShippingMethodLabel
-                              variant="liveModal"
-                              shippingMethod={plantItems[0]?.shippingMethod}
-                            />
+                      {/* Below the divider the design has ONLY the shipping row — the
+                          plant name is not repeated, and the origin pill moved up beside
+                          the variation/size line. */}
+                      <View style={styles.plantItemDetails}>
+                        {isPending ? (
+                          <View style={{ gap: 8 }}>
+                            <View style={styles.skeletonText} />
+                            <View style={styles.skeletonTextShort} />
                           </View>
-
-                          {plantItems[0]?.flightInfo && (
+                        ) : (
+                          <>
                             <View style={styles.plantShipping}>
-                              <View style={styles.shippingContent}>
-                                <FlightIcon width={24} height={24} style={styles.airCargoIcon} />
-                                <Text style={styles.shippingText}>{plantItems[0]?.flightInfo}</Text>
-                              </View>
+                              <ShippingMethodLabel
+                                variant="liveModal"
+                                shippingMethod={item?.shippingMethod}
+                              />
                             </View>
-                          )}
 
-                          {plantItems[0]?.hasAirCargo && !plantItems[0]?.flightInfo && (
-                            <View style={styles.plantShipping}>
-                              <View style={styles.shippingContent}>
-                                <FlightIcon width={24} height={24} style={styles.airCargoIcon} />
-                                <Text style={styles.shippingText}>Plant / Wholesale Air Cargo</Text>
+                            {item?.flightInfo && (
+                              <View style={styles.plantShipping}>
+                                <View style={styles.shippingContent}>
+                                  <FlightIcon width={24} height={24} style={styles.airCargoIcon} />
+                                  <Text style={styles.shippingText}>{item?.flightInfo}</Text>
+                                </View>
                               </View>
-                            </View>
-                          )}
-                        </>
-                      )}
+                            )}
+
+                            {item?.hasAirCargo && !item?.flightInfo && (
+                              <View style={styles.plantShipping}>
+                                <View style={styles.shippingContent}>
+                                  <FlightIcon width={24} height={24} style={styles.airCargoIcon} />
+                                  <Text style={styles.shippingText}>Plant / Wholesale Air Cargo</Text>
+                                </View>
+                              </View>
+                            )}
+                          </>
+                        )}
+                      </View>
                     </View>
-                  </View>
+                  ))}
                 </View>
                 
                 {/* <OrderSummary
@@ -868,6 +871,9 @@ const styles = StyleSheet.create(
     alignSelf: 'stretch',
   },
   
+  plantItemSpacing: {
+    marginTop: 12,
+  },
   plantItemWrapper: {
     flexDirection: 'column',
     alignItems: 'flex-start',
