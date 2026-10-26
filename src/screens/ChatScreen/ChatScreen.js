@@ -310,7 +310,29 @@ const ChatScreen = ({navigation, route}) => {
   // Keeping it here would mean leaving a chat writes isOnline=false while the rest of
   // the app is still in use, and anyone not inside a conversation would read as
   // offline. This screen only READS presence (see the poll below).
-  
+  //
+  // The one thing it writes is WHICH chat the user is in: a room's "N active" counts
+  // members inside that room, not everyone with the app open. Stamped on focus,
+  // cleared on blur; the server only clears it if it still names this chat, so
+  // hopping A -> B cannot race B's stamp away.
+  useFocusEffect(useCallback(() => {
+    if (!id || !currentUserUid) return undefined;
+    const send = async (field) => {
+      try {
+        const token = await getStoredAuthToken();
+        await fetch(API_ENDPOINTS.CHAT_PRESENCE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ uid: currentUserUid, isOnline: true, [field]: id }),
+        });
+      } catch (error) {
+        console.log('Error setting chat presence:', error.message);
+      }
+    };
+    send('chatId');
+    return () => { send('leaveChatId'); };
+  }, [id, currentUserUid]));
+
   // Check if current user is a buyer (only buyers can request to join public groups)
   const isBuyer =
     userInfo?.user?.userType === 'buyer' ||
