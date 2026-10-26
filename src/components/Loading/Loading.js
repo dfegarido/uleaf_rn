@@ -11,7 +11,8 @@ const PALETTE = {
   sage: '#6BA368',
 };
 
-const Loading = ({visible = true, fullscreen = false}) => {
+// `size` shrinks the inline animation for tight spots like a button or a status row.
+const Loading = ({visible = true, fullscreen = false, size}) => {
   const fadeAnim = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
   useEffect(() => {
@@ -32,7 +33,7 @@ const Loading = ({visible = true, fullscreen = false}) => {
           source={require('../../assets/lottie/loading.lottie')}
           autoPlay
           loop
-          style={styles.lottie}
+          style={size ? {width: size, height: size} : styles.lottie}
         />
       </View>
     );

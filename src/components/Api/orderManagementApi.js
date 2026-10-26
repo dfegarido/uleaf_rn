@@ -259,6 +259,34 @@ export const getBuyerOrdersGroupedApi = async (params = {}) => {
 };
 
 /**
+ * Cancel an unpaid (Pay to Board) order - every plant on the transaction. The backend gives
+ * back the credits and discount code the order used, and refuses a paid or live-stream order.
+ * @param {string} transactionNumber - The order's transaction number
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export const cancelPayToBoardOrderApi = async transactionNumber => {
+  try {
+    const authToken = await getStoredAuthToken();
+    const response = await fetch(API_ENDPOINTS.CANCEL_PAY_TO_BOARD_ORDER, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({transactionNumber}),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+    }
+    return {success: true};
+  } catch (error) {
+    console.error('Cancel Pay to Board order API error:', error);
+    return {success: false, error: error.message};
+  }
+};
+
+/**
  * Get detailed information for a specific order
  * @param {Object} params - Query parameters
  * @param {string} params.orderId - Order ID (legacy mode)

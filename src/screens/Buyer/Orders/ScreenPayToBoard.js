@@ -2,13 +2,16 @@ import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useState, useEffect, useCallback, useRef} from 'react';
-import {ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl} from 'react-native';
+import {ScrollView, TouchableOpacity, Alert, RefreshControl, LayoutAnimation} from 'react-native';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
-import VenmoLogoIcon from '../../../assets/buyer-icons/venmo-logo.svg';
-import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
-import {OrderItemCard, OrderItemCardSkeleton, JoinerOrderCard} from '../../../components/OrderItemCard';
-import CaretDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
-import {getBuyerOrdersApi, getBuyerOrdersGroupedApi} from '../../../components/Api/orderManagementApi';
+import {OrderItemCardSkeleton} from '../../../components/OrderItemCard';
+import Toast from '../../../components/Toast/Toast';
+import BoardingPass, {PassConfirmSheet, PASS_COLORS} from './components/BoardingPass';
+import {
+  getBuyerOrdersApi,
+  getBuyerOrdersGroupedApi,
+  cancelPayToBoardOrderApi,
+} from '../../../components/Api/orderManagementApi';
 import {checkoutApi} from '../../../components/Api/checkoutApi';
 import {openPaymentSheet} from '../../../utils/openPaymentSheet';
 import NetInfo from '@react-native-community/netinfo';
@@ -17,17 +20,20 @@ import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
 import { createAndCapturePaypalOrder } from '../../../components/Api/paymentApi';
 import { filterPayToBoardGroups, filterGroupPlants, isPayToBoard } from '../../../utils/buyerOrderFiltering';
 import {
-  getCountryCode,
-  getCountryFlag,
-} from '../../../utils/buyerOrderCardTransform';
-import CustomAlert from '../../../components/CustomAlert/CustomAlert';
+  orderTotalOf,
+  flightDateOf,
+  originCodesOf,
+  toPassPlant,
+  maskUsername,
+  passSheetText,
+  PAY_TO_BOARD_ACTION,
+} from './payToBoardOrder';
 import {on} from '../../../services/notifications/notificationEvents';
 import {
   createPaymentProgressState,
   markPaymentInProgress,
   clearPaymentInProgress,
   isPaymentInProgress,
-  paymentProgressBannerText,
   loadPaymentProgress,
   savePaymentProgress,
 } from '../../../utils/paymentProgress';
@@ -53,10 +59,13 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
   const [error, setError] = useState(null);
   const [expandedTransactions, setExpandedTransactions] = useState(new Set());
   const [payingTransaction, setPayingTransaction] = useState(null);
-  // Which order the buyer tapped Pay on, while the confirmation dialog is up. The
-  // dialog is the app's own CustomAlert (frosted variant) rather than Alert.alert, so
-  // iOS and Android show the buyer the same confirmation.
-  const [confirmPayGroup, setConfirmPayGroup] = useState(null);
+  // The confirmation sheet that is up, if any: {type: 'pay' | 'cancel', group}. The sheet
+  // says exactly what will happen before the buyer commits to paying or cancelling.
+  const [sheet, setSheet] = useState(null);
+  // Orders being cancelled, by transaction number: 'cancelling' while the request runs (the
+  // pass tears), then 'cancelled' while it folds away before leaving the list.
+  const [cancelStatuses, setCancelStatuses] = useState({});
+  const [toastMessage, setToastMessage] = useState(null);
   // Transactions the buyer started paying for and that have not been confirmed yet. The payment
   // completes in the browser, so the app cannot know the outcome when the sheet closes - the
   // backend confirms it and pushes a "payment confirmed" notification. Until then the buyer sees
@@ -239,55 +248,6 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     }
   }, [plantOwnerFilter, allOrders, applyPlantOwnerFilter]);
 
-  // Transform API plant-level data to component expected format
-  const transformPlantToComponentFormat = (plant) => {
-    const plantDetails = plant.plantDetails || {};
-    const orderMeta = plant.order || {};
-
-    const fullOrderLike = {
-      ...orderMeta,
-      products: [plant]
-    };
-
-    return {
-      status: mapStatus(orderMeta.status || 'pending_payment'),
-      airCargoDate: plant.flightDateFormatted || orderMeta.flightDateFormatted || plant.flightDate || 'TBD',
-      countryCode: getCountryCode(plant),
-      flag: getCountryFlag(plant),
-      planeIcon: PlaneGrayIcon,
-      image: plantDetails?.imageCollectionWebp?.[0] ? { uri: plantDetails.imageCollectionWebp[0] } : (plantDetails?.image ? { uri: plantDetails.image } : (plantDetails?.imageCollection?.[0] ? { uri: plantDetails.imageCollection[0] } : require('../../../assets/images/plant1.png'))),
-      plantName: plantDetails?.title || plant.plantName || 'Unknown Plant',
-      variety: plant.variegation || plantDetails?.variegation || 'Standard',
-      size: plant.potSize || plantDetails?.potSize || '',
-      price: `$${((orderMeta.pricing?.finalTotal ?? plant.productTotal ?? plant.unitPrice) || 0).toFixed(2)}`,
-      quantity: plant.quantity || 1,
-      plantCode: plant.plantCode || '',
-      orderId: orderMeta.id,
-      transactionNumber: orderMeta.transactionNumber || orderMeta.id,
-      products: [plant],
-      fullOrderData: fullOrderLike,
-      // Include joiner order flags and info
-      isJoinerOrder: plant.isJoinerOrder || orderMeta.isJoinerOrder || false,
-      joinerInfo: plant.joinerInfo || orderMeta.joinerInfo || null,
-      buyerUid: plant.buyerUid || orderMeta.buyerUid || null,
-      _rawPlantRecord: plant
-    };
-  };
-
-  // Map backend status codes to friendly UI labels
-  const mapStatus = (status) => {
-    if (!status) return 'Pay to Board';
-    switch (status) {
-      case 'pending_payment':
-        return 'Pay to Board';
-      case 'ready_to_fly':
-        return 'Ready to Fly';
-      default:
-        // Fallback: convert snake_case to Title Case
-        return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    }
-  };
-
   // Toggle transaction expansion
   const toggleTransaction = (transactionNumber) => {
     setExpandedTransactions(prev => {
@@ -301,14 +261,9 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     });
   };
 
-  // Calculate total for a transaction group
-  const calculateTransactionTotal = (group) => {
-    return group.pricing?.finalTotal || group.finalTotal || 0;
-  };
-
   // Handle payment for transaction
   const handlePayTransaction = async (group) => {
-    const total = calculateTransactionTotal(group);
+    const total = orderTotalOf(group);
     const transactionNumber = group.transactionNumber;
     
     console.log('💳 Pay button clicked for existing transaction:', transactionNumber);
@@ -460,20 +415,95 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
     await loadOrders(false, true);
   };
 
-  const maskUsername = (username) => {
-    if (!username || username.length < 3) {
-      return ''; // Don't show for very short or empty usernames
+  const setCancelStatus = (transactionNumber, value) =>
+    setCancelStatuses(prev => {
+      const next = {...prev};
+      if (value) {
+        next[transactionNumber] = value;
+      } else {
+        delete next[transactionNumber];
+      }
+      return next;
+    });
+
+  // Cancel an unpaid order. The backend removes every plant on the transaction and gives back
+  // the credits and discount code checkout took. Only this pass shows the progress, so the
+  // rest of the list stays usable; on failure the pass goes back to how it was.
+  const handleCancelTransaction = async group => {
+    const transactionNumber = group.transactionNumber;
+    setCancelStatus(transactionNumber, 'cancelling');
+    try {
+      const result = await cancelPayToBoardOrderApi(transactionNumber);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      setCancelStatus(transactionNumber, 'cancelled');
+      setToastMessage('Order cancelled');
+    } catch (cancelError) {
+      console.error('❌ Cancel order error:', cancelError);
+      setCancelStatus(transactionNumber, null);
+      Alert.alert(
+        "Couldn't cancel the order",
+        cancelError.message || 'Check your connection and try again.',
+      );
     }
-    const firstChar = username[0];
-    const secondChar = username[1];
-    const lastChar = username.slice(-1);
-    const secondToTheLastChar = username.slice(-2, -1);
-    // Show first and last char, with up to 8 asterisks in between
-    const middle = '*'.repeat(Math.min(username.length - 2, 8));
-    return `@${firstChar}${secondChar}${middle}${secondToTheLastChar}${lastChar}`;
   };
 
-  const bannerText = paymentProgressBannerText(paymentInProgress.size);
+  // Once the cancelled pass has folded away, take it off the list without a reload; the
+  // passes below slide up into its place.
+  const removeCancelledPass = transactionNumber => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const keep = group => group.transactionNumber !== transactionNumber;
+    setAllOrders(prev => prev.filter(keep));
+    setOrders(prev => prev.filter(keep));
+    setCancelStatus(transactionNumber, null);
+  };
+
+  const renderSheet = () => {
+    if (!sheet) {
+      return null;
+    }
+    const {type, group} = sheet;
+    return {
+      ...passSheetText({
+        type,
+        group,
+        vaulted: !!vaultedPaymentId,
+        venmoUsername: maskUsername(vaultedPaymentUsername),
+      }),
+      confirmColor:
+        type === 'cancel'
+          ? PASS_COLORS.danger
+          : vaultedPaymentId
+            ? PASS_COLORS.venmo
+            : PASS_COLORS.leaf,
+      onConfirm: () =>
+        type === 'cancel' ? handleCancelTransaction(group) : handlePayTransaction(group),
+    };
+  };
+
+  // Pay or cancel confirmed on the order detail screen. Handlers are read from a ref so the
+  // listener isn't re-subscribed on every render.
+  const detailActionRef = useRef(null);
+  detailActionRef.current = ({type, transactionNumber}) => {
+    const group = orders.find(order => order.transactionNumber === transactionNumber);
+    if (group) {
+      type === 'cancel' ? handleCancelTransaction(group) : handlePayTransaction(group);
+    }
+  };
+  useEffect(() => on(PAY_TO_BOARD_ACTION, action => detailActionRef.current(action)), []);
+
+  // The order detail screen, for an order with more plants than the pass lists.
+  const openOrderDetail = (group, status) =>
+    navigation.navigate('PayToBoardOrderDetail', {
+      group,
+      status,
+      vaulted: !!vaultedPaymentId,
+      venmoUsername: maskUsername(vaultedPaymentUsername),
+    });
+
+  const sheetContent = renderSheet();
+  const ordersTotal = orders.reduce((sum, group) => sum + orderTotalOf(group), 0);
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.container}>
@@ -488,7 +518,7 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       ) : (
         <ScrollView
           style={{flex: 1}}
-          contentContainerStyle={{paddingTop: 8, paddingHorizontal: 1, paddingBottom: totalBottomPadding}}
+          contentContainerStyle={{paddingTop: 8, paddingBottom: totalBottomPadding}}
           scrollEventThrottle={400}
           onScroll={(event) => {
             const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
@@ -505,8 +535,8 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#10b981']}
-              tintColor="#10b981"
+              colors={[PASS_COLORS.leaf]}
+              tintColor={PASS_COLORS.leaf}
             />
           }>
           {error && (
@@ -520,144 +550,56 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
             </View>
           )}
 
-          {paymentInProgress.size > 0 && (
-            <View style={styles.paymentBanner}>
-              <View style={styles.paymentBannerIcon}>
-                <ActivityIndicator size="small" color="#0b6b3a" />
-              </View>
-              <View style={styles.paymentBannerTextWrap}>
-                <Text style={styles.paymentBannerTitle}>{bannerText.title}</Text>
-                <Text style={styles.paymentBannerBody}>{bannerText.body}</Text>
-              </View>
+          {/* ponytail: the sum only covers loaded pages, so it shows once every order is loaded.
+              Add a server-side total to the grouped API if buyers often have more than a page. */}
+          {orders.length > 0 && !hasMore && (
+            <View style={styles.summary}>
+              <Text style={styles.summaryLabel}>
+                {orders.length} {orders.length === 1 ? 'order' : 'orders'} waiting for payment
+              </Text>
+              <Text style={styles.summaryTotal}>${ordersTotal.toFixed(2)}</Text>
             </View>
           )}
 
           {orders.length === 0 && !error ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No Pay to Board orders found</Text>
+              <Text style={styles.emptyText}>Nothing to pay right now</Text>
               <Text style={styles.emptySubtext}>
-                Your pending Pay to Board orders will appear here
+                Orders waiting for payment show up here before their flight.
               </Text>
             </View>
           ) : (
             orders.map((group, groupIndex) => {
               const transactionNumber = group.transactionNumber || group.orderId || `group-${groupIndex}`;
-              const isExpanded = expandedTransactions.has(transactionNumber);
-              const total = calculateTransactionTotal(group);
-              const plantCount = group.plants?.length || 0;
-              // This order is waiting for the backend to confirm its payment: the Pay button
-              // stays disabled so the buyer cannot start a second payment for the same order.
+              // This order is waiting for the backend to confirm its payment: the stub shows
+              // that instead of the Pay button, so the buyer cannot pay or cancel it twice.
               const awaitingConfirmation = isPaymentInProgress(paymentInProgress, transactionNumber);
-              
-              return (
-                <View key={transactionNumber} style={styles.transactionGroup}>
-                  <View style={styles.transactionHeader}>
-                    <TouchableOpacity 
-                      style={styles.transactionHeaderContent}
-                      onPress={() => toggleTransaction(transactionNumber)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.transactionInfo}>
-                        <Text style={styles.transactionNumber}>
-                          TXN {transactionNumber}
-                        </Text>
-                        <Text style={styles.transactionTotal}>
-                          Total: ${total.toFixed(2)}
-                        </Text>
-                        <Text style={styles.transactionCount}>
-                          {plantCount} {plantCount === 1 ? 'plant' : 'plants'}
-                        </Text>
-                      </View>
-                      <View style={styles.transactionHeaderRight}>
-                        <CaretDownIcon 
-                          width={24} 
-                          height={24} 
-                          style={{transform: [{rotate: isExpanded ? '180deg' : '0deg'}]}}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    {!vaultedPaymentId && (<TouchableOpacity
-                      style={[
-                        styles.payButton,
-                        awaitingConfirmation && styles.payButtonDisabled,
-                      ]}
-                      onPress={() => setConfirmPayGroup(group)}
-                      activeOpacity={0.7}
-                      disabled={
-                        payingTransaction === group.transactionNumber ||
-                        awaitingConfirmation
-                      }
-                    >
-                      {payingTransaction === group.transactionNumber ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : awaitingConfirmation ? (
-                        <Text style={styles.payButtonText}>Payment in progress</Text>
-                      ) : (
-                        <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
-                      )}
-                    </TouchableOpacity>)}
+              const status =
+                cancelStatuses[transactionNumber] ||
+                (awaitingConfirmation
+                  ? 'confirming'
+                  : payingTransaction === group.transactionNumber
+                    ? 'paying'
+                    : 'idle');
 
-                    {vaultedPaymentId && (<TouchableOpacity
-                      style={[
-                        styles.payButton,
-                        awaitingConfirmation && styles.payButtonDisabled,
-                      ]}
-                      onPress={() => setConfirmPayGroup(group)}
-                      activeOpacity={0.7}
-                      disabled={
-                        payingTransaction === group.transactionNumber ||
-                        awaitingConfirmation
-                      }
-                    >
-                      {payingTransaction === group.transactionNumber ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : awaitingConfirmation ? (
-                        <Text style={styles.payButtonText}>Payment in progress</Text>
-                      ) : (
-                        <View style={styles.venmoButtonContent}>
-                          <View style={styles.venmoFirstLine}>
-                            <Text style={styles.venmoButtonText}>Pay ${total.toFixed(2)} with </Text>
-                            <VenmoLogoIcon width={51} height={13} />
-                          </View>
-                          {vaultedPaymentUsername && (
-                            <View style={styles.venmoFirstLine}>
-                              <Text style={styles.venmoUsernameText}> {maskUsername(vaultedPaymentUsername)}</Text>
-                            </View>
-                          )}
-                        </View>
-                        // <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
-                      )}
-                    </TouchableOpacity>)}
-                  </View>
-                  
-                  {isExpanded && group.plants && group.plants.length > 0 && (
-                    <View style={styles.transactionPlants}>
-                      {group.plants.map((plant, index) => {
-                        const plantData = transformPlantToComponentFormat({
-                          ...plant,
-                          order: group
-                        });
-                        // Check if this is a joiner order
-                        const isJoinerOrder = plantData.isJoinerOrder || group.isJoinerOrder || false;
-                        
-                        return isJoinerOrder ? (
-                          <JoinerOrderCard 
-                            key={`${plant.plantCode}_${index}`} 
-                            {...plantData}
-                            joinerInfo={plantData.joinerInfo || group.joinerInfo}
-                            activeTab="Pay to Board" 
-                          />
-                        ) : (
-                          <OrderItemCard 
-                            key={`${plant.plantCode}_${index}`} 
-                            {...plantData}
-                            activeTab="Pay to Board" 
-                          />
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
+              return (
+                <BoardingPass
+                  key={transactionNumber}
+                  originCodes={originCodesOf(group)}
+                  flightDate={flightDateOf(group)}
+                  plants={(group.plants || []).map(toPassPlant)}
+                  total={orderTotalOf(group)}
+                  transactionNumber={transactionNumber}
+                  expanded={expandedTransactions.has(transactionNumber)}
+                  onToggle={() => toggleTransaction(transactionNumber)}
+                  status={status}
+                  vaulted={!!vaultedPaymentId}
+                  venmoUsername={maskUsername(vaultedPaymentUsername)}
+                  onPay={() => setSheet({type: 'pay', group})}
+                  onCancel={() => setSheet({type: 'cancel', group})}
+                  onRemoved={() => removeCancelledPass(transactionNumber)}
+                  onSeeAll={() => openOrderDetail(group, status)}
+                />
               );
             })
           )
@@ -674,67 +616,50 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
         </ScrollView>
       )}
 
-      {/* Payment confirmation — the app's own dialog, so iOS and Android show the buyer
-          the same thing. `Yes` runs the same handler the native alert used to (open the
-          payment sheet, or capture the vaulted charge); the seam already waits out a
-          dismissal animation before it presents, so a dialog closing first is fine. */}
-      <CustomAlert
-        visible={!!confirmPayGroup}
-        variant="frosted"
-        title="Are you sure?"
-        buttons={[
-          {text: 'No', style: 'cancel'},
-          {
-            text: 'Yes',
-            onPress: () => confirmPayGroup && handlePayTransaction(confirmPayGroup),
-          },
-        ]}
-        onDismiss={() => setConfirmPayGroup(null)}
+      {/* The sheet closes before the action runs; openPaymentSheet already waits out a
+          dismissal animation before it presents, so the payment page opens cleanly. */}
+      <PassConfirmSheet
+        visible={!!sheetContent}
+        {...sheetContent}
+        onConfirm={() => {
+          const confirm = sheetContent?.onConfirm;
+          setSheet(null);
+          confirm?.();
+        }}
+        onClose={() => setSheet(null)}
+      />
+
+      <Toast
+        visible={!!toastMessage}
+        message={toastMessage}
+        onHide={() => setToastMessage(null)}
       />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  venmoButton: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 12,
-      backgroundColor: '#0074DE', // Venmo Blue
-      borderRadius: 12,
-      flex: 1,
-  },
-  venmoButtonDisabled: {
-      backgroundColor: '#A9B3B7', // A muted gray for the disabled state
-  },
-  venmoButtonContent: {
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-  },
-  venmoFirstLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  venmoButtonText: {
-      color: '#FFFFFF',
-      fontSize: 14,
-      fontWeight: 'bold',
-      marginRight: 8,
-      fontStyle: 'italic',
-  },
-  venmoUsernameText: {
-      color: '#FFFFFF',
-      fontSize: 12,
-      fontWeight: '500',
-      marginLeft: 0,
-      marginTop: 4,
-  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: PASS_COLORS.screen,
+  },
+  summary: {
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 12,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: PASS_COLORS.slate,
+    fontFamily: 'Inter',
+  },
+  summaryTotal: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    color: PASS_COLORS.ink,
+    fontFamily: 'Inter',
+    fontVariant: ['tabular-nums'],
   },
   errorContainer: {
     margin: 16,
@@ -743,40 +668,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#fecaca',
-  },
-  // The payment is made in the browser, so the app cannot show the outcome straight away. The
-  // banner says so instead of leaving the buyer looking at a pending order.
-  paymentBanner: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#ecfdf5',
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  paymentBannerIcon: {
-    marginRight: 12,
-    paddingTop: 2,
-  },
-  paymentBannerTextWrap: {
-    flex: 1,
-  },
-  paymentBannerTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0b6b3a',
-    fontFamily: 'Inter',
-    marginBottom: 3,
-  },
-  paymentBannerBody: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#3f6212',
-    fontFamily: 'Inter',
   },
   errorText: {
     fontSize: 14,
@@ -816,73 +707,6 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontFamily: 'Inter',
     textAlign: 'center',
-  },
-  transactionGroup: {
-    marginBottom: 8,
-  },
-  transactionHeader: {
-    backgroundColor: '#F3F3F5',
-    borderRadius: 12,
-    marginHorizontal: 8,
-    marginVertical: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  transactionHeaderContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  transactionHeaderRight: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    fontFamily: 'Inter',
-    marginBottom: 4,
-  },
-  transactionTotal: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#10b981',
-    fontFamily: 'Inter',
-    marginBottom: 2,
-  },
-  transactionCount: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontFamily: 'Inter',
-  },
-  transactionPlants: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginHorizontal: 8,
-    marginBottom: 8,
-  },
-  payButton: {
-    backgroundColor: '#10b981',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  payButtonDisabled: {
-    backgroundColor: '#a7f3d0',
-  },
-  payButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    fontFamily: 'Inter',
   },
 });
 

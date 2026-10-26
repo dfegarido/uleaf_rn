@@ -357,6 +357,7 @@ GET_ORDER_FOR_RECEIVING: `${getSupabaseBaseUrl()}/order-for-receiving`,
   // the app shows "No Ready to Fly orders" for an order that exists.
   GET_BUYER_ORDERS: `${getStagingSupabaseBaseUrl()}/buyer-orders`,
   GET_BUYER_ORDERS_GROUPED: `${getStagingSupabaseBaseUrl()}/buyer-orders-grouped`,
+  CANCEL_PAY_TO_BOARD_ORDER: `${getSupabaseBaseUrl()}/buyer-cancel-order`,
   GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
   GET_ADMIN_ORDERS: `${getSupabaseBaseUrl()}/admin-orders`,
   GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
