@@ -1,6 +1,7 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { TabView } from 'react-native-tab-view';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Wishicon from '../../../assets/buyer-icons/wish-list.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -300,12 +301,23 @@ const OrdersHeader = ({activeTab, setActiveTab, plantOwnerFilter, setPlantOwnerF
   );
 };
 
+const TAB_SCREENS = {
+  'Pay to Board': ScreenPayToBoard,
+  'Ready to Fly': ScreenReadyToFly,
+  'Needs to Stay': ScreenNeedsToStay,
+  'Plants are Home': ScreenPlantsAreHome,
+  'Journey Mishap': ScreenJourneyMishap,
+};
+const TAB_ROUTES = Object.keys(TAB_SCREENS).map(key => ({key}));
+
 const ScreenOrders = () => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
+  const layout = useWindowDimensions();
   const [activeTab, setActiveTab] = useState('Ready to Fly');
   const [plantOwnerFilter, setPlantOwnerFilter] = useState(null); // buyerUid or null for 'All'
-  const [buyerList, setBuyerList] = useState([]); // List of buyers who have orders
+  // The buyers who have orders, per tab - the plant owner filter lists the active tab's.
+  const [buyersByTab, setBuyersByTab] = useState({});
   const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT_FALLBACK);
 
   // Set initial tab from navigation params if provided
@@ -316,30 +328,24 @@ const ScreenOrders = () => {
   }, [route.params?.initialTab]);
 
   // Pass through route params to child screens for refresh functionality
-  const getChildScreenProps = () => ({
-    route: {
-      params: route.params
-    }
-  });
+  const childRoute = {params: route.params};
 
-  const renderActiveScreen = () => {
-    const childProps = getChildScreenProps();
-    
-    switch (activeTab) {
-      case 'Ready to Fly':
-        return <ScreenReadyToFly {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
-      case 'Pay to Board':
-        return <ScreenPayToBoard {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
-      case 'Needs to Stay':
-        return <ScreenNeedsToStay {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
-      case 'Plants are Home':
-        return <ScreenPlantsAreHome {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
-      case 'Journey Mishap':
-        return <ScreenJourneyMishap {...childProps} plantOwnerFilter={plantOwnerFilter} onBuyersLoaded={setBuyerList} />;
-      default:
-        return <ScreenPayToBoard {...childProps} />;
-    }
+  // The tabs slide (react-native-tab-view) and, once opened, stay mounted: coming back to a
+  // tab shows the orders it already loaded instead of fetching them again. Pull to refresh,
+  // refreshData params and payment pushes still refresh them. `lazy` loads a tab only when
+  // it is first opened.
+  const renderScene = ({route: tab}) => {
+    const Screen = TAB_SCREENS[tab.key];
+    return (
+      <Screen
+        route={childRoute}
+        plantOwnerFilter={plantOwnerFilter}
+        onBuyersLoaded={buyers => setBuyersByTab(prev => ({...prev, [tab.key]: buyers}))}
+      />
+    );
   };
+
+  const tabIndex = Math.max(0, TAB_ROUTES.findIndex(tab => tab.key === activeTab));
 
   return (
     <SafeAreaView style={[styles.container]}>
@@ -348,13 +354,20 @@ const ScreenOrders = () => {
         setActiveTab={setActiveTab}
         plantOwnerFilter={plantOwnerFilter}
         setPlantOwnerFilter={setPlantOwnerFilter}
-        buyerList={buyerList}
+        buyerList={buyersByTab[activeTab] || []}
         onHeaderLayout={(height) => setHeaderHeight(height)}
       />
       
-      {/* Content area with dynamic screen based on active tab */}
       <View style={[styles.contentContainer, { paddingTop: Math.max(0, headerHeight - insets.top) }]}>
-        {renderActiveScreen()}
+        <TabView
+          navigationState={{index: tabIndex, routes: TAB_ROUTES}}
+          renderScene={renderScene}
+          onIndexChange={index => setActiveTab(TAB_ROUTES[index].key)}
+          renderTabBar={() => null}
+          swipeEnabled={false}
+          lazy
+          initialLayout={{width: layout.width}}
+        />
       </View>
     </SafeAreaView>
   );

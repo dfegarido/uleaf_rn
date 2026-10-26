@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useRoute } from '@react-navigation/native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import PlaneGrayIcon from '../../../assets/buyer-icons/plane-gray.svg';
@@ -8,6 +8,7 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { getBuyerOrdersApi, exportBuyerOrdersApi } from '../../../components/Api/orderManagementApi';
 import { JoinerOrderCard, OrderItemCard, OrderItemCardSkeleton } from '../../../components/OrderItemCard';
 import { filterByPlantOwner, isReadyToFly, getBuyerUid } from '../../../utils/buyerOrderFiltering';
+import { on } from '../../../services/notifications/notificationEvents';
 import {
   getCountryCode,
   getCountryFlag,
@@ -241,6 +242,13 @@ const ScreenReadyToFly = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       loadOrders(true); // Force refresh
     }
   }, [route.params?.refreshData]);
+
+  // The Orders tabs stay mounted once visited, so this list doesn't refetch when the buyer comes
+  // back to it. A payment confirmed meanwhile adds an order here, so reload on that push - the
+  // same event Pay to Board listens to. loadOrders is not memoized, so it is kept in a ref.
+  const loadOrdersRef = useRef(loadOrders);
+  loadOrdersRef.current = loadOrders;
+  useEffect(() => on('payment_confirmed', () => loadOrdersRef.current(true)), []);
 
   // Pull to refresh
   const onRefresh = async () => {
