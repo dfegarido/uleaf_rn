@@ -22,6 +22,7 @@ const PackingTrayCard = ({
     sortedCount: tray.sortedCount ?? 0,
     boxAssignedCount: tray.boxAssignedCount ?? 0,
     needsBoxCount: tray.needsBoxCount ?? 0,
+    needsToStayCount: tray.needsToStayCount ?? 0,
   };
 
   const tint = tray.trayColor || (tray.isComplete ? '#DFF5E6' : '#FFF3E0');

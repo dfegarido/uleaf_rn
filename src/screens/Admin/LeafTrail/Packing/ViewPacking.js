@@ -38,12 +38,18 @@ import AssignBoxModal from './AssignBoxModal';
 import PackingSelectionFooter from './PackingSelectionFooter';
 import PackingTraySummary from './PackingTraySummary';
 import TagAsOptions from './TagAs';
-import { computePackingTrayMetrics } from '../../../../utils/packingTrayMetrics';
+import {
+  computePackingTrayMetrics,
+  isPackingNeedsToStay,
+  normalizeLeafTrailStatus,
+} from '../../../../utils/packingTrayMetrics';
 import { resolveCanonicalReceiverBoxNumber } from '../../../../utils/receiverBoxNumber';
 import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 
-const isAssignableForBox = (plant) =>
+/** Packed, and still waiting for box details. Unpacked plants stay off the boxing selection. */
+const isPackedAwaitingBox = (plant) =>
+  normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'packed' &&
   !String(plant?.packingData?.boxNumber || '').trim();
 
 const Header = ({ title, navigation, scanQrParams }) => {
@@ -125,7 +131,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
   const isPacked = plant?.leafTrailStatus === 'packed';
   const packedDate = isPacked ? formatPackedDate(plant) : '';
   const setTags = () => {
-    openTagAs(boxNumber || null, plant.id);
+    openTagAs(boxNumber || null, plant.id, isPackedAwaitingBox(plant));
   };
 
   return (
@@ -149,6 +155,18 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
           <View style={styles.packedBadgeContainer}>
             <View style={styles.packedBadge}>
               <Text style={styles.packedBadgeText}>PACKED</Text>
+            </View>
+          </View>
+        ) : null}
+        {!isPacked && isPackingNeedsToStay(plant) ? (
+          <View style={styles.packedBadgeContainer}>
+            <View style={styles.statusStack}>
+              <View style={styles.sortedBadge}>
+                <Text style={styles.sortedBadgeText}>SORTED</Text>
+              </View>
+              <View style={styles.stayBadge}>
+                <Text style={styles.stayBadgeText}>Needs to Stay</Text>
+              </View>
             </View>
           </View>
         ) : null}
@@ -212,6 +230,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const [plantList, setPlantList] = useState([]);
   const [isTagAsVisible, setTagAsVisible] = useState(false);
   const [hasBoxNumber, setHasBoxNumber] = useState(false);
+  const [canBoxPlant, setCanBoxPlant] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAssignBoxVisible, setIsAssignBoxVisible] = useState(false);
@@ -236,7 +255,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
   );
 
   const assignablePlants = useMemo(
-    () => plantList.filter(isAssignableForBox),
+    () => plantList.filter(isPackedAwaitingBox),
     [plantList],
   );
 
@@ -244,8 +263,9 @@ const ViewPackingScreen = ({ navigation, route }) => {
     assignablePlants.length > 0 &&
     assignablePlants.every((p) => selectedPlants.includes(p.id));
 
-  const openTagAs = (hasBox, id) => {
+  const openTagAs = (hasBox, id, canBox = false) => {
     setHasBoxNumber(!!hasBox);
+    setCanBoxPlant(Boolean(canBox));
     setTagAsVisible(!isTagAsVisible);
     setOrderId(id)
   }
@@ -303,14 +323,18 @@ const ViewPackingScreen = ({ navigation, route }) => {
   };
 
   const handleSaveBox = async (boxDetails) => {
-    const ids =
+    const candidateIds =
       selectedPlants.length > 0
         ? selectedPlants
         : orderId
           ? [orderId]
           : [];
+    const ids = candidateIds.filter((id) => {
+      const plant = plantList.find((p) => p.id === id);
+      return plant && isPackedAwaitingBox(plant);
+    });
     if (!ids.length) {
-      Alert.alert('No plants selected', 'Select at least one plant to assign a box number.');
+      Alert.alert('Packed plants only', 'Box details can only be saved for plants marked packed.');
       return;
     }
 
@@ -335,6 +359,8 @@ const ViewPackingScreen = ({ navigation, route }) => {
   };
 
   const handleSelectPlant = (plantId) => {
+    const plant = plantList.find((p) => p.id === plantId);
+    if (!plant || !isPackedAwaitingBox(plant)) return;
     setSelectedPlants((prev) =>
       prev.includes(plantId)
         ? prev.filter((id) => id !== plantId)
@@ -351,9 +377,16 @@ const ViewPackingScreen = ({ navigation, route }) => {
   };
 
   const openAssignSheet = () => {
-    if (!selectedPlants.length) {
-      Alert.alert('Select plants', 'Check one or more plants without a box number first.');
+    const packedIds = selectedPlants.filter((id) => {
+      const plant = plantList.find((p) => p.id === id);
+      return plant && isPackedAwaitingBox(plant);
+    });
+    if (!packedIds.length) {
+      Alert.alert('Select packed plants', 'Select plants marked packed before adding box details.');
       return;
+    }
+    if (packedIds.length !== selectedPlants.length) {
+      setSelectedPlants(packedIds);
     }
     setIsAssignBoxVisible(true);
   };
@@ -483,8 +516,11 @@ const ViewPackingScreen = ({ navigation, route }) => {
                 <Text style={styles.sectionTitle}>Plant List</Text>
                 <Text style={styles.plantListCount}>
                   {plantList.length} plant(s)
-                  {assignablePlants.length < plantList.length
+                  {assignablePlants.length > 0 && assignablePlants.length < plantList.length
                     ? ` · ${assignablePlants.length} need box`
+                    : ''}
+                  {trayMetrics.needsToStayCount > 0
+                    ? ` · ${trayMetrics.needsToStayCount} needs to stay`
                     : ''}
                 </Text>
             </View>
@@ -497,7 +533,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
                         plant={plant}
                         isSelected={selectedPlants.includes(plant.id)}
                         onSelect={handleSelectPlant}
-                        canSelect={isAssignableForBox(plant)}
+                        canSelect={isPackedAwaitingBox(plant)}
                     />
                 )}
                 scrollEnabled={false} // Disable FlatList's own scrolling
@@ -508,6 +544,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
       <TagAsOptions visible={isTagAsVisible}
         setTagAs={setTagAs}
         hasBox={hasBoxNumber}
+        canBox={canBoxPlant}
         boxActionTitle={hubSpecEnabled ? 'Box details' : 'Assign a box'}
         onClose={() => setTagAsVisible(false)}/>
 
@@ -861,6 +898,34 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontWeight: '700',
     fontSize: 14,
+  },
+  statusStack: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  sortedBadge: {
+    backgroundColor: '#FDE8F0',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  sortedBadgeText: {
+    color: '#C2185B',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  stayBadge: {
+    backgroundColor: '#F06BC4',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  stayBadgeText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 12,
   },
   packedDateBadge: {
     position: 'absolute',

@@ -12,6 +12,7 @@ const PackingTraySummary = ({ metrics, variant = 'inline' }) => {
     sortedCount = 0,
     boxAssignedCount = 0,
     needsBoxCount = 0,
+    needsToStayCount = 0,
   } = metrics || {};
 
   if (variant === 'card') {
@@ -37,6 +38,12 @@ const PackingTraySummary = ({ metrics, variant = 'inline' }) => {
           <Text style={styles.cardLine}>
             <Text style={styles.cardLabel}>To scan </Text>
             <Text style={styles.cardValueWarn}>{sortedCount}</Text>
+          </Text>
+        ) : null}
+        {needsToStayCount > 0 ? (
+          <Text style={styles.cardLine}>
+            <Text style={styles.cardLabel}>Needs to stay </Text>
+            <Text style={styles.cardValueStay}>{needsToStayCount}</Text>
           </Text>
         ) : null}
       </View>
@@ -76,6 +83,15 @@ const PackingTraySummary = ({ metrics, variant = 'inline' }) => {
             <View style={styles.cell}>
               <Text style={[styles.value, styles.valueOrange]}>{needsBoxCount}</Text>
               <Text style={styles.label}>need box #</Text>
+            </View>
+          </>
+        ) : null}
+        {needsToStayCount > 0 ? (
+          <>
+            <View style={styles.sep} />
+            <View style={styles.cell}>
+              <Text style={[styles.value, styles.valueStay]}>{needsToStayCount}</Text>
+              <Text style={styles.label}>needs to stay</Text>
             </View>
           </>
         ) : null}
@@ -127,6 +143,13 @@ const styles = StyleSheet.create({
   },
   valueOrange: {
     color: '#F57C00',
+  },
+  valueStay: {
+    color: '#E0489F',
+  },
+  cardValueStay: {
+    fontWeight: '700',
+    color: '#E0489F',
   },
   label: {
     fontSize: 11,

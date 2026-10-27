@@ -53,6 +53,7 @@ const TagAsOptions = ({
   onClose,
   setTagAs,
   hasBox = false,
+  canBox = true,
   boxActionTitle = 'Assign a box',
 }) => {
   const insets = useSafeAreaInsets();
@@ -81,7 +82,7 @@ const TagAsOptions = ({
           </View>
 
           <View style={styles.content}>
-            {!hasBox && (
+            {!hasBox && canBox && (
               <View>
                 <OptionItem
                   isBoxIcon

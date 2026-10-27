@@ -32,7 +32,7 @@ const PackingSelectionFooter = ({
       <View style={styles.selectAllRow}>
         <CheckBox isChecked={isAllSelected} onToggle={onSelectAll} />
         <Text style={styles.selectAllText}>
-          Select all ({assignableCount})
+          Select all packed ({assignableCount})
         </Text>
       </View>
 

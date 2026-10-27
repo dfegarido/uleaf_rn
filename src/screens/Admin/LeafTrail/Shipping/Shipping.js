@@ -269,7 +269,7 @@ const ShippingScreen = ({ navigation }) => {
           key="shipping-box-grid"
           data={boxes}
           numColumns={2}
-          keyExtractor={(item) => String(item.boxNumber || item.id)}
+          keyExtractor={(item) => String(item.id || item.buyerUid || item.boxNumber)}
           columnWrapperStyle={styles.receiverBoxesRow}
           renderItem={({ item }) => (
             <ShippingBoxCard
@@ -288,7 +288,7 @@ const ShippingScreen = ({ navigation }) => {
       ) : (
         <FlatList
           data={boxes}
-          keyExtractor={(item) => String(item.boxNumber || item.id)}
+          keyExtractor={(item) => String(item.id || item.buyerUid || item.boxNumber)}
           renderItem={({ item }) => <ShippingListItem item={item} navigation={navigation} />}
           ListHeaderComponent={listHeader}
           ItemSeparatorComponent={() => <View style={{ height: 6 }} />}
