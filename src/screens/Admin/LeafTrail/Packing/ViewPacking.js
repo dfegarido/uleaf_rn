@@ -47,10 +47,25 @@ import { resolveCanonicalReceiverBoxNumber } from '../../../../utils/receiverBox
 import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import { getAdminHeaderTopPadding } from '../../../../utils/adminHeaderInsets';
 
-/** Packed, and still waiting for box details. Unpacked plants stay off the boxing selection. */
+const isPackedPlant = (plant) =>
+  normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'packed';
+
+/** Packed, and still waiting for box details. Select all packed uses this. */
 const isPackedAwaitingBox = (plant) =>
-  normalizeLeafTrailStatus(plant?.leafTrailStatus) === 'packed' &&
-  !String(plant?.packingData?.boxNumber || '').trim();
+  isPackedPlant(plant) && !String(plant?.packingData?.boxNumber || '').trim();
+
+/** Any plant the admin can tick, including ones that already have a box number. */
+const canTickPlant = (plant) => !isPackingNeedsToStay(plant);
+
+const leafTrailStatusLabel = (plant) => {
+  const key = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  if (key === 'packed') return 'PACKED';
+  if (key === 'sorted') return 'SORTED';
+  if (key === 'needstostay') return 'Needs to Stay';
+  if (key === 'forreceiving') return 'For Receiving';
+  const raw = String(plant?.leafTrailStatus || '').trim();
+  return raw.replace(/([a-z])([A-Z])/g, '$1 $2');
+};
 
 const Header = ({ title, navigation, scanQrParams }) => {
   const insets = useSafeAreaInsets();
@@ -95,7 +110,7 @@ const TrayInfo = ({ trayNumber, label }) => (
 
 const UserInfo = ({ user }) => (
   <View style={styles.userCard}>
-    <AppImage source={{ uri: user.avatar }} style={styles.userAvatar} />
+    <AppImage source={{ uri: user.avatar }} style={styles.userAvatar} resizeWidth={96} />
     <View style={styles.userDetails}>
       <View style={styles.userNameRow}>
         <Text style={styles.userName}>{user.name}</Text>
@@ -126,9 +141,11 @@ const formatPackedDate = (plant) => {
   return date.isValid() ? date.format('M/D/YYYY') : '';
 };
 
-const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
+const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
   const boxNumber = String(plant?.packingData?.boxNumber || '').trim();
-  const isPacked = plant?.leafTrailStatus === 'packed';
+  const isPacked = isPackedPlant(plant);
+  const needsToStay = isPackingNeedsToStay(plant);
+  const statusLabel = leafTrailStatusLabel(plant);
   const packedDate = isPacked ? formatPackedDate(plant) : '';
   const setTags = () => {
     openTagAs(boxNumber || null, plant.id, isPackedAwaitingBox(plant));
@@ -138,7 +155,7 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
   <View style={styles.plantCardContainer}>
     {plant?.isJoinerOrder && (
       <View style={styles.joinerUserRow}>
-        <AppImage source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} />
+        <AppImage source={{ uri: plant?.joinerProfileImage || '' }} style={styles.joinerAvatar} resizeWidth={64} />
         <View>
           <View style={styles.joinerUserNameRow}>
             <Text style={styles.joinerUserName}>{(plant?.joinerInfo?.joinerFirstName || '') + ' ' + (plant?.joinerInfo?.joinerLastName || '')}</Text>
@@ -150,15 +167,8 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
     )}
     <View style={styles.plantCard}>
       <View>
-        <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} />
-        {isPacked && !boxNumber ? (
-          <View style={styles.packedBadgeContainer}>
-            <View style={styles.packedBadge}>
-              <Text style={styles.packedBadgeText}>PACKED</Text>
-            </View>
-          </View>
-        ) : null}
-        {!isPacked && isPackingNeedsToStay(plant) ? (
+        <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} resizeWidth={192} />
+        {needsToStay ? (
           <View style={styles.packedBadgeContainer}>
             <View style={styles.statusStack}>
               <View style={styles.sortedBadge}>
@@ -167,6 +177,14 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
               <View style={styles.stayBadge}>
                 <Text style={styles.stayBadgeText}>Needs to Stay</Text>
               </View>
+            </View>
+          </View>
+        ) : statusLabel ? (
+          <View style={styles.packedBadgeContainer}>
+            <View style={[styles.packedBadge, !isPacked && styles.sortedBadge]}>
+              <Text style={[styles.packedBadgeText, !isPacked && styles.sortedBadgeText]}>
+                {statusLabel}
+              </Text>
             </View>
           </View>
         ) : null}
@@ -220,7 +238,9 @@ const PlantCard = ({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
       </View>
     </View>
   </View>
-)};
+)});
+
+const PlantSeparator = () => <View style={{ height: 6 }} />;
 
 const ViewPackingScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
@@ -254,21 +274,32 @@ const ViewPackingScreen = ({ navigation, route }) => {
     [item, plantList],
   );
 
-  const assignablePlants = useMemo(
+  const needsBoxPlants = useMemo(
     () => plantList.filter(isPackedAwaitingBox),
+    [plantList],
+  );
+
+  const assignablePlants = useMemo(
+    () => plantList.filter(isPackedPlant),
+    [plantList],
+  );
+
+  const selectedSet = useMemo(() => new Set(selectedPlants), [selectedPlants]);
+  const plantById = useMemo(
+    () => new Map(plantList.map((p) => [p.id, p])),
     [plantList],
   );
 
   const isAllSelected =
     assignablePlants.length > 0 &&
-    assignablePlants.every((p) => selectedPlants.includes(p.id));
+    assignablePlants.every((p) => selectedSet.has(p.id));
 
-  const openTagAs = (hasBox, id, canBox = false) => {
+  const openTagAs = useCallback((hasBox, id, canBox = false) => {
     setHasBoxNumber(!!hasBox);
     setCanBoxPlant(Boolean(canBox));
-    setTagAsVisible(!isTagAsVisible);
-    setOrderId(id)
-  }
+    setTagAsVisible((visible) => !visible);
+    setOrderId(id);
+  }, []);
 
   const setTagAs = async (status) => {
     if (status === 'packing') {
@@ -331,7 +362,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
           : [];
     const ids = candidateIds.filter((id) => {
       const plant = plantList.find((p) => p.id === id);
-      return plant && isPackedAwaitingBox(plant);
+      return plant && isPackedPlant(plant);
     });
     if (!ids.length) {
       Alert.alert('Packed plants only', 'Box details can only be saved for plants marked packed.');
@@ -358,15 +389,28 @@ const ViewPackingScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleSelectPlant = (plantId) => {
-    const plant = plantList.find((p) => p.id === plantId);
-    if (!plant || !isPackedAwaitingBox(plant)) return;
+  const handleSelectPlant = useCallback((plantId) => {
+    const plant = plantById.get(plantId);
+    if (!plant || !canTickPlant(plant)) return;
     setSelectedPlants((prev) =>
       prev.includes(plantId)
         ? prev.filter((id) => id !== plantId)
         : [...prev, plantId],
     );
-  };
+  }, [plantById]);
+
+  const renderPlant = useCallback(
+    ({ item: plant }) => (
+      <PlantCard
+        openTagAs={openTagAs}
+        plant={plant}
+        isSelected={selectedSet.has(plant.id)}
+        onSelect={handleSelectPlant}
+        canSelect={canTickPlant(plant)}
+      />
+    ),
+    [openTagAs, selectedSet, handleSelectPlant],
+  );
 
   const handleSelectAll = () => {
     if (isAllSelected) {
@@ -379,7 +423,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const openAssignSheet = () => {
     const packedIds = selectedPlants.filter((id) => {
       const plant = plantList.find((p) => p.id === id);
-      return plant && isPackedAwaitingBox(plant);
+      return plant && isPackedPlant(plant);
     });
     if (!packedIds.length) {
       Alert.alert('Select packed plants', 'Select plants marked packed before adding box details.');
@@ -471,11 +515,22 @@ const ViewPackingScreen = ({ navigation, route }) => {
       ) : (
         <Header title="Tray Details" navigation={navigation} scanQrParams={trayScanParams} />
       )}
-      <ScrollView
+      <FlatList
+        data={plantList}
+        keyExtractor={(plant) => String(plant.id)}
+        renderItem={renderPlant}
+        extraData={selectedSet}
+        ItemSeparatorComponent={PlantSeparator}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         contentContainerStyle={[
           styles.scrollContent,
           selectedPlants.length > 0 && { paddingBottom: 200 + insets.bottom },
-        ]}>
+        ]}
+        ListHeaderComponent={
+        <>
         <TrayInfo
           trayNumber={canonicalReceiverBoxNumber || packingDetails.sortingTrayNumber}
           label={hubSpecEnabled ? 'Receiver Box Number' : 'Tray Number'}
@@ -516,31 +571,18 @@ const ViewPackingScreen = ({ navigation, route }) => {
                 <Text style={styles.sectionTitle}>Plant List</Text>
                 <Text style={styles.plantListCount}>
                   {plantList.length} plant(s)
-                  {assignablePlants.length > 0 && assignablePlants.length < plantList.length
-                    ? ` · ${assignablePlants.length} need box`
+                  {needsBoxPlants.length > 0 && needsBoxPlants.length < plantList.length
+                    ? ` · ${needsBoxPlants.length} need box`
                     : ''}
                   {trayMetrics.needsToStayCount > 0
                     ? ` · ${trayMetrics.needsToStayCount} needs to stay`
                     : ''}
                 </Text>
             </View>
-            <FlatList
-                data={plantList}
-                keyExtractor={(plant) => plant.id.toString()}
-                renderItem={({ item: plant }) => (
-                    <PlantCard
-                        openTagAs={openTagAs}
-                        plant={plant}
-                        isSelected={selectedPlants.includes(plant.id)}
-                        onSelect={handleSelectPlant}
-                        canSelect={isPackedAwaitingBox(plant)}
-                    />
-                )}
-                scrollEnabled={false} // Disable FlatList's own scrolling
-                ItemSeparatorComponent={() => <View style={{height: 6}} />}
-            />
         </View>
-      </ScrollView>
+        </>
+        }
+      />
       <TagAsOptions visible={isTagAsVisible}
         setTagAs={setTagAs}
         hasBox={hasBoxNumber}

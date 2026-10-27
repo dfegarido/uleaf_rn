@@ -12,11 +12,13 @@ import { View,
   Alert,
   ActivityIndicator,
   Image,
+  Modal,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import EditIcon from '../../../assets/admin-icons/edit.svg';
-import {updateAdminApi} from '../../../components/Api';
+import TrashIcon from '../../../assets/icons/greydark/trash-regular.svg';
+import {updateAdminApi, deleteAdminApi} from '../../../components/Api';
 
 const EditAdmin = () => {
   const navigation = useNavigation();
@@ -24,6 +26,7 @@ const EditAdmin = () => {
   const {admin} = route.params || {};
 
   const [loading, setLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [formData, setFormData] = useState({
     firstName: admin?.firstName || '',
     lastName: admin?.lastName || '',
@@ -108,6 +111,24 @@ const EditAdmin = () => {
     Alert.alert('Edit Avatar', 'Avatar editing functionality coming soon');
   };
 
+  const confirmDelete = async () => {
+    setShowDeleteModal(false);
+    setLoading(true);
+    try {
+      const adminId = admin.adminId || admin.uid || admin.id;
+      const response = await deleteAdminApi(adminId);
+      Alert.alert(
+        'Removed',
+        response.message || `${formData.firstName} ${formData.lastName} has been removed.`,
+        [{text: 'OK', onPress: () => navigation.goBack()}],
+      );
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Could not remove this admin.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -120,6 +141,14 @@ const EditAdmin = () => {
             <BackIcon width={24} height={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Admin</Text>
+          <View style={styles.navbarRight}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setShowDeleteModal(true)}
+              disabled={loading}>
+              <TrashIcon width={24} height={24} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -244,6 +273,37 @@ const EditAdmin = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.popover}>
+              <View style={styles.textSection}>
+                <Text style={styles.modalTitle}>Remove admin</Text>
+                <Text style={styles.modalMessage}>
+                  Remove {formData.firstName} {formData.lastName}? They will no longer be able to sign in as an admin.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={confirmDelete}
+                disabled={loading}>
+                <Text style={styles.deleteButtonText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowDeleteModal(false)}
+              disabled={loading}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Home Indicator */}
       <View style={styles.homeIndicator}>
         <View style={styles.gestureBar} />
@@ -280,6 +340,24 @@ const styles = StyleSheet.create({
   backButton: {
     width: 24,
     height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navbarRight: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 16,
+    gap: 12,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -452,6 +530,81 @@ const styles = StyleSheet.create({
     backgroundColor: '#202325',
     borderRadius: 100,
     marginBottom: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContainer: {
+    width: 340,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 8,
+  },
+  popover: {
+    width: 340,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    borderRadius: 12,
+    paddingTop: 16,
+  },
+  textSection: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    width: '100%',
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: '#202325',
+  },
+  modalMessage: {
+    width: '100%',
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    color: '#647276',
+  },
+  deleteButton: {
+    width: '100%',
+    height: 48,
+    borderTopWidth: 1,
+    borderTopColor: '#CDD3D4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#E7522F',
+  },
+  cancelButton: {
+    width: 340,
+    height: 48,
+    backgroundColor: '#F5F6F6',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 16,
+    color: '#393D40',
   },
 });
 
