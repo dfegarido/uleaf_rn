@@ -180,12 +180,12 @@ const UserInformation = () => {
     let cancelled = false;
     (async () => {
       setIsLoadingBusiness(true);
-      const result = await getB2BAccountApi({uid: supplierId});
+      const result = await getB2BAccountApi({uid: supplierId, collectionName: 'supplier'});
       if (cancelled) return;
       const accountClass = result?.data?.account?.accountClass || '';
       const eligible = accountClass === 'Asia Seller' || accountClass === 'Asia Business';
       setBusinessEligible(eligible);
-      setBusinessEnabled(accountClass === 'Asia Business');
+      setBusinessEnabled(result?.data?.account?.canSelfSwitch === true);
       setIsLoadingBusiness(false);
     })();
     return () => {
@@ -466,12 +466,14 @@ const UserInformation = () => {
       if (!result.success) {
         throw new Error(result.error || 'Failed to update business setting');
       }
-      setBusinessEnabled(result.data?.enabled === true || result.data?.accountClass === 'Asia Business');
+      setBusinessEnabled(
+        nextEnabled && (result.data?.canSelfSwitch === true || result.data?.enabled === true),
+      );
       Alert.alert(
         'Success',
         nextEnabled
-          ? 'This supplier is now B2B Asia. They use exact USD prices.'
-          : 'This supplier is Asia Seller again. List and Add are available after they reload the app.',
+          ? 'This garden can now switch between Garden Partner and mainstream.'
+          : 'This garden can no longer switch. They stay a Garden Partner.',
         [{text: 'OK'}],
       );
     } catch (error) {
@@ -598,7 +600,7 @@ const UserInformation = () => {
               <View style={{ flex: 1, paddingRight: 12 }}>
                 <Text style={styles.statusLabel}>Business</Text>
                 <Text style={styles.liveSellingHint}>
-                  When on, this supplier is B2B Asia. When off, they return to Asia Seller.
+                  When on, this garden can switch between Garden Partner and mainstream. When off, they cannot switch.
                 </Text>
               </View>
               <View style={styles.statusContainer}>

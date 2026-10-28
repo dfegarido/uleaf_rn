@@ -63,6 +63,21 @@ export const setB2BBusinessApi = async ({uid, enabled, liveFlag, toType}) => {
   }
 };
 
+export const switchListingModeApi = async ({mainstream}) => {
+  try {
+    const data = await postB2BAccount(API_ENDPOINTS.UPDATE_B2B_BUSINESS_REQUEST, {
+      action: 'switchListingMode',
+      mainstream: mainstream === true,
+    });
+    return {success: true, data: data.data, source: data.source};
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message || 'Could not switch listing mode',
+    };
+  }
+};
+
 export const updateB2BBusinessRequestApi = async payload => {
   try {
     const data = await postB2BAccount(

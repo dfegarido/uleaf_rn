@@ -2,21 +2,23 @@ import AppImage from '../../../components/AppImage/AppImage';
 
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { useCallback, useContext, useEffect, useState } from 'react';
-import { Alert,
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import {   Alert,
   Dimensions,
   Image,
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { isUsBusinessUser, accountClassFromUserInfo, canEditListingsInUsd, pricingModelLabel } from '../../../utils/b2bShell';
-import { getB2BAccountApi } from '../../../components/Api/b2bAccountApi';
+import { isUsBusinessUser, accountClassFromUserInfo, canEditListingsInUsd, pricingModelLabel, mergeB2BAccountIntoUserInfo } from '../../../utils/b2bShell';
+import { getB2BAccountApi, switchListingModeApi } from '../../../components/Api/b2bAccountApi';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
@@ -56,9 +58,11 @@ const screenHeight = Dimensions.get('window').height;
 
 const ScreenHome = ({navigation}) => {
   const [loading, setLoading] = useState(false);
-  const {userInfo, setAppShell} = useContext(AuthContext);
+  const {userInfo, setUserInfo, setAppShell} = useContext(AuthContext);
   const { unreadCount } = useUnreadMessageCount();
   const [accountClass, setAccountClass] = useState(() => accountClassFromUserInfo(userInfo));
+  const [canSelfSwitch, setCanSelfSwitch] = useState(false);
+  const switchingRef = useRef(false);
   const pricingLabel = pricingModelLabel(accountClass);
   const isUsBusiness = accountClass === 'US Business';
   const isBusinessAccount = canEditListingsInUsd(accountClass);
@@ -86,12 +90,13 @@ const ScreenHome = ({navigation}) => {
       let active = true;
       (async () => {
         const result = await getB2BAccountApi();
-        if (!active) return;
+        if (!active || switchingRef.current) return;
         const serverClass =
           result?.data?.account?.accountClass ||
           result?.data?.accountClass ||
           accountClassFromUserInfo(userInfo);
         if (serverClass) setAccountClass(serverClass);
+        setCanSelfSwitch(result?.data?.account?.canSelfSwitch === true);
       })();
       return () => {
         active = false;
@@ -101,6 +106,28 @@ const ScreenHome = ({navigation}) => {
 
   const handlePressMyStore = () => {
     navigation.navigate('ScreenMyStore');
+  };
+
+  const onToggleListingMode = async (mainstream) => {
+    if (switchingRef.current) return;
+    switchingRef.current = true;
+    const previousClass = accountClass;
+    setAccountClass(mainstream ? 'Asia Business' : 'Asia Seller');
+    const result = await switchListingModeApi({mainstream});
+    if (!result.success) {
+      switchingRef.current = false;
+      setAccountClass(previousClass);
+      Alert.alert('Could not switch', result.error || 'Try again in a moment.');
+      return;
+    }
+    const nextClass = result.data?.accountClass || (mainstream ? 'Asia Business' : 'Asia Seller');
+    setAccountClass(nextClass);
+    const merged = mergeB2BAccountIntoUserInfo(userInfo, {accountClass: nextClass});
+    if (merged) {
+      setUserInfo(merged);
+      await AsyncStorage.setItem('userInfo', JSON.stringify(merged));
+    }
+    switchingRef.current = false;
   };
 
   // Fetch on mount
@@ -551,6 +578,28 @@ const ScreenHome = ({navigation}) => {
             </View>
 
             <View style={styles.b2bActionList}>
+              {canSelfSwitch ? (
+                <>
+                  <View style={styles.b2bActionRow}>
+                    <View style={styles.b2bActionText}>
+                      <Text style={styles.b2bActionTitle}>
+                        {isBusinessAccount ? 'Mainstream' : 'Garden Partner'}
+                      </Text>
+                      <Text style={styles.b2bActionBody}>
+                        {isBusinessAccount
+                          ? 'Listing in USD. Switch off to go back to Garden Partner.'
+                          : 'Switch on to list on mainstream in USD. You can switch back anytime.'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={isBusinessAccount}
+                      onValueChange={onToggleListingMode}
+                      trackColor={{false: '#D1D5DB', true: '#23C16B'}}
+                    />
+                  </View>
+                  <View style={styles.b2bActionDivider} />
+                </>
+              ) : null}
               {isUsBusiness ? (
                 <>
                   <TouchableOpacity
@@ -567,7 +616,7 @@ const ScreenHome = ({navigation}) => {
                   </TouchableOpacity>
                   <View style={styles.b2bActionDivider} />
                 </>
-              ) : !isBusinessAccount ? (
+              ) : !isBusinessAccount && !canSelfSwitch ? (
                 <>
               <TouchableOpacity
                 style={styles.b2bActionRow}

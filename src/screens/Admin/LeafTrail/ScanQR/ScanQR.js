@@ -38,6 +38,15 @@ import OptionsIcon from '../../../../assets/admin-icons/options.svg';
 import { formatPlantStatusDisplayLabel } from '../../OrderSummary/OrderSummaryStatusSheet';
 import TagAsOptions from './TagAs';
 
+function packedDateLabel(plantData) {
+  const hub = plantData?.hubPackDetails;
+  const raw = hub?.hubPackedDate || hub?.dateScanned;
+  if (!raw) return '';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+}
+
 const DetailRow = ({ label, value, valueBold = false }) => (
   <View style={styles.detailRow}>
     <Text style={styles.detailLabel}>{label}</Text>
@@ -110,6 +119,7 @@ const ScanQRScreen = ({ navigation, route }) => {
     if (!plantData || buttomData !== 'success') return null;
     return describeScanQrOutcome(plantData, scanContext);
   }, [plantData, buttomData, scanContext]);
+  const packedOn = packedDateLabel(plantData);
 
   const clearAutoReturnTimer = useCallback(() => {
     if (autoReturnTimerRef.current) {
@@ -589,13 +599,20 @@ const ScanQRScreen = ({ navigation, route }) => {
               {/* Plant Card Section */}
               <View style={styles.plantListSection}>
                 <View style={styles.plantCard}>
-                  <TouchableOpacity
+                  <View>
+                    <TouchableOpacity
                               onPressIn={handlePressIn}
                               onPressOut={handlePressOut}
                               onPress={handlePress}
                               activeOpacity={0.8}>
-                    <AppImage source={{uri: plantData?.plantImage || ''}} style={styles.plantImage} />
-                              </TouchableOpacity>
+                      <AppImage source={{uri: plantData?.plantImage || ''}} style={styles.plantImage} />
+                    </TouchableOpacity>
+                    {packedOn ? (
+                      <View style={styles.packedDateBadge}>
+                        <Text style={styles.packedDateText}>{packedOn}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                     <View style={styles.plantDetails}>
                         <View style={styles.plantNameSection}>
                             <View style={styles.plantCodeCountry}>
@@ -615,11 +632,19 @@ const ScanQRScreen = ({ navigation, route }) => {
                                   </TouchableOpacity>
                                 ) : null}
                             </View>
-                            <Text style={styles.plantGenus}>{plantData?.genus || ''}</Text>
+                            <Text style={styles.plantGenus}>
+                              {[plantData?.genus, plantData?.species].filter(Boolean).join(' ')}
+                            </Text>
                             <View style={styles.plantVariegationSize}>
-                                <Text style={styles.plantLabel}>{plantData?.variegation || ''}</Text>
-                                <View style={styles.dividerDot} />
-                                <Text style={styles.plantSizeText}>{plantData?.size || ''}</Text>
+                                {plantData?.variegation ? (
+                                  <Text style={styles.plantLabel}>{plantData.variegation}</Text>
+                                ) : null}
+                                {plantData?.variegation && plantData?.size ? (
+                                  <View style={styles.dividerDot} />
+                                ) : null}
+                                {plantData?.size ? (
+                                  <Text style={styles.plantSizeText}>{plantData.size}</Text>
+                                ) : null}
                             </View>
                         </View>
                         <View style={styles.plantTypeQuantity}>
@@ -886,6 +911,21 @@ const styles = StyleSheet.create({
     width: 96,
     height: 128,
     borderRadius: 8,
+  },
+  packedDateBadge: {
+    position: 'absolute',
+    left: 4,
+    bottom: 4,
+    backgroundColor: '#F06BC4',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  packedDateText: {
+    color: '#FFFFFF',
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 11,
   },
   plantDetails: {
     flex: 1,
