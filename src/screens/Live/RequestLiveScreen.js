@@ -33,7 +33,8 @@ const RequestLiveScreen = ({navigation}) => {
   const [title, setTitle] = useState('');
   const [liveType, setLiveType] = useState('live');
   const [requestedDate, setRequestedDate] = useState(new Date());
-  const [durationHours, setDurationHours] = useState(2);
+  // Sellers run about 10 AM to 3 PM ET; a 2-hour default auto-ended lives at noon ET.
+  const [durationHours, setDurationHours] = useState(5);
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);

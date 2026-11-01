@@ -38,7 +38,8 @@ const CreateLiveSessionScreen = ({navigation, route}) => {
   const {userInfo} = useContext(AuthContext);
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('');
-  const [durationHours, setDurationHours] = useState(2);
+  // Sellers run about 10 AM to 3 PM ET; a 2-hour default auto-ended lives at noon ET.
+  const [durationHours, setDurationHours] = useState(5);
   const [coverPhoto, setCoverPhoto] = useState(null); // { uri, base64, fileName, type }
   const [isLoading, setIsLoading] = useState(false);
   const { bookings, loading: scheduleLoading, error: scheduleError } = useLiveSaleBookings();
