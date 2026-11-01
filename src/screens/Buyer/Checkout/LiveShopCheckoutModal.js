@@ -293,6 +293,8 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
       discountCode,
       setDiscountCode,
       handleApplyDiscount,
+      isJoinerApproved,
+      promoQualifiedMessage,
       
       // Joiner state
       disableAddressSelection,
@@ -327,6 +329,7 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
             <ScrollView
                 style={styles.scrollableContent}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
                 contentContainerStyle={styles.scrollContentContainer}>
                 
                 {/* <AddressSection
@@ -432,27 +435,32 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
                     </View>
                   ))}
                 </View>
-                
-                {/* <OrderSummary
-                  quantityBreakdown={quantityBreakdown}
-                  orderSummary={orderSummary}
-                  shippingCalculation={{ ...shippingCalculation, loading: isCalculatingShipping }}
-                  shimmerAnim={shimmerAnim}
-                  upsNextDayEnabled={upsNextDayEnabled}
-                  onToggleUpsNextDay={toggleUpsNextDay}
-                  leafPointsEnabled={leafPointsEnabled}
-                  plantCreditsEnabled={plantCreditsEnabled}
-                  shippingCreditsEnabled={shippingCreditsEnabled}
-                  leafPoints={leafPoints}
-                  plantCredits={plantCredits}
-                  shippingCredits={shippingCredits}
-                  onToggleLeafPoints={toggleLeafPoints}
-                  onTogglePlantCredits={togglePlantCredits}
-                  onToggleShippingCredits={toggleShippingCredits}
-                  discountCode={discountCode}
-                  onDiscountCodeChange={setDiscountCode}
-                  onApplyDiscount={handleApplyDiscount}
-                /> */}
+
+                {/* Shipping breakdown, computation and the discount-code entry. */}
+                {!isPending && (
+                  <OrderSummary
+                    quantityBreakdown={quantityBreakdown}
+                    orderSummary={orderSummary}
+                    shippingCalculation={{ ...shippingCalculation, loading: isCalculatingShipping }}
+                    shimmerAnim={shimmerAnim}
+                    upsNextDayEnabled={upsNextDayEnabled}
+                    onToggleUpsNextDay={toggleUpsNextDay}
+                    leafPointsEnabled={leafPointsEnabled}
+                    plantCreditsEnabled={plantCreditsEnabled}
+                    shippingCreditsEnabled={shippingCreditsEnabled}
+                    leafPoints={leafPoints}
+                    plantCredits={plantCredits}
+                    shippingCredits={shippingCredits}
+                    onToggleLeafPoints={toggleLeafPoints}
+                    onTogglePlantCredits={togglePlantCredits}
+                    onToggleShippingCredits={toggleShippingCredits}
+                    discountCode={discountCode}
+                    onDiscountCodeChange={setDiscountCode}
+                    onApplyDiscount={handleApplyDiscount}
+                    isJoinerApproved={isJoinerApproved}
+                    promoQualifiedMessage={promoQualifiedMessage}
+                  />
+                )}
                 
                 {/* Browse More Plants Component
                 {!isLive && (<BrowseMorePlants
