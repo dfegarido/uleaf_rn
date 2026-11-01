@@ -343,13 +343,11 @@ const GenerateInvoice = ({navigation}) => {
   const fetchInvoices = useCallback(async (nextPage = 1) => {
     const id = ++requestId.current;
     try {
-      if (nextPage === 1 && !hasLoadedRef.current) {
+      if (nextPage === 1) {
         setLoading(true);
         setError(null);
-      } else if (nextPage > 1) {
-        setLoadingMore(true);
       } else {
-        setError(null);
+        setLoadingMore(true);
       }
 
       const net = await NetInfo.fetch();
@@ -366,7 +364,8 @@ const GenerateInvoice = ({navigation}) => {
         sort: 'latest',
         limit: 200,
         page: nextPage,
-        buyer: buyerIds.length === 1 ? buyerIds[0] : undefined,
+        buyer: buyerIds.length ? buyerIds.join(',') : undefined,
+        buyerScope: buyerIds.length ? 'purchaser' : undefined,
         joiner: filters.joiner || undefined,
         dateRange: filters.dateRange
           ? {
@@ -402,9 +401,9 @@ const GenerateInvoice = ({navigation}) => {
     } catch (err) {
       if (id !== requestId.current) return;
       console.error('Failed to load invoices:', err);
-      if (nextPage === 1 && !hasLoadedRef.current) {
+      if (nextPage === 1) {
         setError(err.message || 'Failed to load invoices');
-        setOrders([]);
+        if (!hasLoadedRef.current) setOrders([]);
       }
     } finally {
       if (id === requestId.current) {

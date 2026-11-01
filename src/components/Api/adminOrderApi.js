@@ -79,6 +79,7 @@ export const getAdminOrdersApi = async (filters = {}) => {
     // Handle single value filters
     if (filters.garden) queryParams.append('garden', filters.garden);
     if (filters.buyer) queryParams.append('buyer', filters.buyer);
+    if (filters.buyerScope) queryParams.append('buyerScope', filters.buyerScope);
     if (filters.receiver) queryParams.append('receiver', filters.receiver);
     if (filters.joiner) queryParams.append('joiner', filters.joiner);
     if (filters.dateRange) {
