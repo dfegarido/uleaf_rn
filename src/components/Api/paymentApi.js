@@ -1,4 +1,5 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
+import {API_ENDPOINTS} from '../../config/apiConfig';
 
 /**
  * Create a PayPal payment intent
@@ -93,8 +94,9 @@ export const createAndCapturePaypalOrder = async (captureData) => {
   try {
     const authToken = await getStoredAuthToken();
     
+    // payment-completion charges the buyer's saved Venmo when vaultedPaymentId is present.
     const response = await fetch(
-      'https://us-central1-i-leaf-u.cloudfunctions.net/createAndCapturePaypalOrder',
+      API_ENDPOINTS.PAYMENT_COMPLETION,
       {
         method: 'POST',
         headers: {
@@ -109,7 +111,7 @@ export const createAndCapturePaypalOrder = async (captureData) => {
       const errorData = await response.json().catch(() => ({}));
       return {
         success: false,
-        error: errorData.message || 'An error occurred while capturing payment',
+        error: errorData.error || errorData.message || 'An error occurred while capturing payment',
       };
     }
 
