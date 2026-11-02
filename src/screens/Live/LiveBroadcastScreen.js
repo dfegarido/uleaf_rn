@@ -114,6 +114,19 @@ const liveShippingLabel = (listing, sellerClass) => {
 // Top-to-bottom gradient pill shared by Go Live (light green -> green) and End Live (light red ->
 // red), the same treatment as the buyer's Buy Now. The Svg is an absolute-fill painting layer, so
 // it sits behind the label and adds no height. Ids must differ: two Svgs can share a screen.
+// A camera that is not ready yet hands back a solid black frame. As JPEG that is
+// ~0.008 bytes per pixel; real plant photos run ~0.1, dim ones well above 0.015.
+const BLANK_FRAME_BYTES_PER_PIXEL = 0.015;
+const isBlankFrame = async (filePath, width, height) => {
+  if (!width || !height) return false;
+  try {
+    const { size } = await RNFS.stat(filePath);
+    return Number(size) / (width * height) < BLANK_FRAME_BYTES_PER_PIXEL;
+  } catch (_) {
+    return false;
+  }
+};
+
 const GradientButton = ({ id, label, from, to, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.gradientButton} activeOpacity={0.85}>
     <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
@@ -176,6 +189,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const inviteSentAtRef = useRef(0);
   const flatListRef = useRef(null);
   const snapshotPendingRef = useRef(null);
+  const blankSnapshotRetriesRef = useRef(0);
   const thumbnailPendingRef = useRef(false);
   const thumbnailTimerRef = useRef(null);
   const [snapshotPreviewUri, setSnapshotPreviewUri] = useState(null);
@@ -594,18 +608,30 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         }
         const isThumbnail = thumbnailPendingRef.current;
         thumbnailPendingRef.current = false;
-        if (isThumbnail) {
-          handleLiveThumbnailUpload(filePath);
-          return;
-        }
-        const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
-        releaseSnapshotFile(snapshotFileRef.current);
-        snapshotFileRef.current = filePath;
-        setSnapshotPreviewUri(fileUri);
-        const pending = snapshotPendingRef.current;
-        snapshotPendingRef.current = null;
-        if (!pending) return;
-        handleSnapshotUpload(filePath, pending);
+        isBlankFrame(filePath, width, height).then((blank) => {
+          if (blank) {
+            console.warn('[Snapshot] Camera frame was black, not saving it');
+            RNFS.unlink(filePath).catch(() => {});
+            if (isThumbnail) return;
+            const pending = snapshotPendingRef.current;
+            snapshotPendingRef.current = null;
+            retryBlankSnapshot(pending);
+            return;
+          }
+          if (isThumbnail) {
+            handleLiveThumbnailUpload(filePath);
+            return;
+          }
+          blankSnapshotRetriesRef.current = 0;
+          const fileUri = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+          releaseSnapshotFile(snapshotFileRef.current);
+          snapshotFileRef.current = filePath;
+          setSnapshotPreviewUri(fileUri);
+          const pending = snapshotPendingRef.current;
+          snapshotPendingRef.current = null;
+          if (!pending) return;
+          handleSnapshotUpload(filePath, pending);
+        });
       },
     });
 
@@ -1067,6 +1093,23 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       console.warn('[Snapshot] takeSnapshot returned error:', result);
       snapshotPendingRef.current = null;
     }
+  };
+
+  // A black frame never replaces the plant photo: try again shortly (the camera
+  // is usually just not ready), and after two misses leave the old photo alone.
+  const retryBlankSnapshot = (plantCode) => {
+    if (!plantCode) return;
+    if (blankSnapshotRetriesRef.current >= 2) {
+      blankSnapshotRetriesRef.current = 0;
+      setToast({ message: 'Camera image was black. Photo not saved, tap Snap to retry.', type: 'error' });
+      return;
+    }
+    blankSnapshotRetriesRef.current += 1;
+    setTimeout(() => {
+      const listing = activeListingRef.current;
+      if (listing?.plantCode !== plantCode || snapshotPendingRef.current) return;
+      captureAndUploadSnapshot(listing);
+    }, 2000);
   };
 
   // "Snap" side button: capture the plant photo immediately, on the tap. No
