@@ -33,6 +33,7 @@ import { InputBox,
 } from '../../../components/Input';
 import { getCachedResponse, setCachedResponse } from '../../../utils/apiResponseCache';
 import { retryAsync } from '../../../utils/utils';
+import { getEditableListingImages } from '../../../utils/plantListingImage';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -480,7 +481,7 @@ const ScreenSingleSellLive = ({
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
-      setImages(res.data.imageCollection || []);
+      setImages(getEditableListingImages(res.data));
     }
     setLocalPrice(String(res.data.localPrice ?? ''));
     setSelectPotSize(res.data.potSize || null);

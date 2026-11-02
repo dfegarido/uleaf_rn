@@ -34,6 +34,7 @@ import { InputBox,
 } from '../../../components/Input';
 import { getCachedResponse, setCachedResponse } from '../../../utils/apiResponseCache';
 import { retryAsync } from '../../../utils/utils';
+import { getEditableListingImages } from '../../../utils/plantListingImage';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -265,6 +266,7 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
   const [selectedMutation, setSelectedMutation] = useState('');
   const [isChecked, setIsChecked] = useState(false);
   const [images, setImages] = useState([]);
+  const listingHadNoImagesRef = useRef(false);
   const handleImagePicked = uris => {
     setImages(prevImages => [...prevImages, ...uris]); // Append new images
     console.log('Appended URIs:', uris);
@@ -320,7 +322,8 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
     // if (!selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
-    if (images.length === 0) errors.push('At least one image is required.');
+    if (images.length === 0 && !listingHadNoImagesRef.current)
+      errors.push('At least one image is required.');
     if (!localPrice || isNaN(localPrice) || localPrice == 0)
       errors.push('Valid local price is required.');
     if (!selectedPotSize) errors.push('Pot size is required.');
@@ -493,7 +496,9 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
-      setImages(res.data.imageCollection || []);
+      const loadedImages = getEditableListingImages(res.data);
+      setImages(loadedImages);
+      listingHadNoImagesRef.current = !isFromDraftSell && loadedImages.length === 0;
     }
     setLocalPrice(String(res.data.localPrice ?? ''));
     setSelectPotSize(res.data.potSize || null);

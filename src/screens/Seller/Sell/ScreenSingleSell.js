@@ -39,6 +39,7 @@ import { // getGenusApi,
 import {getCachedResponse, setCachedResponse} from '../../../utils/apiResponseCache';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {getEditableListingImages} from '../../../utils/plantListingImage';
 // Remove Firebase upload import - we'll use backend API instead
 // import {uploadImageToFirebase} from '../../../utils/uploadImageToFirebase';
 import SellConfirmDraft from './components/SellConfirmDraft';
@@ -272,6 +273,7 @@ const ScreenSingleSell = ({navigation, route}) => {
   const [selectedMutation, setSelectedMutation] = useState('');
   const [isChecked, setIsChecked] = useState(false);
   const [images, setImages] = useState([]);
+  const listingHadNoImagesRef = useRef(false);
   const handleImagePicked = uris => {
     setImages(prevImages => [...prevImages, ...uris]); // Append new images
     console.log('Appended URIs:', uris);
@@ -327,7 +329,8 @@ const ScreenSingleSell = ({navigation, route}) => {
     if (!isGroupChatListing && !selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
-    if (images.length === 0) errors.push('At least one image is required.');
+    if (images.length === 0 && !listingHadNoImagesRef.current)
+      errors.push('At least one image is required.');
     if (!localPrice || isNaN(localPrice) || localPrice == 0)
       errors.push('Valid local price is required.');
     if (!selectedPotSize) errors.push('Pot size is required.');
@@ -576,9 +579,10 @@ const ScreenSingleSell = ({navigation, route}) => {
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
-      const loadedImages = res.data.imageCollection || [];
+      const loadedImages = getEditableListingImages(res.data);
       setImages(loadedImages);
       originalImagesRef.current = [...loadedImages];
+      listingHadNoImagesRef.current = !isFromDraftSell && loadedImages.length === 0;
     }
     // In edit mode, preload dependent dropdown options so species/variegation
     // are available immediately when the user opens the picker.

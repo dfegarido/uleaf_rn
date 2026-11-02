@@ -42,6 +42,7 @@ import { // getGenusApi,
 } from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
 import {retryAsync} from '../../../utils/utils';
+import {getEditableListingImages} from '../../../utils/plantListingImage';
 import SellConfirmDraft from './components/SellConfirmDraft';
 import {AuthContext} from '../../../auth/AuthProvider';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -245,6 +246,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
   const [selectedMutation, setSelectedMutation] = useState('');
   const [isChecked, setIsChecked] = useState(false);
   const [images, setImages] = useState([]);
+  const listingHadNoImagesRef = useRef(false);
   const [imagesPotSize, setImagesPotSize] = useState([]);
   const [selectedPotSize, setSelectPotSize] = useState('2"-4"');
   const [selectedMeasure, setSelectMeasure] = useState('below');
@@ -381,7 +383,8 @@ const ScreenGrowersSell = ({navigation, route}) => {
     // if (!selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
-    if (images.length === 0) errors.push('At least one image is required.');
+    if (images.length === 0 && !listingHadNoImagesRef.current)
+      errors.push('At least one image is required.');
     if (potSizeList.length === 0)
       errors.push('At least one pot size is required.');
 
@@ -728,7 +731,9 @@ const ScreenGrowersSell = ({navigation, route}) => {
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
-      setImages(res.data.imageCollection || []);
+      const loadedImages = getEditableListingImages(res.data);
+      setImages(loadedImages);
+      listingHadNoImagesRef.current = !isFromDraftSell && loadedImages.length === 0;
     }
 
     // In edit mode, preload dependent dropdown options so species/variegation

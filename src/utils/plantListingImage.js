@@ -106,6 +106,34 @@ export const getDetailListingImageUri = (plant) => {
   return toResizedSupabaseUri(uri.trim(), DETAIL_IMAGE_WIDTH);
 };
 
+/**
+ * Existing images for the seller edit screens. Older listings may have an
+ * empty/unparsed `imageCollection` (sometimes a JSON string) and only an
+ * `imagePrimary`, which would otherwise fail "At least one image is required."
+ */
+export const getEditableListingImages = (listing) => {
+  if (!listing) return [];
+
+  let collection = listing.imageCollection;
+  if (typeof collection === 'string') {
+    try {
+      collection = JSON.parse(collection);
+    } catch {
+      collection = /^https?:\/\//i.test(collection.trim()) ? [collection] : [];
+    }
+  }
+
+  const images = (Array.isArray(collection) ? collection : [])
+    .filter(uri => typeof uri === 'string' && uri.trim())
+    .map(uri => uri.trim());
+
+  if (images.length === 0 && typeof listing.imagePrimary === 'string' && listing.imagePrimary.trim()) {
+    images.push(listing.imagePrimary.trim());
+  }
+
+  return images;
+};
+
 export const listingImageUriToSource = (uri) => {
   const resolved = uri && String(uri).trim();
   return resolved ? {uri: resolved} : null;
