@@ -2,11 +2,12 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
   Animated,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -15,6 +16,7 @@ import RNFS from 'react-native-fs';
 import RightIcon from '../../assets/icons/greydark/caret-right-regular.svg';
 import {globalStyles} from '../../assets/styles/styles';
 import {listB2BPayoutApi} from '../../components/Api/b2bPayoutApi';
+import {BUSINESS_COUNTRIES} from '../../utils/b2bCountries';
 import MockupHeader from './MockupHeader';
 import {
   formatUsd,
@@ -71,9 +73,49 @@ const groupKey = (item, groupBy) => {
   return `${channel}\u0000${value}`;
 };
 
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+// Hermes' Date.parse rejects "Nov 2, 2026", the format the payouts API returns.
 const parseGroupDate = label => {
+  const match = /^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(String(label ?? '').trim());
+  if (match) {
+    const month = MONTHS.indexOf(match[1].toLowerCase());
+    if (month >= 0) return Date.UTC(Number(match[3]), month, Number(match[2]));
+  }
   const timestamp = Date.parse(label);
   return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const distinctValues = values =>
+  [
+    ...new Set(
+      values
+        .map(value => String(value ?? '').trim())
+        .filter(value => value && value !== '—' && value !== '-'),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+const ASIA_COUNTRY_OPTIONS = BUSINESS_COUNTRIES.filter(item => item.code !== 'US').map(item => ({
+  label: `${item.flag} ${item.name}`,
+  value: item.name,
+}));
+
+/** Payout rows carry "TH" or "Thailand". */
+const countryNameOf = value => {
+  const raw = String(value || '').trim();
+  const match = BUSINESS_COUNTRIES.find(
+    item => item.code === raw.toUpperCase() || item.name.toLowerCase() === raw.toLowerCase(),
+  );
+  return match ? match.name : raw;
+};
+
+const newestFirst = (a, b) => {
+  const dateA = parseGroupDate(a);
+  const dateB = parseGroupDate(b);
+  if (dateA != null && dateB != null) {
+    return dateB - dateA;
+  }
+  return a.localeCompare(b);
 };
 
 const STATUS_FILTERS = [
@@ -202,7 +244,8 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
   const isAdmin = route?.params?.audience === 'admin';
   const [groupBy, setGroupBy] = useState('liveSaleDate');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [businessFilter, setBusinessFilter] = useState('');
+  const [gardenFilter, setGardenFilter] = useState('');
+  const [filterOptions, setFilterOptions] = useState(null);
   const [countryFilter, setCountryFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [payouts, setPayouts] = useState([]);
@@ -221,6 +264,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
       if (result.success && Array.isArray(result.data?.items)) {
         setPayouts(result.data.items.map(withSaleDate));
         setApiTotals(result.data.totals || null);
+        setFilterOptions(result.data.filterOptions || null);
         setLoadError(null);
       } else {
         setPayouts([]);
@@ -235,39 +279,54 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
     };
   }, []);
 
+  const gardenOptions = useMemo(() => {
+    const bySeller = new Map();
+    (filterOptions?.gardens || []).forEach(garden => {
+      if (garden?.sellerCode) {
+        bySeller.set(garden.sellerCode, garden.name);
+      }
+    });
+    payouts.forEach(item => {
+      if (item.sellerCode && !bySeller.has(item.sellerCode)) {
+        bySeller.set(item.sellerCode, item.businessName || 'Unnamed garden');
+      }
+    });
+    return [...bySeller.entries()]
+      .map(([value, label]) => ({value, label}))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filterOptions, payouts]);
+
+  const dateOptions = useMemo(() => {
+    const dates = payouts.map(item => item[groupBy]);
+    if (groupBy === 'liveSaleDate') {
+      dates.push(...(filterOptions?.liveSaleDates || []));
+    }
+    return distinctValues(dates)
+      .sort(newestFirst)
+      .map(value => ({value, label: value}));
+  }, [payouts, groupBy, filterOptions]);
+
+  useEffect(() => {
+    setDateFilter('');
+  }, [groupBy]);
+
   const filtered = useMemo(() => {
-    const business = businessFilter.trim().toLowerCase();
-    const country = countryFilter.trim().toLowerCase();
-    const date = dateFilter.trim().toLowerCase();
     return payouts.filter(item => {
       if (statusFilter !== 'all' && item.payoutStatus !== statusFilter) {
         return false;
       }
-      if (
-        business &&
-        !String(item.businessName || '')
-          .toLowerCase()
-          .includes(business)
-      ) {
+      if (gardenFilter && item.sellerCode !== gardenFilter) {
         return false;
       }
-      if (
-        country &&
-        !String(item.country || '')
-          .toLowerCase()
-          .includes(country)
-      ) {
+      if (countryFilter && countryNameOf(item.country) !== countryFilter) {
         return false;
       }
-      if (date) {
-        const blob = `${item.liveSaleDate || ''} ${item.orderDate || ''} ${item.scanDate || ''}`.toLowerCase();
-        if (!blob.includes(date)) {
-          return false;
-        }
+      if (dateFilter && item[groupBy] !== dateFilter) {
+        return false;
       }
       return true;
     });
-  }, [payouts, statusFilter, businessFilter, countryFilter, dateFilter]);
+  }, [payouts, statusFilter, gardenFilter, countryFilter, dateFilter, groupBy]);
 
   const groups = useMemo(() => {
     const map = {};
@@ -292,7 +351,7 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
       const dateA = parseGroupDate(labelA);
       const dateB = parseGroupDate(labelB);
       if (dateA != null && dateB != null) {
-        return dateA - dateB;
+        return dateB - dateA;
       }
       return String(a).localeCompare(String(b));
     });
@@ -411,26 +470,26 @@ const ScreenB2BPayoutSummary = ({navigation, route}) => {
 
         {isAdmin ? (
           <View style={styles.adminFilters}>
-            <TextInput
-              style={styles.filterInput}
-              placeholder="Business name"
-              placeholderTextColor="#9AA4A8"
-              value={businessFilter}
-              onChangeText={setBusinessFilter}
+            <FilterDropdown
+              title="B2B Asia Garden"
+              allLabel="All B2B Asia Gardens"
+              value={gardenFilter}
+              options={gardenOptions}
+              onChange={setGardenFilter}
             />
-            <TextInput
-              style={styles.filterInput}
-              placeholder="Country"
-              placeholderTextColor="#9AA4A8"
+            <FilterDropdown
+              title="Country"
+              allLabel="All countries"
               value={countryFilter}
-              onChangeText={setCountryFilter}
+              options={ASIA_COUNTRY_OPTIONS}
+              onChange={setCountryFilter}
             />
-            <TextInput
-              style={styles.filterInput}
-              placeholder="Live sale / order / scan date"
-              placeholderTextColor="#9AA4A8"
+            <FilterDropdown
+              title={GROUP_TITLE[groupBy]}
+              allLabel="All dates"
               value={dateFilter}
-              onChangeText={setDateFilter}
+              options={dateOptions}
+              onChange={setDateFilter}
             />
           </View>
         ) : null}
@@ -631,6 +690,55 @@ const PayoutCard = React.memo(({item, groupBy, onPress}) => {
   );
 });
 
+const FilterDropdown = ({title, allLabel, value, options, onChange}) => {
+  const [open, setOpen] = useState(false);
+  const choose = next => {
+    onChange(next);
+    setOpen(false);
+  };
+  const selectedLabel = options.find(option => option.value === value)?.label || value;
+
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.dropdown}
+        activeOpacity={0.8}
+        onPress={() => setOpen(true)}>
+        <View style={{flex: 1}}>
+          <Text style={styles.dropdownLabel}>{title}</Text>
+          <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]} numberOfLines={1}>
+            {value ? selectedLabel : allLabel}
+          </Text>
+        </View>
+        <Text style={styles.dropdownCaret}>▾</Text>
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setOpen(false)}>
+          <Pressable style={styles.sheet}>
+            <Text style={styles.sheetTitle}>{title}</Text>
+            <ScrollView style={styles.sheetList}>
+              {[{value: '', label: allLabel}, ...options].map(option => {
+                const selected = option.value === value;
+                return (
+                  <TouchableOpacity
+                    key={option.value || '__all__'}
+                    style={[styles.sheetRow, selected && styles.sheetRowOn]}
+                    onPress={() => choose(option.value)}>
+                    <Text style={[styles.sheetRowText, selected && styles.sheetRowTextOn]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+};
+
 const HeroStat = ({label, value}) => (
   <View style={styles.heroStat}>
     <Text style={styles.heroStatValue}>{value}</Text>
@@ -746,15 +854,45 @@ const styles = StyleSheet.create({
   },
   filterRow: {gap: 8, paddingBottom: 4, marginBottom: 12},
   adminFilters: {gap: 8, marginBottom: 12},
-  filterInput: {
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E4E7E9',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#202325',
-    fontSize: 14,
+    paddingVertical: 8,
   },
+  dropdownLabel: {color: '#7F8D91', fontSize: 11, fontWeight: '600'},
+  dropdownValue: {color: '#202325', fontSize: 14, marginTop: 2},
+  dropdownPlaceholder: {color: '#9AA4A8'},
+  dropdownCaret: {color: '#556065', fontSize: 14, marginLeft: 8},
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    minHeight: '50%',
+    maxHeight: '80%',
+  },
+  sheetTitle: {
+    color: '#202325',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  sheetList: {paddingHorizontal: 12, flexGrow: 1},
+  sheetRow: {paddingVertical: 12, paddingHorizontal: 8, borderRadius: 8},
+  sheetRowOn: {backgroundColor: '#f2f7f3'},
+  sheetRowText: {color: '#202325', fontSize: 14},
+  sheetRowTextOn: {color: '#356641', fontWeight: '700'},
   filterChip: {
     backgroundColor: '#fff',
     borderWidth: 1,
