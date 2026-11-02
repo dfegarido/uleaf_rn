@@ -112,22 +112,16 @@ const listingToRow = listing => ({
   storedUsd: Number(listing.usdPrice || listing.localPrice || 0).toFixed(2),
   localCurrency: String(listing.localCurrency || '').toUpperCase(),
   rawStatus: listing.status || '',
-  igIndex: '',
   potSize: listing.potSize || '4"',
   height: mapHeight(listing.approximateHeight),
   createdAt: listing.createdAt || listing.createdat || null,
+  // Same label as the Live listings grid: the number stored at creation
+  // (liveIgIndex). Counting this page from 1 made IG12 show up as IG1.
+  igIndex:
+    listing.liveIgIndex != null && String(listing.liveIgIndex).trim() !== ''
+      ? `IG${listing.liveIgIndex}`
+      : '',
 });
-
-const withLiveIndexes = listings => {
-  const live = listings
-    .filter(item => String(item.rawStatus || '').trim().toLowerCase() === 'live')
-    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
-  const igById = new Map(live.map((item, index) => [item.id, `IG${index + 1}`]));
-  return listings.map(item => ({
-    ...item,
-    igIndex: igById.get(item.id) || '',
-  }));
-};
 
 const rowsEqual = (a, b) =>
   a.genus === b.genus &&
@@ -211,7 +205,7 @@ const ScreenB2BListingEdit = ({navigation}) => {
       totalItems = filtered.length;
       totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
       const start = (page - 1) * PAGE_SIZE;
-      const indexed = withLiveIndexes(filtered.map(listingToRow)).sort(
+      const indexed = filtered.map(listingToRow).sort(
         (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
       );
       mapped = indexed.slice(start, start + PAGE_SIZE);
