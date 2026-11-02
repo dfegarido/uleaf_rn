@@ -13,6 +13,7 @@ import ThailandFlag from '../../assets/buyer-icons/thailand-flag.svg';
 import IndonesiaFlag from '../../assets/buyer-icons/indonesia-flag.svg';
 import { formatCurrencyFull } from '../../utils/formatCurrency';
 import PlantListingImage from '../PlantListingImage/PlantListingImage';
+import ReservedForBadge from '../ReservedForBadge';
 import {
   getShopListingImageUri,
   PLANT_LISTING_MISSING_IMAGE,
@@ -316,6 +317,7 @@ const PlantItemCard = ({
             style={styles.image}
             resizeMode="cover"
           />
+          <ReservedForBadge listing={plantData} style={styles.reservedStrip} />
           
           {/* Listing Type + Country Overlay */}
           <View style={styles.listingOverlay}>
@@ -497,6 +499,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 16,
     borderRadius: 2,
+  },
+  reservedStrip: {
+    bottom: 36,
   },
   discountBadge: {
     position: 'absolute',

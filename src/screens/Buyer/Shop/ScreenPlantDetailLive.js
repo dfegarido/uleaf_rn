@@ -20,6 +20,7 @@ import FlightIcon from '../../../assets/buyer-icons/flight.svg';
 import MinusIcon from '../../../assets/buyer-icons/minus.svg';
 import PlusIcon from '../../../assets/buyer-icons/plus.svg';
 import { useAuth } from '../../../auth/AuthProvider';
+import {isReservedForOther, reservedForName} from '../../../components/ReservedForBadge';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import { getPlantDetailApiLive } from '../../../components/Api/getPlantDetailApi';
 import { retryAsync } from '../../../utils/utils';
@@ -189,6 +190,10 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
   };
 
   const handleAddToCart = () => {
+    if (isReservedForOther(plantData, user?.uid)) {
+      Alert.alert('Reserved', `This plant is reserved for ${reservedForName(plantData)}.`);
+      return;
+    }
     console.log('🛒 Opening Add to Cart modal for plant:', {
       plantCode,
       listingType: plantData?.listingType,
@@ -200,6 +205,10 @@ const ScreenPlantDetailLiveModal = ({navigation, plantCode, isVisible, onClose})
   };
 
   const handleBuyNow = () => {
+    if (isReservedForOther(plantData, user?.uid)) {
+      Alert.alert('Reserved', `This plant is reserved for ${reservedForName(plantData)}.`);
+      return;
+    }
     console.log('💰 Opening Buy Now modal for plant:', {
       plantCode,
       listingType: plantData?.listingType,

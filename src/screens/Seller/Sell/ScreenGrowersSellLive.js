@@ -38,6 +38,7 @@ import { InputBox,
   InputDropdown,
   InputDropdownSearch,
 } from '../../../components/Input';
+import ReserveForBuyerField from '../../../components/ReserveForBuyerField';
 
 import EditNoteIcon from '../../../assets/icons/greydark/edit-note.svg';
 import TrashRedIcon from '../../../assets/icons/red/trash.svg';
@@ -225,6 +226,7 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
   const [selectedGenus, setSelectedGenus] = useState('');
   const [selectedSpecies, setSelectedSpecies] = useState('');
   const [selectedVariegation, setSelectedVariegation] = useState('');
+  const [reservedForUsername, setReservedForUsername] = useState('');
   const [selectedMutation, setSelectedMutation] = useState('');
   const [isChecked, setIsChecked] = useState(false);
   const [images, setImages] = useState([]);
@@ -426,6 +428,7 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
         genus: selectedGenus || null,
         species: selectedSpecies || null,
         variegation: selectedVariegation || null,
+        reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary:
@@ -598,6 +601,10 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
               disabled={dropdownVariegationDisable}
             />
           </View>
+          <ReserveForBuyerField
+            value={reservedForUsername}
+            onChange={setReservedForUsername}
+          />
         </View>
         {/* Mutations */}
         <View style={styles.formContainer}>

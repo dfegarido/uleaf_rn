@@ -7,7 +7,8 @@ export const searchBuyersApi = async (searchParams) => {
     const {
       query,
       limit = 10,
-      offset = 0
+      offset = 0,
+      purpose,
     } = searchParams;
 
     const token = await getStoredAuthToken();
@@ -19,6 +20,9 @@ export const searchBuyersApi = async (searchParams) => {
     });
     if (query && query.trim().length >= 2) {
       params.append('query', query.trim());
+    }
+    if (purpose) {
+      params.append('purpose', purpose);
     }
 
     const response = await fetch(`${API_ENDPOINTS.SEARCH_USER}?${params}`, {
@@ -47,6 +51,8 @@ export const searchBuyersApi = async (searchParams) => {
       lastName: buyer.lastName || '',
       username: buyer.username || '',
       email: buyer.email || '',
+      userType: buyer.userType || '',
+      isActive: buyer.isActive !== false,
       profileImage: buyer.profileImage || null,
       createdAt: buyer.createdAt
     }));

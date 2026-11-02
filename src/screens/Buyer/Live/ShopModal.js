@@ -16,6 +16,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Sto
 import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import { getLiveListingsBySessionApi } from '../../../components/Api/agoraLiveApi';
 import { liveOrderLookupApi } from '../../../components/Api/liveApi';
+import ReservedForBadge from '../../../components/ReservedForBadge';
 
 const SORT_OPTIONS = [
   {key: 'sequence', label: 'Sequence #'},
@@ -167,6 +168,7 @@ const ShopModal = ({
             <Text style={styles.modalIndexBadgeText}>{igForListing(item)}</Text>
           </View>
         ) : null}
+        <ReservedForBadge listing={item} edge="top" style={styles.reservedStrip} />
       </View>
 
       <View style={styles.listingOverlay}>
@@ -251,6 +253,7 @@ const ShopModal = ({
             <Text style={styles.modalIndexBadgeText}>{igForListing(item)}</Text>
           </View>
         ) : null}
+        <ReservedForBadge listing={item} edge="top" style={styles.reservedStrip} />
       </View>
       <View style={styles.overlayDetailsContainer}>
         <Text style={styles.plantGenus} numberOfLines={1}>
@@ -512,6 +515,9 @@ const styles = StyleSheet.create({
   plantImage: {
     width: '100%',
     height: 300,
+  },
+  reservedStrip: {
+    top: 38,
   },
   modalIndexBadge: {
     position: 'absolute',

@@ -17,7 +17,12 @@ export const postSellSinglePlantApi = async postData => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Error ${response.status}: ${errorText}`);
+      let message = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        message = parsed.message || parsed.error || errorText;
+      } catch (_) {}
+      throw new Error(message);
     }
 
     return await response.json();

@@ -151,6 +151,8 @@ const optimisticPlantDataFromListing = listing => {
       country: listing.country || null,
       localCurrency: listing.localCurrency || null,
       listingType: listing.listingType || listing.listingtype || null,
+      reservedForUid: listing.reservedForUid || listing.reserved_for_uid || '',
+      reservedForUsername: listing.reservedForUsername || listing.reserved_for_username || '',
       accountClass: listing.accountClass || null,
       usdPrice: price,
       price,

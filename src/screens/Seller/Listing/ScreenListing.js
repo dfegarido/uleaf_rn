@@ -32,6 +32,7 @@ import { getAllPlantGenusApi,
   postListingUpdateStockActionApi,
 } from '../../../components/Api';
 import { setLiveListingActiveApi } from '../../../components/Api/agoraLiveApi';
+import PushToBuyerSheet from '../../../components/PushToBuyerSheet';
 import { InputBox } from '../../../components/Input';
 import { InputSearch } from '../../../components/InputGroup/Left';
 import { InputGroupAddon } from '../../../components/InputGroupAddon';
@@ -277,6 +278,8 @@ const ScreenListing = ({navigation}) => {
 
   /** Live tab: batch select mode */
   const [isLiveSelectMode, setIsLiveSelectMode] = useState(false);
+  const [showPushSheet, setShowPushSheet] = useState(false);
+  const [pushItems, setPushItems] = useState([]);
   const [liveSelectedIds, setLiveSelectedIds] = useState([]);
 
   /** Active tab: inline manage / multi-select (same UX pattern as Live tab) */
@@ -291,6 +294,8 @@ const ScreenListing = ({navigation}) => {
   const [isInactiveSelectMode, setIsInactiveSelectMode] = useState(false);
   const [inactiveSelectedIds, setInactiveSelectedIds] = useState([]);
   const [isDiscountedSelectMode, setIsDiscountedSelectMode] = useState(false);
+  const [isAllSelectMode, setIsAllSelectMode] = useState(false);
+  const [allSelectedIds, setAllSelectedIds] = useState([]);
   const [discountedSelectedIds, setDiscountedSelectedIds] = useState([]);
 
   const resetPaginationState = (bustCache = false) => {
@@ -311,6 +316,8 @@ const ScreenListing = ({navigation}) => {
     setPrevActivePlantCodes(new Set());
     setIsLiveSelectMode(false);
     setLiveSelectedIds([]);
+    setIsAllSelectMode(false);
+    setAllSelectedIds([]);
   };
 
   const toggleLiveSelect = useCallback((id) => {
@@ -386,6 +393,23 @@ const ScreenListing = ({navigation}) => {
     setDiscountedSelectedIds([]);
   }, []);
 
+  const exitAllSelectMode = useCallback(() => {
+    setIsAllSelectMode(false);
+    setAllSelectedIds([]);
+  }, []);
+
+  const toggleAllSelect = useCallback(id => {
+    setAllSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id],
+    );
+  }, []);
+
+  const toggleAllSelectAll = useCallback(() => {
+    setAllSelectedIds(prev =>
+      prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
+    );
+  }, [dataTable]);
+
   const toggleDiscountedSelect = useCallback(id => {
     setDiscountedSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id],
@@ -397,6 +421,21 @@ const ScreenListing = ({navigation}) => {
       prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
     );
   }, [dataTable]);
+
+  const openPushToCart = useCallback(rows => {
+    const items = (rows || [])
+      .map(listing => ({
+        plantCode: listing?.plantCode,
+        potSize: listing?.potSize || listing?.size || listing?.variations?.[0]?.potSize,
+      }))
+      .filter(item => item.plantCode);
+    if (!items.length) {
+      Alert.alert('Select listings', 'Mark at least one listing first.');
+      return;
+    }
+    setPushItems(items);
+    setShowPushSheet(true);
+  }, []);
 
   const handleLiveBatchDelete = useCallback(() => {
     if (liveSelectedIds.length === 0) return;
@@ -1043,7 +1082,7 @@ const ScreenListing = ({navigation}) => {
       fetchListingsPage(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [isFocused, isInitialFetchRefresh, activeTab]);
+  }, [isFocused, isInitialFetchRefresh, activeTab, showB2bUsdBanner]);
 
   // ✅ Pull-to-refresh
   const onRefresh = () => {
@@ -1242,6 +1281,8 @@ const ScreenListing = ({navigation}) => {
     setInactiveSelectedIds([]);
     setIsDiscountedSelectMode(false);
     setDiscountedSelectedIds([]);
+    setIsAllSelectMode(false);
+    setAllSelectedIds([]);
     setActiveTab(pressTab);
     setIsDiscounted(false);
     resetPaginationState();
@@ -2124,7 +2165,8 @@ const ScreenListing = ({navigation}) => {
     (activeTab === 'Active' ||
       activeTab === 'Group Chat Listing' ||
       activeTab === 'Inactive' ||
-      activeTab === 'Discounted') &&
+      activeTab === 'Discounted' ||
+      (activeTab === 'All' && showB2bUsdBanner)) &&
     !loading &&
     dataTable &&
     dataTable.length > 0;
@@ -2137,7 +2179,9 @@ const ScreenListing = ({navigation}) => {
           ? isInactiveSelectMode
           : activeTab === 'Discounted'
             ? isDiscountedSelectMode
-            : false;
+            : activeTab === 'All'
+              ? isAllSelectMode
+              : false;
   const listingManageSelectedIds =
     activeTab === 'Active'
       ? activeSelectedIds
@@ -2147,7 +2191,9 @@ const ScreenListing = ({navigation}) => {
           ? inactiveSelectedIds
           : activeTab === 'Discounted'
             ? discountedSelectedIds
-            : [];
+            : activeTab === 'All'
+              ? allSelectedIds
+              : [];
   const onListingManageToggleSelect =
     activeTab === 'Active'
       ? toggleActiveSelect
@@ -2157,7 +2203,9 @@ const ScreenListing = ({navigation}) => {
           ? toggleInactiveSelect
           : activeTab === 'Discounted'
             ? toggleDiscountedSelect
-            : () => {};
+            : activeTab === 'All'
+              ? toggleAllSelect
+              : () => {};
   const onListingManageSelectAll =
     activeTab === 'Active'
       ? toggleActiveSelectAll
@@ -2167,7 +2215,9 @@ const ScreenListing = ({navigation}) => {
           ? toggleInactiveSelectAll
           : activeTab === 'Discounted'
             ? toggleDiscountedSelectAll
-            : () => {};
+            : activeTab === 'All'
+              ? toggleAllSelectAll
+              : () => {};
   const onListingManageExit =
     activeTab === 'Active'
       ? exitActiveSelectMode
@@ -2177,7 +2227,9 @@ const ScreenListing = ({navigation}) => {
           ? exitInactiveSelectMode
           : activeTab === 'Discounted'
             ? exitDiscountedSelectMode
-            : () => {};
+            : activeTab === 'All'
+              ? exitAllSelectMode
+              : () => {};
   const onListingManageDiscount =
     activeTab === 'Active'
       ? handleActiveDiscountNav
@@ -2228,7 +2280,9 @@ const ScreenListing = ({navigation}) => {
           ? () => setIsInactiveSelectMode(true)
           : activeTab === 'Discounted'
             ? () => setIsDiscountedSelectMode(true)
-            : () => {};
+            : activeTab === 'All'
+              ? () => setIsAllSelectMode(true)
+              : () => {};
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -2417,6 +2471,16 @@ const ScreenListing = ({navigation}) => {
                       </TouchableOpacity>
                     </View>
                     <View style={styles.liveActionsRow}>
+                      {showB2bUsdBanner ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            openPushToCart(dataTable.filter(item => liveSelectedIds.includes(item.id)))
+                          }
+                          disabled={liveSelectedIds.length === 0}
+                          style={[styles.liveActionChip, styles.liveCartChip, liveSelectedIds.length === 0 && {opacity: 0.4}]}>
+                          <Text style={styles.liveActionChipText}>To cart</Text>
+                        </TouchableOpacity>
+                      ) : null}
                       <TouchableOpacity
                         onPress={handleLiveBatchExportToMainstream}
                         disabled={liveSelectedIds.length === 0}
@@ -2543,6 +2607,22 @@ const ScreenListing = ({navigation}) => {
                       </TouchableOpacity>
                     </View>
                     <View style={styles.liveActionsRow}>
+                      {showB2bUsdBanner && activeTab !== 'Inactive' ? (
+                        <TouchableOpacity
+                          onPress={() =>
+                            openPushToCart(
+                              dataTable.filter(item => listingManageSelectedIds.includes(item.id)),
+                            )
+                          }
+                          disabled={listingManageSelectedIds.length === 0}
+                          style={[
+                            styles.liveActionChip,
+                            styles.liveCartChip,
+                            listingManageSelectedIds.length === 0 && {opacity: 0.4},
+                          ]}>
+                          <Text style={styles.liveActionChipText}>To cart</Text>
+                        </TouchableOpacity>
+                      ) : null}
                       {activeTab === 'Group Chat Listing' ? (
                         <TouchableOpacity
                           onPress={handleGroupChatBatchExportToMainstream}
@@ -2555,6 +2635,8 @@ const ScreenListing = ({navigation}) => {
                           <Text style={styles.liveActionChipText}>Export</Text>
                         </TouchableOpacity>
                       ) : null}
+                      {activeTab !== 'All' ? (
+                      <>
                       <TouchableOpacity
                         onPress={onListingManageDiscount}
                         disabled={listingManageSelectedIds.length === 0}
@@ -2595,6 +2677,8 @@ const ScreenListing = ({navigation}) => {
                         ]}>
                         <Text style={styles.liveActionChipText}>Delete</Text>
                       </TouchableOpacity>
+                      </>
+                      ) : null}
                     </View>
                   </View>
                 ) : (
@@ -2666,6 +2750,16 @@ const ScreenListing = ({navigation}) => {
       )}
 
 
+      <PushToBuyerSheet
+        visible={showPushSheet}
+        items={pushItems}
+        onClose={() => setShowPushSheet(false)}
+        onPushed={() => {
+          setShowPushSheet(false);
+          if (activeTab === 'Live') exitLiveSelectMode();
+          else onListingManageExit();
+        }}
+      />
       <ReusableActionSheet
         code={code}
         visible={showSheet}
@@ -3133,10 +3227,11 @@ const styles = StyleSheet.create({
   },
   liveActionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
   },
   liveActionChip: {
-    flex: 1,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 6,
     alignItems: 'center',
@@ -3150,6 +3245,9 @@ const styles = StyleSheet.create({
   },
   liveExportChip: {
     backgroundColor: '#48A7F8',
+  },
+  liveCartChip: {
+    backgroundColor: '#539461',
   },
   liveEditChip: {
     borderWidth: 1,

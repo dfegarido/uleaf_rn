@@ -22,6 +22,7 @@ import { InputBox,
   InputCheckBox,
   InputDropdownSearch,
 } from '../../../components/Input';
+import ReserveForBuyerField from '../../../components/ReserveForBuyerField';
 import {ImagePickerModal} from '../../../components/ImagePicker';
 import { // getGenusApi,
   getSpeciesApi,
@@ -268,6 +269,7 @@ const ScreenSingleSell = ({navigation, route}) => {
   // Dropdown Species
 
   const [selectedVariegation, setSelectedVariegation] = useState('');
+  const [reservedForUsername, setReservedForUsername] = useState('');
 
   const [localPrice, setLocalPrice] = useState('');
   const [selectedMutation, setSelectedMutation] = useState('');
@@ -365,6 +367,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         genus: selectedGenus || null,
         species: selectedSpecies || null,
         variegation: selectedVariegation || null,
+        reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -388,7 +391,10 @@ const ScreenSingleSell = ({navigation, route}) => {
       // TODO: Replace this with your actual API call
       // await submitListing(data);
       isManuallyNavigating.current = true;
-      showAlertSuccess('Publish Now', 'Listing published successfully!');
+      showAlertSuccess(
+        'Publish Now',
+        response?.reservedForUsername ? response.message : 'Listing published successfully!',
+      );
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Publish Now', error.message);
@@ -425,6 +431,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         genus: selectedGenus || null,
         species: selectedSpecies || null,
         variegation: selectedVariegation || null,
+        reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -491,6 +498,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         genus: selectedGenus || null,
         species: selectedSpecies || null,
         variegation: selectedVariegation || null,
+        reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -515,7 +523,10 @@ const ScreenSingleSell = ({navigation, route}) => {
       // await submitListing(data);
 
       isManuallyNavigating.current = true;
-      showAlertSuccess('Save Listing', 'Listing saved successfully!');
+      showAlertSuccess(
+        'Save Listing',
+        response?.reservedForUsername ? response.message : 'Listing saved successfully!',
+      );
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert('Save Listing', error.message);
@@ -576,6 +587,7 @@ const ScreenSingleSell = ({navigation, route}) => {
     setSelectedGenus(currentGenus);
     setSelectedSpecies(currentSpecies);
     setSelectedVariegation(currentVariegation);
+    setReservedForUsername(String(res.data.reservedForUsername || ''));
     setIsChecked(!!res.data.isMutation);
     setSelectedMutation(res.data.mutation || null);
     if (isFromDuplicateSell == false) {
@@ -651,6 +663,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         genus: selectedGenus || null,
         species: selectedSpecies || null,
         variegation: selectedVariegation || null,
+        reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
         imagePrimary: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -698,7 +711,10 @@ const ScreenSingleSell = ({navigation, route}) => {
       // await submitListing(data);
 
       isManuallyNavigating.current = true;
-      showAlertSuccess('Update Listing', 'Listing updated successfully!');
+      showAlertSuccess(
+        'Update Listing',
+        response?.reservedForUsername ? response.message : 'Listing updated successfully!',
+      );
     } catch (error) {
       console.error('Upload or submission failed:', error);
       Alert.alert(renewAfterUpdate ? 'Renew Listing' : 'Update Listing', error.message);
@@ -891,6 +907,10 @@ const ScreenSingleSell = ({navigation, route}) => {
               </Text>
             )}
           </View>
+          <ReserveForBuyerField
+            value={reservedForUsername}
+            onChange={setReservedForUsername}
+          />
           <Text style={[globalStyles.textMDGreyDark, {paddingBottom: 5}]}>
             Can't find genus or species name?
           </Text>

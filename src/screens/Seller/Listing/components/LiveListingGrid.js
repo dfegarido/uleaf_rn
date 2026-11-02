@@ -22,6 +22,7 @@ import Animated, {
 import { globalStyles } from '../../../../assets/styles/styles';
 import Svg, { Path } from 'react-native-svg';
 import EditIcon from '../../../../assets/icons/greydark/note-edit.svg';
+import ReservedForBadge, {reservedForName} from '../../../../components/ReservedForBadge';
 
 const PINK_PIN = '#FF4D8D';
 
@@ -129,6 +130,7 @@ const LiveListingGrid = ({
         ? `IG${listing.liveIgIndex}`
         : '';
     const hasImage = !!(listing.imagePrimary || listing.image);
+    const isReserved = !!reservedForName(listing);
     const priceLabel = formatCardPrice(listing);
 
     const isSelected = isSelectMode && selectedIds.includes(listing.id);
@@ -164,9 +166,10 @@ const LiveListingGrid = ({
               <Text style={styles.indexBadgeText}>{displayIndex}</Text>
             </View>
           )}
+          <ReservedForBadge listing={listing} />
           {isActive && <ActiveBadge />}
           {isSold && (
-            <View style={styles.soldOverlay}>
+            <View style={[styles.soldOverlay, isReserved && styles.aboveReservedStrip]}>
               <Text style={styles.soldText}>Sold</Text>
             </View>
           )}
@@ -192,7 +195,7 @@ const LiveListingGrid = ({
           )}
           {!isSelectMode && onEdit ? (
             <TouchableOpacity
-              style={styles.editButton}
+              style={[styles.editButton, isReserved && styles.aboveReservedStrip]}
               hitSlop={8}
               onPress={e => {
                 e.stopPropagation();
@@ -384,6 +387,9 @@ const styles = StyleSheet.create({
   pinButtonOn: {
     borderWidth: 1.5,
     borderColor: '#FF4D8D',
+  },
+  aboveReservedStrip: {
+    bottom: 40,
   },
   editButton: {
     position: 'absolute',

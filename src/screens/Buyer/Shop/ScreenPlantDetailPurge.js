@@ -36,6 +36,7 @@ import FlakesIcon from '../../../assets/icons/greylight/flakes.svg';
 import HeartIcon from '../../../assets/icons/greylight/heart-regular.svg';
 import ReturnIcon from '../../../assets/icons/greylight/return.svg';
 import { useAuth } from '../../../auth/AuthProvider';
+import ReservedForBadge, {isReservedForOther, reservedForName} from '../../../components/ReservedForBadge';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { retryAsync } from '../../../utils/utils';
@@ -184,11 +185,19 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
   };
 
   const handleAddToCart = () => {
+    if (isReservedForOther(plantData, user?.uid)) {
+      Alert.alert('Reserved', `This plant is reserved for ${reservedForName(plantData)}.`);
+      return;
+    }
     setModalAction('add-to-cart');
     setShowAddToCartModal(true);
   };
 
   const handleBuyNow = () => {
+    if (isReservedForOther(plantData, user?.uid)) {
+      Alert.alert('Reserved', `This plant is reserved for ${reservedForName(plantData)}.`);
+      return;
+    }
     setModalAction('buy-now');
     setShowAddToCartModal(true);
   };
@@ -656,7 +665,6 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
           setImageSource(require('../../../assets/buyer-icons/png/ficus-lyrata.png'));
         }}
       />
-      
 
 
       <SafeAreaView style={styles.safeArea}>
@@ -685,8 +693,12 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
         >
 
 
+          {/* Photo gap. The badge sits at the bottom of the visible photo, above the white card. */}
+          <View pointerEvents="none" style={styles.reservedPhotoGap}>
+            <ReservedForBadge listing={plantData} inline />
+          </View>
           {/* Content */}
-          <View style={styles.content}>
+          <View style={[styles.content, {marginTop: 0}]}>
           {/* Title */}
           <Text style={styles.title}>
             {plantData.genus} {plantData.species}
@@ -1383,6 +1395,13 @@ const ScreenPlantDetailPurge = ({navigation, route}) => {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
+  },
+  reservedPhotoGap: {
+    height: 400,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 14,
+    zIndex: 6,
   },
   content: {
     backgroundColor: '#FFFFFF',

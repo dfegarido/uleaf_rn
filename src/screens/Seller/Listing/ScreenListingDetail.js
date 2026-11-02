@@ -69,6 +69,8 @@ import EditNoteIcon from '../../../assets/icons/accent/note-edit.svg';
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 
 import BackgroundCarousel from '../../../components/BackgroundCarousel';
+import ReservedForBadge from '../../../components/ReservedForBadge';
+import PushToBuyerSheet from '../../../components/PushToBuyerSheet';
 
 import {globalStyles} from '../../../assets/styles/styles';
 
@@ -88,6 +90,7 @@ const ScreenListingDetail = ({navigation, route}) => {
   const scrollViewRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [listingData, setListingData] = useState(null);
+  const [showPushSheet, setShowPushSheet] = useState(false);
   const {userInfo} = useContext(AuthContext);
 
   const {plantCode, onGoBack, b2bLiveActions} = route.params;
@@ -520,6 +523,12 @@ const ScreenListingDetail = ({navigation, route}) => {
               <View style={styles.headerActions}>
                 <TouchableOpacity
                   hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                  onPress={() => setShowPushSheet(true)}
+                  style={styles.headerIcon}>
+                  <Text style={styles.cartHeaderText}>Cart</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
                   onPress={openEditor}
                   style={styles.headerIcon}>
                   <EditIcon width={22} height={22} />
@@ -542,7 +551,16 @@ const ScreenListingDetail = ({navigation, route}) => {
           </View>
         </View>
         {/* Top blocker area — allows carousel to be visible */}
-        <View style={{height: b2bLiveActions ? screenHeight * 0.46 : screenHeight * 0.15}} />
+        <View
+          pointerEvents="box-none"
+          style={{
+            height: b2bLiveActions ? screenHeight * 0.46 : screenHeight * 0.15,
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            paddingBottom: 16,
+          }}>
+          <ReservedForBadge listing={listingData} inline />
+        </View>
 
         {/* Foreground Content */}
         <View style={styles.contents}>
@@ -1216,6 +1234,17 @@ const ScreenListingDetail = ({navigation, route}) => {
           </View>
         </TouchableOpacity>
       </ActionSheet>
+      <PushToBuyerSheet
+        visible={showPushSheet}
+        items={[
+          {
+            plantCode: listingData?.plantCode || plantCode,
+            potSize: listingData?.potSize,
+          },
+        ]}
+        onClose={() => setShowPushSheet(false)}
+        onPushed={() => setShowPushSheet(false)}
+      />
       <ConfirmDelete
         visible={deleteModalVisible}
         onDelete={onPressDelete}
@@ -1245,6 +1274,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  cartHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#539461',
+    paddingHorizontal: 4,
   },
   headerIcon: {
     marginHorizontal: 4,

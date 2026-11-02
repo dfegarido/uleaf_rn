@@ -43,6 +43,7 @@ import ShareIcon from '../../../assets/buyer-icons/share-gray.svg';
 import ShareSheet from '../../../components/ShareSheet/ShareSheet';
 import Toast from '../../../components/Toast/Toast';
 import { useAuth } from '../../../auth/AuthProvider';
+import ReservedForBadge, {isReservedForOther, reservedForName} from '../../../components/ReservedForBadge';
 import { addToCartApi } from '../../../components/Api/cartApi';
 import {
   chatCreateApi,
@@ -430,9 +431,17 @@ const ScreenPlantDetail = ({navigation, route}) => {
     Alert.alert('Sold Out', 'This plant is currently sold out and not available for purchase.');
   };
 
+  const showReservedAlert = () => {
+    Alert.alert('Reserved', `This plant is reserved for ${reservedForName(plantData)}.`);
+  };
+
   const handleAddToCart = () => {
     if (plantSoldOut) {
       showSoldOutAlert();
+      return;
+    }
+    if (isReservedForOther(plantData, user?.uid)) {
+      showReservedAlert();
       return;
     }
     setModalAction('add-to-cart');
@@ -442,6 +451,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const handleBuyNow = () => {
     if (plantSoldOut) {
       showSoldOutAlert();
+      return;
+    }
+    if (isReservedForOther(plantData, user?.uid)) {
+      showReservedAlert();
       return;
     }
     setModalAction('buy-now');
@@ -1247,8 +1260,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
         >
 
 
+          {/* Photo gap. The badge sits at the bottom of the visible photo, above the white card. */}
+          <View pointerEvents="none" style={[styles.reservedPhotoGap, {height: contentTopOffset}]}>
+            <ReservedForBadge listing={plantData} inline />
+          </View>
           {/* Content */}
-          <View style={[styles.content, {marginTop: contentTopOffset}]}>
+          <View style={styles.content}>
           {/* Title */}
           <Text style={styles.title}>
             {plantData.genus} {plantData.species}
@@ -2051,6 +2068,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
+  },
+  reservedPhotoGap: {
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 14,
+    zIndex: 6,
   },
   content: {
     backgroundColor: '#FFFFFF',
