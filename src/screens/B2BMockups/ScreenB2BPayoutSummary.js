@@ -583,7 +583,7 @@ const PayoutCard = React.memo(({item, groupBy, onPress}) => {
         <View style={{flex: 1, paddingRight: 12}}>
           <Text style={styles.plant}>{item.plant}</Text>
           <Text style={styles.meta}>
-            #{item.orderId} · {item.potSize} · {item.businessName}
+            #{item.orderId}{item.plantCode ? ` · ${item.plantCode}` : ''} · {item.potSize} · {item.businessName}
           </Text>
           <Text style={styles.groupMeta}>
             {saleHeading(item, groupBy)} · {groupedDate}

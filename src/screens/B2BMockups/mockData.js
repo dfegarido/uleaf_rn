@@ -26,9 +26,13 @@ export const isPayoutEligible = item => {
   if (isExceptionCondition(item)) {
     return true;
   }
-  return Boolean(item?.scanned) &&
-    (item.leafTrailStatus === 'Inventory for Hub' ||
-      item.leafTrailStatus === 'Received');
+  if (!item?.scanned) {
+    return false;
+  }
+  // The garden scan calculates the payout while the stored trail is still forReceiving.
+  return item.leafTrailStatus === 'Inventory for Hub' ||
+    item.leafTrailStatus === 'Received' ||
+    item.leafTrailStatus === 'forReceiving';
 };
 
 export const getGrossNetPayout = item => {

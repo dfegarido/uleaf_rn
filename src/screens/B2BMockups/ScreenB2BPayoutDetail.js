@@ -238,6 +238,7 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
           <Text style={styles.heroKicker}>{seed.businessName}</Text>
           <Text style={styles.plant}>{seed.plant}</Text>
           <Text style={styles.meta}>
+            {seed.plantCode ? `${seed.plantCode} · ` : ''}
             {seed.potSize}
             {seed.variegation ? ` · ${seed.variegation}` : ''} · {seed.country}
           </Text>
@@ -286,7 +287,7 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
           </View>
           <Text style={styles.panelBody}>{scanLabel}</Text>
           <Text style={styles.panelHint}>
-            Payout is calculated only when Leaf Trail is Inventory for Hub. Full remaining
+            Payout is calculated when the garden scans the plant QR. Full remaining
             releases after hub staff receives the plant.
           </Text>
         </View>
@@ -295,8 +296,8 @@ const ScreenB2BPayoutDetail = ({navigation, route}) => {
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>Payout not calculated</Text>
             <Text style={styles.panelHint}>
-              Seller must scan the plant QR first so Leaf Trail is Inventory for Hub.
-              This confirms the sold plant exists and a QR is attached.
+              The garden must scan the plant QR first. This confirms the sold plant
+              exists and a QR is attached.
             </Text>
           </View>
         ) : exception ? (
