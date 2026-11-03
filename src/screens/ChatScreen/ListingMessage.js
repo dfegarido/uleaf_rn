@@ -80,7 +80,10 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
         }
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching listing:', error);
+        // 404 (deleted) / 403 (not viewable) are expected: the card just hides below.
+        if (!/^Error 40[34]:/.test(error?.message || '')) {
+          console.warn('Error fetching listing:', error);
+        }
         setListing(null);
         setLoading(false);
       }

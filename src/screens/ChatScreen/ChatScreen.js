@@ -1342,11 +1342,10 @@ const ChatScreen = ({navigation, route}) => {
     }
   };
 
-  // Own messages always; admins may delete any message in group chats (moderation).
+  // Own messages always; admins may delete any message in any chat (moderation).
   const canDeleteMessageFromTooltip = (msg) => {
     if (!msg || !currentUserUid) return false;
-    if (msg.senderId === currentUserUid) return true;
-    return isAdminViewer && chatType === 'group';
+    return msg.senderId === currentUserUid || isAdminViewer;
   };
 
   /**
@@ -1408,7 +1407,7 @@ const ChatScreen = ({navigation, route}) => {
     try {
       if (toDelete.isListing) {
         // Owner deleting own listing: remove listing + message. Admin removing someone else's
-        // listing post from a group: remove the message only (do not delete the seller's listing).
+        // listing post from a chat: remove the message only (do not delete the seller's listing).
         //
         // A user who merely *shared* a listing they don't own must never delete
         // the underlying product: `delete-listing` authorises on sellercode, so
@@ -1417,7 +1416,6 @@ const ChatScreen = ({navigation, route}) => {
         const skipListingProductDelete =
           !toDelete.isMyListing ||
           (isAdminViewer &&
-            chatType === 'group' &&
             toDelete.senderId &&
             toDelete.senderId !== currentUserUid);
         if (!skipListingProductDelete) {
