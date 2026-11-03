@@ -1,15 +1,11 @@
 import React, {useEffect, useRef} from 'react';
-import {View, Text, Image, StyleSheet, Animated, Easing, Dimensions} from 'react-native';
+import {View, Text, Image, StyleSheet, Animated, Easing} from 'react-native';
 import Svg, {Circle, Path, Defs, LinearGradient as SvgGradient, Stop} from 'react-native-svg';
 import LinearGradient from 'react-native-linear-gradient';
-
-const {width: W, height: H} = Dimensions.get('window');
+import OrganicBackground from '../OrganicBackground/OrganicBackground';
 
 const PALETTE = {
   bg: '#F7F8F2',
-  lightSage: '#D4E5D2',
-  cream: '#F0EDE5',
-  sage: '#6BA368',
   green1: '#7CC97C',
   green2: '#2E6B3E',
   deep: '#1F4D2B',
@@ -107,13 +103,7 @@ const Loading = ({visible = true, fullscreen = false, size = 40, color, title, m
         styles.fullscreen,
         {opacity: fadeAnim},
       ]}>
-      {/* Background blobs — same organic approach as login form */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={styles.blobTopLeft} />
-        <View style={styles.blobMidRight} />
-        <View style={styles.blobBottom} />
-        <View style={styles.blobCenter} />
-      </View>
+      <OrganicBackground />
 
       <View style={styles.badge}>
         <Animated.View style={[StyleSheet.absoluteFill, {transform: [{rotate}]}]}>
@@ -160,47 +150,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
-  },
-  // Organic background blobs — layered circles for soft gradient feel
-  blobTopLeft: {
-    position: 'absolute',
-    top: -H * 0.08,
-    left: -W * 0.25,
-    width: W * 0.8,
-    height: W * 0.8,
-    borderRadius: 999,
-    backgroundColor: PALETTE.lightSage,
-    opacity: 0.35,
-  },
-  blobMidRight: {
-    position: 'absolute',
-    top: H * 0.3,
-    right: -W * 0.3,
-    width: W * 0.7,
-    height: W * 0.7,
-    borderRadius: 999,
-    backgroundColor: PALETTE.cream,
-    opacity: 0.4,
-  },
-  blobBottom: {
-    position: 'absolute',
-    bottom: -H * 0.1,
-    left: W * 0.1,
-    width: W * 0.6,
-    height: W * 0.6,
-    borderRadius: 999,
-    backgroundColor: PALETTE.lightSage,
-    opacity: 0.25,
-  },
-  blobCenter: {
-    position: 'absolute',
-    top: H * 0.45,
-    left: W * 0.25,
-    width: W * 0.5,
-    height: W * 0.5,
-    borderRadius: 999,
-    backgroundColor: PALETTE.sage,
-    opacity: 0.08,
   },
   badge: {
     width: ORBIT,

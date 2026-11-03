@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useContext, useCallback} from 'react';
-import {View, Text, TouchableOpacity, Modal, Alert, StyleSheet, Dimensions} from 'react-native';
+import {View, Text, TouchableOpacity, Modal, Alert, StyleSheet} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {globalStyles} from '../../assets/styles/styles';
 import OtpInput from '../../components/InputOtp/OtpInput';
@@ -19,8 +19,7 @@ import BackSolidIcon from '../../assets/iconnav/caret-left-bold.svg';
 import XCircleIcon from '../../assets/icons/greydark/x-circle.svg';
 import EnvelopeIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import LottieView from 'lottie-react-native';
-
-const {width: SCREEN_W, height: SCREEN_H} = Dimensions.get('window');
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
 
 const TOKENS = {
   bg: '#F7F8F2',
@@ -299,12 +298,7 @@ const ScreenLoginOtp = ({navigation}) => {
 
   return (
     <View style={styles.rootContainer}>
-      {/* Organic Background Blobs */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={styles.blob1} />
-        <View style={styles.blob2} />
-        <View style={styles.blob3} />
-      </View>
+      <OrganicBackground />
 
       <SafeAreaView style={styles.safeContainer}>
         <View style={styles.mainContainer}>
@@ -615,37 +609,6 @@ const styles = StyleSheet.create({
     color: TOKENS.white,
     fontSize: 16,
     fontWeight: '700',
-  },
-  // Background blobs
-  blob1: {
-    position: 'absolute',
-    top: -SCREEN_H * 0.05,
-    left: -SCREEN_W * 0.2,
-    width: SCREEN_W * 0.7,
-    height: SCREEN_W * 0.7,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.35,
-  },
-  blob2: {
-    position: 'absolute',
-    top: SCREEN_H * 0.25,
-    right: -SCREEN_W * 0.25,
-    width: SCREEN_W * 0.6,
-    height: SCREEN_W * 0.6,
-    borderRadius: 999,
-    backgroundColor: TOKENS.cream,
-    opacity: 0.4,
-  },
-  blob3: {
-    position: 'absolute',
-    bottom: -SCREEN_H * 0.08,
-    left: SCREEN_W * 0.15,
-    width: SCREEN_W * 0.5,
-    height: SCREEN_W * 0.5,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.25,
   },
 });
 

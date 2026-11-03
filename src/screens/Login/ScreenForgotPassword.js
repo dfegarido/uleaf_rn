@@ -6,7 +6,6 @@ import {
   Alert,
   StyleSheet,
   ScrollView,
-  Dimensions,
   Platform,
   KeyboardAvoidingView,
   TextInput,
@@ -17,8 +16,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSpring,
-  withRepeat,
-  withSequence,
   Easing,
   interpolateColor,
   interpolate,
@@ -30,8 +27,8 @@ import Loading from '../../components/Loading';
 
 import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import CloseIcon from '../../assets/buyer-icons/close.svg';
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
 
-const {width: SCREEN_W, height: SCREEN_H} = Dimensions.get('window');
 
 // ------------------------------------------------------------------
 // Design Tokens — same as ScreenLoginForm
@@ -151,23 +148,6 @@ const ScreenForgotPassword = ({navigation}) => {
       ],
     }));
 
-  // Blob drift (very subtle)
-  const blobDrift = useSharedValue(0);
-  useEffect(() => {
-    blobDrift.value = withRepeat(
-      withSequence(
-        withTiming(20, {duration: 12000, easing: Easing.inOut(Easing.ease)}),
-        withTiming(-20, {duration: 12000, easing: Easing.inOut(Easing.ease)}),
-      ),
-      -1,
-      true,
-    );
-  }, []);
-
-  const blobStyle = useAnimatedStyle(() => ({
-    transform: [{translateX: blobDrift.value}],
-  }));
-
   // Button scale animation
   const buttonScale = useSharedValue(1);
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
@@ -229,12 +209,7 @@ const ScreenForgotPassword = ({navigation}) => {
 
   return (
     <View style={styles.rootContainer}>
-      {/* Full-screen background blobs */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Animated.View style={[styles.blob1, blobStyle]} />
-        <Animated.View style={[styles.blob2, blobStyle]} />
-        <Animated.View style={[styles.blob3]} />
-      </View>
+      <OrganicBackground />
 
       <SafeAreaView style={styles.safeContainer}>
         <KeyboardAvoidingView
@@ -345,37 +320,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Background blobs
-  blob1: {
-    position: 'absolute',
-    top: -SCREEN_H * 0.05,
-    left: -SCREEN_W * 0.2,
-    width: SCREEN_W * 0.7,
-    height: SCREEN_W * 0.7,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.35,
-  },
-  blob2: {
-    position: 'absolute',
-    top: SCREEN_H * 0.25,
-    right: -SCREEN_W * 0.25,
-    width: SCREEN_W * 0.6,
-    height: SCREEN_W * 0.6,
-    borderRadius: 999,
-    backgroundColor: TOKENS.cream,
-    opacity: 0.4,
-  },
-  blob3: {
-    position: 'absolute',
-    bottom: -SCREEN_H * 0.08,
-    left: SCREEN_W * 0.15,
-    width: SCREEN_W * 0.5,
-    height: SCREEN_W * 0.5,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.25,
-  },
 
   // Back button
   backButtonSection: {

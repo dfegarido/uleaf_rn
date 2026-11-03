@@ -31,9 +31,9 @@ import {
   completeLoginSession,
   isSupplierAccount,
 } from '../../utils/completeLoginSession';
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
 
 const screenHeight = Dimensions.get('window').height;
-const screenWidth = Dimensions.get('window').width;
 
 const TOKENS = {
   bg: '#F7F8F2',
@@ -120,20 +120,6 @@ const ScreenLogin = ({navigation}) => {
     transform: [{translateY: floatY.value}],
   }));
 
-  // Blob drift (very subtle)
-  const blobDrift = useSharedValue(0);
-  useEffect(() => {
-    blobDrift.value = withRepeat(
-      withTiming(18, {duration: 14000, easing: Easing.inOut(Easing.ease)}),
-      -1,
-      true,
-    );
-  }, []);
-
-  const blobStyle = useAnimatedStyle(() => ({
-    transform: [{translateX: blobDrift.value}],
-  }));
-
   // Button press scale
   const createBtnScale = useSharedValue(1);
   const loginBtnScale = useSharedValue(1);
@@ -164,12 +150,7 @@ const ScreenLogin = ({navigation}) => {
           : {})}
       />
 
-      {/* Organic Background Blobs */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Animated.View style={[styles.blob1, blobStyle]} />
-        <Animated.View style={[styles.blob2, blobStyle]} />
-        <Animated.View style={[styles.blob3]} />
-      </View>
+      <OrganicBackground />
 
       {/* Logo with float + fade-in */}
       <Animated.View style={[styles.logoContainer, fadeUp(0)]}>
@@ -225,37 +206,6 @@ const styles = StyleSheet.create({
     backgroundColor: TOKENS.bg,
   },
 
-  // Background blobs
-  blob1: {
-    position: 'absolute',
-    top: -screenHeight * 0.06,
-    left: -screenWidth * 0.22,
-    width: screenWidth * 0.75,
-    height: screenWidth * 0.75,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.3,
-  },
-  blob2: {
-    position: 'absolute',
-    top: screenHeight * 0.22,
-    right: -screenWidth * 0.28,
-    width: screenWidth * 0.65,
-    height: screenWidth * 0.65,
-    borderRadius: 999,
-    backgroundColor: TOKENS.cream,
-    opacity: 0.35,
-  },
-  blob3: {
-    position: 'absolute',
-    bottom: -screenHeight * 0.1,
-    left: screenWidth * 0.12,
-    width: screenWidth * 0.55,
-    height: screenWidth * 0.55,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.22,
-  },
 
   logoContainer: {
     flex: 1,

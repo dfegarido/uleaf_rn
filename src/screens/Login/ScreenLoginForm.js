@@ -42,8 +42,9 @@ import EmailIcon from '../../assets/icons/greydark/envelope-simple-regular.svg';
 import PasswordIcon from '../../assets/icons/greydark/lock-key-regular.svg';
 import EyeClosedIcon from '../../assets/icons/greydark/eye-closed-regular.svg';
 import EyeOpenIcon from '../../assets/icons/greydark/eye-regular.svg';
+import OrganicBackground from '../../components/OrganicBackground/OrganicBackground';
 
-const {width: SCREEN_W, height: SCREEN_H} = Dimensions.get('window');
+const {height: SCREEN_H} = Dimensions.get('window');
 
 // ------------------------------------------------------------------
 // Design Tokens
@@ -191,23 +192,6 @@ const ScreenLoginForm = ({navigation}) => {
     transform: [{translateY: floatY.value}],
   }));
 
-  // Blob drift (very subtle)
-  const blobDrift = useSharedValue(0);
-  useEffect(() => {
-    blobDrift.value = withRepeat(
-      withSequence(
-        withTiming(20, {duration: 12000, easing: Easing.inOut(Easing.ease)}),
-        withTiming(-20, {duration: 12000, easing: Easing.inOut(Easing.ease)}),
-      ),
-      -1,
-      true,
-    );
-  }, []);
-
-  const blobStyle = useAnimatedStyle(() => ({
-    transform: [{translateX: blobDrift.value}],
-  }));
-
   const loginButtonScale = useSharedValue(1);
   const loginButtonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{scale: loginButtonScale.value}],
@@ -335,12 +319,7 @@ const ScreenLoginForm = ({navigation}) => {
 
   return (
     <View style={styles.rootContainer}>
-      {/* Full-screen background blobs (behind everything, fills notch area too) */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Animated.View style={[styles.blob1, blobStyle]} />
-        <Animated.View style={[styles.blob2, blobStyle]} />
-        <Animated.View style={[styles.blob3]} />
-      </View>
+      <OrganicBackground />
 
       <SafeAreaView style={styles.safeContainer}>
         <KeyboardAvoidingView
@@ -481,37 +460,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
-  // Background blobs
-  blob1: {
-    position: 'absolute',
-    top: -SCREEN_H * 0.05,
-    left: -SCREEN_W * 0.2,
-    width: SCREEN_W * 0.7,
-    height: SCREEN_W * 0.7,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.35,
-  },
-  blob2: {
-    position: 'absolute',
-    top: SCREEN_H * 0.25,
-    right: -SCREEN_W * 0.25,
-    width: SCREEN_W * 0.6,
-    height: SCREEN_W * 0.6,
-    borderRadius: 999,
-    backgroundColor: TOKENS.cream,
-    opacity: 0.4,
-  },
-  blob3: {
-    position: 'absolute',
-    bottom: -SCREEN_H * 0.08,
-    left: SCREEN_W * 0.15,
-    width: SCREEN_W * 0.5,
-    height: SCREEN_W * 0.5,
-    borderRadius: 999,
-    backgroundColor: TOKENS.lightSage,
-    opacity: 0.25,
-  },
 
   // Logo
   logoSection: {
