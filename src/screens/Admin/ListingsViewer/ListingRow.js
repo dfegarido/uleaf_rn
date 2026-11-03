@@ -5,6 +5,9 @@ import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
 import CountryFlagIcon from '../../../components/CountryFlagIcon';
+import EyeClosedIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
+import EyeIcon from '../../../assets/icons/greydark/eye-regular.svg';
+import TrashIcon from '../../../assets/icons/red/trash.svg';
 
 export const getStatusColor = (status) => {
   switch ((status || '').toLowerCase()) {
@@ -279,13 +282,20 @@ const renderCell = (key, listing, activeStatusFilter = null) => {
 // lightweight in-memory cache for image availability checks
 const imageAvailabilityCache = new Map(); // url -> boolean
 
+const canActivateListing = (listing) => {
+  const status = String(listing?.status || '').toLowerCase();
+  return status === 'inactive' || status === 'expired';
+};
+
 const ListingRow = ({
   listing,
   onPress = () => {},
   onImagePress = null,
   columns = [],
   onToggleStatus = () => {},
+  onDelete = () => {},
   isProcessing = false,
+  isDeleting = false,
   activeStatusFilter = null,
   selectMode = false,
   selected = false,
@@ -381,27 +391,49 @@ const ListingRow = ({
           columns.map((col) => (
             <View key={col.key} style={[styles.columnCell, { width: col.width || 120 }]}>
               {col.key === 'action' ? (
-                  <TouchableOpacity
-                    onPress={() => !isProcessing && onToggleStatus && onToggleStatus(listing)}
-                    disabled={!!isProcessing}
-                  >
-                    {isProcessing ? (
-                      <ActivityIndicator size="small" color="#E74C3C" />
-                    ) : (
-                      <Text 
-                        numberOfLines={1}
-                        style={[
-                          listing.status && ['inactive', 'expired'].includes(listing.status.toLowerCase())
-                            ? styles.reactivateText 
-                            : styles.deactivateText
-                        ]}
-                      >
-                        {listing.status && ['inactive', 'expired'].includes(listing.status.toLowerCase())
-                          ? 'Activate'
-                          : 'Deactivate'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                  <View style={styles.actionStack}>
+                    <TouchableOpacity
+                      style={[styles.miniChip, canActivateListing(listing) ? styles.activateChip : styles.deactivateChip]}
+                      onPress={() => !isProcessing && !isDeleting && onToggleStatus && onToggleStatus(listing)}
+                      disabled={!!isProcessing || !!isDeleting}
+                      accessibilityRole="button"
+                      accessibilityLabel={canActivateListing(listing) ? 'Activate listing' : 'Deactivate listing'}
+                    >
+                      {isProcessing ? (
+                        <ActivityIndicator size="small" color={canActivateListing(listing) ? '#1E8A4B' : '#B8612A'} />
+                      ) : (
+                        <>
+                          {canActivateListing(listing) ? (
+                            <EyeIcon width={13} height={13} />
+                          ) : (
+                            <EyeClosedIcon width={13} height={13} />
+                          )}
+                          <Text
+                            numberOfLines={1}
+                            style={canActivateListing(listing) ? styles.activateChipText : styles.deactivateChipText}
+                          >
+                            {canActivateListing(listing) ? 'Activate' : 'Deactivate'}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.miniChip, styles.deleteChip]}
+                      onPress={() => !isDeleting && !isProcessing && onDelete && onDelete(listing)}
+                      disabled={!!isDeleting || !!isProcessing}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete listing"
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator size="small" color="#D23B2F" />
+                      ) : (
+                        <>
+                          <TrashIcon width={13} height={13} />
+                          <Text numberOfLines={1} style={styles.deleteChipText}>Delete</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 ) : (
                   renderCell(col.key, listing, activeStatusFilter)
                 )}
@@ -444,8 +476,22 @@ const styles = StyleSheet.create({
   sellerNameText: { color: '#647276', fontSize: 12, marginTop: 4 },
   countryText: { color: '#556065', fontWeight: '600' },
   countryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deactivateText: { color: '#E74C3C', fontWeight: '600', fontSize: 14, flexShrink: 0 },
-  reactivateText: { color: '#27AE60', fontWeight: '600', fontSize: 14, flexShrink: 0 },
+  actionStack: { alignItems: 'flex-start', gap: 6 },
+  miniChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  deactivateChip: { borderColor: '#E7B089', backgroundColor: '#FFF6EE' },
+  deactivateChipText: { color: '#B8612A', fontWeight: '600', fontSize: 12 },
+  activateChip: { borderColor: '#A9D7B8', backgroundColor: '#F2FBF5' },
+  activateChipText: { color: '#1E8A4B', fontWeight: '600', fontSize: 12 },
+  deleteChip: { borderColor: '#F0B2A8', backgroundColor: '#FFF4F2' },
+  deleteChipText: { color: '#D23B2F', fontWeight: '600', fontSize: 12 },
   selectBox: {
     width: 22,
     height: 22,

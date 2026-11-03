@@ -2480,13 +2480,14 @@ const ScreenListing = ({navigation}) => {
                           style={[styles.liveActionChip, styles.liveCartChip, liveSelectedIds.length === 0 && {opacity: 0.4}]}>
                           <Text style={styles.liveActionChipText}>To cart</Text>
                         </TouchableOpacity>
-                      ) : null}
-                      <TouchableOpacity
-                        onPress={handleLiveBatchExportToMainstream}
-                        disabled={liveSelectedIds.length === 0}
-                        style={[styles.liveActionChip, styles.liveExportChip, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
-                        <Text style={styles.liveActionChipText}>Export</Text>
-                      </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={handleLiveBatchExportToMainstream}
+                          disabled={liveSelectedIds.length === 0}
+                          style={[styles.liveActionChip, styles.liveExportChip, liveSelectedIds.length === 0 && { opacity: 0.4 }]}>
+                          <Text style={styles.liveActionChipText}>Export</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
                         onPress={handleLiveEdit}
                         disabled={liveSelectedIds.length !== 1}

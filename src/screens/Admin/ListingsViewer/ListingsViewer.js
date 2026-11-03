@@ -37,10 +37,14 @@ import PriceTagIcon from '../../../assets/buyer-icons/tag-bold.svg';
 import UnicornIcon from '../../../assets/buyer-icons/unicorn.svg';
 import Top5Icon from '../../../assets/buyer-icons/hand-heart.svg';
 import HeartIcon from '../../../assets/buyer-icons/heart.svg';
+import EyeClosedIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
+import EyeIcon from '../../../assets/icons/greydark/eye-regular.svg';
+import TrashIcon from '../../../assets/icons/red/trash.svg';
 // Import API
 import { getAdminListingsApi, getAdminListingGardensApi } from '../../../components/Api/getAdminListingsApi';
 import { postListingDeactivateActionApi } from '../../../components/Api/postListingDeactivateActionApi';
 import { postListingActivateActionApi } from '../../../components/Api/postListingActivateActionApi';
+import { postListingDeleteApi } from '../../../components/Api/postListingDeleteApi';
 import { searchBuyersApi } from '../../../components/Api/searchBuyersApi';
 import { adminPushListingsToCartApi } from '../../../components/Api/adminPushListingsToCartApi';
 
@@ -50,6 +54,7 @@ import { adminPushListingsToCartApi } from '../../../components/Api/adminPushLis
 const TABLE_COLUMNS = [
   { key: 'image', label: 'Image', width: IMAGE_CELL_WIDTH },
   { key: 'code', label: 'Code + Status', width: 120 },
+  { key: 'action', label: 'Action', width: 124 },
   { key: 'name', label: 'Name', width: 200 },
   { key: 'listingType', label: 'Listing Type', width: 140 },
   { key: 'size', label: 'Size', width: 90 },
@@ -61,11 +66,13 @@ const TABLE_COLUMNS = [
   { key: 'country', label: 'Country', width: 100 },
   { key: 'shippingIndex', label: 'Shipping Index', width: 120 },
   { key: 'acclimationIndex', label: 'Acclimation Index', width: 120 },
-  { key: 'action', label: 'Action', width: 100 },
 ];
 
 // Header/row alignment columns (everything except the leading image cell).
 const FILTERED_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'image');
+// Selection already has the action bar, so the per-row Action column stays hidden there.
+const SELECT_TABLE_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'action');
+const SELECT_FILTERED_COLUMNS = FILTERED_COLUMNS.filter((c) => c.key !== 'action');
 
 const ListingsViewer = ({ navigation }) => {
   // Normalize garden/seller names to reduce mismatches (curly quotes, extra spaces)
@@ -150,6 +157,8 @@ const ListingsViewer = ({ navigation }) => {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activatingPlantCodes, setActivatingPlantCodes] = useState({});
+  const [deletingPlantCodes, setDeletingPlantCodes] = useState({});
+  const [deleting, setDeleting] = useState(false);
   const [selectedBadgeFilter, setSelectedBadgeFilter] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [headerSearchVisible, setHeaderSearchVisible] = useState(false);
@@ -204,18 +213,15 @@ const ListingsViewer = ({ navigation }) => {
     { id: 'sellers-fave', label: 'Sellers Fave', icon: HeartIcon },
   ];
 
-  // Table columns configuration
-  const tableColumns = TABLE_COLUMNS;
-
   useEffect(() => {
     loadListings();
   }, [selectedBadgeFilter, selectedFilters, pagination.currentPage]);
 
-  // Use a columns array without 'image' for header/rows alignment
-  // Stable across renders so memoized rows keep referential-equality on props.
-  // tableColumns is a literal rebuilt each render, so derive from a module
-  // constant rather than memoizing on an unstable dependency.
-  const filteredColumns = FILTERED_COLUMNS;
+  // Use a columns array without 'image' for header/rows alignment.
+  // Module constants keep the identity stable so memoized rows don't rerender
+  // just because the parent rendered.
+  const tableColumns = selectMode ? SELECT_TABLE_COLUMNS : TABLE_COLUMNS;
+  const filteredColumns = selectMode ? SELECT_FILTERED_COLUMNS : FILTERED_COLUMNS;
 
   const loadListings = async (opts = {}) => {
     try {
@@ -432,6 +438,175 @@ const ListingsViewer = ({ navigation }) => {
           }
         }
       ]
+    );
+  };
+
+  const runDeleteListings = async (plantCodes, { exitSelection = false } = {}) => {
+    const unique = [...new Set((plantCodes || []).map((code) => String(code || '').trim()).filter(Boolean))];
+    if (!unique.length || deleting) return;
+
+    setDeletingPlantCodes((prev) => {
+      const next = { ...prev };
+      unique.forEach((code) => { next[code] = true; });
+      return next;
+    });
+    setDeleting(true);
+
+    let deletedCodes = [];
+    let failMessage = '';
+    try {
+      const results = await Promise.allSettled(unique.map((code) => postListingDeleteApi(code)));
+      deletedCodes = unique.filter((code, index) => {
+        const result = results[index];
+        return result.status === 'fulfilled' && result.value?.success !== false;
+      });
+      const failedResult = results.find(
+        (result) => result.status === 'rejected' || result.value?.success === false,
+      );
+      failMessage = failedResult?.reason?.message
+        || failedResult?.value?.error
+        || failedResult?.value?.message
+        || 'Failed to delete listing';
+
+      if (deletedCodes.length > 0) {
+        await loadListings({ page: pagination.currentPage });
+        if (exitSelection) {
+          exitSelectMode();
+        } else {
+          setSelectedIds((prev) =>
+            prev.filter((id) => {
+              const match = listings.find((listing) => (listing.id || listing.plantCode) === id);
+              return !(match && deletedCodes.includes(String(match.plantCode)));
+            }),
+          );
+        }
+      }
+    } catch (e) {
+      failMessage = e?.message || 'Failed to delete listing';
+      deletedCodes = [];
+    } finally {
+      setDeleting(false);
+      setDeletingPlantCodes((prev) => {
+        const next = { ...prev };
+        unique.forEach((code) => { delete next[code]; });
+        return next;
+      });
+    }
+
+    const deleted = deletedCodes.length;
+    const failed = unique.length - deleted;
+    if (failed === 0) {
+      Alert.alert(
+        'Delete',
+        deleted === 1
+          ? `Listing ${deletedCodes[0]} has been deleted.`
+          : `${deleted} listings have been deleted.`,
+      );
+    } else if (deleted === 0) {
+      Alert.alert('Error', failMessage);
+    } else {
+      Alert.alert('Delete', `${deleted} deleted. ${failed} could not be deleted.`);
+    }
+  };
+
+  const handleDelete = (listing) => {
+    if (!listing?.plantCode || deleting) return;
+    Alert.alert(
+      'Delete listing',
+      `Are you sure you want to delete ${listing.plantCode}? This action is permanent and cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => runDeleteListings([listing.plantCode]),
+        },
+      ],
+    );
+  };
+
+  const confirmDeleteSelected = () => {
+    const selectedListings = listings.filter((listing) =>
+      selectedIds.includes(listing.id || listing.plantCode),
+    );
+    const plantCodes = selectedListings.map((listing) => listing.plantCode).filter(Boolean);
+    if (!plantCodes.length) {
+      Alert.alert('Select listings', 'Mark at least one listing first.');
+      return;
+    }
+    const count = plantCodes.length;
+    Alert.alert(
+      count === 1 ? 'Delete listing' : 'Delete listings',
+      `Are you sure you want to delete ${count} listing${count > 1 ? 's' : ''}? This action is permanent and cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => runDeleteListings(plantCodes, { exitSelection: true }),
+        },
+      ],
+    );
+  };
+
+  const selectedListingsOnPage = listings.filter((listing) =>
+    selectedIds.includes(listing.id || listing.plantCode),
+  );
+  const bulkCanActivate =
+    selectedListingsOnPage.length > 0 &&
+    selectedListingsOnPage.every((listing) =>
+      ['inactive', 'expired'].includes(String(listing.status || '').toLowerCase()),
+    );
+  const bulkStatusLabel = bulkCanActivate ? 'Activate' : 'Deactivate';
+
+  const confirmBulkStatusChange = () => {
+    const plantCodes = selectedListingsOnPage.map((listing) => listing.plantCode).filter(Boolean);
+    if (!plantCodes.length) {
+      Alert.alert('Select listings', 'Mark at least one listing first.');
+      return;
+    }
+    const count = plantCodes.length;
+    const verb = bulkStatusLabel.toLowerCase();
+    Alert.alert(
+      `${bulkStatusLabel} listing${count > 1 ? 's' : ''}`,
+      `Are you sure you want to ${verb} ${count} listing${count > 1 ? 's' : ''}? ${
+        bulkCanActivate
+          ? 'They will be visible to buyers again.'
+          : 'They will be hidden from buyers but can be reactivated later.'
+      }`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: bulkStatusLabel,
+          style: bulkCanActivate ? 'default' : 'destructive',
+          onPress: async () => {
+            setActivatingPlantCodes((prev) => {
+              const next = { ...prev };
+              plantCodes.forEach((code) => { next[code] = true; });
+              return next;
+            });
+            try {
+              const resp = bulkCanActivate
+                ? await postListingActivateActionApi(plantCodes)
+                : await postListingDeactivateActionApi(plantCodes);
+              if (resp?.success === false) {
+                throw new Error(resp.message || resp.error || `Failed to ${verb} listings`);
+              }
+              await loadListings({ page: pagination.currentPage });
+              exitSelectMode();
+              Alert.alert(bulkStatusLabel, `${count} listing${count > 1 ? 's' : ''} ${verb}d.`);
+            } catch (e) {
+              Alert.alert('Error', e?.message || `Failed to ${verb} listings`);
+            } finally {
+              setActivatingPlantCodes((prev) => {
+                const next = { ...prev };
+                plantCodes.forEach((code) => { delete next[code]; });
+                return next;
+              });
+            }
+          },
+        },
+      ],
     );
   };
 
@@ -1670,12 +1845,41 @@ const ListingsViewer = ({ navigation }) => {
           <View style={styles.bulkActionBar}>
             <TouchableOpacity
               style={[
-                styles.bulkActionBtn,
-                (selectedIds.length === 0 || pushingCart) && { opacity: 0.4 },
+                styles.actionChip,
+                bulkCanActivate ? styles.activateChip : styles.deactivateChip,
+                (selectedIds.length === 0 || pushingCart || deleting) && styles.actionChipDisabled,
               ]}
-              disabled={selectedIds.length === 0 || pushingCart}
+              disabled={selectedIds.length === 0 || pushingCart || deleting}
+              onPress={confirmBulkStatusChange}>
+              {bulkCanActivate ? (
+                <EyeIcon width={15} height={15} />
+              ) : (
+                <EyeClosedIcon width={15} height={15} />
+              )}
+              <Text style={[styles.actionChipText, bulkCanActivate ? styles.activateChipText : styles.deactivateChipText]}>
+                {bulkStatusLabel}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionChip,
+                styles.deleteChip,
+                (selectedIds.length === 0 || pushingCart || deleting) && styles.actionChipDisabled,
+              ]}
+              disabled={selectedIds.length === 0 || pushingCart || deleting}
+              onPress={confirmDeleteSelected}>
+              <TrashIcon width={15} height={15} />
+              <Text style={[styles.actionChipText, styles.deleteChipText]}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionChip,
+                styles.cartChip,
+                (selectedIds.length === 0 || pushingCart || deleting) && styles.actionChipDisabled,
+              ]}
+              disabled={selectedIds.length === 0 || pushingCart || deleting}
               onPress={openAddToCartBuyerPicker}>
-              <Text style={styles.bulkActionBtnText}>Add to cart</Text>
+              <Text style={[styles.actionChipText, styles.cartChipText]}>Add to cart</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1877,7 +2081,9 @@ const ListingsViewer = ({ navigation }) => {
                         onImagePress={handleImagePress}
                         columns={filteredColumns}
                         onToggleStatus={handleToggleStatus}
+                        onDelete={handleDelete}
                         isProcessing={!!activatingPlantCodes[item.plantCode]}
+                        isDeleting={!!deletingPlantCodes[item.plantCode]}
                         activeStatusFilter={selectedFilters.status}
                         selectMode={selectMode}
                         selected={selectedIds.includes(item.id || item.plantCode)}
@@ -2048,23 +2254,56 @@ const styles = StyleSheet.create({
   bulkActionBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     paddingHorizontal: 16,
     paddingBottom: 8,
     gap: 8,
   },
-  bulkActionBtn: {
-    backgroundColor: '#539461',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 120,
+  actionChip: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    backgroundColor: '#fff',
   },
-  bulkActionBtnText: {
-    color: '#fff',
+  actionChipDisabled: {
+    opacity: 0.4,
+  },
+  actionChipText: {
     fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  deactivateChip: {
+    borderColor: '#E7B089',
+    backgroundColor: '#FFF6EE',
+  },
+  deactivateChipText: {
+    color: '#B8612A',
+  },
+  activateChip: {
+    borderColor: '#A9D7B8',
+    backgroundColor: '#F2FBF5',
+  },
+  activateChipText: {
+    color: '#1E8A4B',
+  },
+  deleteChip: {
+    borderColor: '#F0B2A8',
+    backgroundColor: '#FFF4F2',
+  },
+  deleteChipText: {
+    color: '#D23B2F',
+  },
+  cartChip: {
+    borderColor: '#539461',
+    backgroundColor: '#539461',
+  },
+  cartChipText: {
+    color: '#fff',
   },
   buyerOverlay: {
     flex: 1,
@@ -2270,7 +2509,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   tableContainer: {
-    minWidth: 1992,
+    minWidth: 2016,
     flex: 1,
   },
   tableHeader: {

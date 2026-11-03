@@ -583,11 +583,11 @@ const ScreenHome = ({navigation}) => {
                   <View style={styles.b2bActionRow}>
                     <View style={styles.b2bActionText}>
                       <Text style={styles.b2bActionTitle}>
-                        {isBusinessAccount ? 'Mainstream' : 'Garden Partner'}
+                        {isBusinessAccount ? 'Asia Business' : 'Garden Partner'}
                       </Text>
                       <Text style={styles.b2bActionBody}>
                         {isBusinessAccount
-                          ? 'Listing in USD. Switch off to go back to Garden Partner.'
+                          ? "A new leaf unfolds! You're now in Asia Business Mode. Let your business bloom with ileafU!"
                           : 'Switch on to list on mainstream in USD. You can switch back anytime.'}
                       </Text>
                     </View>
