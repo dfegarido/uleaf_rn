@@ -25,7 +25,10 @@ const LiveStreamAddToCartButton = ({
   label = 'Add to Cart',
 }) => {
   const isGlass = variant === 'glass';
-  const isGradient = variant === 'gradientLight';
+  // `gradientRed` is the same pill as gradientLight in red with a white label: the live card's
+  // Remove once the plant is already in the cart.
+  const isRed = variant === 'gradientRed';
+  const isGradient = variant === 'gradientLight' || isRed;
   const cornerRadius = radius != null ? radius : 12;
   return (
     <TouchableOpacity
@@ -43,12 +46,12 @@ const LiveStreamAddToCartButton = ({
         // Absolute fill: the gradient paints behind the label and adds no layout height.
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
           <Defs>
-            <SvgLinearGradient id="addToCartLightGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#F8FCF7" />
-              <Stop offset="1" stopColor="#A9D9A9" />
+            <SvgLinearGradient id={isRed ? 'addToCartRedGradient' : 'addToCartLightGradient'} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={isRed ? '#FF8A75' : '#F8FCF7'} />
+              <Stop offset="1" stopColor={isRed ? '#C8341C' : '#A9D9A9'} />
             </SvgLinearGradient>
           </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" rx={cornerRadius} ry={cornerRadius} fill="url(#addToCartLightGradient)" />
+          <Rect x="0" y="0" width="100%" height="100%" rx={cornerRadius} ry={cornerRadius} fill={isRed ? 'url(#addToCartRedGradient)' : 'url(#addToCartLightGradient)'} />
         </Svg>
       )}
       <Text style={[styles.label, (isGlass || isGradient) && styles.labelGlass, textStyle]}>{label}</Text>

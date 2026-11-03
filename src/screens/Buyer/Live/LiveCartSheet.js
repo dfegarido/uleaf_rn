@@ -85,7 +85,7 @@ const SkeletonRows = ({ count }) => {
 /**
  * The buyer's cart as a sheet over the live, so opening it never leaves the stream.
  * Checkout hands the available items to `onCheckout`, which opens the live checkout sheet.
- * Loads once on mount so `onCountChange` can drive the Cart icon badge before it is opened.
+ * Loads once on mount so `onItemsChange` can drive the Cart icon badge and in-cart buttons before it is opened.
  * The cart is kept between opens; call `ref.current.refresh()` after an Add to Cart, or pull
  * down to refresh.
  *
@@ -93,7 +93,7 @@ const SkeletonRows = ({ count }) => {
  * full-screen Loading Modal shown by Add to Cart re-presented this sheet after it was closed, while
  * its Checkout could not present the checkout Modal on top. Render it last in the screen.
  */
-const LiveCartSheet = forwardRef(({ isVisible, onClose, onCheckout, onCountChange }, ref) => {
+const LiveCartSheet = forwardRef(({ isVisible, onClose, onCheckout, onItemsChange }, ref) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,7 +140,10 @@ const LiveCartSheet = forwardRef(({ isVisible, onClose, onCheckout, onCountChang
     }
     setError(false);
     loadedRef.current = true;
-    setItems((res.data?.items || []).map(toCartItem));
+    const next = (res.data?.items || []).map(toCartItem);
+    setItems(next);
+    // Returned so a caller can apply the new cart in the same render as its own state changes.
+    return next;
   }, []);
 
   // Reloads right away so the badge count stays current, whether or not the sheet is open.
@@ -151,8 +154,8 @@ const LiveCartSheet = forwardRef(({ isVisible, onClose, onCheckout, onCountChang
   }, [load]);
 
   useEffect(() => {
-    if (loadedRef.current) onCountChange?.(items.length);
-  }, [items, onCountChange]);
+    if (loadedRef.current) onItemsChange?.(items);
+  }, [items, onItemsChange]);
 
   const remove = async (item) => {
     setRemovingId(item.id);

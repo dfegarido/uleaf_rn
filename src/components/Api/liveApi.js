@@ -263,6 +263,8 @@ export const deleteLiveCommentApi = async ({ sessionId, commentId }) => {
       headers: await authHeaders(),
       body: JSON.stringify({ mode: 'delete', sessionId, commentId }),
     });
+    // 404 = already gone (double tap, or the end-of-session purge): that IS a successful delete.
+    if (res.status === 404) return { success: true, alreadyDeleted: true };
     const body = await parseJson(res);
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
     return { success: true, ...body };

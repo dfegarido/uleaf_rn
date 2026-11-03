@@ -1,5 +1,6 @@
 import PlantListingImage from '../../components/PlantListingImage/PlantListingImage';
 import ChatAvatar from '../../components/ChatAvatar';
+import { CHAT_MAX_HEIGHT, ChatFadeCell, ChatFadeContext } from '../../components/ChatFadeCell';
 import GlassView from '../../components/Glass/GlassView';
 
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -188,6 +189,12 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const [cohostEnabled, setCohostEnabled] = useState(false);
   const inviteSentAtRef = useRef(0);
   const flatListRef = useRef(null);
+  const chatScrollY = useRef(new Animated.Value(0)).current;
+  const [chatListHeight, setChatListHeight] = useState(CHAT_MAX_HEIGHT);
+  const chatFade = useMemo(
+    () => ({ scrollY: chatScrollY, offset: CHAT_MAX_HEIGHT - chatListHeight }),
+    [chatScrollY, chatListHeight],
+  );
   const snapshotPendingRef = useRef(null);
   const blankSnapshotRetriesRef = useRef(0);
   const thumbnailPendingRef = useRef(false);
@@ -208,6 +215,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const activeListingRef = useRef(null);
   // Success / error toast for listing actions (no blocking popups mid-live).
   const [toast, setToast] = useState(null);
+  const [hiddenCommentIds, setHiddenCommentIds] = useState(() => new Set());
   const activeBeforeSetRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   // The session's joiners live in `live.joiners[]` (written by addViewerToLiveSession). Kept as
@@ -842,13 +850,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       }
   }, [comments]); // This effect runs whenever 'messages' array changes
 
+  // Optimistic: the comment leaves the chat on tap and stays hidden while the poll/realtime
+  // catch up (an in-flight poll could otherwise bring it back). A failure puts it back.
   const deleteComment = async (commentId) => {
-    try {
-        await deleteLiveCommentApi({ sessionId, commentId });
-    } catch (error) {
-        console.error("Error deleting comment: ", error);
-        Alert.alert('Error', 'Failed to delete comment');
-    }
+    setHiddenCommentIds((prev) => new Set(prev).add(commentId));
+    const res = await deleteLiveCommentApi({ sessionId, commentId });
+    if (res.success) return;
+    setHiddenCommentIds((prev) => {
+      const next = new Set(prev);
+      next.delete(commentId);
+      return next;
+    });
+    setToast({ message: 'Failed to delete comment', type: 'error' });
   };
 
   const startEditing = (comment) => {
@@ -970,8 +983,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   // Messages and join notices as ONE chronological feed. Memoised so the background poll does
   // not re-sort and re-render the whole list while the broadcaster is reading or typing.
   const chatFeed = useMemo(
-    () => buildLiveChatFeed(comments, joinedUsers),
-    [comments, joinedUsers],
+    () => buildLiveChatFeed(comments.filter((c) => !hiddenCommentIds.has(c.id)), joinedUsers),
+    [comments, joinedUsers, hiddenCommentIds],
   );
 
     const formatViewersLikes = (data) => {
@@ -1518,10 +1531,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               {/* One feed, one list: join notices and messages interleaved by time. The list is
                   capped by its own maxHeight and scrolls inside that box. */}
             <View style={styles.comments}>
-              <FlatList
+              <ChatFadeContext.Provider value={chatFade}>
+              <Animated.FlatList
                 ref={flatListRef}
                 data={chatFeed}
                 style={[styles.commentList, styles.commentListFloor]}
+                CellRendererComponent={ChatFadeCell}
+                onLayout={(e) => setChatListHeight(e.nativeEvent.layout.height)}
+                onScroll={Animated.event(
+                  [{ nativeEvent: { contentOffset: { y: chatScrollY } } }],
+                  { useNativeDriver: true },
+                )}
+                scrollEventThrottle={16}
                 keyExtractor={(item) => item.id}
                 keyboardDismissMode="on-drag"
                 keyboardShouldPersistTaps="handled"
@@ -1546,6 +1567,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   </View>
                 )}
               />
+              </ChatFadeContext.Provider>
             </View>
             </View>
         {/* Spans column 1, above the card. Glass pill owns the surface; the TouchableWithoutFeedback owns the padding so
@@ -1835,7 +1857,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
 
 export default LiveBroadcastScreen;
 
-// Rail is 56pt wide and 15pt from the edge; 100 clears it, the screen edge does the clipping.
+// Rail is 48pt wide and 15pt from the edge; 100 clears it, the screen edge does the clipping.
 const SIDE_RAIL_HIDDEN_OFFSET = 100;
 
 const baseFont = {
@@ -2029,7 +2051,7 @@ const styles = StyleSheet.create({
   commentList: {
     width: '100%',
     borderRadius: 16,
-    maxHeight: 300,
+    maxHeight: CHAT_MAX_HEIGHT,
     flexShrink: 1,
   },
   commentRow: {
@@ -2055,8 +2077,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 1000,
-    borderWidth: 1,
-    borderColor: '#539461',
   },
   commentContent: {
     flexDirection: 'column',
@@ -2066,12 +2086,13 @@ const styles = StyleSheet.create({
     // wraps inside the pill instead of running under its edge (was a fixed 228).
     flexShrink: 1,
   },
+  // Reference style: a small, muted handle above a larger, bright message.
   chatName: {
     ...baseFont,
-    fontWeight: '500',
+    fontWeight: '400',
     fontSize: 12,
     lineHeight: 17,
-    color: '#FFF',
+    color: 'rgba(255, 255, 255, 0.75)',
     // Tight dark outline rather than a wide faint glow: holds each letter on a bright frame.
     textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 1 },
@@ -2094,27 +2115,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     width: '100%',
-    borderRadius: 23,
+    borderRadius: 18,
   },
-  // Carries the pill's padding so the whole capsule is one touch target: 13 + one 20pt line + 13.
+  // Carries the pill's padding so the whole capsule is one touch target: 9 + one 18pt line + 9 = 36pt.
   commentPillTouch: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 13,
-    paddingHorizontal: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
   },
   commentInput: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     paddingVertical: 0,
     paddingTop: 0,
     paddingBottom: 0,
     includeFontPadding: false,
     textAlignVertical: 'top',
-    minHeight: 20,
-    maxHeight: 80,
+    minHeight: 18,
+    maxHeight: 72,
     color: '#FFF',
     fontFamily: 'Inter',
     letterSpacing: 0.2,
@@ -2126,14 +2147,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-    width: 56,
+    width: 48,
     paddingVertical: 14,
     paddingHorizontal: 6,
   },
   sideAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 56,
+    width: 48,
     paddingVertical: 6,
   },
   // Same 34pt icon box and dimming as the buyer rail: the outline icons are fixed white at

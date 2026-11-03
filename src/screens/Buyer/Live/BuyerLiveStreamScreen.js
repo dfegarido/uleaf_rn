@@ -64,9 +64,11 @@ import {
   liveOrderLookupApi,
   updateLiveCommentApi,
 } from '../../../components/Api/liveApi';
-import { addToCartApi } from '../../../components/Api/cartApi';
+import { addToCartApi, removeFromCartApi } from '../../../components/Api/cartApi';
+import { optimisticCartCodes, optimisticCartCount } from './liveCart';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import ChatAvatar from '../../../components/ChatAvatar';
+import { CHAT_MAX_HEIGHT, ChatFadeCell, ChatFadeContext } from '../../../components/ChatFadeCell';
 import GlassView from '../../../components/Glass/GlassView';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import { shareLiveStream } from '../../../utils/liveShareLink';
@@ -195,9 +197,32 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const [isViewersSheetVisible, setViewersSheetVisible] = useState(false);
   const [isCartSheetVisible, setCartSheetVisible] = useState(false);
   const cartSheetRef = useRef(null);
-  const [cartCount, setCartCount] = useState(0);
+  // The cart as last loaded by LiveCartSheet, plus per-plant optimistic flips while a tap is in
+  // flight (true = adding, false = removing). The buttons and badge read the merged view.
+  const [cartItems, setCartItems] = useState([]);
+  const [cartOverrides, setCartOverrides] = useState({});
+  const cartCodes = useMemo(() => optimisticCartCodes(cartItems, cartOverrides), [cartItems, cartOverrides]);
+  const cartCount = optimisticCartCount(cartItems, cartCodes);
   const [cartToast, setCartToast] = useState(null);
+  const [cartToastType, setCartToastType] = useState('success');
+  const [hiddenCommentIds, setHiddenCommentIds] = useState(() => new Set());
+  const showCartToast = (message, type = 'success') => {
+    setCartToastType(type);
+    setCartToast(message);
+  };
+  const setCartOverride = (code, value) => setCartOverrides((prev) => {
+    const next = { ...prev };
+    if (value === undefined) delete next[code];
+    else next[code] = value;
+    return next;
+  });
   const flatListRef = useRef(null);
+  const chatScrollY = useRef(new Animated.Value(0)).current;
+  const [chatListHeight, setChatListHeight] = useState(CHAT_MAX_HEIGHT);
+  const chatFade = useMemo(
+    () => ({ scrollY: chatScrollY, offset: CHAT_MAX_HEIGHT - chatListHeight }),
+    [chatScrollY, chatListHeight],
+  );
   const { userInfo } = useContext(AuthContext);
   const [asyncUserInfo, setAsyncUserInfo] = useState(null);
   const currentUserInfo = userInfo || asyncUserInfo;
@@ -233,7 +258,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // events, so it stays correct on Android too — where `adjustResize` resizes the window and
   // keyboard events do not fire. The chat's collapsed height reads the same state.
   const [isCommentFocused, setIsCommentFocused] = useState(false);
-  // The pill is 46pt tall but the TextInput inside it is only 20pt, so a tap on the padding —
+  // The pill is 36pt tall but the TextInput inside it is only 18pt, so a tap on the padding —
   // which looks identical to the input — used to do nothing at all: no focus, no keyboard, and
   // the plant card stayed on screen. The whole pill now routes to the input.
   const commentInputRef = useRef(null);
@@ -429,13 +454,18 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       };
     }, [sessionId]);
 
+  // Optimistic: the comment leaves the chat on tap and stays hidden while the poll/realtime
+  // catch up (an in-flight poll could otherwise bring it back). A failure puts it back.
   const deleteComment = async (commentId) => {
-    try {
-        await deleteLiveCommentApi({ sessionId, commentId });
-    } catch (error) {
-        console.error("Error deleting comment: ", error);
-        Alert.alert('Error', 'Failed to delete comment');
-    }
+    setHiddenCommentIds((prev) => new Set(prev).add(commentId));
+    const res = await deleteLiveCommentApi({ sessionId, commentId });
+    if (res.success) return;
+    setHiddenCommentIds((prev) => {
+      const next = new Set(prev);
+      next.delete(commentId);
+      return next;
+    });
+    showCartToast('Failed to delete comment', 'error');
   };
 
   const startEditing = (comment) => {
@@ -536,8 +566,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // Messages and join notices as ONE chronological feed. Memoised so a background poll (every
   // 10s) does not re-sort and re-render the whole list while the user is reading or typing.
   const chatFeed = useMemo(
-    () => buildLiveChatFeed(comments, joinedUsers),
-    [comments, joinedUsers],
+    () => buildLiveChatFeed(comments.filter((c) => !hiddenCommentIds.has(c.id)), joinedUsers),
+    [comments, joinedUsers, hiddenCommentIds],
   );
 
   const formatViewersLikes = (data) => {
@@ -768,7 +798,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             // Tell the buyer once per live that a second host joined and they can switch.
             if (cohostToastShownFor !== sessionId) {
               cohostToastShownFor = sessionId;
-              setCartToast(COHOST_TOAST);
+              showCartToast(COHOST_TOAST);
             }
             return;
           }
@@ -928,15 +958,37 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       }
   };
 
+  // One button per plant: adds when it is not in the cart, removes when it is. Both are
+  // optimistic — the button and badge flip on tap, a toast reports the result, and a failure
+  // flips them back.
+  // Ends a tap: optionally reloads the cart, then applies it and drops the optimistic override in
+  // ONE synchronous block so they land in the same render. Waiting for the sheet's onItemsChange
+  // effect left a render with neither, and the button blinked green before turning red.
+  const settleCart = async (code, reload) => {
+    const items = reload ? await cartSheetRef.current?.refresh() : null;
+    if (items) setCartItems(items);
+    setCartOverride(code, undefined);
+  };
+
+  const handleToggleCart = (item) => {
+    const code = item?.plantCode;
+    // ponytail: taps on a plant whose last tap is still in flight are ignored, not queued.
+    if (!code || code in cartOverrides) return;
+    if (cartCodes.has(code)) removeFromCart(code);
+    else handleAddToCart(item);
+  };
+
   const handleAddToCart = async (item) => {
+    const code = item.plantCode;
+    setCartOverride(code, true);
     try {
-      setIsLoading(true);
-      const plantDatas = await loadPlantDetails(item);
-      
-      if (!plantDatas) {
-        // loadPlantDetails handles the error alert
-        return;
+      // Fetched directly rather than through loadPlantDetails: that one alerts on error and
+      // overwrites the stream card's plantData with whichever plant was tapped in the shop.
+      const res = await retryAsync(() => getPlantDetailApi(code), 3, 1000);
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load plant details');
       }
+      const plantDatas = res.data;
 
       let country = plantDatas.country;
       if (!country) {
@@ -966,10 +1018,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         throw new Error(response.error || 'Failed to add to cart');
       }
 
-      cartSheetRef.current?.refresh();
-      // An in-app toast, not an Alert: the buyer keeps watching and the badge shows the new count.
-      setCartToast('Plant added to cart');
-
+      await settleCart(code, true);
+      showCartToast('Plant added to cart');
     } catch (error) {
       let errorMessage = 'Failed to add item to cart';
       if (error.message.includes('No active listing found')) {
@@ -979,11 +1029,18 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      const isExpired = /listing has expired/i.test(errorMessage);
-      Alert.alert(isExpired ? 'Listing Expired' : 'Error', errorMessage);
-    } finally {
-      setIsLoading(false);
+      settleCart(code, false);
+      showCartToast(errorMessage, 'error');
     }
+  };
+
+  const removeFromCart = async (code) => {
+    const cartItem = cartItems.find((i) => i.plantCode === code);
+    setCartOverride(code, false);
+    const res = await removeFromCartApi({ cartItemId: cartItem?.cartItemId });
+    await settleCart(code, !!res?.success);
+    if (res?.success) showCartToast('Plant removed from cart');
+    else showCartToast(res?.error || 'Failed to remove from cart', 'error');
   };
 
   // Opens the LIVE checkout modal immediately on the tapped row's display data and
@@ -1138,12 +1195,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   };
 
   // While the keyboard is up the chat is pinned to a fixed minimal height so the column can
-  // never reach the top bar; otherwise it falls back to its resting 300pt cap. Plain state rather
+  // never reach the top bar; otherwise it falls back to its resting CHAT_MAX_HEIGHT cap. Plain state rather
   // than an animated node — `minHeight`/`maxHeight` are not interpolatable by the native module,
   // and the jump is invisible next to the keyboard's own travel.
   // No `flex` here on purpose: `flex: 1` sets flexBasis 0, and the list measured 43pt (its
   // minHeight floor) instead of the space it was given. Left alone it sizes to its content and
-  // stops at styles.commentList's 300pt cap, which is what lets it take the room freed by the
+  // stops at styles.commentList's CHAT_MAX_HEIGHT cap, which is what lets it take the room freed by the
   // hidden plant card while `leftColumn.paddingTop` keeps it off the back button.
   const chatHeight = { minHeight: CHAT_MIN_HEIGHT };
 
@@ -1330,8 +1387,16 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     list is capped by styles.commentList (maxHeight) and scrolls inside that
                     box, so a long session can never push the panel over the video. */}
               <View style={styles.comments}>
-                <FlatList
+                <ChatFadeContext.Provider value={chatFade}>
+                <Animated.FlatList
                   style={[styles.commentList, chatHeight]}
+                  CellRendererComponent={ChatFadeCell}
+                  onLayout={(e) => setChatListHeight(e.nativeEvent.layout.height)}
+                  onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: chatScrollY } } }],
+                    { useNativeDriver: true },
+                  )}
+                  scrollEventThrottle={16}
                   contentContainerStyle={styles.commentListContent}
                   ref={flatListRef}
                   data={chatFeed}
@@ -1351,17 +1416,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                         activeOpacity={0.7}
                       >
                         <ChatAvatar uri={item.avatar} name={item.name} style={styles.avatar} />
-                        {/* One wrapping line: bold name then the message, as in the reference.
-                            A nested Text keeps them inline while the whole run still wraps. A join
+                        {/* Muted name above the message, same as the seller screen. A join
                             notice is the same shape, so it needs no branch. */}
-                        <Text style={styles.chatLine} numberOfLines={4}>
+                        <View style={styles.chatLine}>
                           <Text style={styles.chatName}>{item.name}</Text>
-                          <Text style={styles.chatMessage}>{`: ${item.message}`}</Text>
-                        </Text>
+                          <Text style={styles.chatMessage} numberOfLines={4}>{item.message}</Text>
+                        </View>
                       </TouchableOpacity>
                     </View>
                   )}
                 />
+                </ChatFadeContext.Provider>
             </View>
           </View>
           {/* <View style={styles.comments}>
@@ -1403,7 +1468,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           {/* The touchable owns the pill's padding rather than sitting inside it. Padding on the
               pill itself is OUTSIDE this child, so taps on it fell straight through: measured
               card-visible after a tap at x=28 (pill padding) and x=200,y=575 (top padding), while
-              the same tap on the 20pt text band focused correctly. The pill is 46pt tall, so that
+              the same tap on the 18pt text band focused correctly. The pill is 36pt tall, so that
               dead band was over half of it. */}
           <TouchableWithoutFeedback onPress={() => commentInputRef.current?.focus()}>
           <View style={styles.commentPillTouch}>
@@ -1508,13 +1573,24 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
 
               {!orderStatus && (
                 <>
-                  <LiveStreamAddToCartButton
-                    onPress={() => handleAddToCart(activeListing)}
-                    variant="gradientLight"
-                    radius={14}
-                    style={styles.addToCartButton}
-                    textStyle={styles.addToCartText}
-                  />
+                  {cartCodes.has(activeListing?.plantCode) ? (
+                    <LiveStreamAddToCartButton
+                      onPress={() => handleToggleCart(activeListing)}
+                      label="Remove"
+                      variant="gradientRed"
+                      radius={14}
+                      style={styles.addToCartButton}
+                      textStyle={[styles.addToCartText, styles.removeFromCartText]}
+                    />
+                  ) : (
+                    <LiveStreamAddToCartButton
+                      onPress={() => handleToggleCart(activeListing)}
+                      variant="gradientLight"
+                      radius={14}
+                      style={styles.addToCartButton}
+                      textStyle={styles.addToCartText}
+                    />
+                  )}
                   <TouchableOpacity
                     onPress={() => {
                       buyNow(activeListing);
@@ -1631,7 +1707,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         broadcasterId={brodcasterId}
         sessionListingIndexMap={sessionListingIndexMap}
         onBuyNow={handleBuyFromShop}
-        onAddToCart={handleAddToCart}
+        onToggleCart={handleToggleCart}
+        isInCart={(item) => cartCodes.has(item?.plantCode)}
       />
 
       {/* Offset so the toast lands below the back button / viewer pill instead of over them. */}
@@ -1639,7 +1716,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         <Toast
           visible={!!cartToast}
           message={cartToast || ''}
-          type="success"
+          type={cartToastType}
           // The co-host tip needs longer to read than "Plant added to cart".
           duration={cartToast === COHOST_TOAST ? 5000 : 2000}
           position="top"
@@ -1649,7 +1726,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       <LiveCartSheet
         ref={cartSheetRef}
         isVisible={isCartSheetVisible}
-        onCountChange={setCartCount}
+        onItemsChange={setCartItems}
         onClose={() => setCartSheetVisible(false)}
         onCheckout={(cartItems, total) => {
           setCartSheetVisible(false);
@@ -1680,7 +1757,7 @@ export default BuyerLiveStreamScreen;
 const HEADER_CLEARANCE = 130;
 // One chat row measures 36pt with its `gap`, so this floor leaves a line of context visible.
 const CHAT_MIN_HEIGHT = 44;
-// The rail is 56pt wide, sits 8pt from the right edge, and its left edge lands at x=322 when
+// The rail is 48pt wide, sits 8pt from the right edge, and its left edge lands at x=322 when
 // closed — so it needs 80pt to clear the 402pt screen. 100 is that plus a margin; the screen
 // edge does the clipping.
 const SIDE_RAIL_HIDDEN_OFFSET = 100;
@@ -1924,7 +2001,7 @@ const styles = StyleSheet.create({
   },
   // FlatList has no intrinsic height: without flex it collapses to 0 inside the panel and the
   // chat silently renders nothing. It must own the remaining height of the panel.
-  // `maxHeight` is the comment-height LIMIT the user asked for: the list stops at 300pt and
+  // `maxHeight` is the comment-height LIMIT the user asked for: the list stops at CHAT_MAX_HEIGHT and
   // scrolls inside that box, so a busy session cannot fill the screen with chat. `flexShrink: 1`
   // is what lets it give height back to the input pill below it instead of overflowing.
   // Clips the plant card as it animates to zero height. The card's own shadow is clipped with
@@ -1946,7 +2023,7 @@ const styles = StyleSheet.create({
   commentList: {
     width: '100%',
     borderRadius: 16,
-    maxHeight: 300,
+    maxHeight: CHAT_MAX_HEIGHT,
     flexShrink: 1,
   },
   commentRow: {
@@ -1973,21 +2050,23 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 1000,
-    borderWidth: 1,
-    borderColor: '#539461',
   },
   // The row hugs its content, so this Text must NOT be `flex: 1` — a flexed child inside a
   // shrink-to-fit row resolves to zero width and the message disappears. Its intrinsic width
   // sets the pill's width; `flexShrink` lets it wrap once the row hits `commentRow.maxWidth`.
   chatLine: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
     flexShrink: 1,
   },
+  // Reference style: a small, muted handle above a brighter message.
   chatName: {
     ...baseFont,
-    fontWeight: '700',
+    fontWeight: '400',
     fontSize: 12,
     lineHeight: 17,
-    color: '#fff',
+    color: 'rgba(255, 255, 255, 0.75)',
     // Tight dark outline rather than a wide faint glow: holds each letter on a bright frame.
     textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 1 },
@@ -1995,7 +2074,7 @@ const styles = StyleSheet.create({
   },
   chatMessage: {
     ...baseFont,
-    fontWeight: '400',
+    fontWeight: '500',
     fontSize: 13,
     lineHeight: 18,
     flexWrap: 'wrap',
@@ -2006,8 +2085,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  // 46pt to match the reference pill, whose edges measure at y 625.5 and y 669.5 on an 874pt
-  // screen (44pt) with a 13.5pt placeholder band. Radius at half the height keeps it a capsule.
+  // 36pt pill (reduced from 46). Radius at half the height keeps it a capsule.
   commentPill: {
     flexDirection: 'row',
     // Top-aligned so added lines grow DOWNWARD from the first line instead of the
@@ -2015,17 +2093,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     width: '100%',
     // No fixed height and no padding here: both moved to commentPillTouch so the whole capsule
-    // is one touch target. 13 + one 20pt line + 13 = 46pt still, the measured reference height,
-    // so the single-line look is unchanged; the pill only grows once text wraps.
-    borderRadius: 23,
+    // is one touch target. 9 + one 18pt line + 9 = 36pt; the pill only grows once text wraps.
+    borderRadius: 18,
   },
-  // Carries the pill's padding (and therefore the pill's full touch area). Same 46pt as before.
+  // Carries the pill's padding (and therefore the pill's full touch area).
   commentPillTouch: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 13,
-    paddingHorizontal: 20,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
   },
   // NOT multiline: a multiline TextInput aligns its text to the TOP of the box, which left the
   // placeholder jammed against the top edge with ~34pt of empty pill below it. Single-line
@@ -2035,8 +2112,8 @@ const styles = StyleSheet.create({
     // `flex: 1` is for WIDTH only — the parent is a row, so flexBasis applies to the
     // main axis. The height is left to the native auto-grow between min/maxHeight.
     flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     paddingVertical: 0,
     paddingTop: 0,
     paddingBottom: 0,
@@ -2044,9 +2121,9 @@ const styles = StyleSheet.create({
     // Top-aligned: lines accumulate downward. A single line still sits centred because
     // the pill's paddingVertical equals the leftover space.
     textAlignVertical: 'top',
-    // One 20pt line up to four, then iOS scrolls inside the box.
-    minHeight: 20,
-    maxHeight: 80,
+    // One 18pt line up to four, then iOS scrolls inside the box.
+    minHeight: 18,
+    maxHeight: 72,
     color: '#FFF',
     fontFamily: 'Inter',
     letterSpacing: 0.2,
@@ -2059,7 +2136,7 @@ const styles = StyleSheet.create({
   keyboardAvoider: {
     flex: 1,
   },
-  // Hugs the 56pt rail so the Animated translate is measured from the rail's own edge.
+  // Hugs the 48pt rail so the Animated translate is measured from the rail's own edge.
   sideActionsWrap: {
     alignSelf: 'center',
   },
@@ -2068,7 +2145,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-    width: 56,
+    width: 48,
     paddingVertical: 14,
     paddingHorizontal: 6,
     // Narrow floating capsule. No fixed height: it sizes to its five actions so it can never
@@ -2077,7 +2154,7 @@ const styles = StyleSheet.create({
   sideAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 56,
+    width: 48,
     paddingVertical: 6,
   },
   cartToastArea: {
@@ -2286,6 +2363,11 @@ const styles = StyleSheet.create({
     height: 38,
     minHeight: 38,
     alignSelf: 'stretch',
+  },
+  // White label on the red Remove pill (variant="gradientRed") once the plant is in the cart.
+  removeFromCartText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   actionButtonTouch: {
     justifyContent: 'center',

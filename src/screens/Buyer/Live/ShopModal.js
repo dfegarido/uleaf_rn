@@ -37,7 +37,8 @@ const ShopModal = ({
   onClose,
   broadcasterId,
   onBuyNow,
-  onAddToCart,
+  onToggleCart,
+  isInCart = () => false,
   sessionListingIndexMap = {},
 }) => {
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'sold'
@@ -155,7 +156,10 @@ const ShopModal = ({
     setSelectedImage(item.imagePrimary);
   };
 
-  const renderListingItem = ({ item }) => (
+  const renderListingItem = ({ item }) => {
+    const inCart = isInCart(item);
+    const cartIconColor = inCart ? '#FFFFFF' : '#1F4D2B';
+    return (
     <View style={styles.card}>
       <View style={styles.cardImageWrap}>
         <TouchableOpacity
@@ -212,33 +216,42 @@ const ShopModal = ({
             <Text style={styles.buyButtonText}>Buy Now</Text>
           </TouchableOpacity>
           {/* Same light gradient as the stream card's Add to Cart, as an icon-only circle. The cart
-              path is drawn inline because the cart-outline.svg asset has its white stroke baked in. */}
+              path is drawn inline because the cart-outline.svg asset has its white stroke baked in.
+              Green with a plus to add; once the plant is in the cart it turns red with a minus and
+              one tap removes it. */}
           <TouchableOpacity
             style={styles.cartCircle}
-            onPress={() => onAddToCart && onAddToCart(item)}
+            onPress={() => onToggleCart && onToggleCart(item)}
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel="Add to cart">
+            accessibilityLabel={inCart ? 'Remove from cart' : 'Add to cart'}>
             <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
               <Defs>
                 <SvgLinearGradient id="shopCartGradient" x1="0" y1="0" x2="0" y2="1">
                   <Stop offset="0" stopColor="#F8FCF7" />
                   <Stop offset="1" stopColor="#A9D9A9" />
                 </SvgLinearGradient>
+                <SvgLinearGradient id="shopCartRemoveGradient" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#FF8A75" />
+                  <Stop offset="1" stopColor="#C8341C" />
+                </SvgLinearGradient>
               </Defs>
-              <Rect x="0" y="0" width="100%" height="100%" rx="17" ry="17" fill="url(#shopCartGradient)" />
+              <Rect x="0" y="0" width="100%" height="100%" rx="17" ry="17" fill={inCart ? 'url(#shopCartRemoveGradient)' : 'url(#shopCartGradient)'} />
             </Svg>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M3 4.5H5.6L7.8 15.5H17.4L19.4 7.5H6.2" stroke="#1F4D2B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-              <Circle cx={9.6} cy={19} r={1.4} stroke="#1F4D2B" strokeWidth={2} />
-              <Circle cx={16.2} cy={19} r={1.4} stroke="#1F4D2B" strokeWidth={2} />
+              <Path d="M3 4.5H5.6L7.8 15.5H17.4L19.4 7.5H6.2" stroke={cartIconColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              {/* Plus to add, minus to remove, drawn inside the basket. */}
+              <Path d={inCart ? 'M10.5 11.5H15.5' : 'M10.5 11.5H15.5M13 9V14'} stroke={cartIconColor} strokeWidth={2} strokeLinecap="round" />
+              <Circle cx={9.6} cy={19} r={1.4} stroke={cartIconColor} strokeWidth={2} />
+              <Circle cx={16.2} cy={19} r={1.4} stroke={cartIconColor} strokeWidth={2} />
             </Svg>
           </TouchableOpacity>
         </View>
         </View>
       </View>
     </View>
-  );
+    );
+  };
 
   const renderSoldItem = ({ item }) => (
     <View style={styles.card}>
