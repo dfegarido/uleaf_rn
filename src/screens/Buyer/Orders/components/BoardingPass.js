@@ -168,7 +168,7 @@ export const PayButton = ({totalText, vaulted, venmoUsername, paying, onPress}) 
     accessibilityRole="button"
     accessibilityLabel={vaulted ? `Pay ${totalText} with Venmo` : `Pay ${totalText}`}>
     {paying ? (
-      <Loading size={28} />
+      <Loading size={28} color="#FFFFFF" />
     ) : vaulted ? (
       <>
         <View style={styles.venmoLine}>

@@ -453,7 +453,7 @@ const ScreenLoginForm = ({navigation}) => {
       </KeyboardAvoidingView>
     </SafeAreaView>
 
-    <Loading visible={loading} fullscreen />
+    <Loading visible={loading} fullscreen title="Welcome back" message="Signing you in…" />
     </View>
   );
 };

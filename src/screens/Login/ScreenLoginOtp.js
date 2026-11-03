@@ -380,7 +380,7 @@ const ScreenLoginOtp = ({navigation}) => {
         </View>
       </SafeAreaView>
 
-      <Loading visible={loading} fullscreen />
+      <Loading visible={loading} fullscreen title="Welcome back" message="Signing you in…" />
 
       {/* Success checkmark overlay */}
       {showSuccess && (
