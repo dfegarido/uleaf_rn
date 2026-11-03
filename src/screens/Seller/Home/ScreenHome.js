@@ -122,6 +122,12 @@ const ScreenHome = ({navigation}) => {
     }
     const nextClass = result.data?.accountClass || (mainstream ? 'Asia Business' : 'Asia Seller');
     setAccountClass(nextClass);
+    // The summary was loaded for the previous mode, so its symbol and totals
+    // stay on screen until this reload.
+    loadSalesData().catch(err => console.log('Sales reload after switch:', err.message));
+    loadSalesPerformanceData(dropdownDuration).catch(err =>
+      console.log('Performance reload after switch:', err.message),
+    );
     const merged = mergeB2BAccountIntoUserInfo(userInfo, {accountClass: nextClass});
     if (merged) {
       setUserInfo(merged);
@@ -196,10 +202,14 @@ const ScreenHome = ({navigation}) => {
   // shows that dollar amount, even when the garden country is Thailand.
   const symbolForSalesWeek = weekSymbol => {
     if (isBusinessAccount) return '$';
+    // A "$" here is left over from Asia Business mode. Garden Partner sales
+    // are in the garden currency, and the card keeps the old symbol until the
+    // summary reloads after a switch.
     const fromOrders = String(weekSymbol || '').trim();
-    if (fromOrders) return fromOrders;
+    if (fromOrders && fromOrders !== '$') return fromOrders;
     const reported = String(totalSales?.symbol || '').trim();
-    return reported || getCurrencySymbol(userInfo);
+    if (reported && reported !== '$') return reported;
+    return getCurrencySymbol(userInfo);
   };
   const thisWeekCurrency = symbolForSalesWeek(totalSales?.thisWeekSymbol);
   const lastWeekCurrency = symbolForSalesWeek(totalSales?.lastWeekSymbol);
