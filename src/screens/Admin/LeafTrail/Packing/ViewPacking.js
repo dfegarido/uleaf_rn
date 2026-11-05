@@ -134,8 +134,32 @@ const ShippingInfo = ({ upsShipping, plantFlight }) => (
   </View>
 );
 
-const formatPackedDate = (plant) => {
-  const raw = plant?.hubPackDetails?.hubPackedDate || plant?.hubPackDetails?.dateScanned;
+const parseHub = (value) => {
+  if (value && typeof value === 'object') return value;
+  try {
+    return JSON.parse(value || '{}') || {};
+  } catch {
+    return {};
+  }
+};
+
+/** Date the plant reached its current Leaf Trail status. */
+const formatLeafTrailDate = (plant) => {
+  const pack = parseHub(plant?.hubPackDetails);
+  const stay = parseHub(plant?.hubNeedsToStay);
+  const sorter = parseHub(plant?.hubSorter || plant?.hubsorter);
+  const receiver = parseHub(plant?.hubReceiver);
+  const byStatus = {
+    packed: pack.hubPackedDate || pack.dateScanned,
+    needstostay: stay.dateScanned,
+    sorted: sorter.dateScanned,
+    received: receiver.dateScanned,
+  };
+  const raw =
+    byStatus[normalizeLeafTrailStatus(plant?.leafTrailStatus)] ||
+    stay.dateScanned ||
+    sorter.dateScanned ||
+    receiver.dateScanned;
   if (!raw) return '';
   const date = moment(raw);
   return date.isValid() ? date.format('M/D/YYYY') : '';
@@ -146,7 +170,7 @@ const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelec
   const isPacked = isPackedPlant(plant);
   const needsToStay = isPackingNeedsToStay(plant);
   const statusLabel = leafTrailStatusLabel(plant);
-  const packedDate = isPacked ? formatPackedDate(plant) : '';
+  const packedDate = formatLeafTrailDate(plant);
   const setTags = () => {
     openTagAs(boxNumber || null, plant.id, isPackedAwaitingBox(plant));
   };
