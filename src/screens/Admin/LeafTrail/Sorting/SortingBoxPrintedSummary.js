@@ -68,13 +68,8 @@ const SortingBoxPrintedSummary = ({ metrics, variant = 'card' }) => {
     );
   }
 
-  const fulfillParts = [`${receivedCount}`];
-  if (needsToStayCount > 0) fulfillParts.push(String(needsToStayCount));
-  if (othersCount > 0) fulfillParts.push(String(othersCount));
   const fulfillHint =
-    fulfillParts.length > 1
-      ? `${fulfillParts.join(' − ')}`
-      : String(receivedCount);
+    needsToStayCount > 0 ? `${receivedCount} − ${needsToStayCount}` : String(receivedCount);
 
   return (
     <View style={styles.wrapDetail}>

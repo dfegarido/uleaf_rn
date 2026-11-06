@@ -18,7 +18,10 @@ export function normalizeLeafTrailStatus(status) {
  * Box complete (pink → light green) when every plant is received and sorted vs For Receiving total.
  */
 export function computeSortingBoxMetrics(plants = []) {
-  const forReceivingCount = plants.length;
+  const totalPlantCount = plants.length;
+  /** Others / Missing / Damaged are taken out of the box, so they never count as For Receiving. */
+  const fulfillPlants = plants.filter((p) => !isExcludedFromFulfillPlant(p));
+  const forReceivingCount = fulfillPlants.length;
 
   const needsToStayCount = plants.filter(
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'needstostay',
@@ -34,8 +37,8 @@ export function computeSortingBoxMetrics(plants = []) {
   ).length;
   const missingDamagedCount = missingCount + damagedCount;
 
-  /** Hub-received (no longer forReceiving). */
-  const receivedCount = plants.filter(
+  /** Hub-received (no longer forReceiving), out of forReceivingCount. */
+  const receivedCount = fulfillPlants.filter(
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) !== 'forreceiving',
   ).length;
 
@@ -47,11 +50,8 @@ export function computeSortingBoxMetrics(plants = []) {
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'sorted' && p?.receivedWithSort === true,
   ).length;
 
-  /** Handwritten: "Total Plants to Fulfill" */
-  const totalPlantsToFulfill = Math.max(
-    0,
-    receivedCount - missingCount - damagedCount - needsToStayCount - othersCount,
-  );
+  /** Handwritten: "Total Plants to Fulfill" (Missing / Damaged / Others already left out of receivedCount). */
+  const totalPlantsToFulfill = Math.max(0, receivedCount - needsToStayCount);
 
   const allReceived =
     forReceivingCount > 0 && receivedCount >= forReceivingCount;
@@ -64,6 +64,7 @@ export function computeSortingBoxMetrics(plants = []) {
         (allReceived && nothingLeftToFulfill);
 
   return {
+    totalPlantCount,
     forReceivingCount,
     receivedCount,
     sortedCount,
@@ -88,14 +89,21 @@ export function computeSortingBoxMetrics(plants = []) {
  */
 export function shouldHideReceiverBoxFromSorting(metrics) {
   const {
+    totalPlantCount = 0,
     forReceivingCount = 0,
     receivedCount = 0,
     totalPlantsToFulfill = 0,
   } = metrics || {};
 
-  if (forReceivingCount <= 0) return false;
+  if (totalPlantCount <= 0) return false;
   if (receivedCount < forReceivingCount) return false;
   return totalPlantsToFulfill <= 0;
+}
+
+/** Tagged Others / Missing / Damaged — not shipped from this receiver box. */
+export function isExcludedFromFulfillPlant(plant) {
+  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
+  return status === 'others' || status === 'missing' || status === 'damaged';
 }
 
 /** True when hub sort scan set leafTrailStatus to sorted. */
