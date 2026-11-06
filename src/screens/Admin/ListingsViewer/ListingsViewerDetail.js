@@ -1,10 +1,11 @@
 import AppImage from '../../../components/AppImage/AppImage';
 
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ScreenHeader from '../../../components/Admin/header';
+import ZoomableImageModal from '../../../components/ZoomableImageModal/ZoomableImageModal';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
 import { formatDateListed, getStatusColor, resolveCountryCode } from './ListingRow';
 
@@ -46,6 +47,7 @@ const InfoRow = ({ label, value, isLast }) => (
 );
 
 const ListingsViewerDetail = ({ navigation, route }) => {
+  const [zoomVisible, setZoomVisible] = useState(false);
   const listing = route.params?.listing || {};
   const imageUrl = route.params?.imageUrl || firstImage(listing);
   const variations = Array.isArray(listing.variations) ? listing.variations : [];
@@ -83,7 +85,17 @@ const ListingsViewerDetail = ({ navigation, route }) => {
       >
         <View style={styles.heroCard}>
           {imageUrl ? (
-            <AppImage source={{ uri: imageUrl }} style={styles.heroImage} resizeMode="cover" />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setZoomVisible(true)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="Open image to zoom"
+            >
+              <AppImage source={{ uri: imageUrl }} style={styles.heroImage} resizeMode="cover" />
+              <View style={styles.zoomBadge}>
+                <Text style={styles.zoomBadgeText}>Tap to zoom</Text>
+              </View>
+            </TouchableOpacity>
           ) : (
             <View style={[styles.heroImage, styles.heroImagePlaceholder]}>
               <Text style={styles.heroPlaceholderEmoji}>🌿</Text>
@@ -157,6 +169,8 @@ const ListingsViewerDetail = ({ navigation, route }) => {
           <InfoRow label="Last updated" value={formatDateListed(listing.updatedAt)} isLast />
         </SectionCard>
       </ScrollView>
+
+      <ZoomableImageModal uri={imageUrl} visible={zoomVisible} onClose={() => setZoomVisible(false)} />
     </SafeAreaView>
   );
 };
@@ -174,6 +188,16 @@ const styles = StyleSheet.create({
   },
   heroImage: { width: '100%', height: 320, backgroundColor: '#E8EEEA' },
   heroImagePlaceholder: { alignItems: 'center', justifyContent: 'center', gap: 8 },
+  zoomBadge: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  zoomBadgeText: { fontFamily: 'Inter', fontWeight: '600', fontSize: 12, color: '#FFFFFF' },
   heroPlaceholderEmoji: { fontSize: 40 },
   heroBody: { padding: 16, gap: 4 },
   heroTopRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 4 },

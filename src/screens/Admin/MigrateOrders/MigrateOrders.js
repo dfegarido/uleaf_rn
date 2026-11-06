@@ -19,6 +19,7 @@ import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import CheckBox from '../../../components/CheckBox/CheckBox';
+import ZoomableImageModal from '../../../components/ZoomableImageModal/ZoomableImageModal';
 import Svg, { Path } from 'react-native-svg';
 import {
   listPayToBoardOrdersApi,
@@ -68,6 +69,7 @@ const orderBuyerLabel = (item) => {
 const MigrateOrders = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const [zoomUri, setZoomUri] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -527,7 +529,16 @@ const MigrateOrders = () => {
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <View style={styles.imageContainer}>
-        <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+        <TouchableOpacity
+          style={styles.imageTouch}
+          activeOpacity={0.85}
+          disabled={!item.imagePrimary}
+          onPress={() => setZoomUri(item.imagePrimary)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel="Open image to zoom"
+        >
+          <AppImage source={{ uri: item.imagePrimary }} style={styles.plantImage} />
+        </TouchableOpacity>
         <View style={styles.checkboxContainer}>
           <CheckBox
             isChecked={selectedOrders.includes(item.id)}
@@ -953,6 +964,8 @@ const MigrateOrders = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <ZoomableImageModal uri={zoomUri} visible={!!zoomUri} onClose={() => setZoomUri(null)} />
     </SafeAreaView>
   );
 };
@@ -1061,6 +1074,7 @@ const styles = StyleSheet.create({
     borderColor: '#F0F0F0',
   },
   imageContainer: { position: 'relative', height: 140 },
+  imageTouch: { width: '100%', height: '100%' },
   plantImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   checkboxContainer: { position: 'absolute', top: 8, left: 8 },
   cardContent: { padding: 12 },

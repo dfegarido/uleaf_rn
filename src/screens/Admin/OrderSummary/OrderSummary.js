@@ -44,6 +44,7 @@ import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
 import { ORDER_SUMMARY_LEAF_TRAIL_FILTER_OPTIONS, ORDER_SUMMARY_PLANT_STATUS_FILTER_OPTIONS, deriveOrderSummaryLeafTrailDisplay, deriveOrderSummaryPlantStatus } from './OrderSummaryStatusSheet';
 import OrderTableSkeleton from './OrderTableSkeleton';
 import Toast from '../../../components/Toast/Toast';
+import ZoomableImageModal from '../../../components/ZoomableImageModal/ZoomableImageModal';
 import { filterSupersededPendingOrders, excludePendingPaymentFromAllTab } from '../../../utils/filterSupersededPendingOrders';
 
 // Skeleton component for pagination loading
@@ -120,6 +121,7 @@ const TABLE_COLUMNS = [
 ];
 
 const OrderSummary = ({navigation}) => {
+  const [zoomUri, setZoomUri] = useState(null);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1812,11 +1814,18 @@ const dedupeOrderTableRows = (rows = []) => {
                     {/* Image */}
                     <View style={[styles.tableCell, {width: 116}]}>
                       {order.imageUrl ? (
-                        <AppImage 
-                          source={{uri: order.imageUrl}} 
-                          style={styles.plantImage}
-                          resizeMode="cover"
-                        />
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          onPress={() => setZoomUri(order.imageUrl)}
+                          accessibilityRole="imagebutton"
+                          accessibilityLabel="Open image to zoom"
+                        >
+                          <AppImage
+                            source={{uri: order.imageUrl}}
+                            style={styles.plantImage}
+                            resizeMode="cover"
+                          />
+                        </TouchableOpacity>
                       ) : (
                         <View style={styles.placeholderImage}>
                           <Text style={styles.placeholderText}>No Image</Text>
@@ -2069,6 +2078,8 @@ const dedupeOrderTableRows = (rows = []) => {
         duration={3000}
         onHide={() => setToastVisible(false)}
       />
+
+      <ZoomableImageModal uri={zoomUri} visible={!!zoomUri} onClose={() => setZoomUri(null)} />
 
       {loading && (
         <Modal transparent animationType="fade">

@@ -34,6 +34,7 @@ import { useLeafTrailThermalPrint } from '../../../../hooks/useLeafTrailThermalP
 import { LEAF_TRAIL_SCAN_PARAMS } from '../../../../utils/leafTrailScanNav';
 import CheckBox from '../../../../components/CheckBox/CheckBox';
 import CountryFlagIcon from '../../../../components/CountryFlagIcon/CountryFlagIcon';
+import ZoomableImageModal from '../../../../components/ZoomableImageModal/ZoomableImageModal';
 import AssignBoxModal from './AssignBoxModal';
 import PackingSelectionFooter from './PackingSelectionFooter';
 import PackingTraySummary from './PackingTraySummary';
@@ -165,7 +166,7 @@ const formatLeafTrailDate = (plant) => {
   return date.isValid() ? date.format('M/D/YYYY') : '';
 };
 
-const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelect }) => {
+const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelect, onImagePress }) => {
   const boxNumber = String(plant?.packingData?.boxNumber || '').trim();
   const isPacked = isPackedPlant(plant);
   const needsToStay = isPackingNeedsToStay(plant);
@@ -191,9 +192,17 @@ const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelec
     )}
     <View style={styles.plantCard}>
       <View>
-        <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} resizeWidth={192} />
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={!plant.imagePrimary}
+          onPress={() => onImagePress(plant.imagePrimary)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel="Open image to zoom"
+        >
+          <AppImage source={{ uri: plant.imagePrimary }} style={styles.plantImage} resizeWidth={192} />
+        </TouchableOpacity>
         {needsToStay ? (
-          <View style={styles.packedBadgeContainer}>
+          <View style={styles.packedBadgeContainer} pointerEvents="none">
             <View style={styles.statusStack}>
               <View style={styles.sortedBadge}>
                 <Text style={styles.sortedBadgeText}>SORTED</Text>
@@ -204,7 +213,7 @@ const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelec
             </View>
           </View>
         ) : statusLabel ? (
-          <View style={styles.packedBadgeContainer}>
+          <View style={styles.packedBadgeContainer} pointerEvents="none">
             <View style={[styles.packedBadge, !isPacked && styles.sortedBadge]}>
               <Text style={[styles.packedBadgeText, !isPacked && styles.sortedBadgeText]}>
                 {statusLabel}
@@ -213,7 +222,7 @@ const PlantCard = React.memo(({ plant, isSelected, onSelect, openTagAs, canSelec
           </View>
         ) : null}
         {packedDate ? (
-          <View style={styles.packedDateBadge}>
+          <View style={styles.packedDateBadge} pointerEvents="none">
             <Text style={styles.packedDateText}>{packedDate}</Text>
           </View>
         ) : null}
@@ -279,6 +288,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAssignBoxVisible, setIsAssignBoxVisible] = useState(false);
   const [sendingToInTransit, setSendingToInTransit] = useState(false);
+  const [zoomUri, setZoomUri] = useState(null);
 
   const trayScanParams = useMemo(
     () => LEAF_TRAIL_SCAN_PARAMS.packingTray({ sortingTrayNumber: item?.sortingTrayNumber }),
@@ -431,6 +441,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
         isSelected={selectedSet.has(plant.id)}
         onSelect={handleSelectPlant}
         canSelect={canTickPlant(plant)}
+        onImagePress={setZoomUri}
       />
     ),
     [openTagAs, selectedSet, handleSelectPlant],
@@ -647,6 +658,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
         title={hubSpecEnabled ? 'Box details' : 'Assign box #'}
         saveLabel={hubSpecEnabled ? 'Save box details' : 'Save box assignment'}
       />
+      <ZoomableImageModal uri={zoomUri} visible={!!zoomUri} onClose={() => setZoomUri(null)} />
     </SafeAreaView>
   );
 };

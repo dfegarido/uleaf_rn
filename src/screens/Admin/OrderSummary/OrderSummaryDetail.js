@@ -19,6 +19,7 @@ import ScreenHeader from '../../../components/Admin/header';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
 import { updateLeafTrailStatus, updatePlantStatus } from '../../../components/Api/getAdminLeafTrail';
 import Toast from '../../../components/Toast/Toast';
+import ZoomableImageModal from '../../../components/ZoomableImageModal/ZoomableImageModal';
 import OrderSummaryDeliveredModal from './OrderSummaryDeliveredModal';
 import OrderSummaryStatusSheet, {
   deriveOrderSummaryLeafTrailDisplay,
@@ -138,6 +139,7 @@ const OrderSummaryDetail = ({ navigation, route }) => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [zoomVisible, setZoomVisible] = useState(false);
 
   const leafTrailDisplay = deriveOrderSummaryLeafTrailDisplay({
     leafTrailStatus: rawLeafTrailStatus,
@@ -324,7 +326,17 @@ const OrderSummaryDetail = ({ navigation, route }) => {
         {/* Hero */}
         <View style={styles.heroCard}>
           {orderMeta.imageUrl ? (
-            <AppImage source={{ uri: orderMeta.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setZoomVisible(true)}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="Open image to zoom"
+            >
+              <AppImage source={{ uri: orderMeta.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+              <View style={styles.zoomBadge}>
+                <Text style={styles.zoomBadgeText}>Tap to zoom</Text>
+              </View>
+            </TouchableOpacity>
           ) : (
             <View style={[styles.heroImage, styles.heroImagePlaceholder]}>
               <Text style={styles.heroPlaceholderEmoji}>🌿</Text>
@@ -493,6 +505,12 @@ const OrderSummaryDetail = ({ navigation, route }) => {
         duration={3000}
         onHide={() => setToastVisible(false)}
       />
+
+      <ZoomableImageModal
+        uri={orderMeta.imageUrl}
+        visible={zoomVisible}
+        onClose={() => setZoomVisible(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -527,6 +545,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  zoomBadge: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  zoomBadgeText: { fontFamily: 'Inter', fontWeight: '600', fontSize: 12, color: '#FFFFFF' },
   heroPlaceholderEmoji: {
     fontSize: 40,
   },
