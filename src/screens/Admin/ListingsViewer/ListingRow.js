@@ -393,24 +393,32 @@ const ListingRow = ({
               {col.key === 'action' ? (
                   <View style={styles.actionStack}>
                     <TouchableOpacity
-                      style={[styles.miniChip, canActivateListing(listing) ? styles.activateChip : styles.deactivateChip]}
+                      style={[
+                        styles.actionButton,
+                        canActivateListing(listing) ? styles.activateButton : styles.deactivateButton,
+                        (isProcessing || isDeleting) && styles.actionButtonDisabled,
+                      ]}
+                      activeOpacity={0.7}
                       onPress={() => !isProcessing && !isDeleting && onToggleStatus && onToggleStatus(listing)}
                       disabled={!!isProcessing || !!isDeleting}
                       accessibilityRole="button"
                       accessibilityLabel={canActivateListing(listing) ? 'Activate listing' : 'Deactivate listing'}
                     >
                       {isProcessing ? (
-                        <ActivityIndicator size="small" color={canActivateListing(listing) ? '#1E8A4B' : '#B8612A'} />
+                        <ActivityIndicator size="small" color={canActivateListing(listing) ? '#23794A' : '#393D40'} />
                       ) : (
                         <>
                           {canActivateListing(listing) ? (
-                            <EyeIcon width={13} height={13} />
+                            <EyeIcon width={15} height={15} />
                           ) : (
-                            <EyeClosedIcon width={13} height={13} />
+                            <EyeClosedIcon width={15} height={15} />
                           )}
                           <Text
                             numberOfLines={1}
-                            style={canActivateListing(listing) ? styles.activateChipText : styles.deactivateChipText}
+                            style={[
+                              styles.actionButtonText,
+                              canActivateListing(listing) ? styles.activateButtonText : styles.deactivateButtonText,
+                            ]}
                           >
                             {canActivateListing(listing) ? 'Activate' : 'Deactivate'}
                           </Text>
@@ -418,18 +426,25 @@ const ListingRow = ({
                       )}
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.miniChip, styles.deleteChip]}
+                      style={[
+                        styles.actionButton,
+                        styles.deleteButton,
+                        (isProcessing || isDeleting) && styles.actionButtonDisabled,
+                      ]}
+                      activeOpacity={0.7}
                       onPress={() => !isDeleting && !isProcessing && onDelete && onDelete(listing)}
                       disabled={!!isDeleting || !!isProcessing}
                       accessibilityRole="button"
                       accessibilityLabel="Delete listing"
                     >
                       {isDeleting ? (
-                        <ActivityIndicator size="small" color="#D23B2F" />
+                        <ActivityIndicator size="small" color="#C8342A" />
                       ) : (
                         <>
-                          <TrashIcon width={13} height={13} />
-                          <Text numberOfLines={1} style={styles.deleteChipText}>Delete</Text>
+                          <TrashIcon width={15} height={15} />
+                          <Text numberOfLines={1} style={[styles.actionButtonText, styles.deleteButtonText]}>
+                            Delete
+                          </Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -476,22 +491,24 @@ const styles = StyleSheet.create({
   sellerNameText: { color: '#647276', fontSize: 12, marginTop: 4 },
   countryText: { color: '#556065', fontWeight: '600' },
   countryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  actionStack: { alignItems: 'flex-start', gap: 6 },
-  miniChip: {
+  actionStack: { width: '100%', gap: 8 },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1,
+    justifyContent: 'center',
+    gap: 6,
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 8,
   },
-  deactivateChip: { borderColor: '#E7B089', backgroundColor: '#FFF6EE' },
-  deactivateChipText: { color: '#B8612A', fontWeight: '600', fontSize: 12 },
-  activateChip: { borderColor: '#A9D7B8', backgroundColor: '#F2FBF5' },
-  activateChipText: { color: '#1E8A4B', fontWeight: '600', fontSize: 12 },
-  deleteChip: { borderColor: '#F0B2A8', backgroundColor: '#FFF4F2' },
-  deleteChipText: { color: '#D23B2F', fontWeight: '600', fontSize: 12 },
+  actionButtonDisabled: { opacity: 0.5 },
+  actionButtonText: { fontSize: 13, fontWeight: '600' },
+  activateButton: { backgroundColor: '#E6F4EB' },
+  activateButtonText: { color: '#23794A' },
+  deactivateButton: { backgroundColor: '#F2F3F3' },
+  deactivateButtonText: { color: '#393D40' },
+  deleteButton: { backgroundColor: '#FDECEA' },
+  deleteButtonText: { color: '#C8342A' },
   selectBox: {
     width: 22,
     height: 22,
