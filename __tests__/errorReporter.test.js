@@ -56,3 +56,14 @@ it('detail is truncated to 4000 chars', async () => {
   await flush();
   expect(JSON.parse(global.fetch.mock.calls[0][1].body).detail).toHaveLength(4000);
 });
+
+it('installGlobalErrorHandler is a no-op without ErrorUtils', () => {
+  delete global.ErrorUtils;
+  expect(() => installGlobalErrorHandler()).not.toThrow();
+});
+
+it('non-string detail is capped at 4000 too', async () => {
+  reportClientError({location: 'a', detail: {toString: () => 'y'.repeat(5000)}});
+  await flush();
+  expect(JSON.parse(global.fetch.mock.calls[0][1].body).detail).toHaveLength(4000);
+});

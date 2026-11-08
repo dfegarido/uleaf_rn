@@ -20,7 +20,7 @@ export const reportClientError = ({location, userMessage, detail, errorCode, con
         body: JSON.stringify({
           location,
           userMessage,
-          detail: typeof detail === 'string' ? detail.slice(0, MAX_DETAIL) : detail,
+          detail: detail == null ? detail : String(detail).slice(0, MAX_DETAIL),
           errorCode,
           context: {...context, platform: Platform.OS, appVersion},
         }),
@@ -32,6 +32,7 @@ export const reportClientError = ({location, userMessage, detail, errorCode, con
 };
 
 export const installGlobalErrorHandler = () => {
+  if (!global.ErrorUtils) return;
   const previous = global.ErrorUtils.getGlobalHandler();
   global.ErrorUtils.setGlobalHandler((error, isFatal) => {
     try {

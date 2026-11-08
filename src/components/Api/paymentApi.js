@@ -12,6 +12,7 @@ import {reportClientError} from '../../utils/errorReporter';
  * @returns {Promise<Object>} Payment intent response with approval URL
  */
 export const createPaymentIntentApi = async (paymentData) => {
+  let gotResponse = false;
   try {
     const authToken = await getStoredAuthToken();
     
@@ -26,6 +27,7 @@ export const createPaymentIntentApi = async (paymentData) => {
         body: JSON.stringify(paymentData),
       },
     );
+    gotResponse = true;
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -42,12 +44,15 @@ export const createPaymentIntentApi = async (paymentData) => {
   } catch (error) {
     console.error('Create payment intent API error:', error);
     const message = error.message || 'An error occurred while creating payment intent';
-    reportClientError({
-      location: 'paymentApi.createPaymentIntentApi',
-      userMessage: message,
-      detail: error.message,
-      errorCode: 'NETWORK',
-    });
+    // Only when fetch itself failed: the backend logs HTTP errors itself.
+    if (!gotResponse) {
+      reportClientError({
+        location: 'paymentApi.createPaymentIntentApi',
+        userMessage: message,
+        detail: error.message,
+        errorCode: 'NETWORK',
+      });
+    }
     return {
       success: false,
       error: message,
@@ -62,6 +67,7 @@ export const createPaymentIntentApi = async (paymentData) => {
  * @returns {Promise<Object>} Payment capture response
  */
 export const capturePaymentApi = async (captureData) => {
+  let gotResponse = false;
   try {
     const authToken = await getStoredAuthToken();
     
@@ -76,6 +82,7 @@ export const capturePaymentApi = async (captureData) => {
         body: JSON.stringify(captureData),
       },
     );
+    gotResponse = true;
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -92,12 +99,15 @@ export const capturePaymentApi = async (captureData) => {
   } catch (error) {
     console.error('Capture payment API error:', error);
     const message = error.message || 'An error occurred while capturing payment';
-    reportClientError({
-      location: 'paymentApi.capturePaymentApi',
-      userMessage: message,
-      detail: error.message,
-      errorCode: 'NETWORK',
-    });
+    // Only when fetch itself failed: the backend logs HTTP errors itself.
+    if (!gotResponse) {
+      reportClientError({
+        location: 'paymentApi.capturePaymentApi',
+        userMessage: message,
+        detail: error.message,
+        errorCode: 'NETWORK',
+      });
+    }
     return {
       success: false,
       error: message,
@@ -106,6 +116,7 @@ export const capturePaymentApi = async (captureData) => {
 };
 
 export const createAndCapturePaypalOrder = async (captureData) => {
+  let gotResponse = false;
   try {
     const authToken = await getStoredAuthToken();
     
@@ -121,6 +132,7 @@ export const createAndCapturePaypalOrder = async (captureData) => {
         body: JSON.stringify(captureData),
       },
     );
+    gotResponse = true;
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -138,12 +150,15 @@ export const createAndCapturePaypalOrder = async (captureData) => {
   } catch (error) {
     console.error('createAndCapturePaypalOrder API error:', error);
     const message = error.message || 'An error occurred while capturing payment';
-    reportClientError({
-      location: 'paymentApi.createAndCapturePaypalOrder',
-      userMessage: message,
-      detail: error.message,
-      errorCode: 'NETWORK',
-    });
+    // Only when fetch itself failed: the backend logs HTTP errors itself.
+    if (!gotResponse) {
+      reportClientError({
+        location: 'paymentApi.createAndCapturePaypalOrder',
+        userMessage: message,
+        detail: error.message,
+        errorCode: 'NETWORK',
+      });
+    }
     return {
       success: false,
       error: message,
