@@ -31,7 +31,7 @@ describe.each([
   it('reports a rejected fetch as NETWORK and keeps the return value', async () => {
     global.fetch = jest.fn(() => Promise.reject(new Error('offline')));
     const res = await fn({});
-    expect(res).toEqual({success: false, error: 'offline'});
+    expect(res).toMatchObject({success: false, error: 'offline'});
     expect(reportClientError).toHaveBeenCalledWith(
       expect.objectContaining({location: `paymentApi.${name}`, errorCode: 'NETWORK', detail: 'offline'}),
     );

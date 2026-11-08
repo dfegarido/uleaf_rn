@@ -165,6 +165,7 @@ export const createAndCapturePaypalOrder = async (captureData) => {
     return {
       success: false,
       error: message,
+      message: "We couldn't reach our server. Check your internet connection and try again.",
     };
   }
 };

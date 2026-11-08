@@ -34,4 +34,11 @@ describe('paymentErrorAlert', () => {
     const out = paymentErrorAlert({ error: OLD });
     expect(JSON.stringify(out)).not.toContain('PayPal create order failed');
   });
+
+  it('shows the plain sentence for a network failure, not the technical error', () => {
+    const msg = "We couldn't reach our server. Check your internet connection and try again.";
+    const out = paymentErrorAlert({ error: 'Network request failed', message: msg });
+    expect(out.message).toBe(msg);
+    expect(JSON.stringify(out)).not.toContain('Network request failed');
+  });
 });
