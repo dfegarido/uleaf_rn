@@ -13,7 +13,7 @@ beforeEach(() => {
 });
 
 it('posts to LOG_CLIENT_ERROR with bearer token', async () => {
-  expect(reportClientError({location: 'a', userMessage: 'u', errorCode: 'NETWORK', context: {status: 1}})).toBeUndefined();
+  await expect(reportClientError({location: 'a', userMessage: 'u', errorCode: 'NETWORK', context: {status: 1}})).resolves.toBeUndefined();
   await flush();
   const [url, opts] = global.fetch.mock.calls[0];
   expect(url).toBe('https://x.test/log-client-error');
@@ -30,12 +30,14 @@ it('no token → no fetch', async () => {
   expect(global.fetch).not.toHaveBeenCalled();
 });
 
-it('fetch rejects → no throw', async () => {
+it('fetch rejects → no throw, promise resolves', async () => {
   global.fetch.mockRejectedValue(new Error('down'));
-  expect(() => reportClientError({location: 'a'})).not.toThrow();
+  let p;
+  expect(() => (p = reportClientError({location: 'a'}))).not.toThrow();
+  await expect(p).resolves.toBeUndefined();
   getStoredAuthToken.mockRejectedValue(new Error('no token'));
-  expect(() => reportClientError({location: 'a'})).not.toThrow();
-  await flush();
+  expect(() => (p = reportClientError({location: 'a'}))).not.toThrow();
+  await expect(p).resolves.toBeUndefined();
 });
 
 it('global handler reports then calls the previous handler with the same args', async () => {
@@ -49,6 +51,70 @@ it('global handler reports then calls the previous handler with the same args', 
   expect(prev).toHaveBeenCalledWith(err, true);
   const body = JSON.parse(global.fetch.mock.calls[0][1].body);
   expect(body).toMatchObject({location: 'global', errorCode: 'JS_FATAL'});
+});
+
+const installWith = prev => {
+  let installed;
+  global.ErrorUtils = {getGlobalHandler: () => prev, setGlobalHandler: h => (installed = h)};
+  installGlobalErrorHandler();
+  return installed;
+};
+
+it('fatal: waits for the report to finish before calling previous', async () => {
+  let finishFetch;
+  global.fetch = jest.fn(() => new Promise(r => (finishFetch = () => r({ok: true}))));
+  const prev = jest.fn();
+  const handler = installWith(prev);
+  const err = new Error('boom');
+  handler(err, true);
+  await flush();
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(prev).not.toHaveBeenCalled();
+  finishFetch();
+  await flush();
+  expect(prev).toHaveBeenCalledTimes(1);
+  expect(prev).toHaveBeenCalledWith(err, true);
+});
+
+it('fatal: a hanging report still calls previous once after 1.5 s', async () => {
+  jest.useFakeTimers();
+  try {
+    global.fetch = jest.fn(() => new Promise(() => {}));
+    const prev = jest.fn();
+    const handler = installWith(prev);
+    const err = new Error('hang');
+    handler(err, true);
+    await jest.advanceTimersByTimeAsync(1499);
+    expect(prev).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(prev).toHaveBeenCalledTimes(1);
+    expect(prev).toHaveBeenCalledWith(err, true);
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(prev).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('fatal: a throwing token read still calls previous once', async () => {
+  getStoredAuthToken.mockImplementation(() => {
+    throw new Error('keychain');
+  });
+  const prev = jest.fn();
+  const err = new Error('boom');
+  installWith(prev)(err, true);
+  await flush();
+  expect(prev).toHaveBeenCalledTimes(1);
+  expect(prev).toHaveBeenCalledWith(err, true);
+});
+
+it('non-fatal: calls previous synchronously', () => {
+  global.fetch = jest.fn(() => new Promise(() => {}));
+  const prev = jest.fn();
+  const err = new Error('soft');
+  installWith(prev)(err, false);
+  expect(prev).toHaveBeenCalledTimes(1);
+  expect(prev).toHaveBeenCalledWith(err, false);
 });
 
 it('detail is truncated to 4000 chars', async () => {
