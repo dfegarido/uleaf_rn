@@ -20,6 +20,7 @@ import { getActiveFlightDatesApi } from '../../../../components/Api/getActiveFli
 import { getAirCargoPromoQualifiedText } from '../../../../config/shippingConstants';
 import { roundToCents } from '../../../../utils/money';
 import { createAndCapturePaypalOrder } from '../../../../components/Api/paymentApi';
+import { paymentErrorAlert } from '../../Orders/paymentErrorAlert';
 import { findMatchingFlightOption } from '../../../../utils/flightDateMatching';
 
 /**
@@ -2664,36 +2665,31 @@ export const useCheckoutController = (props) => {
           }
 
           if (!paymentResponse.success) {
-            if (paymentResponse.error === 'Failed to create/capturing order') {
-              Alert.alert(
-                'Payment Error',
-                'Payment failed. Please try again or contact support.',
-                [
-                  { text: 'Retry Payment', onPress: () =>  
-                    openPaymentSheet(transactionNumber, orderTotal, {
-                      onGaveUp: () => isLive ? null : navigation.navigate('Orders'),
-                    })
-                  },
-                  {
-                    text: 'Cancel',
-                    onPress: () => {
-                      if (isLive && onClose) {
-                        onClose();
-                      } else if (!isLive) {
-                        navigation.navigate('Orders');
-                      }
+            const { title, message, retry } = paymentErrorAlert(paymentResponse);
+            Alert.alert(
+              title,
+              message,
+              retry
+                ? [
+                    { text: 'Retry Payment', onPress: () =>
+                      openPaymentSheet(transactionNumber, orderTotal, {
+                        onGaveUp: () => isLive ? null : navigation.navigate('Orders'),
+                      })
                     },
-                    style: 'cancel',
-                  }
-                ]
-              );
-            } else {
-              Alert.alert(
-                'Payment Error',
-                paymentResponse.error || 'Payment failed. Please try again or contact support.',
-                [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
-              );
-            }
+                    {
+                      text: 'Cancel',
+                      onPress: () => {
+                        if (isLive && onClose) {
+                          onClose();
+                        } else if (!isLive) {
+                          navigation.navigate('Orders');
+                        }
+                      },
+                      style: 'cancel',
+                    }
+                  ]
+                : [{ text: 'OK', onPress: () => isLive ? null : navigation.navigate('Orders') }]
+            );
           }
             
         } else if (transactionNumber && orderTotal > 0) {

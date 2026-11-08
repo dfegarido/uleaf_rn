@@ -139,6 +139,9 @@ export const createAndCapturePaypalOrder = async (captureData) => {
       return {
         success: false,
         error: errorData.error || errorData.message || 'An error occurred while capturing payment',
+        message: errorData.message,
+        ref: errorData.ref,
+        title: errorData.title,
       };
     }
 

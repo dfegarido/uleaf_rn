@@ -18,6 +18,8 @@ import NetInfo from '@react-native-community/netinfo';
 import {useAuth} from '../../../auth/AuthProvider';
 import { getBuyerProfileApi } from '../../../components/Api/getBuyerProfileApi';
 import { createAndCapturePaypalOrder } from '../../../components/Api/paymentApi';
+import { paymentErrorAlert } from './paymentErrorAlert';
+import { reportClientError } from '../../../utils/errorReporter';
 import { filterPayToBoardGroups, filterGroupPlants, isPayToBoard } from '../../../utils/buyerOrderFiltering';
 import {
   orderTotalOf,
@@ -298,12 +300,13 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
           }
       
         if (!paymentResponse.success) {
-          if (paymentResponse.error === 'Failed to create/capturing order') {
-              Alert.alert(
-                'Payment Error',
-                'Payment failed. Please try again or contact support.',
-                [
-                  { text: 'Retry Payment', onPress: () =>  
+          const { title, message, retry } = paymentErrorAlert(paymentResponse);
+          Alert.alert(
+            title,
+            message,
+            retry
+              ? [
+                  { text: 'Retry Payment', onPress: () =>
                     openPaymentSheet(transactionNumber, total, {
                       onGaveUp: () => navigation.navigate('Orders'),
                     })
@@ -316,14 +319,8 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
                     style: 'cancel',
                   }
                 ]
-              );
-            } else {
-              Alert.alert(
-                'Payment Error',
-                paymentResponse.error || 'Payment failed. Please try again or contact support.',
-                [{ text: 'OK' }]
-              );
-            }
+              : [{ text: 'OK' }]
+          );
         }
           
       } else {
@@ -347,10 +344,13 @@ const ScreenPayToBoard = ({plantOwnerFilter = null, onBuyersLoaded = null}) => {
       
     } catch (error) {
       console.error('❌ Payment error:', error);
-      Alert.alert(
-        'Payment Error',
-        error.message || 'An unexpected error occurred. Please try again.',
-      );
+      reportClientError({
+        location: 'ScreenPayToBoard.handlePayTransaction',
+        userMessage: 'Payment failed. Please try again or contact support.',
+        detail: error.message,
+        errorCode: 'PAYMENT_SCREEN',
+      });
+      Alert.alert("Payment didn't go through", 'Payment failed. Please try again or contact support.');
     } finally {
       setPayingTransaction(null);
     }
