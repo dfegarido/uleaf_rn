@@ -1,5 +1,6 @@
 import {getStoredAuthToken} from '../../utils/getStoredAuthToken';
 import {API_ENDPOINTS} from '../../config/apiConfig';
+import {reportClientError} from '../../utils/errorReporter';
 
 /**
  * Create a PayPal payment intent
@@ -40,9 +41,16 @@ export const createPaymentIntentApi = async (paymentData) => {
     };
   } catch (error) {
     console.error('Create payment intent API error:', error);
+    const message = error.message || 'An error occurred while creating payment intent';
+    reportClientError({
+      location: 'paymentApi.createPaymentIntentApi',
+      userMessage: message,
+      detail: error.message,
+      errorCode: 'NETWORK',
+    });
     return {
       success: false,
-      error: error.message || 'An error occurred while creating payment intent',
+      error: message,
     };
   }
 };
@@ -83,9 +91,16 @@ export const capturePaymentApi = async (captureData) => {
     };
   } catch (error) {
     console.error('Capture payment API error:', error);
+    const message = error.message || 'An error occurred while capturing payment';
+    reportClientError({
+      location: 'paymentApi.capturePaymentApi',
+      userMessage: message,
+      detail: error.message,
+      errorCode: 'NETWORK',
+    });
     return {
       success: false,
-      error: error.message || 'An error occurred while capturing payment',
+      error: message,
     };
   }
 };
@@ -122,9 +137,16 @@ export const createAndCapturePaypalOrder = async (captureData) => {
     };
   } catch (error) {
     console.error('createAndCapturePaypalOrder API error:', error);
+    const message = error.message || 'An error occurred while capturing payment';
+    reportClientError({
+      location: 'paymentApi.createAndCapturePaypalOrder',
+      userMessage: message,
+      detail: error.message,
+      errorCode: 'NETWORK',
+    });
     return {
       success: false,
-      error: error.message || 'An error occurred while capturing payment',
+      error: message,
     };
   }
 };

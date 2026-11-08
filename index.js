@@ -8,6 +8,7 @@ import {getMessaging, setBackgroundMessageHandler} from '@react-native-firebase/
 import App from './App';
 import {name as appName} from './app.json';
 import {emit} from './src/services/notifications/notificationEvents';
+import {installGlobalErrorHandler} from './src/utils/errorReporter';
 
 if (!__DEV__) {
   console.log = () => {};
@@ -26,5 +27,7 @@ setBackgroundMessageHandler(messaging, async (remoteMessage) => {
   });
   return Promise.resolve();
 });
+
+installGlobalErrorHandler();
 
 AppRegistry.registerComponent(appName, () => App);

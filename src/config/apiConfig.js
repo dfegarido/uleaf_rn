@@ -512,6 +512,7 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   // The hosted-page payment. The page (not the app) calls these; they are here so the
   // endpoints are discoverable in one place.
   PAYMENT_COMPLETION: `${getSupabaseBaseUrl()}/payment-completion`,
+  LOG_CLIENT_ERROR: `${getSupabaseBaseUrl()}/log-client-error`,
   PAYMENT_STATUS: `${getSupabaseBaseUrl()}/payment-status`,
   PAYMENT_WEBHOOK: `${getSupabaseBaseUrl()}/payment-webhook`,
   UPDATE_ORDER_READY_TO_FLY: `${getSupabaseBaseUrl()}/admin-payment-management`,
