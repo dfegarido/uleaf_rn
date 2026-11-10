@@ -4,11 +4,10 @@ import { AuthContext } from '../auth/AuthProvider';
 import { navigationRef } from '../navigation/navigationRef';
 import { getPendingCohostInviteApi, respondCohostApi } from './Api/liveApi';
 import { getAgoraUid } from '../utils/getAgoraUid';
+import { cohostGateMode } from '../utils/liveCohost';
 import ChatAvatar from './ChatAvatar';
 import NotificationService, { addTokenToBuyer, removeTokenFromBuyer } from '../services/notifications';
 import { emit, on } from '../services/notifications/notificationEvents';
-
-const POLL_MS = 5000;
 
 // The latest pending invite, shared with CohostInviteBell (admin home header) through the
 // notification event bus: 'cohost_pending' carries it, 'cohost_open' asks the card to show.
@@ -18,7 +17,7 @@ const inviteKey = (inv) => (inv ? `${inv.sessionId}|${inv.invitedAt}` : '');
 
 /**
  * Mounted by the admin, buyer and seller navigators. Shows a co-host invite from a seller who is
- * live: polled every 5 s while the app is open, checked on foreground, and triggered at once by
+ * live: polled while the app is open (see cohostGateMode), checked on foreground, and triggered at once by
  * a `cohost_invite` push. Accepting opens the seller's live in co-host mode. "Later" hides the
  * card but keeps the invite under the header bell until it is answered or expires. Also registers
  * the device for push (fcm-token stores it on the buyer, admin or supplier row).
@@ -46,20 +45,23 @@ const CohostInviteGate = () => {
     setInvite(next && !laterRef.current.has(inviteKey(next)) ? next : null);
   }, []);
 
+  const { prompt, pollMs } = cohostGateMode(userInfo);
+
   useEffect(() => {
     if (!uid) return undefined;
-    NotificationService.requestPermissionAndRegister(uid, {
-      writeToken: addTokenToBuyer,
-      removeToken: removeTokenFromBuyer,
-    }).catch(() => {});
+    const deps = { writeToken: addTokenToBuyer, removeToken: removeTokenFromBuyer };
+    (prompt
+      ? NotificationService.requestPermissionAndRegister(uid, deps)
+      : NotificationService.registerWithoutPrompting(uid, deps)
+    ).catch(() => {});
 
     check();
-    let timer = setInterval(check, POLL_MS);
+    let timer = setInterval(check, pollMs);
     const appSub = AppState.addEventListener('change', (state) => {
       clearInterval(timer);
       if (state === 'active') {
         check();
-        timer = setInterval(check, POLL_MS);
+        timer = setInterval(check, pollMs);
       }
     });
     const offPush = on('cohost_invite', () => check());
@@ -75,7 +77,7 @@ const CohostInviteGate = () => {
       offPush();
       offOpen();
     };
-  }, [uid, check]);
+  }, [uid, check, prompt, pollMs]);
 
   const answer = async (accept) => {
     if (!invite) return;

@@ -1,4 +1,4 @@
-import { canManageLive, classifyRemoteUid } from '../liveCohost';
+import { canManageLive, classifyRemoteUid, cohostGateMode } from '../liveCohost';
 import { getAgoraUid } from '../getAgoraUid';
 
 describe('classifyRemoteUid', () => {
@@ -21,4 +21,15 @@ describe('canManageLive', () => {
   it('missing guestKind = old server = admin', () => expect(canManageLive({ sellerUid: 's' })).toBe(true));
   it('buyer guest', () => expect(canManageLive({ sellerUid: 's', guestKind: 'buyer' })).toBe(false));
   it('seller guest', () => expect(canManageLive({ sellerUid: 's', guestKind: 'seller' })).toBe(false));
+});
+
+describe('cohostGateMode', () => {
+  it('admin: OS prompt, 5 s poll', () =>
+    expect(cohostGateMode({ user: { userType: 'admin' } })).toEqual({ prompt: true, pollMs: 5000 }));
+  it('sub_admin counts as admin', () => expect(cohostGateMode({ user: { userType: 'sub_admin' } }).prompt).toBe(true));
+  it('buyer: no OS prompt at login, 30 s poll (push brings invites at once)', () =>
+    expect(cohostGateMode({ user: { userType: 'buyer' } })).toEqual({ prompt: false, pollMs: 30000 }));
+  it('seller: OS prompt (no other way to enable push), 30 s poll', () =>
+    expect(cohostGateMode({ user: { userType: 'supplier' } })).toEqual({ prompt: true, pollMs: 30000 }));
+  it('unknown: no prompt, 30 s poll', () => expect(cohostGateMode({})).toEqual({ prompt: false, pollMs: 30000 }));
 });
