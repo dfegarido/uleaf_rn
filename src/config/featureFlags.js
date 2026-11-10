@@ -17,8 +17,3 @@ export function isLeafTrailHubSpecEnabled() {
   }
   return true;
 }
-
-/** @deprecated alias — same flag as isLeafTrailHubSpecEnabled */
-export function isTrail1ForReceivingEnabled() {
-  return isLeafTrailHubSpecEnabled();
-}

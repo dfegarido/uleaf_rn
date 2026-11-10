@@ -31,7 +31,7 @@ import PrintIcon from '../../../../assets/icons/greylight/printer.svg';
 import FilterBar from '../../../../components/Admin/filter';
 import LeafTrailLabelGeneratingOverlay from '../../../../components/Admin/LeafTrailLabelGeneratingOverlay';
 import ScreenHeader from '../../../../components/Admin/header';
-import { isLeafTrailHubSpecEnabled, isTrail1ForReceivingEnabled } from '../../../../config/featureFlags';
+import { isLeafTrailHubSpecEnabled } from '../../../../config/featureFlags';
 import {
     getAdminLeafTrailFilters,
     getAdminLeafTrailReceiving,
@@ -1000,7 +1000,7 @@ const ReceivingLoadingOverlay = ({ message, contextLabel = 'Receiving', title = 
 
 const ReceivingScreen = ({navigation, route}) => {
     const hubSpecEnabled = isLeafTrailHubSpecEnabled();
-    const trail1IntakeMode = isTrail1ForReceivingEnabled();
+    const trail1IntakeMode = hubSpecEnabled;
     const [index, setIndex] = useState(0);
     const routes = useMemo(
         () => (trail1IntakeMode ? TRAIL1_RECEIVING_ROUTES : DEFAULT_RECEIVING_ROUTES),
