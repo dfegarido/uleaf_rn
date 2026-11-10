@@ -42,6 +42,7 @@ import NoteIcon from '../../assets/live-icon/notes-outline.svg';
 import ReverseCameraIcon from '../../assets/live-icon/camera-flip-outline.svg';
 import ListIcon from '../../assets/live-icon/list-outline.svg';
 import AddIcon from '../../assets/live-icon/add-outline.svg';
+import UsdIcon from '../../assets/live-icon/usd-outline.svg';
 import ScreenshotIcon from '../../assets/live-icon/snap-outline.svg';
 import TruckIcon from '../../assets/live-icon/truck.svg';
 import ViewersIcon from '../../assets/live-icon/viewers.svg';
@@ -1409,6 +1410,40 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
   }, [activeListing]);
 
+  // Go Live / End Live (or Leave for a co-host). Shown on the listing card, and on the
+  // "No active listing" panel too, so a seller with no active listing can still start or end.
+  const liveActionButtons = (
+    <View style={styles.actionButton}>
+      {isCohost && (
+        <GradientButton
+          id="leaveCohostGradient"
+          label="Leave"
+          from="#F28B73"
+          to="#C23B1E"
+          onPress={handleCohostLeave}
+        />
+      )}
+      {!isCohost && !isLive && (
+        <GradientButton
+          id="goLiveGradient"
+          label="Go Live"
+          from="#7CC97C"
+          to="#2E6B3E"
+          onPress={() => updateLiveSessionStatus('live')}
+        />
+      )}
+      {!isCohost && isLive && (
+        <GradientButton
+          id="endLiveGradient"
+          label="End Live"
+          from="#F28B73"
+          to="#C23B1E"
+          onPress={() => updateLiveSessionStatus('ended')}
+        />
+      )}
+    </View>
+  );
+
   const localCanvas = { uid: 0, renderMode: 1, mirrorMode: 0 };
   // Tap the small box to swap it with the full-screen video (seller and co-host alike).
   const partnerOnMain = videoSwapped && partnerUid != null;
@@ -1675,41 +1710,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                       </View>
                     </View>
                 </View>
-                <View style={styles.actionButton}>
-                  {isCohost && (
-                    <GradientButton
-                      id="leaveCohostGradient"
-                      label="Leave"
-                      from="#F28B73"
-                      to="#C23B1E"
-                      onPress={handleCohostLeave}
-                    />
-                  )}
-                  {!isCohost && !isLive && (
-                    <GradientButton
-                      id="goLiveGradient"
-                      label="Go Live"
-                      from="#7CC97C"
-                      to="#2E6B3E"
-                      onPress={() => updateLiveSessionStatus('live')}
-                    />
-                  )}
-                  {!isCohost && isLive && (
-                    <GradientButton
-                      id="endLiveGradient"
-                      label="End Live"
-                      from="#F28B73"
-                      to="#C23B1E"
-                      onPress={() => updateLiveSessionStatus('ended')}
-                    />
-                  )}
-                </View>
+                {liveActionButtons}
             </GlassView>
             </View>
             </Animated.View>
           )}
           {!activeListing && (<View style={styles.shop}>
               <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
+              {liveActionButtons}
             </View>)}
           </View>
             {/* Column 2: the tool rail, bottom-aligned beside column 1. It cannot be drawn behind
@@ -1763,28 +1771,30 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                     </View>
                     <Text style={styles.sideActionNotesText}>Snap</Text>
                   </TouchableOpacity>
-                  {isB2BSeller ? (
+                  {/* Business sellers also get the exact-USD listing editor. */}
+                  {isB2BSeller && (
                     <TouchableOpacity
                       onPress={() => navigation.navigate('ScreenB2BListingEdit')}
-                      style={styles.sideAction}>
+                      style={styles.sideAction}
+                      accessibilityLabel="Edit prices in USD">
+                      <View style={styles.sideActionIconWrap}>
+                        <UsdIcon width={26} height={26} />
+                      </View>
                       <Text style={styles.sideActionNotesText}>USD</Text>
                     </TouchableOpacity>
-                  ) : (
-                    <>
-                      <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
-                        <View style={styles.sideActionIconWrap}>
-                          <ListIcon width={26} height={26} />
-                        </View>
-                        <Text style={styles.sideActionNotesText}>List</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
-                        <View style={styles.sideActionIconWrap}>
-                          <AddIcon width={26} height={26} />
-                        </View>
-                        <Text style={styles.sideActionNotesText}>Add</Text>
-                      </TouchableOpacity>
-                    </>
                   )}
+                  <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
+                    <View style={styles.sideActionIconWrap}>
+                      <ListIcon width={26} height={26} />
+                    </View>
+                    <Text style={styles.sideActionNotesText}>List</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
+                    <View style={styles.sideActionIconWrap}>
+                      <AddIcon width={26} height={26} />
+                    </View>
+                    <Text style={styles.sideActionNotesText}>Add</Text>
+                  </TouchableOpacity>
                   </>
                 )}
             </GlassView>
