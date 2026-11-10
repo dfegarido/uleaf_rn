@@ -327,7 +327,7 @@ export const getLiveViewersApi = async ({ sessionId, q = '', limit = 20, offset 
   }
 };
 
-// ---- Co-hosted live (seller invites an admin) ----
+// ---- Co-hosted live (seller invites coshplantopia, a buyer or a seller) ----
 
 const cohostCall = async (url, { method = 'POST', body } = {}) => {
   try {
@@ -344,14 +344,21 @@ const cohostCall = async (url, { method = 'POST', body } = {}) => {
   }
 };
 
-/** Active admins the seller can invite, and whether co-hosting is switched on. */
-export const getCohostAdminsApi = (sessionId) =>
-  cohostCall(`${API_ENDPOINTS.LIVE_COHOST_INVITE}?sessionId=${encodeURIComponent(sessionId)}`, { method: 'GET' });
+/**
+ * People the seller can invite on a tab ('admin' | 'buyer' | 'seller').
+ * q under 2 chars → { groups: [{ title, people }] }; otherwise → { people }.
+ * person = { uid, kind, name, subtitle, photoUrl }
+ */
+export const getCohostInviteesApi = (sessionId, tab, q = '') =>
+  cohostCall(
+    `${API_ENDPOINTS.LIVE_COHOST_INVITE}?sessionId=${encodeURIComponent(sessionId)}&tab=${tab}&q=${encodeURIComponent(q)}`,
+    { method: 'GET' },
+  );
 
-export const inviteCohostApi = (sessionId, adminUid) =>
-  cohostCall(API_ENDPOINTS.LIVE_COHOST_INVITE, { body: { sessionId, adminUid } });
+export const inviteCohostApi = (sessionId, inviteeUid) =>
+  cohostCall(API_ENDPOINTS.LIVE_COHOST_INVITE, { body: { sessionId, inviteeUid } });
 
-/** accept → { appId, token, channelName, sellerUid, title }; expired invite → status 410. */
+/** accept → { appId, token, channelName, sellerUid, title, guestKind }; expired invite → status 410. */
 export const respondCohostApi = (sessionId, accept, agoraUid) =>
   cohostCall(API_ENDPOINTS.LIVE_COHOST_RESPOND, { body: { sessionId, accept, agoraUid } });
 

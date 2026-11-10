@@ -73,7 +73,7 @@ import LiveListingsModal from './LiveListingsModal';
 import Toast from '../../components/Toast/Toast';
 import LiveViewersSheet from './LiveViewersSheet';
 import CohostVideoBox from './CohostVideoBox';
-import InviteAdminSheet from './InviteAdminSheet';
+import InviteCohostSheet from './InviteCohostSheet';
 import PipIcon from '../../assets/live-icon/picture-in-picture.svg';
 import { classifyRemoteUid } from '../../utils/liveCohost';
 import {
@@ -340,9 +340,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     ]);
   };
 
-  const handleInvitePick = async (admin) => {
+  const handleInvitePick = async (person) => {
     setInviteSheetVisible(false);
-    const res = await inviteCohostApi(sessionId, admin.uid);
+    const res = await inviteCohostApi(sessionId, person.uid);
     if (!res.success) {
       Alert.alert('Could not invite', res.error || 'Please try again.');
       return;
@@ -1780,7 +1780,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
         />
 
         {!isCohost && (
-          <InviteAdminSheet
+          <InviteCohostSheet
             isVisible={isInviteSheetVisible}
             onClose={() => setInviteSheetVisible(false)}
             sessionId={sessionId}
