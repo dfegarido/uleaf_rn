@@ -1,0 +1,38 @@
+# Read-only buyer smoke test: relaunch with the saved session, open every tab,
+# fail on a red-box / crash. Never taps Buy, Add to Cart, Send or Checkout.
+#   iOS:     maestro test -e APP_ID=org.reactjs.native.example.iLeafU .maestro/smoke-buyer-tabs.yaml
+#   Android: maestro test -e APP_ID=com.ileafu .maestro/smoke-buyer-tabs.yaml
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: true # keep data: reuse the signed-in session
+- extendedWaitUntil:
+    visible: "Live Sales"
+    timeout: 60000
+- takeScreenshot: smoke-1-shop
+- tapOn: "Live"
+- extendedWaitUntil:
+    visible: "Upcoming"
+    timeout: 20000
+- takeScreenshot: smoke-2-live
+- tapOn: "Orders"
+- waitForAnimationToEnd
+- takeScreenshot: smoke-3-orders
+- tapOn: ".*Chat.*"
+- extendedWaitUntil:
+    visible: "Rooms"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 10000 # let the conversation list replace its skeletons
+- takeScreenshot: smoke-4-chat
+- tapOn: "Rooms"
+- waitForAnimationToEnd
+- takeScreenshot: smoke-5-chat-rooms
+- tapOn:
+    point: "7%,11%" # Chat is a pushed screen: back arrow, top-left
+- tapOn: "Shop"
+- extendedWaitUntil:
+    visible: "Live Sales"
+    timeout: 20000
+- assertNotVisible: "Render Error"
+- assertNotVisible: "Unhandled JS Exception"

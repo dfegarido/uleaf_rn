@@ -1,0 +1,42 @@
+# Read-only seller smoke test: relaunch with the saved session, open every seller
+# tab, fail on a red-box / crash. Never taps Sell/publish, payouts or send.
+# Debug builds show LogBox toasts that swallow every tap on the tab bar: close them first.
+# Tabs are tapped by position because a "Home" text tap can hit Android's system Home key.
+#   Android: maestro test -e APP_ID=com.ileafu .maestro/smoke-seller-tabs.yaml
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: true # keep data: reuse the signed-in session
+- extendedWaitUntil:
+    visible: "My Store"
+    timeout: 90000
+- takeScreenshot: seller-1-home
+- runFlow: subflows/close-logbox.yaml
+- tapOn:
+    point: "30%,93%" # Listings tab
+- extendedWaitUntil:
+    visible: "Search listings.*"
+    timeout: 20000
+- takeScreenshot: seller-2-listings
+- runFlow: subflows/close-logbox.yaml
+- tapOn:
+    point: "70%,93%" # Orders tab
+- extendedWaitUntil:
+    visible: "All Orders.*"
+    timeout: 20000
+- takeScreenshot: seller-3-orders
+- runFlow: subflows/close-logbox.yaml
+- tapOn:
+    point: "90%,93%" # Delivery tab
+- extendedWaitUntil:
+    visible: "Inventory for Hub"
+    timeout: 20000
+- takeScreenshot: seller-4-delivery
+- runFlow: subflows/close-logbox.yaml
+- tapOn:
+    point: "10%,93%" # Home tab
+- extendedWaitUntil:
+    visible: "My Store"
+    timeout: 20000
+- assertNotVisible: "Render Error"
+- assertNotVisible: "Unhandled JS Exception"

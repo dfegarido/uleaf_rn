@@ -1,0 +1,12 @@
+# Close React Native LogBox toasts (debug builds only; nothing to do in release).
+# They stack upward from the bottom, so the newest close button is always at 92%,89%
+# on a 1080x2340 Android screen. Bounded so a stray match can never loop forever.
+appId: ${APP_ID}
+---
+- repeat:
+    while:
+      visible: ".*(Open debugger to view warnings|[Ee]rror).*"
+    times: 5
+    commands:
+      - tapOn:
+          point: "92%,89%"
