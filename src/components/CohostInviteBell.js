@@ -5,13 +5,16 @@ import { emit, on } from '../services/notifications/notificationEvents';
 import { getPendingCohostInvite } from './CohostInviteGate';
 
 /**
- * Admin home header bell. Red badge while a co-host invite is waiting (state comes from
+ * Home header bell (admin always; buyer and seller only while an invite waits). Red badge while a co-host invite is waiting (state comes from
  * CohostInviteGate's poll); tapping brings the invite card back with Accept / Decline.
  */
-const CohostInviteBell = () => {
+const CohostInviteBell = ({ onlyWhenPending = false }) => {
   const [pending, setPending] = useState(getPendingCohostInvite());
 
   useEffect(() => on('cohost_pending', setPending), []);
+
+  // Buyer/seller headers have no other notifications here, so they show the bell only for an invite.
+  if (onlyWhenPending && !pending) return null;
 
   const open = () => {
     if (pending) emit('cohost_open');

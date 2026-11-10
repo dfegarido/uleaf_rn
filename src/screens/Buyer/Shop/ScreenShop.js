@@ -24,6 +24,7 @@ import SortIcon from '../../../assets/icons/greylight/sort-arrow-regular.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import PromoBadgeList from '../../../components/PromoBadgeList';
 import AppUpdateCard from '../../../components/AppUpdateCard';
+import CohostInviteBell from '../../../components/CohostInviteBell';
 import GrowersIcon from '../../../assets/buyer-icons/growers-choice-icon.svg';
 import IndonesiaIcon from '../../../assets/buyer-icons/indonesia-flag.svg';
 import PhilippinesIcon from '../../../assets/buyer-icons/philippines-flag.svg';
@@ -1385,6 +1386,7 @@ const ScreenShop = ({navigation}) => {
           </View>
 
           <View style={styles.headerIcons}>
+            <CohostInviteBell onlyWhenPending />
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => {

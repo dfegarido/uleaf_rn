@@ -48,6 +48,8 @@ module.exports = {
   // but none of whose exports is imported anywhere. F4 deletes them and their
   // barrel lines; the test checks none of their names is imported again.
   deleteReachable: [
+    // Renamed to InviteCohostSheet.js (co-host invites for buyers and sellers).
+    'src/screens/Live/InviteAdminSheet.js',
     'src/components/Api/authApi.js',
     'src/components/Api/supplierApi.js',
     'src/components/Api/reportsApi.js',

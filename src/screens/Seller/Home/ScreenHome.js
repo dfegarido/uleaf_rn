@@ -21,6 +21,7 @@ import { isUsBusinessUser, accountClassFromUserInfo, canEditListingsInUsd, prici
 import { getB2BAccountApi, switchListingModeApi } from '../../../components/Api/b2bAccountApi';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
+import CohostInviteBell from '../../../components/CohostInviteBell';
 import { formatCurrency, formatNumberWithCommas } from '../../../utils/formatCurrency';
 import { getCurrencySymbol } from '../../../utils/getCurrencySymbol';
 import { roundNumber } from '../../../utils/roundNumber';
@@ -460,6 +461,7 @@ const ScreenHome = ({navigation}) => {
           </TouchableOpacity>
 
           <View style={styles.headerIcons}>
+            <CohostInviteBell onlyWhenPending />
             { (userInfo?.liveFlag === 'Yes' ||
               userInfo?.user?.liveFlag === 'Yes' ||
               isUsBusinessUser(userInfo)) && (

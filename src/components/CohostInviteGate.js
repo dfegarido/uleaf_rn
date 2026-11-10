@@ -17,11 +17,11 @@ export const getPendingCohostInvite = () => lastPending;
 const inviteKey = (inv) => (inv ? `${inv.sessionId}|${inv.invitedAt}` : '');
 
 /**
- * Admin app only (mounted by AdminTabNavigator). Shows a co-host invite from a seller who is
+ * Mounted by the admin, buyer and seller navigators. Shows a co-host invite from a seller who is
  * live: polled every 5 s while the app is open, checked on foreground, and triggered at once by
  * a `cohost_invite` push. Accepting opens the seller's live in co-host mode. "Later" hides the
  * card but keeps the invite under the header bell until it is answered or expires. Also registers
- * the admin's device for push (the server stores admin tokens since migration 041).
+ * the device for push (fcm-token stores it on the buyer, admin or supplier row).
  */
 const CohostInviteGate = () => {
   const { userInfo } = useContext(AuthContext);
@@ -93,7 +93,7 @@ const CohostInviteGate = () => {
     const { sessionId, sellerUid } = invite;
     setInvite(null);
     if (accept && navigationRef.isReady()) {
-      navigationRef.navigate('LiveBroadcastScreen', { sessionId, cohost: { sellerUid } });
+      navigationRef.navigate('LiveBroadcastScreen', { sessionId, cohost: { sellerUid, guestKind: res.guestKind } });
     }
   };
 

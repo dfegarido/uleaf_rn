@@ -118,6 +118,7 @@ import { BuyerCompleteYourAccount,
 import BuyerSignup from '../../screens/BuyerSignup/BuyerSignup';
 import BuyerSignupLocation from '../../screens/BuyerSignup/BuyerSignupLocation';
 import AdminTabNavigator from './AdminTabNavigator';
+import CohostInviteGate from '../CohostInviteGate';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -1566,12 +1567,15 @@ const AppNavigation = () => {
           flushPendingLiveNavigation();
         }}>
         {isLoggedIn && !fallbackTriggered ? (
-          isBuyer && !usBusinessSellShell ? (
-            <BuyerTabNavigator />
-          ) : isAdmin ? (
+          isAdmin ? (
             <AdminTabNavigator />
           ) : (
-            <MainStack />
+            <>
+              {/* Co-hosted live: invite card + push registration for buyers and sellers
+                  (AdminTabNavigator mounts its own). */}
+              <CohostInviteGate />
+              {isBuyer && !usBusinessSellShell ? <BuyerTabNavigator /> : <MainStack />}
+            </>
           )
         ) : (
           <AuthStack />

@@ -75,7 +75,7 @@ import LiveViewersSheet from './LiveViewersSheet';
 import CohostVideoBox from './CohostVideoBox';
 import InviteCohostSheet from './InviteCohostSheet';
 import PipIcon from '../../assets/live-icon/picture-in-picture.svg';
-import { classifyRemoteUid } from '../../utils/liveCohost';
+import { canManageLive, classifyRemoteUid } from '../../utils/liveCohost';
 import {
   createPendingLiveComment,
   mergeLiveComment,
@@ -179,6 +179,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   // change the session's status, send the heartbeat or auto-snapshot.
   const cohost = route.params?.cohost || null;
   const isCohost = !!cohost;
+  const canManage = canManageLive(cohost);
   const [isLive, setIsLive] = useState(isCohost);
   // The other broadcaster's Agora uid, shown in the small box (co-host for the seller, seller
   // for the co-host).
@@ -1724,38 +1725,43 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   </View>
                   <Text style={styles.sideActionText}>{formatViewersLikes(liveStats?.likeCount || 0)}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
-                  <View style={styles.sideActionIconWrap}>
-                    <NoteIcon width={26} height={26} />
-                  </View>
-                  <Text style={styles.sideActionNotesText}>Notes</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleManualSnapshot} style={styles.sideAction}>
-                  <View style={styles.sideActionIconWrap}>
-                    <ScreenshotIcon width={26} height={26} />
-                  </View>
-                  <Text style={styles.sideActionNotesText}>Snap</Text>
-                </TouchableOpacity>
-                {isB2BSeller ? (
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('ScreenB2BListingEdit')}
-                    style={styles.sideAction}>
-                    <Text style={styles.sideActionNotesText}>USD</Text>
-                  </TouchableOpacity>
-                ) : (
+                {/* Seller tools: hidden from buyer/seller guests (camera-only; the backend refuses them too). */}
+                {canManage && (
                   <>
-                    <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
-                      <View style={styles.sideActionIconWrap}>
-                        <ListIcon width={26} height={26} />
-                      </View>
-                      <Text style={styles.sideActionNotesText}>List</Text>
+                  <TouchableOpacity onPress={handleOpenStickyNote} style={styles.sideAction}>
+                    <View style={styles.sideActionIconWrap}>
+                      <NoteIcon width={26} height={26} />
+                    </View>
+                    <Text style={styles.sideActionNotesText}>Notes</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleManualSnapshot} style={styles.sideAction}>
+                    <View style={styles.sideActionIconWrap}>
+                      <ScreenshotIcon width={26} height={26} />
+                    </View>
+                    <Text style={styles.sideActionNotesText}>Snap</Text>
+                  </TouchableOpacity>
+                  {isB2BSeller ? (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('ScreenB2BListingEdit')}
+                      style={styles.sideAction}>
+                      <Text style={styles.sideActionNotesText}>USD</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
-                      <View style={styles.sideActionIconWrap}>
-                        <AddIcon width={26} height={26} />
-                      </View>
-                      <Text style={styles.sideActionNotesText}>Add</Text>
-                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      <TouchableOpacity onPress={() => setLiveListingModalVisible(true)} style={styles.sideAction}>
+                        <View style={styles.sideActionIconWrap}>
+                          <ListIcon width={26} height={26} />
+                        </View>
+                        <Text style={styles.sideActionNotesText}>List</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setCreateListingModalVisible(true)} style={styles.sideAction}>
+                        <View style={styles.sideActionIconWrap}>
+                          <AddIcon width={26} height={26} />
+                        </View>
+                        <Text style={styles.sideActionNotesText}>Add</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                   </>
                 )}
             </GlassView>
