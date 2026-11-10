@@ -175,18 +175,14 @@ export const setApiEnvironment = (useLocal) => {
 // Function to generate endpoints with current base URL
 const generateEndpoints = () => ({
   // Authentication APIs
-  FIREBASE_LOGIN: `${getBaseUrl()}/firebaseLogin`,
   BUYER_SIGNUP: `${getBaseUrl()}/buyerSignup`,
   SIGN_IN_SUPPLIER: `${getBaseUrl()}/signInSupplier`,
   VALIDATE_SIGN_IN_PIN: `${getBaseUrl()}/validateSignInPin`,
-  EXCHANGE_CUSTOM_TOKEN: `${getBaseUrl()}/exchangeCustomToken`,
-  FORCE_LOGOUT: `${getBaseUrl()}/forceLogout`,
   
   // Admin Management APIs
   CREATE_ADMIN: `${getSupabaseBaseUrl()}/create-admin`,
   ADMIN_LOGIN: `${getSupabaseBaseUrl()}/admin-login`,
   GET_ADMIN_INFO: `${getSupabaseBaseUrl()}/admin-info`,
-  GET_BUYER_INFO: `${getBaseUrl()}/getBuyerInfo`,
 GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   LIST_ADMINS: `${getSupabaseBaseUrl()}/admin-list`,
   UPDATE_ADMIN: `${getSupabaseBaseUrl()}/admin-update`,
@@ -198,7 +194,6 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   GET_ADMIN_LISTINGS: `${getSupabaseBaseUrl()}/admin-listings`,
   GET_ADMIN_LISTING_DETAIL: `${getSupabaseBaseUrl()}/admin-listing-detail`,
   GET_GENUS_LIST: `${getSupabaseBaseUrl()}/genus-list`, // Admin taxonomy management (genus collection with metadata)
-  GET_GENUS_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-genus`, // Seller dropdown (genus collection, simple list)
   GET_SPECIES_FROM_PLANT_CATALOG: `${getSupabaseBaseUrl()}/get-species-from-plant-catalog`,
   // Taxonomy Management APIs
   ADD_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/add-plant-taxonomy`,
@@ -206,12 +201,9 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   DELETE_PLANT_TAXONOMY: `${getSupabaseBaseUrl()}/delete-plant-taxonomy`,
   GET_SPECIES_FOR_GENUS: `${getSupabaseBaseUrl()}/species-for-genus`,
   DELETE_USER: `${getSupabaseBaseUrl()}/admin-user-delete`,
-  IMPORT_TAXONOMY_DATA: `${getSupabaseBaseUrl()}/import-taxonomy-data`,
   DOWNLOAD_TAXONOMY_TEMPLATE: `${getSupabaseBaseUrl()}/taxonomy-template`,
   DOWNLOAD_LIVE_LISTING_BATCH_TEMPLATE: `${getBaseUrl()}/downloadLiveListingBatchTemplate`,
-  MIGRATE_PLANT_CATALOG_TO_TAXONOMY: `${getSupabaseBaseUrl()}/migrate-plant-catalog-taxonomy`,
   // Genus Request Workflow
-  INSERT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/genus-request`,
   GET_GENUS_REQUESTS: `${getSupabaseBaseUrl()}/genus-requests`,
   APPROVE_GENUS_REQUEST: `${getSupabaseBaseUrl()}/approve-genus-request`,
   REJECT_GENUS_REQUEST: `${getSupabaseBaseUrl()}/reject-genus-request`,
@@ -230,17 +222,13 @@ GET_SUPPLIER_INFO: `${getSupabaseBaseUrl()}/supplier-info`,
   REMOVE_FROM_CART: `${getStagingSupabaseBaseUrl()}/cart-remove`,
   
   // Shop APIs
-  GET_SORT: `${getBaseUrl()}/getSort`,
-GET_GENUS: `${getSupabaseBaseUrl()}/get-genus`,
 GET_VARIEGATION: `${getSupabaseBaseUrl()}/get-variegation`,
   GET_VARIEGATION_DROPDOWN: `${getSupabaseBaseUrl()}/dropdown-variegation`,
   GET_COUNTRY: `${getSupabaseBaseUrl()}/dropdown-country`,
   GET_LISTING_TYPE: `${getSupabaseBaseUrl()}/dropdown-listing-type`,
   GET_SHIPPING_INDEX: `${getSupabaseBaseUrl()}/dropdown-shipping-index`,
   GET_ACCLIMATION_INDEX: `${getSupabaseBaseUrl()}/dropdown-acclimation-index`,
-  BROWSE_PLANT_BY_GENUS: `${getBaseUrl()}/browsePlantByGenus`,
   BROWSE_PLANTS_BY_GENUS: `${getStagingSupabaseBaseUrl()}/browse-plants-by-genus`,
-  GET_BUYER_EVENTS: `${getBaseUrl()}/getBuyerEvents`,
 SEARCH_LISTING: `${getSupabaseBaseUrl()}/search-listing`,
   // The BUYER search. It has to come from the same project as the cart and the
   // checkout, or the app lists a plant the checkout cannot find.
@@ -286,7 +274,6 @@ SEARCH_DRAFT_LISTINGS: `${getSupabaseBaseUrl()}/search-draft-listings`,
   // Listing Management APIs
   UPLOAD_LISTING_IMAGE: `${getBaseUrl()}/uploadListingImage`,
   POST_LISTING_IMAGE_UPLOAD: `${getSupabaseBaseUrl()}/listing-image-upload`,
-  UPLOAD_CHAT_VIDEO: `${getBaseUrl()}/uploadChatVideo`,
   POST_CHAT_VIDEO_UPLOAD: `${getSupabaseBaseUrl()}/chat-video-upload`,
 ADD_LISTING: `${getSupabaseBaseUrl()}/add-listing`,
 UPDATE_LISTING: `${getSupabaseBaseUrl()}/update-listing`,
@@ -390,29 +377,13 @@ GET_PLANT_CREDIT_LEDGER: `${getSupabaseBaseUrl()}/plant-credit-ledger`,
 GET_BUYER_CREDIT_STATEMENT: `${getSupabaseBaseUrl()}/buyer-credit-statement`,
 MANUAL_ADJUST_CREDITS: `${getSupabaseBaseUrl()}/manual-adjust-credits`,
   
-  // Dropdown APIs
-  GET_PLANTS_DROPDOWN: `${getBaseUrl()}/getPlantsDropdown`,
-  GET_ALL_PLANT_GENUS: `${getBaseUrl()}/getAllPlantGenus`,
-  GET_PLANT_CARE_TAGS: `${getBaseUrl()}/getPlantCareTags`,
-  GET_PLANT_TYPES: `${getBaseUrl()}/getPlantTypes`,
-  GET_PLANT_GROWTH_FORMS: `${getBaseUrl()}/getPlantGrowthForms`,
-  GET_REGIONS_DROPDOWN: `${getBaseUrl()}/getRegionsDropdown`,
-  GET_DELIVERY_OPTIONS: `${getBaseUrl()}/getDeliveryOptions`,
-  
   // Location Dropdown APIs
 GET_DROPDOWN_STATES: `${getSupabaseBaseUrl()}/states-data`,
-GET_DROPDOWN_CITIES: `${getSupabaseBaseUrl()}/cities-data`,
-  POPULATE_DROPDOWN_STATES: `${getBaseUrl()}/populateDropdownStates`,
-  POPULATE_DROPDOWN_CITIES: `${getBaseUrl()}/populateDropdownCities`,
-  TRIGGER_LOCATION_DATA_UPDATE: `${getBaseUrl()}/triggerLocationDataUpdate`,
   // Public (unauthenticated) location endpoints
-  PUBLIC_STATES: `${getBaseUrl()}/getStatesData`,
-  PUBLIC_CITIES: `${getBaseUrl()}/getCitiesData`,
 GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
   
   // User related endpoints
   SEARCH_USER: `${getSupabaseBaseUrl()}/search-user`,
-  UPLOAD_PROFILE_PHOTO: `${getBaseUrl()}/uploadProfilePhoto`,
   // Chat shop photo upload (Supabase Storage bucket `chat-shops`)
   UPLOAD_CHAT_SHOP_PHOTO: `${getSupabaseBaseUrl()}/chat-shop-photo-upload`,
   UPLOAD_BUYER_CONTENT_PHOTO: `${getSupabaseBaseUrl()}/buyer-content-photo-upload`,
@@ -440,9 +411,7 @@ GET_CITIES_BY_STATE: `${getSupabaseBaseUrl()}/cities-by-state`,
 
   // Referral APIs
   REFERRAL_INFO: `${getSupabaseBaseUrl()}/referral-info`,
-  LIST_REFERRAL_REWARDS: `${getSupabaseBaseUrl()}/list-referral-rewards`,
   CREATE_REFERRAL: `${getSupabaseBaseUrl()}/create-referral`,
-  REDEEM_REFERRAL_REWARD: `${getBaseUrl()}/redeemReferralReward`,
   
   // Flight Change Request endpoints
 SUBMIT_FLIGHT_CHANGE_REQUEST: `${getSupabaseBaseUrl()}/submit-flight-change-request`,
@@ -489,7 +458,6 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   // Delivery Export endpoint
   DELIVERY_EXPORT: `${getSupabaseBaseUrl()}/delivery-export`,
   LIST_PAYOUT: `${getBaseUrl()}/listPayout`,
-  LIST_PAYOUT_DETAIL: `${getBaseUrl()}/listPayoutDetail`,
   // B2B Asia — migrated to Supabase Edge Functions (migration 028).
   // Under decision A1 Supabase is the system of record for the B2B collections and
   // is served by the b2b-* Edge Functions. There is NO dual-write, so rollback is
@@ -504,9 +472,6 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   UPDATE_B2B_FEE_CONFIG: `${getSupabaseBaseUrl()}/b2b-fee-config`,
   UPDATE_B2B_LISTING: `${getSupabaseBaseUrl()}/b2b-listing-update`,
   
-  // Order Export endpoints
-  EXPORT_ORDERS_EMAIL: `${getBaseUrl()}/exportOrdersEmail`,
-
   // Payment Management APIs
   GET_PENDING_PAYMENT_ORDERS: `${getSupabaseBaseUrl()}/admin-payment-management`,
   // The hosted-page payment. The page (not the app) calls these; they are here so the

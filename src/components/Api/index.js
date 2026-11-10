@@ -1,5 +1,4 @@
 // Authentication APIs
-export * from './authApi';
 
 // Admin Profile APIs
 export * from './getAdminInfoApi';
@@ -45,7 +44,6 @@ export * from './geoDbApi';
 export * from './getCitiesByStateApi';
 
 // Location Dropdown APIs
-export * from './locationDropdownApi';
 
 // Listing Management APIs
 export * from './listingManagementApi';
@@ -55,17 +53,14 @@ export * from './listingBrowseApi';
 export * from './orderManagementApi';
 
 // Payout APIs
-export * from './payoutApi';
 export * from './b2bPayoutApi';
 
 // Referral APIs
 export * from './referralApi';
 
 // Reports APIs
-export * from './reportsApi';
 
 // Supplier APIs
-export * from './supplierApi';
 
 // Legacy APIs (keeping existing ones for compatibility)
 export {getGenusApi} from './getGenusApi';
