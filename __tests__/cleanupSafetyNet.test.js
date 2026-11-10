@@ -25,6 +25,12 @@ describe('every import still resolves', () => {
     expect(fresh).toEqual([]);
   });
 
+  it('no new named import resolves to nothing (undefined at runtime, no bundle error)', () => {
+    const missing = g.missingNamedImports.map(m => `${m.from} -> ${m.spec} {${m.name}}`);
+    const fresh = missing.filter(m => !manifest.knownMissingNamedImports.includes(m));
+    expect(fresh).toEqual([]);
+  });
+
   it('no import of a package missing from dependencies', () => {
     const names = [...new Set(g.missingPackages.map(m => m.name))];
     const fresh = names.filter(n => !manifest.knownUndeclaredPackages.includes(n));
@@ -33,8 +39,10 @@ describe('every import still resolves', () => {
 });
 
 describe('nothing the app loads was dropped', () => {
-  it('every file reachable at baseline is still reachable (or a deleted asset/copy)', () => {
-    const lost = readBaseline().filter(f => !g.reachable.has(f));
+  it('every file reachable at baseline is still reachable (except deliberate removals)', () => {
+    const lost = readBaseline().filter(
+      f => !g.reachable.has(f) && !manifest.deleteReachable.includes(f),
+    );
     expect(lost).toEqual([]);
   });
 

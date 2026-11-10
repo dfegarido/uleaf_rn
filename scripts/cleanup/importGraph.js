@@ -68,26 +68,66 @@ function parseFile(file) {
   });
 }
 
-/** String specifiers from import/export-from/require()/import()/jest.mock(). */
-function specifiers(file) {
-  const out = [];
+const nameOf = n => (n.type === 'StringLiteral' ? n.value : n.name);
+
+/**
+ * One parse per file:
+ *  imports: [{spec, names}] from import / export-from / require() / import().
+ *           names = imported binding names ('default', '*' for namespace),
+ *           or null when unknown (require, dynamic import).
+ *  exports: {names: Set, stars: [spec], cjs} - stars are `export * from`.
+ */
+function analyze(file) {
+  const imports = [];
+  const exp = {names: new Set(), stars: [], cjs: false};
   const visit = node => {
     if (!node || typeof node.type !== 'string') return;
-    if (
-      (node.type === 'ImportDeclaration' ||
-        node.type === 'ExportNamedDeclaration' ||
-        node.type === 'ExportAllDeclaration') &&
-      node.source
-    ) {
-      out.push(node.source.value);
-    } else if (node.type === 'CallExpression') {
-      const c = node.callee;
-      const arg = node.arguments[0];
-      const isReq =
-        (c.type === 'Identifier' && c.name === 'require') || c.type === 'Import';
-      if (isReq && arg && arg.type === 'StringLiteral') out.push(arg.value);
-    } else if (node.type === 'ImportExpression' && node.source?.type === 'StringLiteral') {
-      out.push(node.source.value);
+    switch (node.type) {
+      case 'ImportDeclaration':
+        imports.push({
+          spec: node.source.value,
+          names: node.specifiers.map(s =>
+            s.type === 'ImportDefaultSpecifier' ? 'default'
+              : s.type === 'ImportNamespaceSpecifier' ? '*'
+                : nameOf(s.imported)),
+        });
+        break;
+      case 'ExportAllDeclaration':
+        imports.push({spec: node.source.value, names: []});
+        exp.stars.push(node.source.value);
+        break;
+      case 'ExportNamedDeclaration': {
+        const d = node.declaration;
+        if (d?.id) exp.names.add(d.id.name);
+        d?.declarations?.forEach(v => v.id.type === 'Identifier' && exp.names.add(v.id.name));
+        node.specifiers.forEach(s => exp.names.add(nameOf(s.exported)));
+        if (node.source) {
+          imports.push({
+            spec: node.source.value,
+            names: node.specifiers.map(s =>
+              s.type === 'ExportNamespaceSpecifier' ? '*' : nameOf(s.local)),
+          });
+        }
+        break;
+      }
+      case 'ExportDefaultDeclaration':
+        exp.names.add('default');
+        break;
+      case 'MemberExpression':
+        if (node.object.type === 'Identifier' &&
+            (node.object.name === 'module' && node.property.name === 'exports' ||
+             node.object.name === 'exports')) exp.cjs = true;
+        break;
+      case 'CallExpression': {
+        const c = node.callee;
+        const arg = node.arguments[0];
+        const isReq = (c.type === 'Identifier' && c.name === 'require') || c.type === 'Import';
+        if (isReq && arg?.type === 'StringLiteral') imports.push({spec: arg.value, names: null});
+        break;
+      }
+      case 'ImportExpression':
+        if (node.source?.type === 'StringLiteral') imports.push({spec: node.source.value, names: null});
+        break;
     }
     for (const key of Object.keys(node)) {
       if (key === 'loc' || key === 'start' || key === 'end') continue;
@@ -97,7 +137,7 @@ function specifiers(file) {
     }
   };
   visit(parseFile(file).program);
-  return out;
+  return {imports, exp};
 }
 
 function build() {
@@ -107,6 +147,8 @@ function build() {
   const brokenFiles = []; // {from, spec}
   const missingPackages = []; // {from, spec, name}
   const packageUsers = new Map(); // name -> Set(rel files)
+  const exportsOf = new Map(); // rel -> {names, stars: [rel targets], cjs}
+  const namedImports = []; // {from, spec, targets: [rel], names}
   const queue = ENTRIES.map(e => path.join(ROOT, e));
 
   while (queue.length) {
@@ -116,10 +158,19 @@ function build() {
     reachable.add(rel);
     if (!CODE_RE.test(file)) continue; // assets, json, svg: leaves
 
-    for (const spec of specifiers(file)) {
+    const {imports, exp} = analyze(file);
+    exportsOf.set(rel, {
+      names: exp.names,
+      cjs: exp.cjs,
+      stars: exp.stars.flatMap(s => resolveRelative(file, s).map(t => path.relative(ROOT, t))),
+    });
+    for (const {spec, names} of imports) {
       if (spec.startsWith('.') || spec.startsWith('/')) {
         const hits = resolveRelative(file, spec);
         if (!hits.length) brokenFiles.push({from: rel, spec});
+        else if (names?.length) {
+          namedImports.push({from: rel, spec, names, targets: hits.map(t => path.relative(ROOT, t))});
+        }
         queue.push(...hits);
         continue;
       }
@@ -131,7 +182,43 @@ function build() {
       if (!deps.has(name)) missingPackages.push({from: rel, spec, name});
     }
   }
-  return {reachable, brokenFiles, missingPackages, packageUsers, deps};
+
+  // Where a name exported by `rel` is actually defined, following `export *` chains
+  // (`export *` never forwards `default`). null = not exported; 'unknown' = CommonJS.
+  const originOf = (rel, name, seen = new Set()) => {
+    const e = exportsOf.get(rel);
+    if (!e) return 'unknown'; // asset / json / svg: whatever the transformer gives
+    if (e.names.has(name)) return rel;
+    if (seen.has(rel)) return null;
+    seen.add(rel);
+    if (name !== 'default') {
+      for (const t of e.stars) {
+        const o = originOf(t, name, seen);
+        if (o) return o;
+      }
+    }
+    return e.cjs ? 'unknown' : null;
+  };
+
+  // Named imports that resolve to nothing: undefined at runtime, no bundle error.
+  const missingNamedImports = [];
+  const usedNames = new Map(); // origin rel -> Set(names imported from it, directly or via barrels)
+  for (const imp of namedImports) {
+    for (const name of imp.names) {
+      for (const t of imp.targets) {
+        if (name === '*') {
+          // namespace import: every export of the target counts as used
+          usedNames.set(t, new Set([...(usedNames.get(t) || []), '*']));
+          continue;
+        }
+        const o = originOf(t, name);
+        if (o === null) missingNamedImports.push({from: imp.from, spec: imp.spec, name});
+        else if (o !== 'unknown') usedNames.set(o, new Set([...(usedNames.get(o) || []), name]));
+      }
+    }
+  }
+  return {reachable, brokenFiles, missingPackages, packageUsers, deps,
+    exportsOf, missingNamedImports, usedNames};
 }
 
 function readBaseline() {
@@ -149,6 +236,8 @@ if (require.main === module) {
   g.missingPackages.forEach(m => console.log(`  ${m.from} -> ${m.spec}`));
   const unused = [...g.deps].filter(d => !g.packageUsers.has(d));
   console.log(`dependencies no reachable file imports: ${unused.join(', ') || 'none'}`);
+  console.log(`named imports that resolve to nothing: ${g.missingNamedImports.length}`);
+  g.missingNamedImports.forEach(m => console.log(`  ${m.from} -> ${m.spec} {${m.name}}`));
   if (process.argv.includes('--write-baseline')) {
     fs.writeFileSync(BASELINE, JSON.stringify([...g.reachable].sort(), null, 1) + '\n');
     console.log(`wrote ${path.relative(ROOT, BASELINE)}`);

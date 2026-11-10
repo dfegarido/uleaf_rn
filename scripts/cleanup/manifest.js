@@ -44,6 +44,17 @@ module.exports = {
     'src/utils/formatDateMonthDay.js',
   ],
 
+  // Files that WERE reachable (pulled in by the components/Api barrel's `export *`)
+  // but none of whose exports is imported anywhere. F4 deletes them and their
+  // barrel lines; the test checks none of their names is imported again.
+  deleteReachable: [
+    'src/components/Api/authApi.js',
+    'src/components/Api/supplierApi.js',
+    'src/components/Api/reportsApi.js',
+    'src/components/Api/payoutApi.js',
+    'src/components/Api/locationDropdownApi.js',
+  ],
+
   // JS-only packages to drop from package.json -> files that import them but never
   // use the binding (dead imports, removed in the same step). No other importer allowed.
   deleteDeps: {
@@ -69,4 +80,11 @@ module.exports = {
     'src/screens/Live/CreateLiveListingScreen.js -> ../../components/Api/listingApi',
   ],
   knownUndeclaredPackages: ['base64-js'],
+  // Named imports that already resolved to nothing (undefined at runtime).
+  knownMissingNamedImports: [
+    'App.js -> ./src/components/Api/dropdownApi {getGenusApi}',
+    'App.js -> ./src/components/Api/dropdownApi {getVariegationApi}',
+    'src/components/Api/index.js -> ./importTaxonomyDataApi {validateTaxonomyFileApi}',
+    'src/components/Api/index.js -> ./importTaxonomyDataApi {getImportHistoryApi}',
+  ],
 };
