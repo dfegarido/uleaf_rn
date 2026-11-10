@@ -746,6 +746,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   cardOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     padding: 8,
   },
   statusBadge: {

@@ -37,7 +37,10 @@ const EMPTY_DEFAULTS = {
   cancellationFeePercent: 3.5,
   applyLogistics: true,
   applyPlantCare: true,
+  backstageExpiryDays: 2,
 };
+
+const BACKSTAGE_DAY_OPTIONS = [2, 3, 4, 5];
 
 const resolveSupplierCountry = supplier => {
   const raw = String(
@@ -296,6 +299,28 @@ const ScreenB2BFeeConfig = ({navigation}) => {
                 value={defaults.applyPlantCare}
                 onChange={applyPlantCare => setDefaults({...defaults, applyPlantCare})}
               />
+            </View>
+
+            <Text style={styles.section}>After Live Backstage</Text>
+            <View style={styles.card}>
+              <Text style={styles.fieldLabel}>
+                Days unpaid live plants stay in Backstage. Changes apply to live sales that have not started.
+              </Text>
+              <View style={styles.dayChips}>
+                {BACKSTAGE_DAY_OPTIONS.map(days => {
+                  const on = Number(defaults.backstageExpiryDays || 2) === days;
+                  return (
+                    <TouchableOpacity
+                      key={days}
+                      style={[styles.chip, on && styles.chipOn]}
+                      onPress={() => setDefaults({...defaults, backstageExpiryDays: days})}>
+                      <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                        {days} days
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
             <Text style={styles.section}>By country</Text>
@@ -558,6 +583,7 @@ const styles = StyleSheet.create({
   addTitle: {fontWeight: '700', color: '#202325', marginTop: 8, marginBottom: 10},
   gardenHint: {marginTop: 6, color: '#7F8D91', fontSize: 12},
   countryChips: {marginBottom: 12, flexGrow: 0},
+  dayChips: {flexDirection: 'row', marginTop: 4},
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
