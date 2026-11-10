@@ -9,7 +9,6 @@ import ActionSheet from '../../../../components/ActionSheet/ActionSheet';
 import {RadioButton} from '../../../../components/RadioButton';
 import {globalStyles} from '../../../../assets/styles/styles';
 import {CheckBoxGroup} from '../../../../components/CheckBox';
-import dayjs from 'dayjs';
 
 import IconEx from '../../../../assets/icons/greylight/x-regular.svg';
 
