@@ -75,6 +75,8 @@ import LiveViewersSheet from './LiveViewersSheet';
 import CohostVideoBox from './CohostVideoBox';
 import InviteCohostSheet from './InviteCohostSheet';
 import PipIcon from '../../assets/live-icon/picture-in-picture.svg';
+import ShareReferralIcon from '../../assets/live-icon/share-referral.svg';
+import { shareLiveStream } from '../../utils/liveShareLink';
 import { canManageLive, classifyRemoteUid } from '../../utils/liveCohost';
 import {
   createPendingLiveComment,
@@ -180,6 +182,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const cohost = route.params?.cohost || null;
   const isCohost = !!cohost;
   const canManage = canManageLive(cohost);
+  const [videoSwapped, setVideoSwapped] = useState(false);
   const [isLive, setIsLive] = useState(isCohost);
   // The other broadcaster's Agora uid, shown in the small box (co-host for the seller, seller
   // for the co-host).
@@ -1407,6 +1410,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   }, [activeListing]);
 
   const localCanvas = { uid: 0, renderMode: 1, mirrorMode: 0 };
+  // Tap the small box to swap it with the full-screen video (seller and co-host alike).
+  const partnerOnMain = videoSwapped && partnerUid != null;
+  const mainCanvas = partnerOnMain ? { ...localCanvas, uid: partnerUid } : localCanvas;
 
   return (
        <View style={styles.container}>
@@ -1423,13 +1429,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           {engineReady ? (
             Platform.OS === 'android' ? (
               <RtcTextureView
+                key={mainCanvas.uid}
                 style={{ width: windowWidth, height: windowHeight }}
-                canvas={localCanvas}
+                canvas={mainCanvas}
               />
             ) : (
               <RtcSurfaceView
+                key={mainCanvas.uid}
                 style={{ width: windowWidth, height: windowHeight }}
-                canvas={localCanvas}
+                canvas={mainCanvas}
               />
             )
           ) : (
@@ -1442,7 +1450,10 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           )}
         </View>
 
-        <CohostVideoBox uid={partnerUid} />
+        <CohostVideoBox
+          uid={partnerOnMain ? 0 : partnerUid}
+          onPress={() => setVideoSwapped((v) => !v)}
+        />
 
         {snapshotCountdown > 0 && (
           <View style={styles.snapshotOverlay} pointerEvents="none">
@@ -1725,6 +1736,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                   </View>
                   <Text style={styles.sideActionText}>{formatViewersLikes(liveStats?.likeCount || 0)}</Text>
                 </TouchableOpacity>
+                {/* Buyer/seller guests: listing, comments, Share and Leave only. */}
+                {!canManage && (
+                  <TouchableOpacity
+                    style={styles.sideAction}
+                    onPress={() => shareLiveStream(sessionId, cohost.sellerUid)}
+                    accessibilityLabel="Share live">
+                    <View style={styles.sideActionIconWrap}>
+                      <ShareReferralIcon width={26} height={26} />
+                    </View>
+                    <Text style={styles.sideActionNotesText}>Share</Text>
+                  </TouchableOpacity>
+                )}
                 {/* Seller tools: hidden from buyer/seller guests (camera-only; the backend refuses them too). */}
                 {canManage && (
                   <>
