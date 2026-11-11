@@ -60,7 +60,6 @@ import {
   deleteLiveCommentApi,
   getLiveCommentsApi,
   getLiveDetailApi,
-  getLiveSoldToApi,
   liveOrderLookupApi,
   updateLiveCommentApi,
 } from '../../../components/Api/liveApi';
@@ -247,7 +246,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // a plain list and interleaved into the chat render below rather than mirrored into its own
   // state/UI block.
   const [joinedUsers, setJoinedUsers] = useState([]);
-  const [soldToUser, setSoldToUser] = useState(null);
   const [checkOutData, setCheckOutData] = useState({});
   const [isLiveShopCheckoutVisible, setIsLiveShopCheckoutVisible] = useState(false);
   // True while the modal is open on the tapped row's data and the authoritative
@@ -1106,34 +1104,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     }
   }
 
-  // Effect to fetch order for the active listing
-  useEffect(() => {
-    if (!activeListing?.id) {
-      setSoldToUser(null); // Reset when there's no active listing
-      return;
-    }
-
-    let active = true;
-    let pollTimer = null;
-
-    const loadSoldTo = async () => {
-      const res = await liveOrderLookupApi({ listingId: activeListing.id, status: 'Ready to Fly' });
-      if (!active) return;
-      if (res.success && res.order) {
-        setSoldToUser(res.buyerUsername ? `@${res.buyerUsername}` : null);
-      } else {
-        setSoldToUser(null); // No pending payment order found
-      }
-    };
-
-    loadSoldTo();
-    pollTimer = setInterval(loadSoldTo, 10000);
-
-    return () => {
-      active = false;
-      if (pollTimer) clearInterval(pollTimer);
-    };
-  }, [activeListing]);
 
   // Effect to keep the screen awake during the live stream
   useEffect(() => {
@@ -1495,11 +1465,6 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           </View>
           </TouchableWithoutFeedback>
         </GlassView>
-        {soldToUser && (
-          <View style={styles.soldToContainer}>
-            <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
-          </View>
-        )}
         {/* The plant card slides down and fades while typing, freeing its ~208pt for the chat.
             It is animated rather than unmounted: an instant conditional removal read as a jump,
             and the column below the chat would reflow in a single frame. Height animates by the
@@ -1944,18 +1909,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'flex-end',
     gap: 12,
-  },
-  soldToContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: -50,
-  },
-  soldToText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   leftColumn: {
     // Bare left column: it HUGS its messages and grows upward from the bottom (justifyContent

@@ -61,7 +61,6 @@ import {
   getLiveCommentsApi,
   getLiveDetailApi,
   getLiveSellersApi,
-  getLiveSoldToApi,
   inviteCohostApi,
   leaveCohostApi,
   sendLiveHeartbeatApi,
@@ -233,7 +232,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   // getConnectionState() fallback), so the fallback never double-fires.
   const joinedReachedRef = useRef(false);
   const [statusMessage, setStatusMessage] = useState('Starting camera…');
-  const [soldToUser, setSoldToUser] = useState(null);
   const [isCommentFocused, setIsCommentFocused] = useState(false);
   const commentInputRef = useRef(null);
   // Android's back button / swipe hides the keyboard but leaves the input focused, so onBlur never
@@ -1385,30 +1383,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     };
   }, [joined, isLive, sessionId]);
 
-  // Effect to fetch order for the active listing
-  useEffect(() => {
-    if (!activeListing?.id) {
-      setSoldToUser(null); // Reset when there's no active listing
-      return;
-    }
-
-    let active = true;
-    let pollTimer = null;
-
-    const loadSoldTo = async () => {
-      const res = await getLiveSoldToApi(activeListing.id);
-      if (!active) return;
-      setSoldToUser(res.success ? res.soldToUser : null);
-    };
-
-    loadSoldTo();
-    pollTimer = setInterval(loadSoldTo, 10000);
-
-    return () => {
-      active = false;
-      if (pollTimer) clearInterval(pollTimer);
-    };
-  }, [activeListing]);
 
   // Go Live / End Live (or Leave for a co-host). Shown on the listing card, and on the
   // "No active listing" panel too, so a seller with no active listing can still start or end.
@@ -1642,11 +1616,6 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             </View>
           </TouchableWithoutFeedback>
         </GlassView>
-          {soldToUser && (
-            <View style={styles.soldToContainer}>
-              <Text style={styles.soldToText}>Sold to {soldToUser}</Text>
-            </View>
-          )}
           {/* Slides down and fades while typing, freeing its height for the chat. Animated, not
               unmounted, so the column does not reflow in one frame. */}
           {activeListing && (
@@ -2050,18 +2019,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     justifyContent: 'flex-end',
     gap: 12,
-  },
-  soldToContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: -50,
-  },
-  soldToText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
   // Hugs its messages and grows upward from the bottom; bounded by `social` (flex: 1), so it
   // can never reach the top bar. Replaces marginTop 250 / height 453 / paddingBottom 213.
