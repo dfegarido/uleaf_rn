@@ -21,6 +21,8 @@ import { openPaymentSheet } from '../../../utils/openPaymentSheet';
 import {
   AIR_CARGO_DOCUMENTATION_FEE_LABEL,
   HANDLING_FEE_CREDIT_LABEL,
+  LIVE_ARRIVAL_GUARANTEE_LABEL,
+  UPS_2ND_DAY_SHIPPING_LABEL,
   UPS_NEXT_DAY_UPGRADE_LABEL,
   getAirCargoPromoQualifiedText,
   PROMO_FREE_AIR_CARGO_MIN_ITEMS,
@@ -2200,7 +2202,7 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                   {/* Shipping Fee */}
                   <View style={styles.shippingFeeRow}>
                     <Text style={styles.summaryRowLabel}>
-                      UPS 2nd day shipping
+                      {UPS_2ND_DAY_SHIPPING_LABEL}
                     </Text>
                     <Text style={styles.summaryRowNumber}>
                       {formatCurrencyFull(orderSummary.baseUpsShipping)}
@@ -2212,6 +2214,8 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
                 <View style={styles.toggleLabel}>
                   <Text style={styles.toggleLabelText}>
                     {UPS_NEXT_DAY_UPGRADE_LABEL}
+                    {'\n'}
+                    <Text style={styles.liveArrivalNote}>{LIVE_ARRIVAL_GUARANTEE_LABEL}</Text>
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -3412,6 +3416,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#647276',
     flex: 1,
+  },
+  liveArrivalNote: {
+    fontFamily: 'Inter',
+    fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#2E7D32',
   },
   formToggle: {
     flexDirection: 'row',

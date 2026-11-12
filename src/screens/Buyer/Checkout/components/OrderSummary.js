@@ -5,6 +5,8 @@ import { formatCurrencyFull } from '../../../../utils/formatCurrency';
 import {
   AIR_CARGO_DOCUMENTATION_FEE_LABEL,
   HANDLING_FEE_CREDIT_LABEL,
+  LIVE_ARRIVAL_GUARANTEE_LABEL,
+  UPS_2ND_DAY_SHIPPING_LABEL,
   UPS_NEXT_DAY_UPGRADE_LABEL,
   getAirCargoPromoQualifiedText,
 } from '../../../../config/shippingConstants';
@@ -228,7 +230,7 @@ const OrderSummary = ({
                 {/* Shipping Fee */}
                 <View style={styles.shippingFeeRow}>
                   <Text style={styles.summaryRowLabel}>
-                    UPS 2nd day shipping
+                    {UPS_2ND_DAY_SHIPPING_LABEL}
                   </Text>
                   <Text style={styles.summaryRowNumber}>
                     {formatCurrencyFull(orderSummary.baseUpsShipping)}
@@ -243,6 +245,8 @@ const OrderSummary = ({
                       {isJoinerApproved && (
                         <Text style={styles.toggleLabelTextSubtle}> (controlled by receiver)</Text>
                       )}
+                      {'\n'}
+                      <Text style={styles.liveArrivalNote}>{LIVE_ARRIVAL_GUARANTEE_LABEL}</Text>
                     </Text>
                   </View>
                   <TouchableOpacity

@@ -10,7 +10,7 @@ const NEXT_DAY_MULTIPLIER = 1.3;
 const DOMESTIC_NEXT_DAY_COST = 50;
 
 const roundToCents = (n) => Math.round(n * 100) / 100;
-const formatPrice = (n) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+export const formatPrice = (n) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
 
 export const getNextDayRates = ({ cost, addOnCost, domestic = false }) =>
   domestic

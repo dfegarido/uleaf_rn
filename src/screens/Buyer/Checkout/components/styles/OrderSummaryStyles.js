@@ -301,6 +301,12 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontStyle: 'italic',
   },
+  liveArrivalNote: {
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+    color: '#2E7D32',
+  },
   summaryRowLabel: {
     fontSize: 16,
     fontWeight: '500',
