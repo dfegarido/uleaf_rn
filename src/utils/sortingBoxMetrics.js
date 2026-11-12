@@ -144,11 +144,11 @@ export function isAwaitingSortPlant(plant) {
 
 /**
  * Plants that belong in Sorting UI lists / print / box metrics.
- * Missing and damaged are managed on Receiving and must not appear here.
+ * Others are removed from the flight. Missing and damaged stay on Receiving.
+ * None of them appear in the receiver box.
  */
 export function isIncludedInSortingPlantList(plant) {
-  const status = normalizeLeafTrailStatus(plant?.leafTrailStatus);
-  return status !== 'missing' && status !== 'damaged';
+  return !isExcludedFromFulfillPlant(plant);
 }
 
 export function sortingPlantStatusLabel(plant) {
