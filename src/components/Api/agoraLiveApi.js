@@ -130,7 +130,14 @@ export const setLiveListingActiveApi = async ({ plantCode, sessionId }) => {
       body: JSON.stringify({ plantCode, sessionId }),
     });
 
-    return await response.json();
+    const data = await response.json();
+    if (data?.success !== false) return data;
+    // Server errors come back as `error`; callers show `message`.
+    const reason = data.message || data.error || '';
+    const message = /earlier day/i.test(reason)
+      ? 'This plant is from an earlier live. Add it as a new listing to show it in today\'s live.'
+      : reason;
+    return { ...data, message };
   } catch (error) {
     console.error('setLiveListingActiveApi error:', error.message);
     return error;

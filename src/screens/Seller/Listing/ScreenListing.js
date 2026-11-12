@@ -1603,7 +1603,7 @@ const ScreenListing = ({navigation}) => {
         console.log('Error action:', error.message);
         setDataTable(previousDataTable);
         setPrevActivePlantCodes(previousPrevActive);
-        showToast(error.message || 'Failed to set active listing.', 'error');
+        Alert.alert("Can't pin this plant", error.message || 'Please try again.');
       }
       return;
     }
