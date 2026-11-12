@@ -40,6 +40,8 @@ import HeartIcon from '../../../assets/buyer-icons/heart.svg';
 import EyeClosedIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
 import EyeIcon from '../../../assets/icons/greydark/eye-regular.svg';
 import TrashIcon from '../../../assets/icons/red/trash.svg';
+import CartIcon from '../../../assets/icontabs/buyer-tabs/cart-solid.svg';
+import PlantIcon from '../../../assets/icons/accent/plant-regular.svg';
 // Import API
 import { getAdminListingsApi, getAdminListingGardensApi } from '../../../components/Api/getAdminListingsApi';
 import { postListingDeactivateActionApi } from '../../../components/Api/postListingDeactivateActionApi';
@@ -173,6 +175,8 @@ const ListingsViewer = ({ navigation }) => {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showBuyerSheet, setShowBuyerSheet] = useState(false);
+  // 'cart' pushes the selection to the buyer's cart; 'rtf' checks it out straight to Ready to Fly.
+  const [buyerSheetMode, setBuyerSheetMode] = useState('cart');
   const [buyerSearch, setBuyerSearch] = useState('');
   const [buyerOptions, setBuyerOptions] = useState([]);
   const [buyerLoading, setBuyerLoading] = useState(false);
@@ -558,6 +562,7 @@ const ListingsViewer = ({ navigation }) => {
       ['inactive', 'expired'].includes(String(listing.status || '').toLowerCase()),
     );
   const bulkStatusLabel = bulkCanActivate ? 'Activate' : 'Deactivate';
+  const actionsDisabled = selectedIds.length === 0 || pushingCart || deleting;
 
   const confirmBulkStatusChange = () => {
     const plantCodes = selectedListingsOnPage.map((listing) => listing.plantCode).filter(Boolean);
@@ -1340,7 +1345,8 @@ const ListingsViewer = ({ navigation }) => {
     setSelectedIds(allSelected ? [] : pageIds);
   };
 
-  const openAddToCartBuyerPicker = () => {
+  const openBuyerPicker = (mode) => {
+    setBuyerSheetMode(mode);
     if (selectedIds.length === 0) {
       Alert.alert('Select listings', 'Mark at least one listing first.');
       return;
@@ -1480,6 +1486,34 @@ const ListingsViewer = ({ navigation }) => {
           ),
     );
   }, [buyerSearch, showBuyerSheet]);
+
+  const openReadyToFlyForBuyer = (buyer) => {
+    const selectedListings = listings.filter((l) =>
+      selectedIds.includes(l.id || l.plantCode),
+    );
+    if (!buyer?.id || !selectedListings.length) return;
+    setShowBuyerSheet(false);
+    setBuyerSearch('');
+    Keyboard.dismiss();
+    navigation.navigate('AdminListingsReadyToFly', {
+      buyer: {
+        id: buyer.id,
+        name:
+          [buyer.firstName, buyer.lastName].filter(Boolean).join(' ') ||
+          buyer.username ||
+          buyer.email ||
+          buyer.name ||
+          '',
+        email: buyer.email || '',
+      },
+      items: selectedListings.map((l) => ({
+        plantCode: l.plantCode,
+        potSize: l.potSize || l.size || l.variations?.[0]?.potSize || undefined,
+        quantity: 1,
+      })),
+    });
+    exitSelectMode();
+  };
 
   const pushSelectedToBuyer = (buyer) => {
     const buyerUid = buyer?.id;
@@ -1843,44 +1877,52 @@ const ListingsViewer = ({ navigation }) => {
           </View>
         ) : (
           <View style={styles.bulkActionBar}>
-            <TouchableOpacity
-              style={[
-                styles.actionChip,
-                bulkCanActivate ? styles.activateChip : styles.deactivateChip,
-                (selectedIds.length === 0 || pushingCart || deleting) && styles.actionChipDisabled,
-              ]}
-              disabled={selectedIds.length === 0 || pushingCart || deleting}
-              onPress={confirmBulkStatusChange}>
-              {bulkCanActivate ? (
-                <EyeIcon width={15} height={15} />
-              ) : (
-                <EyeClosedIcon width={15} height={15} />
-              )}
-              <Text style={[styles.actionChipText, bulkCanActivate ? styles.activateChipText : styles.deactivateChipText]}>
-                {bulkStatusLabel}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.actionChip,
-                styles.deleteChip,
-                (selectedIds.length === 0 || pushingCart || deleting) && styles.actionChipDisabled,
-              ]}
-              disabled={selectedIds.length === 0 || pushingCart || deleting}
-              onPress={confirmDeleteSelected}>
-              <TrashIcon width={15} height={15} />
-              <Text style={[styles.actionChipText, styles.deleteChipText]}>Delete</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.actionChip,
-                styles.cartChip,
-                (selectedIds.length === 0 || pushingCart || deleting) && styles.actionChipDisabled,
-              ]}
-              disabled={selectedIds.length === 0 || pushingCart || deleting}
-              onPress={openAddToCartBuyerPicker}>
-              <Text style={[styles.actionChipText, styles.cartChipText]}>Add to cart</Text>
-            </TouchableOpacity>
+            <View style={styles.bulkActionRow}>
+              <TouchableOpacity
+                style={[
+                  styles.actionBtn,
+                  bulkCanActivate ? styles.activateBtn : styles.deactivateBtn,
+                  actionsDisabled && styles.actionBtnDisabled,
+                ]}
+                disabled={actionsDisabled}
+                onPress={confirmBulkStatusChange}>
+                {bulkCanActivate ? (
+                  <EyeIcon width={16} height={16} />
+                ) : (
+                  <EyeClosedIcon width={16} height={16} />
+                )}
+                <Text
+                  style={[styles.actionBtnText, bulkCanActivate ? styles.activateBtnText : styles.deactivateBtnText]}
+                  numberOfLines={1}>
+                  {bulkStatusLabel}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.deleteBtn, actionsDisabled && styles.actionBtnDisabled]}
+                disabled={actionsDisabled}
+                onPress={confirmDeleteSelected}>
+                <TrashIcon width={16} height={16} />
+                <Text style={[styles.actionBtnText, styles.deleteBtnText]} numberOfLines={1}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.bulkActionRow}>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.cartBtn, actionsDisabled && styles.actionBtnDisabled]}
+                disabled={actionsDisabled}
+                onPress={() => openBuyerPicker('cart')}>
+                <CartIcon width={16} height={16} />
+                <Text style={[styles.actionBtnText, styles.cartBtnText]} numberOfLines={1}>Add to cart</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.readyToFlyBtn, actionsDisabled && styles.actionBtnDisabled]}
+                disabled={actionsDisabled}
+                onPress={() => openBuyerPicker('rtf')}>
+                <PlantIcon width={16} height={16} />
+                <Text style={[styles.actionBtnText, styles.readyToFlyBtnText]} numberOfLines={2}>
+                  Migrate to Ready to Fly
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -2139,16 +2181,29 @@ const ListingsViewer = ({ navigation }) => {
                       ),
                     },
                   ]}>
+                  <View style={styles.buyerHandle} />
                   <View style={styles.buyerSheetHeader}>
-                    <Text style={styles.buyerSheetTitle}>Select customer</Text>
-                    <TouchableOpacity onPress={() => setShowBuyerSheet(false)}>
+                    <View style={styles.buyerSheetHeading}>
+                      <Text style={styles.buyerSheetTitle}>
+                        {buyerSheetMode === 'rtf' ? 'Migrate to Ready to Fly' : 'Select customer'}
+                      </Text>
+                      <Text style={styles.buyerSheetSubtitle}>
+                        {buyerSheetMode === 'rtf'
+                          ? `Choose the buyer who already paid · ${selectedIds.length} plant${selectedIds.length === 1 ? '' : 's'}`
+                          : `Add ${selectedIds.length} listing${selectedIds.length === 1 ? '' : 's'} to this buyer's cart`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowBuyerSheet(false)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.buyerSheetCloseBtn}>
                       <Text style={styles.buyerSheetClose}>Close</Text>
                     </TouchableOpacity>
                   </View>
                   <TextInput
                     style={styles.buyerSearchInput}
-                    placeholder="Search buyer name, email, username"
-                    placeholderTextColor="#647276"
+                    placeholder="Search name, email, or username"
+                    placeholderTextColor="#8B9496"
                     autoCapitalize="none"
                     autoCorrect={false}
                     value={buyerSearch}
@@ -2190,13 +2245,17 @@ const ListingsViewer = ({ navigation }) => {
                           <TouchableOpacity
                             style={styles.buyerRow}
                             disabled={pushingCart}
-                            onPress={() => pushSelectedToBuyer(buyer)}>
+                            onPress={() =>
+                              buyerSheetMode === 'rtf'
+                                ? openReadyToFlyForBuyer(buyer)
+                                : pushSelectedToBuyer(buyer)
+                            }>
                             <View style={styles.buyerAvatar}>
                               <Text style={styles.buyerAvatarText}>
                                 {String(label || 'U').charAt(0).toUpperCase()}
                               </Text>
                             </View>
-                            <View style={{ flex: 1 }}>
+                            <View style={styles.buyerNameBlock}>
                               <Text style={styles.buyerName} numberOfLines={1}>
                                 {label}
                               </Text>
@@ -2211,6 +2270,7 @@ const ListingsViewer = ({ navigation }) => {
                                 </Text>
                               ) : null}
                             </View>
+                            <Text style={styles.buyerChevron}>›</Text>
                           </TouchableOpacity>
                         );
                       }}
@@ -2252,58 +2312,69 @@ const styles = StyleSheet.create({
     color: '#3B4344',
   },
   bulkActionBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    flexWrap: 'wrap',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
     gap: 8,
   },
-  actionChip: {
+  bulkActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    backgroundColor: '#fff',
   },
-  actionChipDisabled: {
+  actionBtnDisabled: {
     opacity: 0.4,
   },
-  actionChipText: {
+  actionBtnText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 13,
+    flexShrink: 1,
   },
-  deactivateChip: {
+  deactivateBtn: {
     borderColor: '#E7B089',
     backgroundColor: '#FFF6EE',
   },
-  deactivateChipText: {
+  deactivateBtnText: {
     color: '#B8612A',
   },
-  activateChip: {
+  activateBtn: {
     borderColor: '#A9D7B8',
     backgroundColor: '#F2FBF5',
   },
-  activateChipText: {
+  activateBtnText: {
     color: '#1E8A4B',
   },
-  deleteChip: {
+  deleteBtn: {
     borderColor: '#F0B2A8',
     backgroundColor: '#FFF4F2',
   },
-  deleteChipText: {
+  deleteBtnText: {
     color: '#D23B2F',
   },
-  cartChip: {
-    borderColor: '#539461',
-    backgroundColor: '#539461',
+  cartBtn: {
+    borderColor: '#B7D7BE',
+    backgroundColor: '#F2FBF5',
   },
-  cartChipText: {
-    color: '#fff',
+  cartBtnText: {
+    color: '#2F6B3A',
+  },
+  readyToFlyBtn: {
+    borderColor: '#B7D0E8',
+    backgroundColor: '#F3F8FC',
+  },
+  readyToFlyBtnText: {
+    color: '#1F6FB2',
   },
   buyerOverlay: {
     flex: 1,
@@ -2332,24 +2403,44 @@ const styles = StyleSheet.create({
     color: '#202325',
   },
   buyerSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: '#F4F6F6',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     width: '100%',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 10,
     paddingBottom: 12,
+  },
+  buyerHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D5DADC',
+    marginBottom: 14,
   },
   buyerSheetHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 14,
+    gap: 12,
+  },
+  buyerSheetHeading: {
+    flex: 1,
   },
   buyerSheetTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#202325',
+  },
+  buyerSheetSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#647276',
+  },
+  buyerSheetCloseBtn: {
+    paddingTop: 2,
   },
   buyerSheetClose: {
     color: '#539461',
@@ -2360,11 +2451,12 @@ const styles = StyleSheet.create({
     height: 44,
     borderWidth: 1,
     borderColor: '#E4E7E9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    marginBottom: 12,
     color: '#202325',
     backgroundColor: '#fff',
+    fontSize: 15,
   },
   buyerEmpty: {
     textAlign: 'center',
@@ -2376,9 +2468,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    backgroundColor: '#fff',
     gap: 10,
+  },
+  buyerNameBlock: {
+    flex: 1,
+  },
+  buyerChevron: {
+    fontSize: 22,
+    lineHeight: 22,
+    color: '#9AA3A6',
   },
   buyerAvatar: {
     width: 40,
@@ -2407,8 +2511,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: '#fff',
   },
   buyerSkeletonAvatar: {
     width: 40,

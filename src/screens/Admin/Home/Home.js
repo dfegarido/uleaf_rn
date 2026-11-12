@@ -2,7 +2,7 @@ import AppImage from '../../../components/AppImage/AppImage';
 import CohostInviteBell from '../../../components/CohostInviteBell';
 
 // Add IconTile component for use in LeafTrailGreenhouse and other sections
-const IconTile = ({title, children, onPress, badgeCount = 0, tileStyle}) => {
+const IconTile = ({title, children, onPress, badgeCount = 0, tileStyle, titleStyle}) => {
   const hasBadge = badgeCount > 0;
   return (
     <TouchableOpacity style={[globalStyles.cardLightAccent, styles.tile, tileStyle]} onPress={onPress}>
@@ -14,7 +14,7 @@ const IconTile = ({title, children, onPress, badgeCount = 0, tileStyle}) => {
           </View>
         )}
       </View>
-      <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}]}>{title}</Text>
+      <Text style={[{color: '#556065', marginTop: 8, fontWeight: '700'}, titleStyle]}>{title}</Text>
     </TouchableOpacity>
   );
 };
@@ -49,6 +49,7 @@ import UserManagementIcon from '../../../assets/admin-icons/user-management.svg'
 import ChatShopsIcon from '../../../assets/admin-icons/chat-shops.svg';
 import PlantCreditsIcon from '../../../assets/admin-icons/plant-credits.svg';
 import PaymentMgmtIcon from '../../../assets/admin-icons/payment-mgmt.svg';
+import TermsOfPurchaseIcon from '../../../assets/admin-icons/terms-of-purchase.svg';
 import { globalStyles } from '../../../assets/styles/styles';
 import { useAuth } from '../../../auth/AuthProvider';
 import AppUpdateCard from '../../../components/AppUpdateCard';
@@ -373,6 +374,14 @@ const LeafTrailGreenhouse = ({navigation}) => {
           <IconTile title="Credit Mgmt" onPress={() => navigation.navigate('PlantCreditsManagement')}>
             <PlantCreditsIcon width={48} height={48} />
           </IconTile>
+          {isFullAdmin && (
+            <IconTile
+              title={'Terms of\nPurchase'}
+              titleStyle={styles.termsTileTitle}
+              onPress={() => navigation.navigate('TermsOfPurchaseManagement')}>
+              <TermsOfPurchaseIcon width={48} height={48} />
+            </IconTile>
+          )}
         </View>
       </View>
     );
@@ -608,6 +617,12 @@ const styles = StyleSheet.create({
   newsEventsTile: {
     width: '100%',
     marginBottom: 0,
+  },
+  termsTileTitle: {
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 15,
   },
   tile: {
     width: '32%',

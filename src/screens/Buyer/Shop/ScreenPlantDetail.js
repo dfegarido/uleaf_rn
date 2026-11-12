@@ -29,7 +29,7 @@ import USAFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import PlaneIcon from '../../../assets/buyer-icons/plane-gray.svg';
 import PlusIcon from '../../../assets/buyer-icons/plus.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
-import TruckIcon from '../../../assets/buyer-icons/truck-gray.svg';
+import UpsShippingOptions from '../../../components/UpsShippingOptions/UpsShippingOptions';
 import VenmoLogo from '../../../assets/buyer-icons/venmo-logo.svg';
 import WishListSelected from '../../../assets/buyer-icons/wishlist-selected.svg';
 import WishListUnselected from '../../../assets/buyer-icons/wishlist-unselected.svg';
@@ -1552,31 +1552,12 @@ const ScreenPlantDetail = ({navigation, route}) => {
 
           {/* Shipping Details */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Shipping Details</Text>
-            <View style={styles.shippingDetailItem}>
-              <View style={styles.plantDetailIconContainer}>
-                <TruckIcon width={24} height={24} />
-              </View>
-              <View style={styles.shippingDetailContent}>
-                <View style={styles.plantDetailTextContainer}>
-                  <View style={styles.plantDetailTextAndAmount}>
-                    <Text style={styles.shippingDetailData}>
-                      {getShippingCost().displayText}
-                      <Text style={[styles.shippingDetailData, {color: '#539461'}]}>
-                        {getShippingCost().mainPrice}
-                      </Text>
-                      {getShippingCost().addOnText}
-                      <Text style={[styles.shippingDetailData, {color: '#539461'}]}>
-                        {getShippingCost().addOnPrice}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.shippingDetailLabel}>
-                  {plantData?.listingType ? `${plantData.listingType} - ` : ''}Upgrade to Next Day UPS is available at checkout.
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.sectionTitle}>UPS Shipping Details</Text>
+            <UpsShippingOptions
+              cost={getShippingCost().cost}
+              addOnCost={getShippingCost().addOnCost}
+              domestic={isDomesticUsPlant(plantData)}
+            />
             <View style={styles.plantDetailItem}>
               <View style={styles.plantDetailIconContainer}>
                 <PlaneIcon width={24} height={24} />

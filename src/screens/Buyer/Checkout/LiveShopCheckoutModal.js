@@ -30,6 +30,7 @@ import AddressSection from './components/AddressSection';
 import CheckoutBar from './components/CheckoutBar';
 import FlightSelector from './components/FlightSelector';
 import OrderSummary from './components/OrderSummary';
+import { TermsOfPurchaseImage } from './components/TermsOfPurchase';
 import { useCheckoutController } from './controllers/CheckoutController';
 import { LIVE } from './styles/liveCheckoutTheme';
 
@@ -461,6 +462,8 @@ const LiveShopCheckoutModal = ({ isVisible, onClose, listingDetails, isPending =
                     promoQualifiedMessage={promoQualifiedMessage}
                   />
                 )}
+
+                {!isPending && <TermsOfPurchaseImage />}
                 
                 {/* Browse More Plants Component
                 {!isLive && (<BrowseMorePlants

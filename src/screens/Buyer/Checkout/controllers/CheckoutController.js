@@ -127,7 +127,7 @@ export const useCheckoutController = (props) => {
   const [leafPoints, setLeafPoints] = useState(0);
   const [plantCredits, setPlantCredits] = useState(0);
   const [shippingCredits, setShippingCredits] = useState(0);
-  const [upsNextDayEnabled, setUpsNextDayEnabled] = useState(false);
+  const [upsNextDayEnabled, setUpsNextDayEnabled] = useState(true);
   const [leafPointsEnabled, setLeafPointsEnabled] = useState(false);
   const [plantCreditsEnabled, setPlantCreditsEnabled] = useState(false);
   const [shippingCreditsEnabled, setShippingCreditsEnabled] = useState(false);
@@ -2128,7 +2128,14 @@ export const useCheckoutController = (props) => {
       console.log('[CheckoutController] Joiner cannot toggle UPS Next Day - controlled by receiver');
       return;
     }
-    setUpsNextDayEnabled(!upsNextDayEnabled);
+    if (!upsNextDayEnabled) {
+      setUpsNextDayEnabled(true);
+      return;
+    }
+    Alert.alert('UPS 2nd Day', 'Bye-bye, Live Arrival Guarantee! Switch to 2nd Day Shipping anyway?', [
+      { text: 'Keep Next Day', style: 'cancel' },
+      { text: 'Switch', style: 'destructive', onPress: () => setUpsNextDayEnabled(false) },
+    ]);
   };
 
   const toggleLeafPoints = () => {

@@ -61,6 +61,7 @@ import FreeShipping from '../../screens/Admin/Discounts/FreeShipping';
 import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
 import ListingsViewerDetail from '../../screens/Admin/ListingsViewer/ListingsViewerDetail';
+import ListingsReadyToFly from '../../screens/Admin/ListingsViewer/ListingsReadyToFly';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
 import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
 import AddToTaxonomyScreen from '../../screens/Admin/Taxonomy/AddToTaxonomyScreen';
@@ -80,6 +81,7 @@ import ChatShops from '../../screens/Admin/ChatShops/ChatShops';
 import BuyerContentManagement from '../../screens/Admin/BuyerContent/BuyerContentManagement';
 import LeafPointsManagement from '../../screens/Admin/LeafPoints/LeafPointsManagement';
 import PlantCreditsManagement from '../../screens/Admin/PlantCredits/PlantCreditsManagement';
+import TermsOfPurchaseManagement from '../../screens/Admin/TermsOfPurchase/TermsOfPurchaseManagement';
 import ClearCreditsScreen from '../../screens/Admin/PlantCredits/ClearCreditsScreen';
 import AdminCreditsScreen from '../../screens/Admin/PlantCredits/AdminCreditsScreen';
 import ManualAdjustmentScreen from '../../screens/Admin/PlantCredits/ManualAdjustmentScreen';
@@ -258,6 +260,7 @@ function AdminTabs() {
       {/* Listings Viewer */}
       <Stack.Screen name="ListingsViewer" options={{headerShown: false}} component={ListingsViewer} />
       <Stack.Screen name="ListingsViewerDetail" options={{headerShown: false}} component={ListingsViewerDetail} />
+      <Stack.Screen name="AdminListingsReadyToFly" options={{headerShown: false}} component={ListingsReadyToFly} />
       {/* Discounts */}
       <Stack.Screen name="AdminDiscounts" options={{headerShown: false}} component={Discounts} />
       <Stack.Screen name="AdminDiscountAmountOffPlants" options={{headerShown: false}} component={AmountOffPlants} />
@@ -296,6 +299,9 @@ function AdminTabs() {
       <Stack.Screen name="PlantCreditsManagement" options={{headerShown: false}} component={PlantCreditsManagement} />
       <Stack.Screen name="AdminCreditsScreen" options={{headerShown: false}} component={AdminCreditsScreen} />
       <Stack.Screen name="ClearCreditsScreen" options={{headerShown: false}} component={ClearCreditsScreen} />
+
+      {/* Checkout Terms of Purchase */}
+      <Stack.Screen name="TermsOfPurchaseManagement" options={{headerShown: false}} component={TermsOfPurchaseManagement} />
       <Stack.Screen name="ManualAdjustmentScreen" options={{headerShown: false}} component={ManualAdjustmentScreen} />
       
       {/* Plant Detail (shared with buyer) */}

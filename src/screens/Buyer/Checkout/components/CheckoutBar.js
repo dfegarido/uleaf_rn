@@ -7,6 +7,7 @@ import WhiteCaretLeftIcon from '../../../../assets/icons/white/caret-left-regula
 import VenmoLogoIcon from '../../../../assets/buyer-icons/venmo-logo.svg';
 import { formatCurrencyFull } from '../../../../utils/formatCurrency';
 import styles from './styles/CheckoutBarStyles';
+import { TermsAgreement, TERMS_REQUIRED_MESSAGE } from './TermsOfPurchase';
 
 /**
  * Fixed checkout bar shown at the bottom of the Checkout screen
@@ -32,6 +33,8 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
   // The Place Order confirm is the app's own CustomAlert (frosted), as on Pay to Board, so iOS
   // and Android show the same dialog instead of each platform's Alert.alert.
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [termsAlertVisible, setTermsAlertVisible] = useState(false);
 
   const maskUsername = (username) => {
     if (!username || username.length < 3) {
@@ -56,6 +59,8 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
           </Text>
         </View>
       )}
+
+      <TermsAgreement agreed={termsAgreed} onToggle={() => setTermsAgreed(prev => !prev)} />
       
       <View style={styles.checkoutContent}>
         <View style={styles.checkoutSummary}>
@@ -85,7 +90,7 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
             isDisabled && (vaultedPaymentId ? styles.venmoButtonDisabled : styles.placeOrderButtonDisabled)
           ]}
           // onPress={onCheckoutPress}
-          onPress={() => setConfirmVisible(true)}
+          onPress={() => (termsAgreed ? setConfirmVisible(true) : setTermsAlertVisible(true))}
           disabled={isDisabled}
         >
           <View style={styles.buttonText}>
@@ -126,6 +131,13 @@ const CheckoutBar = ({ total = 0, discount = 0, loading = false, selectedFlightD
           {text: 'Yes', onPress: () => onCheckoutPress()},
         ]}
         onDismiss={() => setConfirmVisible(false)}
+      />
+      <CustomAlert
+        visible={termsAlertVisible}
+        variant="frosted"
+        message={TERMS_REQUIRED_MESSAGE}
+        buttons={[{text: 'OK'}]}
+        onDismiss={() => setTermsAlertVisible(false)}
       />
     </View>
   );

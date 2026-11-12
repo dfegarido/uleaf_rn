@@ -707,15 +707,21 @@ const CheckoutLiveModal = ({listingDetails, isVisible, onClose}) => {
   const [shippingCredits, setShippingCredits] = useState(0);
 
   // Toggle states for switches
-  const [upsNextDayEnabled, setUpsNextDayEnabled] = useState(false);
+  const [upsNextDayEnabled, setUpsNextDayEnabled] = useState(true);
   const [leafPointsEnabled, setLeafPointsEnabled] = useState(false);
   const [plantCreditsEnabled, setPlantCreditsEnabled] = useState(false);
   const [shippingCreditsEnabled, setShippingCreditsEnabled] = useState(false);
 
   // Toggle handlers
   const toggleUpsNextDay = () => {
-    setUpsNextDayEnabled(!upsNextDayEnabled);
-    
+    if (!upsNextDayEnabled) {
+      setUpsNextDayEnabled(true);
+      return;
+    }
+    Alert.alert('UPS 2nd Day', 'Bye-bye, Live Arrival Guarantee! Switch to 2nd Day Shipping anyway?', [
+      { text: 'Keep Next Day', style: 'cancel' },
+      { text: 'Switch', style: 'destructive', onPress: () => setUpsNextDayEnabled(false) },
+    ]);
   };
 
   const toggleLeafPoints = () => {

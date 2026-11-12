@@ -16,6 +16,7 @@ import CheckoutBar from './components/CheckoutBar';
 import FlightSelector from './components/FlightSelector';
 import OrderSummary from './components/OrderSummary';
 import PlantList from './components/PlantList';
+import { TermsOfPurchaseImage } from './components/TermsOfPurchase';
 import styles from './components/styles/CheckoutScreenStyles';
 import { useCheckoutController } from './controllers/CheckoutController';
 
@@ -338,6 +339,7 @@ const CheckoutScreen = () => {
           loadMoreLimit={4}
           showLoadMore={true}
         />)}
+        <TermsOfPurchaseImage />
         {isLive && (<View style={{height: 60}}></View>)}
       </ScrollView>
       
