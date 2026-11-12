@@ -122,7 +122,7 @@ const SearchResultCard = ({ stream, cardWidth, index, sellerMap, onPress }) => {
             <Text style={styles.sellerName} numberOfLines={1}>
               {sellerName}
             </Text>
-            <Text style={styles.categoryText}>Plants</Text>
+            <Text style={styles.categoryText}>Live Show Host</Text>
           </View>
         </View>
       </TouchableOpacity>
