@@ -542,7 +542,7 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
         listingType: 'Single Plant',
         genus: selectedGenus || null,
         species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
+        variegation: selectedVariegation || '', // update-listing keeps the old value on null
         reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
@@ -711,6 +711,7 @@ const ScreenSingleSellGroupChat = ({navigation, route}) => {
               options={dropdownOptionVariegation}
               selectedOption={selectedVariegation}
               onSelect={setSelectedVariegation}
+              clearable
               placeholder={loadingVariegation ? "Loading variegation..." : "Choose an option"}
               disabled={dropdownVariegationDisable || loadingVariegation || !selectedSpecies}
             />

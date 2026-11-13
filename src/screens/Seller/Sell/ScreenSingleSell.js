@@ -328,7 +328,6 @@ const ScreenSingleSell = ({navigation, route}) => {
 
     if (!selectedGenus) errors.push('Genus is required.');
     if (!selectedSpecies) errors.push('Species is required.');
-    if (!isGroupChatListing && !selectedVariegation) errors.push('Variegation is required.');
     if (isChecked && !selectedMutation)
       errors.push('Mutation type must be selected.');
     if (images.length === 0 && !listingHadNoImagesRef.current)
@@ -662,7 +661,7 @@ const ScreenSingleSell = ({navigation, route}) => {
         listingType: 'Single Plant',
         genus: selectedGenus || null,
         species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
+        variegation: selectedVariegation || '', // update-listing keeps the old value on null
         reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
@@ -892,12 +891,13 @@ const ScreenSingleSell = ({navigation, route}) => {
           </View>
           <View style={[{paddingBottom: 20}]}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-              Variegation <Text style={globalStyles.textXSRed}>*</Text>
+              Variegation
             </Text>
             <InputDropdownSearch
               options={dropdownOptionVariegation}
               selectedOption={selectedVariegation}
               onSelect={setSelectedVariegation}
+              clearable
               placeholder={loadingVariegation ? "Loading variegation..." : "Choose an option"}
               disabled={dropdownVariegationDisable || loadingVariegation || !selectedSpecies}
             />

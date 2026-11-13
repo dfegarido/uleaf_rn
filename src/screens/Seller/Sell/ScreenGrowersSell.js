@@ -825,7 +825,7 @@ const ScreenGrowersSell = ({navigation, route}) => {
         listingType: "Grower's Choice",
         genus: selectedGenus || null,
         species: selectedSpecies || null,
-        variegation: selectedVariegation || null,
+        variegation: selectedVariegation || '', // update-listing keeps the old value on null
         reservedForUsername: reservedForUsername.trim() || null,
         isMutation: isChecked,
         mutation: isChecked ? selectedMutation : null,
@@ -1067,12 +1067,13 @@ const ScreenGrowersSell = ({navigation, route}) => {
           </View>
           <View style={[{paddingBottom: 20}]}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-              Variegation <Text style={globalStyles.textXSRed}>*</Text>
+              Variegation
             </Text>
             <InputDropdownSearch
               options={dropdownOptionVariegation}
               selectedOption={selectedVariegation}
               onSelect={setSelectedVariegation}
+              clearable
               placeholder="Choose an option"
               disabled={dropdownVariegationDisable}
             />

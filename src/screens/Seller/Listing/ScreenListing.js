@@ -49,6 +49,7 @@ import {
 import { syncSellerExpiredListingsApi } from '../../../components/Api/syncSellerExpiredListingsApi';
 import { isListingPastExpiration } from '../../../utils/listingExpirationUtils';
 import { retryAsync } from '../../../utils/utils';
+import CantPinModal from './components/CantPinModal';
 import ConfirmDelete from './components/ConfirmDelete';
 import ListingActionSheet from './components/ListingActionSheetEdit';
 import ListingTable from './components/ListingTable';
@@ -1603,7 +1604,7 @@ const ScreenListing = ({navigation}) => {
         console.log('Error action:', error.message);
         setDataTable(previousDataTable);
         setPrevActivePlantCodes(previousPrevActive);
-        Alert.alert("Can't pin this plant", error.message || 'Please try again.');
+        setCantPinMessage(error.message || 'Please try again.');
       }
       return;
     }
@@ -1709,6 +1710,7 @@ const ScreenListing = ({navigation}) => {
   // Delete Item
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [cantPinMessage, setCantPinMessage] = useState('');
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -2940,6 +2942,12 @@ const ScreenListing = ({navigation}) => {
         visible={deleteModalVisible}
         onDelete={onPressDelete}
         onCancel={() => setDeleteModalVisible(false)}
+      />
+
+      <CantPinModal
+        visible={!!cantPinMessage}
+        message={cantPinMessage}
+        onClose={() => setCantPinMessage('')}
       />
 
       <Toast

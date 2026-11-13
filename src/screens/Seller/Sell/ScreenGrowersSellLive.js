@@ -591,12 +591,13 @@ const ScreenGrowersSellLive = ({navigation, route, publishRef, sessionId, onClos
           </View>
           <View style={[{paddingBottom: 20}]}>
             <Text style={[globalStyles.textLGGreyDark, {paddingBottom: 5}]}>
-              Variegation <Text style={globalStyles.textXSRed}>*</Text>
+              Variegation
             </Text>
             <InputDropdownSearch
               options={dropdownOptionVariegation}
               selectedOption={selectedVariegation}
               onSelect={setSelectedVariegation}
+              clearable
               placeholder="Choose an option"
               disabled={dropdownVariegationDisable}
             />
