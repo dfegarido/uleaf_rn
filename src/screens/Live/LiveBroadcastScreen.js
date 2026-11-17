@@ -71,6 +71,7 @@ import {
 import CreateLiveListingScreen from './CreateLiveListingScreen';
 import LiveListingsModal from './LiveListingsModal';
 import Toast from '../../components/Toast/Toast';
+import CustomAlert from '../../components/CustomAlert/CustomAlert';
 import LiveViewersSheet from './LiveViewersSheet';
 import CohostVideoBox from './CohostVideoBox';
 import InviteCohostSheet from './InviteCohostSheet';
@@ -251,6 +252,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
   const sideRailShift = useRef(new Animated.Value(0)).current;
   const [sessionListingIndexMap, setSessionListingIndexMap] = useState({});
   const [sessionListingsCount, setSessionListingsCount] = useState(0);
+  const [isNoListingsAlertVisible, setNoListingsAlertVisible] = useState(false);
   const [editingComment, setEditingComment] = useState(null);
 
   useEffect(() => {
@@ -399,6 +401,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
           ]
         );
       } else {
+        if (newStatus === 'live') {
+          // Fresh count, not the 10s poll: a listing added seconds ago must let the seller go live.
+          const res = await getLiveListingsBySessionApi(sessionId, 'Live');
+          const count = Array.isArray(res?.data) ? res.data.length : sessionListingsCount;
+          if (count === 0) {
+            setNoListingsAlertVisible(true);
+            return;
+          }
+        }
         await updateLiveStatus(newStatus);
       }
     } catch (error) {
@@ -1813,6 +1824,18 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             onHide={() => setToast(null)}
           />
         </View>
+
+        <CustomAlert
+          visible={isNoListingsAlertVisible}
+          variant="frosted"
+          title="Oops! No Listings Yet!"
+          message="Add at least one listing to start your livestream. Happy selling!"
+          buttons={[
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Add Listing', onPress: () => setCreateListingModalVisible(true) },
+          ]}
+          onDismiss={() => setNoListingsAlertVisible(false)}
+        />
 
         <LiveListingsModal
           isVisible={isLiveListingModalVisible}

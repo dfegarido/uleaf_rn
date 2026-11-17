@@ -973,6 +973,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     // ponytail: taps on a plant whose last tap is still in flight are ignored, not queued.
     if (!code || code in cartOverrides) return;
     if (cartCodes.has(code)) removeFromCart(code);
+    // No photo yet: the seller is still setting this plant up, so it cannot be bought.
+    else if (!getShopListingImageUri(item)) return;
     else handleAddToCart(item);
   };
 
@@ -1048,7 +1050,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   const buyNow = async (item) => {
     const optimistic = optimisticPlantDataFromListing(item);
 
-    if (!optimistic) {
+    if (!optimistic || !getShopListingImageUri(item)) {
       Alert.alert('Error', 'This plant is not available for purchase.');
       return;
     }
@@ -1550,9 +1552,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   ) : (
                     <LiveStreamAddToCartButton
                       onPress={() => handleToggleCart(activeListing)}
+                      disabled={!getShopListingImageUri(activeListing)}
                       variant="gradientLight"
                       radius={14}
-                      style={styles.addToCartButton}
+                      style={[styles.addToCartButton, !getShopListingImageUri(activeListing) && styles.noPhotoDisabled]}
                       textStyle={styles.addToCartText}
                     />
                   )}
@@ -1560,7 +1563,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     onPress={() => {
                       buyNow(activeListing);
                     }}
-                    style={styles.buyNowButton}
+                    disabled={!getShopListingImageUri(activeListing)}
+                    style={[styles.buyNowButton, !getShopListingImageUri(activeListing) && styles.noPhotoDisabled]}
                     activeOpacity={0.85}>
                     {/* The gradient is a painting layer only: the Svg is an absolute fill, so it
                         sits behind the label and contributes no layout height of its own. */}
@@ -2290,6 +2294,10 @@ const styles = StyleSheet.create({
   // `height: '100%'` on a child resolves against the row's auto height (the label's), not its
   // explicit 48 — which left the two pills different heights. `alignSelf: 'stretch'` and a
   // literal 48 are what actually equalise them.
+  // Buy Now / Add to Cart on a listing with no photo yet.
+  noPhotoDisabled: {
+    opacity: 0.4,
+  },
   buyNowButton: {
     justifyContent: 'center',
     alignItems: 'center',

@@ -17,6 +17,7 @@ import CloseIcon from '../../../assets/live-icon/close-x.svg';
 import { getLiveListingsBySessionApi } from '../../../components/Api/agoraLiveApi';
 import { liveOrderLookupApi } from '../../../components/Api/liveApi';
 import ReservedForBadge from '../../../components/ReservedForBadge';
+import { getShopListingImageUri } from '../../../utils/plantListingImage';
 
 const SORT_OPTIONS = [
   {key: 'sequence', label: 'Sequence #'},
@@ -158,6 +159,8 @@ const ShopModal = ({
 
   const renderListingItem = ({ item }) => {
     const inCart = isInCart(item);
+    // No photo yet: Buy Now and Add to Cart stay disabled (Remove still works).
+    const noPhoto = !getShopListingImageUri(item);
     const cartIconColor = inCart ? '#FFFFFF' : '#1F4D2B';
     return (
     <View style={styles.card}>
@@ -203,7 +206,7 @@ const ShopModal = ({
         </View>
         <View style={styles.ctaRow}>
           {/* Same green gradient as the Buy Now on the live stream card. */}
-          <TouchableOpacity style={styles.buyButton} onPress={() => onBuyNow(item)} activeOpacity={0.85}>
+          <TouchableOpacity style={[styles.buyButton, noPhoto && styles.noPhotoDisabled]} onPress={() => onBuyNow(item)} disabled={noPhoto} activeOpacity={0.85}>
             <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
               <Defs>
                 <SvgLinearGradient id="shopBuyNowGradient" x1="0" y1="0" x2="0" y2="1">
@@ -220,8 +223,9 @@ const ShopModal = ({
               Green with a plus to add; once the plant is in the cart it turns red with a minus and
               one tap removes it. */}
           <TouchableOpacity
-            style={styles.cartCircle}
+            style={[styles.cartCircle, noPhoto && !inCart && styles.noPhotoDisabled]}
             onPress={() => onToggleCart && onToggleCart(item)}
+            disabled={noPhoto && !inCart}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel={inCart ? 'Remove from cart' : 'Add to cart'}>
@@ -651,6 +655,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  noPhotoDisabled: {
+    opacity: 0.4,
   },
   cartCircle: {
     width: 34,

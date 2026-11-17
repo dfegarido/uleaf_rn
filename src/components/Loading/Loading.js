@@ -10,6 +10,7 @@ const PALETTE = {
   green2: '#2E6B3E',
   deep: '#1F4D2B',
   muted: '#5D6E5D',
+  plane: '#F2A28C',
 };
 
 const ORBIT = 180;
@@ -37,7 +38,7 @@ const Orbit = ({size, plane = true, color}) => (
       <Path
         transform="translate(90 10) rotate(90)"
         d="M0-9 L2 -2 L9 1 L9 3 L2 1.5 L1.5 6 L4 8 L4 9.5 L0 8.5 L-4 9.5 L-4 8 L-1.5 6 L-2 1.5 L-9 3 L-9 1 L-2 -2 Z"
-        fill={PALETTE.green2}
+        fill={PALETTE.plane}
       />
     ) : (
       <Circle cx="90" cy="10" r="12" fill={color || PALETTE.green2} />
@@ -159,19 +160,8 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   glass: {
-    width: 124,
-    height: 124,
-    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(83,148,97,0.18)',
-    shadowColor: PALETTE.deep,
-    shadowOffset: {width: 0, height: 12},
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 8,
   },
   logo: {
     width: 100,
