@@ -1186,7 +1186,8 @@ const LiveBroadcastScreen = ({navigation, route}) => {
       stopSnapshotCountdown();
       setSnapshotCountdown(0);
       const listing = activeListingRef.current;
-      if (listing && !snapshotPendingRef.current) {
+      // Re-checked here: the seller may have added a photo during the countdown.
+      if (listing && !listing.imagePrimary && !snapshotPendingRef.current) {
         captureAndUploadSnapshot(listing);
         console.log('[Snapshot] Countdown reached 0 — snapped', listing.plantCode);
       }
@@ -1360,6 +1361,9 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     // effect re-runs on the two intended trigger events: pressing Go Live
     // (isLive false -> true) and the active listing changing.
     if (isCohost || !activeListing || !joined || !isLive) return;
+    // Auto snapshot only fills in a missing photo; a listing that already has one is left alone.
+    // The manual Snap button still works either way.
+    if (activeListing.imagePrimary) return;
 
     console.log(
       '[Snapshot] Watching listing',
