@@ -1484,11 +1484,17 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
             <GlassView variant="dark" radius={28} style={styles.shopGlass}>
             <View style={styles.plant}>
               <View style={styles.plantDetails}>
-                <PlantListingImage
-                  uri={getShopListingImageUri(activeListing)}
-                  style={styles.listingThumb}
-                  resizeMode="cover"
-                />
+                {/* No photo yet (the seller's snapshot countdown is running): an empty frame, not
+                    the shared stock-plant fallback, which buyers mistook for the plant on sale. */}
+                {getShopListingImageUri(activeListing) ? (
+                  <PlantListingImage
+                    uri={getShopListingImageUri(activeListing)}
+                    style={styles.listingThumb}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.listingThumb} />
+                )}
                 <View style={styles.plantName}>
                   {/* The IG<n> index sits with the plant name it identifies, not floating in the
                       header. It is the same sessionListingIndexMap value the shop list uses. */}

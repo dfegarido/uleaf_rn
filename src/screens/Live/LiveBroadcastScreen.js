@@ -1646,13 +1646,17 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             <GlassView variant="dark" radius={28} style={styles.shopGlass}>
                 <View style={styles.plant}>
                   <View style={styles.plantDetails}>
-                    {(snapshotPreviewUri || activeListing.imagePrimary) && (
+                    {/* No photo yet: keep an empty frame so the name and price don't shift when
+                        the snapshot lands (same blank frame the buyer sees). */}
+                    {snapshotPreviewUri || activeListing.imagePrimary ? (
                       <PlantListingImage
                         uri={activeListing.imagePrimary}
                         localUri={snapshotPreviewUri}
                         style={styles.listingThumb}
                         resizeMode="cover"
                       />
+                    ) : (
+                      <View style={styles.listingThumb} />
                     )}
                     <View style={styles.plantName}>
                       <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
