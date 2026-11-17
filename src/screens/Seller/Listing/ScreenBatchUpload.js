@@ -1,6 +1,6 @@
 import AppImage from '../../../components/AppImage/AppImage';
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import { View,
   Text,
   StyleSheet,
@@ -14,7 +14,6 @@ import { View,
   Platform,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {launchImageLibrary} from 'react-native-image-picker';
 import NetInfo from '@react-native-community/netinfo';
 import {globalStyles} from '../../../assets/styles/styles';
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
@@ -23,6 +22,7 @@ import { getSellGenusApi,
   getSellSpeciesApi,
   getSellVariegationApi,
 } from '../../../components/Api';
+import {ImagePickerNoButton} from '../../../components/ImagePicker';
 import { expandLiveListingRows,
   uploadLiveListingRows,
   validateLiveListingRow,
@@ -70,6 +70,8 @@ const ScreenBatchUpload = ({navigation, route}) => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('success');
+  const [pickerRowId, setPickerRowId] = useState(null);
+  const pickerRowIdRef = useRef(null);
 
   const showToast = (message, type = 'success') => {
     setToastMessage(message);
@@ -158,17 +160,24 @@ const ScreenBatchUpload = ({navigation, route}) => {
     setRows((prev) => prev.filter((r) => r.id !== rowId));
   };
 
-  const pickImageForRow = (rowId) => {
-    launchImageLibrary(
-      {mediaType: 'photo', selectionLimit: 1, quality: 0.7, maxWidth: 1600, maxHeight: 1600},
-      (response) => {
-        if (response.didCancel || response.errorCode || !response.assets?.length) {
-          return;
-        }
-        const uri = response.assets[0].uri;
-        updateRow(rowId, {image: uri});
-      },
-    );
+  const openPickerForRow = (rowId) => {
+    pickerRowIdRef.current = rowId;
+    setPickerRowId(rowId);
+  };
+
+  // Picker calls onRequestClose before onImagePicked — only hide UI here; keep the row id.
+  const closePickerUi = () => {
+    setPickerRowId(null);
+  };
+
+  const handleImagePicked = (uris) => {
+    const uri = uris?.[0];
+    const rowId = pickerRowIdRef.current;
+    pickerRowIdRef.current = null;
+    setPickerRowId(null);
+    if (rowId && uri) {
+      updateRow(rowId, {image: uri});
+    }
   };
 
   const validateRow = validateLiveListingRow;
@@ -376,7 +385,7 @@ const ScreenBatchUpload = ({navigation, route}) => {
                   ) : null}
                   <TouchableOpacity
                     style={styles.addPhotoBtn}
-                    onPress={() => pickImageForRow(row.id)}>
+                    onPress={() => openPickerForRow(row.id)}>
                     <Text style={globalStyles.textSMAccent}>+ Add photo</Text>
                   </TouchableOpacity>
                 </View>
@@ -411,6 +420,13 @@ const ScreenBatchUpload = ({navigation, route}) => {
           </View>
         </Modal>
       )}
+
+      <ImagePickerNoButton
+        visible={pickerRowId != null}
+        onRequestClose={closePickerUi}
+        onImagePicked={handleImagePicked}
+        limit={1}
+      />
 
       <Toast
         visible={toastVisible}
