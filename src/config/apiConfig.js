@@ -349,6 +349,7 @@ GET_ORDER_FOR_RECEIVING: `${getSupabaseBaseUrl()}/order-for-receiving`,
   CANCEL_PAY_TO_BOARD_ORDER: `${getSupabaseBaseUrl()}/buyer-cancel-order`,
   GET_BUYER_PROFILE: `${getSupabaseBaseUrl()}/buyer-profile`,
   GET_ADMIN_ORDERS: `${getSupabaseBaseUrl()}/admin-orders`,
+  GET_ADMIN_INVOICES: `${getSupabaseBaseUrl()}/admin-invoices`,
   GET_ORDER_DETAIL: `${getSupabaseBaseUrl()}/order-detail`,
   GENERATE_INVOICE: `${getSupabaseBaseUrl()}/generate-invoice`,
   

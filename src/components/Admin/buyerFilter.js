@@ -1,9 +1,6 @@
-import AppImage from '../AppImage/AppImage';
-
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -15,7 +12,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInUp, SlideInDown, ZoomIn } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { UserAvatar } from '../../screens/Admin/Home/AdminUserUi';
 import SearchIcon from '../../assets/admin-icons/search.svg';
 import CloseIcon from '../../assets/admin-icons/x.svg';
 import CheckIcon from '../../assets/admin-icons/check.svg';
@@ -31,36 +30,27 @@ const parseBuyerSelectionInput = (input) => {
     .filter(Boolean);
 };
 
-const BuyerItem = ({ name, email, username, avatarUrl, isSelected, onToggle }) => {
-  const [imageError, setImageError] = React.useState(false);
-  const validAvatarUrl =
-    avatarUrl && avatarUrl.trim() ? avatarUrl.trim() : 'https://via.placeholder.com/40';
+// Placeholder-service URLs draw a grey "40 x 40" box; treat them as no photo so the
+// coloured initials show instead.
+const realPhoto = (url) => {
+  const value = String(url || '').trim();
+  if (!value || /placeholder\.com|placehold\.co/i.test(value)) return null;
+  return value;
+};
 
+const BuyerItem = ({ id, name, email, username, avatarUrl, isSelected, onToggle }) => {
   const secondaryInfo = email || (username ? `@${username}` : null);
 
   return (
     <TouchableOpacity
       style={[styles.buyerItemContainer, isSelected && styles.buyerItemActive]}
       onPress={onToggle}
+      activeOpacity={0.7}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: !!isSelected }}
     >
       <View style={styles.avatarWrapper}>
-        <View style={[styles.avatarContainer, isSelected && styles.avatarContainerActive]}>
-          {!imageError && validAvatarUrl ? (
-            <AppImage
-              source={{ uri: validAvatarUrl }}
-              style={styles.avatar}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarPlaceholderText}>
-                {name ? name.charAt(0).toUpperCase() : '?'}
-              </Text>
-            </View>
-          )}
-        </View>
+        <UserAvatar user={{ id, profileImage: realPhoto(avatarUrl) }} title={name} size={40} />
       </View>
 
       <View style={styles.detailsContainer}>
@@ -75,7 +65,12 @@ const BuyerItem = ({ name, email, username, avatarUrl, isSelected, onToggle }) =
       </View>
 
       <View style={isSelected ? styles.checkboxSelected : styles.checkbox}>
-        {isSelected ? <CheckIcon width={16} height={16} fill="#FFFFFF" /> : null}
+        {isSelected ? (
+          // Small spring pop each time a buyer is ticked.
+          <Animated.View entering={ZoomIn.springify().damping(14).stiffness(260)}>
+            <CheckIcon width={16} height={16} fill="#FFFFFF" />
+          </Animated.View>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -209,15 +204,21 @@ const BuyerFilter = ({
 
   const sheet = (
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
+        <Animated.View entering={FadeIn.duration(200)} style={styles.modalOverlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.actionSheetContainer}>
+            <Animated.View
+              entering={SlideInDown.duration(280)}
+              style={styles.actionSheetContainer}>
               <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
                 style={{ flex: 1 }}
               >
-                <SafeAreaView style={{ flex: 1 }}>
+                {/* Plain View, not SafeAreaView: the sheet never reaches the notch, and the
+                    safe-area top inset left a large empty gap above the title. The bottom
+                    inset is applied once, on the buttons row. */}
+                <View style={{ flex: 1 }}>
+                  <View style={styles.grabber} />
                   <View style={styles.titleContainer}>
                     <Text style={styles.titleText}>Buyer</Text>
                     <TouchableOpacity
@@ -282,8 +283,11 @@ const BuyerFilter = ({
                         </View>
                       ) : (
                         filteredBuyers.map((buyer, index) => (
-                          <View key={buyer.id || `buyer-${index}`}>
+                          <Animated.View
+                            key={buyer.id || `buyer-${index}`}
+                            entering={FadeInUp.duration(240).delay(120 + Math.min(index, 8) * 40)}>
                             <BuyerItem
+                              id={buyer.id}
                               name={buyer.name}
                               email={buyer.email}
                               username={buyer.username}
@@ -296,7 +300,7 @@ const BuyerFilter = ({
                                 <View style={styles.divider} />
                               </View>
                             ) : null}
-                          </View>
+                          </Animated.View>
                         ))
                       )}
                     </ScrollView>
@@ -315,11 +319,11 @@ const BuyerFilter = ({
                       <Text style={styles.viewButtonText}>View</Text>
                     </TouchableOpacity>
                   </View>
-                </SafeAreaView>
+                </View>
               </KeyboardAvoidingView>
-            </View>
+            </Animated.View>
           </TouchableWithoutFeedback>
-        </View>
+        </Animated.View>
       </TouchableWithoutFeedback>
   );
 
@@ -330,7 +334,7 @@ const BuyerFilter = ({
 
   return (
     <Modal
-      animationType={Platform.OS === 'ios' ? 'fade' : 'slide'}
+      animationType="none"
       transparent
       visible={isVisible}
       onRequestClose={onClose}
@@ -355,11 +359,19 @@ const styles = StyleSheet.create({
     maxHeight: 620,
     height: '80%',
   },
+  grabber: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 8,
+    backgroundColor: '#D5D9D4',
+  },
   titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 24,
+    paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 24,
   },
@@ -435,38 +447,15 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 56,
     paddingVertical: 4,
+    // Same inset on every row, so the selected highlight sits evenly around it.
+    paddingHorizontal: 8,
+    borderRadius: 12,
   },
   buyerItemActive: {
     backgroundColor: '#F0F7F1',
-    borderRadius: 12,
-    paddingHorizontal: 8,
   },
   avatarWrapper: {
     marginRight: 8,
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  avatarContainerActive: {},
-  avatar: {
-    width: 40,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#539461',
-    borderRadius: 20,
-  },
-  avatarPlaceholder: {
-    backgroundColor: '#E4E7E9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarPlaceholderText: {
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#647276',
   },
   detailsContainer: {
     flex: 1,

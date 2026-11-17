@@ -1,43 +1,30 @@
-import React, {useState, useCallback, useEffect, useRef, useMemo} from 'react';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
 import { View,
   Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator,
+  ScrollView,
+  RefreshControl,
   Alert,
+  Animated as RNAnimated,
 } from 'react-native';
+import Animated, {FadeInUp} from 'react-native-reanimated';
+import Svg, {Path} from 'react-native-svg';
+import Loading from '../../../components/Loading';
+import {GREEN, GREEN_DARK, INK, MUTED, PAGE_BG} from './AdminUserUi';
 import {Pressable} from 'react-native-gesture-handler';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import ArrowDownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
 import {generateInvoiceApi, getInvoicePdfApi} from '../../../components/Api/orderManagementApi';
-import {getAdminOrdersApi} from '../../../components/Api/adminOrderApi';
+import {getAdminInvoicesApi} from '../../../components/Api/adminOrderApi';
 import BuyerFilter from '../../../components/Admin/buyerFilter';
 import JoinerFilter from '../../../components/Admin/joinerFilter';
 import DateRangeFilter from '../../../components/Admin/dateRangeFilter';
-import PlantFlightFilter, {parseAdminFlightDateTokenToIso} from '../../../components/Admin/plantFlightFilter';
-import NetInfo from '@react-native-community/netinfo';
+import PlantFlightFilter from '../../../components/Admin/plantFlightFilter';
 import FileViewer from 'react-native-file-viewer';
 import RNFS from 'react-native-fs';
-
-// Custom Header
-const GenerateInvoiceHeader = ({ navigation }) => {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <BackSolidIcon />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Generate Invoice</Text>
-      <View style={styles.backButton} />
-    </View>
-  );
-};
-
-const isPendingPayment = (order) => {
-  const status = String(order?.status || '').toLowerCase().replace(/[\s_]/g, '');
-  return status === 'pendingpayment';
-};
 
 const timestampOf = (date) => {
   if (!date) return 0;
@@ -48,6 +35,7 @@ const timestampOf = (date) => {
   if (typeof date === 'number') return date < 4102444800000 ? date * 1000 : date;
   return 0;
 };
+
 
 const formatInvoiceDate = (dateInput) => {
   const ms = timestampOf(dateInput);
@@ -61,56 +49,6 @@ const formatInvoiceDate = (dateInput) => {
   });
 };
 
-const buyerNameFromOrder = (order) => {
-  const info = order?.buyerInfo || {};
-  const fromInfo = [info.firstName, info.lastName].filter(Boolean).join(' ').trim();
-  return fromInfo || order?.buyerName || '—';
-};
-
-const isInvoiceOrder = (order) =>
-  !isPendingPayment(order) && Boolean(order?.transactionNumber || order?.trxNumber);
-
-const buyerOptionFromOrder = (order) => {
-  const id = order?.buyerUid || order?.buyerId || order?.buyerInfo?.uid || order?.buyerInfo?.id;
-  if (id == null || id === '') return null;
-  const name = buyerNameFromOrder(order);
-  if (!name || name === '—') return null;
-  const info = order.buyerInfo || {};
-  return {
-    id: String(id),
-    name,
-    email: info.email || order.buyerEmail || '',
-    username: info.username || '',
-    avatar: info.profilePhotoUrl || info.profileImage || info.avatar || '',
-  };
-};
-
-const orderMatchesBuyer = (order, buyerIds, buyerOptions) => {
-  const orderBuyerIds = [
-    order.buyerUid,
-    order.buyerId,
-    order.buyerInfo?.uid,
-    order.buyerInfo?.id,
-  ]
-    .filter((id) => id != null && id !== '')
-    .map((id) => String(id));
-  if (buyerIds.some((id) => orderBuyerIds.includes(id))) return true;
-
-  const selected = buyerOptions.filter((buyer) => buyerIds.includes(String(buyer.id)));
-  const orderName = buyerNameFromOrder(order).trim().toLowerCase();
-  const orderUsername = String(order.buyerInfo?.username || '').trim().toLowerCase();
-  const orderEmail = String(order.buyerInfo?.email || order.buyerEmail || '').trim().toLowerCase();
-  return selected.some((buyer) => {
-    const name = String(buyer.name || '').trim().toLowerCase();
-    const username = String(buyer.username || '').trim().toLowerCase();
-    const email = String(buyer.email || '').trim().toLowerCase();
-    return (
-      (name && name === orderName) ||
-      (username && username === orderUsername) ||
-      (email && email === orderEmail)
-    );
-  });
-};
 
 const formatMoney = (value) => {
   const amount = Number(value);
@@ -118,48 +56,6 @@ const formatMoney = (value) => {
   return `$${amount.toFixed(2)}`;
 };
 
-const groupInvoices = (orders) => {
-  const map = new Map();
-  orders.forEach((order) => {
-    const txNumber = order.transactionNumber || order.trxNumber;
-    if (!txNumber) return;
-
-    if (!map.has(txNumber)) {
-      map.set(txNumber, {
-        id: String(txNumber),
-        transactionNumber: txNumber,
-        createdAt: order.createdAt || order.orderDate || order.dateCreated,
-        finalTotal: 0,
-        hasOrderTotal: false,
-        buyerName: buyerNameFromOrder(order),
-        buyerEmail: order.buyerInfo?.email || order.buyerEmail || '',
-      });
-    }
-
-    const invoice = map.get(txNumber);
-    const orderTotal = Number(order.finalTotal);
-    if (Number.isFinite(orderTotal) && orderTotal > 0) {
-      invoice.finalTotal = orderTotal;
-      invoice.hasOrderTotal = true;
-    } else if (!invoice.hasOrderTotal) {
-      const line = Number(order.subtotal || order.totalPrice || order.price || 0);
-      if (Number.isFinite(line)) invoice.finalTotal += line;
-    }
-
-    const orderDate = order.createdAt || order.orderDate || order.dateCreated;
-    if (timestampOf(orderDate) > timestampOf(invoice.createdAt)) {
-      invoice.createdAt = orderDate;
-    }
-    if (invoice.buyerName === '—') invoice.buyerName = buyerNameFromOrder(order);
-    if (!invoice.buyerEmail) {
-      invoice.buyerEmail = order.buyerInfo?.email || order.buyerEmail || '';
-    }
-  });
-
-  return Array.from(map.values()).sort(
-    (a, b) => timestampOf(b.createdAt) - timestampOf(a.createdAt),
-  );
-};
 
 const asIdList = (value) => {
   if (value == null || value === '') return [];
@@ -170,253 +66,120 @@ const asIdList = (value) => {
     .filter(Boolean);
 };
 
-const isoDay = (value) => {
-  if (value == null || value === '') return null;
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    const iso = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (iso) return iso[1];
-    const parsed = new Date(trimmed);
-    if (!Number.isNaN(parsed.getTime())) {
-      const month = String(parsed.getMonth() + 1).padStart(2, '0');
-      const day = String(parsed.getDate()).padStart(2, '0');
-      return `${parsed.getFullYear()}-${month}-${day}`;
-    }
-    return null;
-  }
-  const ms = timestampOf(value);
-  if (!ms) return null;
-  const date = new Date(ms);
-  if (Number.isNaN(date.getTime())) return null;
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-};
 
-const startOfLocalDay = (date) => {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-};
+const PAGE_SIZE = 20;
+const CACHE_MS = 5 * 60 * 1000; // a filter's invoices are reused for 5 minutes
 
-const calendarDayForApi = (date) => {
-  if (!date) return null;
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
-};
-
-const addFlightDay = (days, value) => {
-  const iso = parseAdminFlightDateTokenToIso(value);
-  if (iso) days.add(iso);
-};
-
-const invoicePlantFlightDay = (order) => {
-  const candidates = [
-    order?.flightDateFormatted,
-    order?.plantFlight,
-    order?.plantFlightDate,
-    order?.flightDate,
-  ];
-  if (Array.isArray(order?.products)) {
-    order.products.forEach((product) => {
-      candidates.push(product?.flightDateFormatted, product?.flightDate);
-    });
-  }
-  for (const value of candidates) {
-    const iso = parseAdminFlightDateTokenToIso(value);
-    if (iso && iso !== '2001-11-08') return iso;
-  }
-  return null;
-};
-
-const orderFlightDays = (order) => {
-  const days = new Set();
-  addFlightDay(days, order?.flightDateFormatted);
-  addFlightDay(days, order?.cargoDateFormatted);
-  addFlightDay(days, order?.flightDate);
-  addFlightDay(days, order?.cargoDate);
-  addFlightDay(days, order?.plantFlight);
-  addFlightDay(days, order?.plantFlightDate);
-  if (Array.isArray(order?.products)) {
-    order.products.forEach((product) => {
-      addFlightDay(days, product?.flightDateFormatted);
-      addFlightDay(days, product?.cargoDateFormatted);
-      addFlightDay(days, product?.flightDate);
-      addFlightDay(days, product?.cargoDate);
-    });
-  }
-  return days;
-};
-
-const orderMatchesFilters = (order, filters, buyerOptions) => {
-  const buyerIds = asIdList(filters.buyer);
-  if (buyerIds.length && !orderMatchesBuyer(order, buyerIds, buyerOptions)) return false;
-
-  if (filters.joiner) {
-    const joinerId = String(filters.joiner);
-    const orderJoinerIds = [
-      order.buyerUid,
-      order.joinerInfo?.joinerUid,
-      order.joinerInfo?.uid,
-      order.joinerInfo?.id,
-    ].map((id) => (id == null ? '' : String(id)));
-    if (!order.isJoinerOrder || !orderJoinerIds.includes(joinerId)) return false;
-  }
-
-  if (filters.plantFlight?.length) {
-    const wanted = new Set(
-      filters.plantFlight.map((value) => parseAdminFlightDateTokenToIso(value)).filter(Boolean),
-    );
-    const orderFlights = orderFlightDays(order);
-    const matchesFlight = [...orderFlights].some((day) => wanted.has(day));
-    if (!matchesFlight) return false;
-  }
-
-  if (filters.dateRange?.from || filters.dateRange?.to) {
-    const ms = timestampOf(order.createdAt || order.orderDate || order.dateCreated);
-    if (!ms) return false;
-    const orderDay = startOfLocalDay(new Date(ms));
-    if (filters.dateRange.from && orderDay < startOfLocalDay(filters.dateRange.from)) return false;
-    if (filters.dateRange.to) {
-      const end = startOfLocalDay(filters.dateRange.to);
-      end.setHours(23, 59, 59, 999);
-      if (orderDay > end) return false;
-    }
-  }
-
-  return true;
-};
+// One cache key per filter combination (dates as local calendar days).
+const dayKey = (date) => (date ? new Date(date).toDateString() : '');
+const filterKeyOf = (filters) =>
+  JSON.stringify([
+    asIdList(filters.buyer).sort(),
+    filters.joiner || '',
+    dayKey(filters.dateRange?.from),
+    dayKey(filters.dateRange?.to),
+    [...(filters.plantFlight || [])].sort(),
+  ]);
 
 const GenerateInvoice = ({navigation}) => {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [buyerOptions, setBuyerOptions] = useState([]);
-  const [joinerOptions, setJoinerOptions] = useState([]);
   const [filters, setFilters] = useState({
     buyer: null,
     joiner: null,
     dateRange: null,
     plantFlight: [],
   });
+  // Invoices per filter: {invoices, page, totalPages, total, at}. Revisiting a filter
+  // shows its list at once; pull to refresh fetches it again.
+  const cacheRef = useRef(new Map());
+  const [, setCacheVersion] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorByKey, setErrorByKey] = useState({});
+  // Filter choices come back with every response and are kept across filters.
+  const [buyerOptions, setBuyerOptions] = useState([]);
+  const [joinerOptions, setJoinerOptions] = useState([]);
+  const [flightDates, setFlightDates] = useState([]);
   const [dateOpen, setDateOpen] = useState(false);
   const [buyerOpen, setBuyerOpen] = useState(false);
   const [joinerOpen, setJoinerOpen] = useState(false);
   const [flightOpen, setFlightOpen] = useState(false);
   const [processingTransaction, setProcessingTransaction] = useState(null);
+  // Which button on that invoice is working ('view' | 'email'), so only it shows a spinner.
+  const [processingAction, setProcessingAction] = useState(null);
   const requestId = useRef(0);
-  const hasLoadedRef = useRef(false);
 
-  const invoiceBuyerOptions = useMemo(() => {
-    const map = new Map();
-    buyerOptions.forEach((buyer) => {
-      if (buyer?.id == null || buyer.id === '' || !buyer.name) return;
-      map.set(String(buyer.id), {...buyer, id: String(buyer.id)});
-    });
-    orders.forEach((order) => {
-      if (!isInvoiceOrder(order)) return;
-      const option = buyerOptionFromOrder(order);
-      if (!option) return;
-      const known = buyerOptions.find((buyer) => String(buyer.id) === option.id);
-      map.set(option.id, known ? {...option, ...known, id: option.id, name: option.name || known.name} : option);
-    });
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [orders, buyerOptions]);
+  const filterKey = filterKeyOf(filters);
+  const cached = cacheRef.current.get(filterKey);
+  const invoices = cached?.invoices || [];
+  const page = cached?.page || 1;
+  const totalPages = cached?.totalPages || 1;
+  const total = cached?.total ?? invoices.length;
+  const error = errorByKey[filterKey] || null;
+  const loading = !cached && !error;
 
-  const invoiceFlightDates = useMemo(() => {
-    const days = new Set();
-    orders.forEach((order) => {
-      if (!isInvoiceOrder(order)) return;
-      const day = invoicePlantFlightDay(order);
-      if (day) days.add(day);
-    });
-    return Array.from(days).sort((a, b) => b.localeCompare(a));
-  }, [orders]);
+  const fetchInvoices = useCallback(
+    async (nextPage = 1) => {
+      const id = ++requestId.current;
+      const key = filterKeyOf(filters);
+      if (nextPage > 1) setLoadingMore(true);
+      try {
+        const response = await getAdminInvoicesApi({
+          page: nextPage,
+          limit: PAGE_SIZE,
+          buyer: asIdList(filters.buyer),
+          joiner: filters.joiner || undefined,
+          dateRange: filters.dateRange || undefined,
+          plantFlight: filters.plantFlight || [],
+        });
+        if (!response?.success) throw new Error(response?.error || 'Failed to load invoices');
 
-  const invoices = useMemo(
-    () => groupInvoices(orders.filter((order) => isInvoiceOrder(order) && orderMatchesFilters(order, filters, invoiceBuyerOptions))),
-    [orders, filters, invoiceBuyerOptions],
+        const previous = cacheRef.current.get(key);
+        cacheRef.current.set(key, {
+          invoices: nextPage > 1 ? [...(previous?.invoices || []), ...response.invoices] : response.invoices,
+          page: response.page || nextPage,
+          totalPages: response.totalPages || 1,
+          total: response.total ?? response.invoices.length,
+          at: Date.now(),
+        });
+        if (Array.isArray(response.buyers) && !asIdList(filters.buyer).length) setBuyerOptions(response.buyers);
+        if (Array.isArray(response.joiners) && !filters.joiner) setJoinerOptions(response.joiners);
+        if (Array.isArray(response.flightDates) && !filters.plantFlight?.length) setFlightDates(response.flightDates);
+        setErrorByKey((prev) => (prev[key] ? {...prev, [key]: null} : prev));
+      } catch (err) {
+        console.error('Failed to load invoices:', err);
+        // A failed first load shows the error state; a failed refresh keeps the list.
+        if (nextPage === 1 && !cacheRef.current.get(key)) {
+          setErrorByKey((prev) => ({...prev, [key]: err.message || 'Failed to load invoices'}));
+        } else {
+          Alert.alert('Error', err.message || 'Failed to load invoices');
+        }
+      } finally {
+        setCacheVersion((v) => v + 1);
+        if (id === requestId.current) {
+          setLoadingMore(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [filters],
   );
 
-  const fetchInvoices = useCallback(async (nextPage = 1) => {
-    const id = ++requestId.current;
-    try {
-      if (nextPage === 1) {
-        setLoading(true);
-        setError(null);
-      } else {
-        setLoadingMore(true);
-      }
-
-      const net = await NetInfo.fetch();
-      if (!net.isConnected || !net.isInternetReachable) {
-        throw new Error('No internet connection.');
-      }
-
-      const buyerIds = asIdList(filters.buyer);
-      const filtersActive = Boolean(
-        buyerIds.length || filters.joiner || filters.dateRange || filters.plantFlight?.length,
-      );
-      const response = await getAdminOrdersApi({
-        status: 'all',
-        sort: 'latest',
-        limit: 200,
-        page: nextPage,
-        buyer: buyerIds.length ? buyerIds.join(',') : undefined,
-        buyerScope: buyerIds.length ? 'purchaser' : undefined,
-        joiner: filters.joiner || undefined,
-        dateRange: filters.dateRange
-          ? {
-              from: calendarDayForApi(filters.dateRange.from),
-              to: calendarDayForApi(filters.dateRange.to),
-            }
-          : undefined,
-        plantFlight: filters.plantFlight?.length ? filters.plantFlight.join(',') : undefined,
-      });
-
-      if (id !== requestId.current) return;
-      if (!response || !response.success) {
-        throw new Error(response?.error || 'Failed to fetch invoices');
-      }
-
-      const pageOrders = (response.orders || []).filter((order) => isInvoiceOrder(order));
-      const clientNarrowing = buyerIds.length > 0 || filters.plantFlight?.length > 0;
-      setOrders((prev) => {
-        if (nextPage > 1 || clientNarrowing) {
-          if (nextPage === 1 && clientNarrowing && pageOrders.length === 0) return prev;
-          const seen = new Set(prev.map((order) => order.id));
-          return prev.concat(pageOrders.filter((order) => order.id && !seen.has(order.id)));
-        }
-        if (filtersActive && pageOrders.length === 0 && prev.length) return prev;
-        return pageOrders;
-      });
-      setPage(response.currentPage || nextPage);
-      setTotalPages(response.totalPages || 1);
-      if (!buyerIds.length && Array.isArray(response.buyers) && response.buyers.length) {
-        setBuyerOptions(response.buyers);
-      }
-      if (Array.isArray(response.joiners) && response.joiners.length) setJoinerOptions(response.joiners);
-    } catch (err) {
-      if (id !== requestId.current) return;
-      console.error('Failed to load invoices:', err);
-      if (nextPage === 1) {
-        setError(err.message || 'Failed to load invoices');
-        if (!hasLoadedRef.current) setOrders([]);
-      }
-    } finally {
-      if (id === requestId.current) {
-        hasLoadedRef.current = true;
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    }
-  }, [filters]);
-
+  // A fresh cached filter is shown as is; otherwise (or when stale) it is fetched.
   useEffect(() => {
+    const hit = cacheRef.current.get(filterKey);
+    if (hit && Date.now() - hit.at < CACHE_MS) return;
     fetchInvoices(1);
-  }, [fetchInvoices]);
+  }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const retry = () => {
+    setErrorByKey((prev) => ({...prev, [filterKey]: null}));
+    fetchInvoices(1);
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchInvoices(1);
+  };
 
   const handleViewInvoice = async (invoice) => {
     const txNumber = invoice.transactionNumber;
@@ -428,6 +191,7 @@ const GenerateInvoice = ({navigation}) => {
 
     try {
       setProcessingTransaction(txNumber);
+      setProcessingAction('view');
       const viewResponse = await getInvoicePdfApi({transactionNumber: txNumber});
       if (viewResponse.success && viewResponse.pdfBase64) {
         const fileName = viewResponse.filename || `Invoice_${txNumber}_${Date.now()}.pdf`;
@@ -446,6 +210,7 @@ const GenerateInvoice = ({navigation}) => {
       Alert.alert('Error', viewError.message || 'Failed to view invoice');
     } finally {
       setProcessingTransaction(null);
+      setProcessingAction(null);
     }
   };
 
@@ -459,6 +224,7 @@ const GenerateInvoice = ({navigation}) => {
 
     try {
       setProcessingTransaction(txNumber);
+      setProcessingAction('email');
       const emailResponse = await generateInvoiceApi({transactionNumber: txNumber});
       if (emailResponse.success) {
         const emailAddress = emailResponse.sentTo || emailResponse.details?.sentTo || invoice.buyerEmail || 'the buyer';
@@ -475,7 +241,17 @@ const GenerateInvoice = ({navigation}) => {
       Alert.alert('Error', sendError.message || 'Failed to send invoice');
     } finally {
       setProcessingTransaction(null);
+      setProcessingAction(null);
     }
+  };
+
+  // Emailing goes straight to the buyer, so confirm the address first.
+  const confirmSendInvoice = (invoice) => {
+    const to = invoice.buyerEmail || invoice.buyerName || 'the buyer';
+    Alert.alert('Email this invoice?', `Invoice #${invoice.transactionNumber} will be sent to ${to}.`, [
+      {text: 'Cancel', style: 'cancel'},
+      {text: 'Send', onPress: () => handleSendInvoice(invoice)},
+    ]);
   };
 
   const filterChips = [
@@ -533,107 +309,117 @@ const GenerateInvoice = ({navigation}) => {
     },
   ];
 
-  const renderInvoice = ({item}) => {
-    const busy = processingTransaction === item.transactionNumber;
-    return (
-      <View style={styles.invoiceRow}>
-        <View style={styles.invoiceTop}>
-          <Text style={styles.invoiceDate} numberOfLines={1}>
-            {formatInvoiceDate(item.createdAt)}
-          </Text>
-          <Text style={styles.invoiceTotal} numberOfLines={1}>
-            {formatMoney(item.finalTotal)}
-          </Text>
-        </View>
-        <Text style={styles.invoiceNumber} numberOfLines={1}>
-          Invoice # {item.transactionNumber}
-        </Text>
-        <View style={styles.invoiceBottom}>
-          <Text style={styles.invoiceBuyer} numberOfLines={1}>
-            {item.buyerName}
-          </Text>
-          <View style={styles.invoiceActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, busy && styles.buttonDisabled]}
-              onPress={() => handleViewInvoice(item)}
-              disabled={busy}
-              activeOpacity={0.7}
-            >
-              {busy ? (
-                <ActivityIndicator size="small" color="#539461" />
-              ) : (
-                <Text style={styles.actionButtonText}>View</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, busy && styles.buttonDisabled]}
-              onPress={() => handleSendInvoice(item)}
-              disabled={busy}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.actionButtonText}>Email</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  };
+  const filtersActive = filterChips.some((chip) => chip.active);
+  const clearFilters = () => setFilters({buyer: null, joiner: null, dateRange: null, plantFlight: []});
+
+  const renderInvoice = ({item, index}) => (
+    <InvoiceCard
+      invoice={item}
+      index={index}
+      busyAction={processingTransaction === item.transactionNumber ? processingAction : null}
+      locked={Boolean(processingTransaction)}
+      onView={() => handleViewInvoice(item)}
+      onEmail={() => confirmSendInvoice(item)}
+    />
+  );
 
   return (
     <SafeAreaProvider>
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <GenerateInvoiceHeader navigation={navigation} />
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          activeOpacity={0.8}>
+          <BackSolidIcon width={22} height={22} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Invoices</Text>
+        <View style={styles.iconSpacer} />
+      </View>
 
-      <View style={styles.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chipRow}>
         {filterChips.map((chip) => (
           <Pressable
             key={chip.key}
             onPress={chip.onPress}
-            style={[styles.filterChip, chip.active && styles.filterChipActive]}
-          >
-            <Text style={[styles.filterChipText, chip.active && styles.filterChipTextActive]} numberOfLines={1}>
+            accessibilityRole="button"
+            accessibilityLabel={chip.active ? `Clear ${chip.label} filter` : `Filter by ${chip.label}`}
+            style={[styles.chip, chip.active && styles.chipActive]}>
+            <Text style={[styles.chipText, chip.active && styles.chipTextActive]} numberOfLines={1}>
               {chip.label}
             </Text>
-            <ArrowDownIcon width={14} height={14} />
+            {/* An active chip clears on tap, so it shows an × rather than a dropdown caret. */}
+            {chip.active ? (
+              <Text style={styles.chipClear}>✕</Text>
+            ) : (
+              <ArrowDownIcon width={14} height={14} />
+            )}
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#539461" />
-          <Text style={styles.loadingText}>Loading invoices...</Text>
+        <View style={styles.skeletonWrap}>
+          <View style={styles.listContent}>
+            {Array.from({length: 5}).map((_, i) => (
+              <InvoiceSkeleton key={i} />
+            ))}
+          </View>
         </View>
       ) : error && invoices.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => fetchInvoices(1)}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+        <View style={styles.stateBox}>
+          <Text style={styles.stateTitle}>Couldn't load invoices</Text>
+          <Text style={styles.stateText}>{error}</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={retry} activeOpacity={0.85}>
+            <Text style={styles.primaryButtonText}>Try again</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={invoices}
           keyExtractor={(item) => item.id}
-          style={styles.invoiceList}
-          contentContainerStyle={styles.flatListContent}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
           renderItem={renderInvoice}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
+          ListHeaderComponent={
+            invoices.length ? (
+              <Text style={styles.countText}>
+                {total} {total === 1 ? 'invoice' : 'invoices'}
+                {filtersActive ? ' match your filters' : ''}
+              </Text>
+            ) : null
+          }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No invoices found</Text>
+            <View style={styles.stateBox}>
+              <Text style={styles.stateTitle}>No invoices found</Text>
+              <Text style={styles.stateText}>
+                {filtersActive ? 'Nothing matches these filters.' : 'Paid orders will show up here.'}
+              </Text>
+              {filtersActive ? (
+                <TouchableOpacity style={styles.secondaryButton} onPress={clearFilters} activeOpacity={0.85}>
+                  <Text style={styles.secondaryButtonText}>Clear filters</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           }
           ListFooterComponent={
             page < totalPages ? (
               <TouchableOpacity
-                style={styles.loadMoreButton}
+                style={styles.secondaryButton}
                 onPress={() => fetchInvoices(page + 1)}
                 disabled={loadingMore}
-              >
+                activeOpacity={0.85}>
                 {loadingMore ? (
-                  <ActivityIndicator size="small" color="#539461" />
+                  <Loading visible size={20} color={GREEN} />
                 ) : (
-                  <Text style={styles.loadMoreText}>Load more</Text>
+                  <Text style={styles.secondaryButtonText}>Load more</Text>
                 )}
               </TouchableOpacity>
             ) : null
@@ -660,7 +446,7 @@ const GenerateInvoice = ({navigation}) => {
         embedded
         isVisible={buyerOpen}
         onClose={() => setBuyerOpen(false)}
-        buyers={invoiceBuyerOptions}
+        buyers={buyerOptions}
         currentBuyer={filters.buyer}
         onSelectBuyer={(buyerId) => {
           setFilters((prev) => ({...prev, buyer: buyerId}));
@@ -685,7 +471,7 @@ const GenerateInvoice = ({navigation}) => {
         embedded
         isVisible={flightOpen}
         onClose={() => setFlightOpen(false)}
-        flightDates={invoiceFlightDates}
+        flightDates={flightDates}
         selectedValues={filters.plantFlight || []}
         onSelectFlight={(values) => {
           const next = Array.isArray(values)
@@ -706,484 +492,371 @@ const GenerateInvoice = ({navigation}) => {
   );
 };
 
+const DocGlyph = ({color = GREEN_DARK}) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM14 3v5h5M9 13h6M9 17h6"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const MailGlyph = ({color = INK}) => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 7l9 6 9-6"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const InvoiceCard = React.memo(({invoice, index, busyAction, locked, onView, onEmail}) => (
+  <Animated.View entering={FadeInUp.duration(260).delay(Math.min(index, 8) * 50)} style={styles.card}>
+    <View style={styles.cardTop}>
+      <View style={styles.cardIcon}>
+        <DocGlyph />
+      </View>
+      <View style={styles.cardMain}>
+        <Text style={styles.buyer} numberOfLines={1}>{invoice.buyerName}</Text>
+        <Text style={styles.invoiceNo} numberOfLines={1} selectable>#{invoice.transactionNumber}</Text>
+      </View>
+      <View style={styles.cardRight}>
+        <Text style={styles.amount}>{formatMoney(invoice.finalTotal)}</Text>
+        <Text style={styles.date}>{formatInvoiceDate(invoice.createdAt)}</Text>
+      </View>
+    </View>
+    <View style={styles.cardActions}>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.viewButton, locked && !busyAction && styles.actionDimmed]}
+        onPress={onView}
+        disabled={locked}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`View invoice for ${invoice.buyerName}`}>
+        {busyAction === 'view' ? (
+          <Loading visible size={18} color="#FFFFFF" />
+        ) : (
+          <>
+            <DocGlyph color="#FFFFFF" />
+            <Text style={styles.viewText}>View PDF</Text>
+          </>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.emailButton, locked && !busyAction && styles.actionDimmed]}
+        onPress={onEmail}
+        disabled={locked}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`Email invoice to ${invoice.buyerName}`}>
+        {busyAction === 'email' ? (
+          <Loading visible size={18} color={GREEN} />
+        ) : (
+          <>
+            <MailGlyph />
+            <Text style={styles.emailText}>Email</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  </Animated.View>
+));
+
+/** Same shape as InvoiceCard, so nothing shifts when the real list arrives. */
+const InvoiceSkeleton = () => {
+  const pulse = useRef(new RNAnimated.Value(0.45)).current;
+  useEffect(() => {
+    const loop = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(pulse, {toValue: 1, duration: 700, useNativeDriver: true}),
+        RNAnimated.timing(pulse, {toValue: 0.45, duration: 700, useNativeDriver: true}),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <RNAnimated.View style={[styles.card, {opacity: pulse}]}>
+      <View style={styles.cardTop}>
+        <View style={[styles.cardIcon, styles.bone]} />
+        <View style={styles.cardMain}>
+          <View style={[styles.bone, styles.boneTitle]} />
+          <View style={[styles.bone, styles.boneLine]} />
+        </View>
+        <View style={styles.cardRight}>
+          <View style={[styles.bone, styles.boneAmount]} />
+          <View style={[styles.bone, styles.boneDate]} />
+        </View>
+      </View>
+      <View style={styles.cardActions}>
+        <View style={[styles.actionButton, styles.bone]} />
+        <View style={[styles.actionButton, styles.bone]} />
+      </View>
+    </RNAnimated.View>
+  );
+};
+
 export default GenerateInvoice;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    height: 58,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E9ECE8',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconSpacer: {
+    width: 44,
   },
   headerTitle: {
+    fontFamily: 'Inter',
     fontSize: 18,
     fontWeight: '700',
-    color: '#202325',
-    textAlign: 'center',
-    flex: 1,
-    fontFamily: 'Inter',
+    color: INK,
   },
-  buyerDropdownContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+  chipScroll: {
+    // Never squeezed by the list below (the skeletons are taller than the screen).
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  skeletonWrap: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  chipRow: {
     gap: 8,
-    backgroundColor: '#FFFFFF',
-  },
-  buyerDropdown: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  buyerDropdownText: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    color: '#202325',
-    marginRight: 8,
-  },
-  clearBuyerButton: {
-    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F2F7F3',
   },
-  clearBuyerText: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#539461',
-  },
-  flatListContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  buyerCard: {
+  chip: {
+    height: 36,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 12,
-    marginBottom: 8,
   },
-  buyerCardAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#539461',
-    marginRight: 12,
+  chipActive: {
+    borderColor: GREEN,
+    backgroundColor: GREEN,
   },
-  buyerCardAvatarPlaceholder: {
-    backgroundColor: '#48A7F8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderColor: '#539461',
-  },
-  buyerCardAvatarText: {
+  chipText: {
     fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 18,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#393D40',
+  },
+  chipTextActive: {
     color: '#FFFFFF',
   },
-  buyerCardInfo: {
-    flex: 1,
-  },
-  buyerCardName: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#202325',
-    marginBottom: 4,
-  },
-  buyerCardEmail: {
-    fontFamily: 'Inter',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#647276',
-    marginBottom: 2,
-  },
-  buyerCardUsername: {
-    fontFamily: 'Inter',
-    fontWeight: '400',
+  chipClear: {
     fontSize: 12,
-    color: '#9CA3AF',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    fontFamily: 'Inter',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-    fontFamily: 'Inter',
-  },
-  retryButton: {
-    backgroundColor: '#539461',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
   },
-  modalOverlay: {
+  list: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  actionSheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: 569,
-  },
-  invoiceModalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    height: 60,
-  },
-  modalHeaderTitle: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#202325',
-  },
-  modalContentContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-  },
-  searchFieldContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
+  listContent: {
     paddingHorizontal: 16,
-    height: 48,
+    paddingTop: 8,
+    paddingBottom: 32,
     gap: 12,
   },
-  searchTextInput: {
-    flex: 1,
+  countText: {
+    marginLeft: 4,
     fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    color: '#202325',
-    height: '100%',
+    fontSize: 13,
+    fontWeight: '600',
+    color: MUTED,
   },
-  buyerListContainer: {
-    height: 343,
-    marginTop: 16,
+  card: {
+    padding: 16,
+    gap: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: GREEN_DARK,
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  buyerItemContainer: {
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 8,
-    minHeight: 56,
   },
-  buyerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#539461',
-  },
-  buyerAvatarPlaceholder: {
-    backgroundColor: '#E4E7E9',
-    justifyContent: 'center',
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
-    borderColor: '#CDD3D4',
+    justifyContent: 'center',
+    backgroundColor: '#E8F3EA',
   },
-  buyerAvatarText: {
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#202325',
-  },
-  buyerInfo: {
+  cardMain: {
     flex: 1,
-    flexDirection: 'column',
+    minWidth: 0,
     gap: 4,
   },
-  buyerName: {
+  buyer: {
     fontFamily: 'Inter',
+    fontSize: 16,
     fontWeight: '700',
+    color: INK,
+  },
+  invoiceNo: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: MUTED,
+  },
+  cardRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  amount: {
+    fontFamily: 'Inter',
     fontSize: 16,
-    color: '#202325',
-  },
-  buyerEmail: {
-    fontFamily: 'Inter',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#647276',
-  },
-  buyerUsername: {
-    fontFamily: 'Inter',
-    fontWeight: '400',
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E4E7E9',
-    marginVertical: 4,
-  },
-  emptyBuyerContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyBuyerText: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 16,
-    color: '#647276',
-  },
-  invoiceModalContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-  },
-  selectedBuyerCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 24,
-  },
-  selectedBuyerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectedBuyerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#539461',
-    marginRight: 12,
-  },
-  selectedBuyerInfo: {
-    flex: 1,
-  },
-  selectedBuyerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#202325',
-    fontFamily: 'Inter',
-    marginBottom: 4,
-  },
-  selectedBuyerEmail: {
-    fontSize: 14,
-    color: '#647276',
-    fontFamily: 'Inter',
-  },
-  invoiceFormContainer: {
-    paddingBottom: 20,
-  },
-  invoiceDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#647276',
-    fontFamily: 'Inter',
-    marginBottom: 24,
-  },
-  invoiceInputContainer: {
-    marginBottom: 20,
-  },
-  invoiceLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#202325',
-    fontFamily: 'Inter',
-    marginBottom: 8,
-  },
-  invoiceOptionalLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontFamily: 'Inter',
-    marginBottom: 8,
-  },
-  invoiceInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#202325',
-    fontFamily: 'Inter',
-    backgroundColor: '#FFFFFF',
-  },
-  invoiceGenerateButton: {
-    backgroundColor: '#539461',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  invoiceGenerateButtonDisabled: {
-    opacity: 0.6,
-  },
-  invoiceGenerateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-  transactionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 8,
-  },
-  transactionCardContent: {
-    flexDirection: 'column',
-  },
-  transactionCardInfo: {
-    marginBottom: 12,
-  },
-  transactionCardTitle: {
-    fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: 16,
-    color: '#202325',
-    marginBottom: 4,
+    color: INK,
+    fontVariant: ['tabular-nums'],
   },
-  transactionCardDate: {
+  date: {
     fontFamily: 'Inter',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#647276',
-    marginBottom: 4,
+    fontSize: 13,
+    color: MUTED,
   },
-  transactionCardFlightDate: {
-    fontFamily: 'Inter',
-    fontWeight: '400',
-    fontSize: 14,
-    color: '#647276',
-    marginBottom: 8,
-  },
-  transactionCardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  transactionCardStatus: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: 12,
-    color: '#539461',
-  },
-  buttonsContainer: {
+  cardActions: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 8,
+  },
+  actionButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   viewButton: {
-    backgroundColor: '#539461',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-    flex: 1,
+    backgroundColor: GREEN,
   },
-  sendButton: {
-    backgroundColor: '#539461',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-    flex: 1,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  viewButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+  viewText: {
     fontFamily: 'Inter',
-    textAlign: 'center',
-  },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'Inter',
-    textAlign: 'center',
-  },
-  transactionCardPrice: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
     fontSize: 14,
-    color: '#202325',
-    marginTop: 4,
-    textAlign: 'right',
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  invoiceList: {
-    flex: 1,
+  emailButton: {
+    borderWidth: 1,
+    borderColor: '#D5D9D4',
+    backgroundColor: '#FFFFFF',
+  },
+  emailText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '700',
+    color: INK,
+  },
+  actionDimmed: {
+    opacity: 0.5,
+  },
+  bone: {
+    backgroundColor: '#E9ECE8',
+  },
+  boneTitle: {
+    width: '60%',
+    height: 16,
+    borderRadius: 8,
+  },
+  boneLine: {
+    width: '80%',
+    height: 12,
+    borderRadius: 6,
+  },
+  boneAmount: {
+    width: 64,
+    height: 16,
+    borderRadius: 8,
+  },
+  boneDate: {
+    width: 80,
+    height: 12,
+    borderRadius: 6,
+  },
+  stateBox: {
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 64,
+    paddingHorizontal: 32,
+  },
+  stateTitle: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+  },
+  stateText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: MUTED,
+    textAlign: 'center',
+  },
+  primaryButton: {
+    marginTop: 8,
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: GREEN,
+  },
+  primaryButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    marginTop: 8,
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#C7E2CC',
+    backgroundColor: '#FFFFFF',
+  },
+  secondaryButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '700',
+    color: GREEN_DARK,
   },
   filterHost: {
     position: 'absolute',
@@ -1194,171 +867,4 @@ const styles = StyleSheet.create({
     zIndex: 30,
     elevation: 30,
   },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
-    zIndex: 2,
-  },
-  filterPanel: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    maxHeight: 240,
-    borderWidth: 1,
-    borderColor: '#E4E7E9',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  filterPanelScroll: {
-    maxHeight: 240,
-  },
-  filterOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F2F3',
-  },
-  filterOptionText: {
-    fontFamily: 'Inter',
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#202325',
-  },
-  filterOptionSub: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    color: '#647276',
-    marginTop: 2,
-  },
-  filterEmpty: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#647276',
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-  },
-  filterChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 6,
-    paddingVertical: 8,
-    gap: 2,
-  },
-  filterChipActive: {
-    borderColor: '#23C16B',
-    backgroundColor: '#E8F5E9',
-  },
-  filterChipText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#393D40',
-    flexShrink: 1,
-  },
-  filterChipTextActive: {
-    fontWeight: '600',
-    color: '#23C16B',
-  },
-  columnHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  columnHeaderText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    letterSpacing: 0.2,
-  },
-  invoiceRow: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F2F3',
-    gap: 4,
-  },
-  invoiceTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  invoiceDate: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#202325',
-  },
-  invoiceTotal: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#202325',
-  },
-  invoiceNumber: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#647276',
-  },
-  invoiceBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 2,
-  },
-  invoiceBuyer: {
-    flex: 1,
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#202325',
-  },
-  invoiceActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionButton: {
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    minHeight: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionButtonText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#539461',
-  },
-  loadMoreButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  loadMoreText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#539461',
-  },
-
 });

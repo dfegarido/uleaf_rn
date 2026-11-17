@@ -223,3 +223,50 @@ export const updateFlightChangeRequestApi = async (requestData) => {
     };
   }
 };
+
+/**
+ * Invoices for the admin Invoices screen: one row per transaction, paged on the server.
+ * @param {Object} params
+ * @param {number} [params.page=1]
+ * @param {number} [params.limit=20]
+ * @param {string[]} [params.buyer] - purchaser uids
+ * @param {string} [params.joiner] - joiner uid
+ * @param {{from?: Date, to?: Date}} [params.dateRange] - admin's local calendar days
+ * @param {string[]} [params.plantFlight] - flight days (YYYY-MM-DD)
+ * @returns {Promise<{success: boolean, invoices: Object[], page: number, totalPages: number, total: number, buyers: Object[], joiners: Object[], flightDates: string[], error?: string}>}
+ */
+export const getAdminInvoicesApi = async ({page = 1, limit = 20, buyer, joiner, dateRange, plantFlight} = {}) => {
+  try {
+    const token = await getStoredAuthToken();
+    const params = new URLSearchParams({page: String(page), limit: String(limit)});
+    if (buyer?.length) params.append('buyer', buyer.join(','));
+    if (joiner) params.append('joiner', String(joiner));
+    if (plantFlight?.length) params.append('plantFlight', plantFlight.join(','));
+    // Whole local days, sent as instants so the server needs no time zone.
+    if (dateRange?.from) {
+      const from = new Date(dateRange.from);
+      from.setHours(0, 0, 0, 0);
+      params.append('from', from.toISOString());
+    }
+    if (dateRange?.to) {
+      const to = new Date(dateRange.to);
+      to.setHours(23, 59, 59, 999);
+      params.append('to', to.toISOString());
+    }
+    const response = await fetch(`${API_ENDPOINTS.GET_ADMIN_INVOICES}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || !json.success) {
+      return {success: false, error: json.error || `Failed to load invoices (${response.status})`};
+    }
+    return json;
+  } catch (error) {
+    console.error('getAdminInvoicesApi error:', error);
+    return {success: false, error: error.message || 'Failed to load invoices'};
+  }
+};
