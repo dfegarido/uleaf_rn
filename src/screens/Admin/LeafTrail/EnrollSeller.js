@@ -1,16 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Modal, FlatList, ActivityIndicator, Animated, Alert, Dimensions, Platform, KeyboardAvoidingView } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, StatusBar, Alert, Platform, KeyboardAvoidingView, Switch } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import CheckIcon from '../../../assets/admin-icons/checked-box.svg';
 import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
+import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
+import Loading from '../../../components/Loading';
 import { BUSINESS_COUNTRIES } from '../../../utils/b2bCountries';
-import { API_ENDPOINTS, API_CONFIG } from '../../../config/apiConfig';
+import { API_CONFIG } from '../../../config/apiConfig';
+import { GREEN, GREEN_DARK, INK, MUTED, PAGE_BG } from '../Home/AdminUserUi';
 
 function tokenExpiry(token) {
   try {
@@ -38,175 +40,75 @@ async function readAdminAuthToken() {
   return freshToken;
 }
 
-// Skeleton loading component for the country field
-const CountryFieldSkeleton = () => {
-  const pulseAnim = useRef(new Animated.Value(0.3)).current;
-  
-  useEffect(() => {
-    const pulseTiming = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    
-    pulseTiming.start();
-    
-    return () => {
-      pulseTiming.stop();
-    };
-  }, [pulseAnim]);
-  
-  return (
-    <View style={styles.textField}>
-      <Animated.View 
-        style={[
-          styles.skeletonText,
-          { opacity: pulseAnim }
-        ]} 
-      />
-      <DownIcon width={24} height={24} fill="#CDD3D4" />
-    </View>
-  );
+const FLAG_ICONS = { PH: PhFlag, TH: ThFlag, ID: IdFlag, US: UsFlag };
+
+const Flag = ({ country, size = 20 }) => {
+  const Icon = FLAG_ICONS[country.code];
+  return Icon ? <Icon width={size} height={size} /> : <Text style={{ fontSize: size - 2 }}>{country.flag}</Text>;
 };
 
-const EnrollSellerHeader = ({insets}) => {
-  const navigation = useNavigation();
+const Field = ({ label, error, children, style }) => (
+  <View style={[styles.field, style]}>
+    <Text style={styles.label}>{label}</Text>
+    {children}
+    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+  </View>
+);
 
-  return (
-    <View style={[styles.headerContainer, {paddingTop: insets.top + 24}]}>
-      <View style={styles.topRow}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          activeOpacity={0.8}
-        >
-          <BackIcon width={24} height={24} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Enrol Seller</Text>
-
-        <View style={styles.placeholder} />
-      </View>
-    </View>
-  );
-};
+const Section = ({ title, hint, delay, children }) => (
+  <Animated.View entering={FadeInUp.duration(280).delay(delay)}>
+    <Text style={styles.sectionLabel}>{title}</Text>
+    {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
+    <View style={styles.card}>{children}</View>
+  </Animated.View>
+);
 
 const EnrollSeller = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [sellerRole, setSellerRole] = useState('supplier');
   const [gardenName, setGardenName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [email, setEmail] = useState('');
   const [allowLiveVideo, setAllowLiveVideo] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState('');
-  const [countryCode, setCountryCode] = useState('+66'); // Thailand country code
-  const [selectedFlag, setSelectedFlag] = useState('TH'); // Thailand flag
-  const [countryOptions, setCountryOptions] = useState([]);
-  const [isCountryModalVisible, setIsCountryModalVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCountryFieldLoading, setIsCountryFieldLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // New state for form submission
+  const [countryCode, setCountryCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [focused, setFocused] = useState(null);
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation(); // Initialize navigation
-  
-  // Animation for skeleton loading effects
-  const modalSkeletonAnim = useRef(new Animated.Value(0.3)).current;
-  
-  // Set up the animation effect
-  useEffect(() => {
-    // Start the pulsing animation for skeleton loaders in the modal
-    const pulseTiming = Animated.loop(
-      Animated.sequence([
-        Animated.timing(modalSkeletonAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(modalSkeletonAnim, {
-          toValue: 0.3,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    
-    pulseTiming.start();
-    
-    return () => {
-      pulseTiming.stop();
-    };
-  }, [modalSkeletonAnim]);
-  
-  // Calculate proper bottom padding for admin tab bar + safe area
-  const tabBarHeight = 60; // Standard admin tab bar height
-  
-  useEffect(() => {
-    // Fetch available countries when the component mounts
-    const fetchCountries = async () => {
-      setIsCountryFieldLoading(true);
-      try {
-        // Simulate API call with timeout
-        // In a real app, you would fetch from an API
-        setTimeout(() => {
-          const availableCountries = BUSINESS_COUNTRIES.map(item => ({
-            name: item.name,
-            code: item.code,
-            flag:
-              item.code === 'PH'
-                ? PhFlag
-                : item.code === 'TH'
-                  ? ThFlag
-                  : item.code === 'ID'
-                    ? IdFlag
-                    : null,
-            dialCode: item.dialCode,
-          }));
-          
-          setCountryOptions(availableCountries);
-          setIsCountryFieldLoading(false);
-        }, 800); // Simulate network delay
-      } catch (error) {
-        console.error('Error fetching countries:', error);
-        setIsCountryFieldLoading(false);
-      }
-    };
-    
-    fetchCountries();
-  }, []);
-  
+  const navigation = useNavigation();
+
+  // "Next" on the keyboard walks down the form.
+  const lastRef = useRef(null);
+  const phoneRef = useRef(null);
+  const emailRef = useRef(null);
+  const firstRef = useRef(null);
+
+  const clearError = key => {
+    if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }));
+  };
+  // Each field clears its own error as soon as it is edited.
+  const onEdit = (key, setter) => text => {
+    setter(text);
+    clearError(key);
+  };
+  const inputProps = (key) => ({
+    onFocus: () => setFocused(key),
+    onBlur: () => setFocused(f => (f === key ? null : f)),
+    placeholderTextColor: '#9AA4A8',
+    style: [styles.input, focused === key && styles.inputFocused, errors[key] && styles.inputError],
+  });
+
   const handleCountrySelect = (country) => {
     setSelectedCountry(country.name);
-    setSelectedFlag(country.code);
     setCountryCode(country.dialCode);
-    setIsCountryModalVisible(false);
-    
-    // Clear any country-related errors when a country is selected
-    if (errors.country) {
-      setErrors(prev => {
-        const newErrors = {...prev};
-        delete newErrors.country;
-        return newErrors;
-      });
-    }
+    clearError('country');
   };
-  
+
   // Handle phone number input to ensure only numbers
   const handlePhoneNumberChange = (text) => {
-    // Remove any non-numeric characters
-    const numericValue = text.replace(/[^0-9]/g, '');
-    setContactNumber(numericValue);
+    setContactNumber(text.replace(/[^0-9]/g, ''));
+    clearError('contactNumber');
   };
 
   const handleSubmit = async () => {
@@ -336,253 +238,165 @@ const EnrollSeller = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left','right']}>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
-      <EnrollSellerHeader insets={insets} />
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <ScrollView 
-          style={styles.content} 
-          contentContainerStyle={[
-            styles.contentContainer,
-            { paddingBottom: Math.max(34, insets.bottom + tabBarHeight + 20) }
-          ]}
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <StatusBar backgroundColor={PAGE_BG} barStyle="dark-content" />
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => navigation.goBack()}
+          style={styles.iconButton}
+          activeOpacity={0.8}>
+          <BackIcon width={22} height={22} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Enrol seller</Text>
+        <View style={styles.iconSpacer} />
+      </View>
+
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-        <View style={styles.formContainer}>
-          
-          {/* Country Selection Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>
-              Country <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            {isCountryFieldLoading ? (
-              <CountryFieldSkeleton />
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.textField,
-                  errors.country && styles.errorField
-                ]}
-                onPress={() => setIsCountryModalVisible(true)}
-              >
-                {selectedCountry ? (
-                  <View style={styles.selectedCountryContainer}>
-                    {selectedFlag === 'PH' && <PhFlag width={24} height={24} />}
-                    {selectedFlag === 'TH' && <ThFlag width={24} height={24} />}
-                    {selectedFlag === 'ID' && <IdFlag width={24} height={24} />}
-                    {!['PH', 'TH', 'ID'].includes(selectedFlag) && (
-                      <Text style={{fontSize: 18}}>
-                        {BUSINESS_COUNTRIES.find(item => item.code === selectedFlag)?.flag || '🌍'}
-                      </Text>
-                    )}
-                    <Text style={styles.textValue}>{selectedCountry}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.placeholderText}>Select Country</Text>
-                )}
-                <DownIcon width={24} height={24} fill="#CDD3D4" />
-              </TouchableOpacity>
-            )}
-            {errors.country && (
-              <Text style={styles.errorText}>{errors.country}</Text>
-            )}
-          </View>
-          
-          {/* Garden/Company Name Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>
-              Garden/company name <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                errors.gardenName && styles.errorField
-              ]}
-              placeholder="Enter garden or company name"
-              placeholderTextColor="#647276"
-              value={gardenName}
-              onChangeText={setGardenName}
-            />
-            {errors.gardenName && (
-              <Text style={styles.errorText}>{errors.gardenName}</Text>
-            )}
-          </View>
-          
-          {/* First Name Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>
-              First name <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                errors.firstName && styles.errorField
-              ]}
-              placeholder="Enter first name"
-              placeholderTextColor="#647276"
-              value={firstName}
-              onChangeText={setFirstName}
-            />
-            {errors.firstName && (
-              <Text style={styles.errorText}>{errors.firstName}</Text>
-            )}
-          </View>
-          
-          {/* Last Name Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>
-              Last name <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                errors.lastName && styles.errorField
-              ]}
-              placeholder="Enter last name"
-              placeholderTextColor="#647276"
-              value={lastName}
-              onChangeText={setLastName}
-            />
-            {errors.lastName && (
-              <Text style={styles.errorText}>{errors.lastName}</Text>
-            )}
-          </View>
-          
-          {/* Contact Number Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>
-              Contact number <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <View style={[
-              styles.phoneInputContainer,
-              errors.contactNumber && styles.errorField
-            ]}>
-              <View style={styles.countryCodeContainer}>
-                <Text style={styles.countryCodeText}>{countryCode}</Text>
+          keyboardShouldPersistTaps="handled">
+          <Animated.Text entering={FadeInUp.duration(280)} style={styles.intro}>
+            Add a new garden to iLeafU. All fields are required.
+          </Animated.Text>
+
+          <Section title="Garden" delay={40}>
+            <Field label="Country" error={errors.country}>
+              <View style={styles.chips}>
+                {BUSINESS_COUNTRIES.map(c => {
+                  const active = selectedCountry === c.name;
+                  return (
+                    <TouchableOpacity
+                      key={c.code}
+                      onPress={() => handleCountrySelect(c)}
+                      activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      style={[styles.chip, active && styles.chipActive, errors.country && !active && styles.chipError]}>
+                      <Flag country={c} size={18} />
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+            </Field>
+
+            <Field label="Garden / company name" error={errors.gardenName} style={styles.divider}>
               <TextInput
-                style={styles.phoneInput}
-                placeholder="Enter phone number"
-                placeholderTextColor="#647276"
-                keyboardType="phone-pad"
-                value={contactNumber}
-                onChangeText={handlePhoneNumberChange}
+                {...inputProps('gardenName')}
+                placeholder="e.g. Green Leaf Gardens"
+                value={gardenName}
+                onChangeText={onEdit('gardenName', setGardenName)}
+                autoCapitalize="words"
+                returnKeyType="next"
+                onSubmitEditing={() => firstRef.current?.focus()}
+              />
+            </Field>
+          </Section>
+
+          <Section title="Contact person" delay={80}>
+            <View style={styles.row}>
+              <Field label="First name" error={errors.firstName} style={styles.flex}>
+                <TextInput
+                  ref={firstRef}
+                  {...inputProps('firstName')}
+                  placeholder="First"
+                  value={firstName}
+                  onChangeText={onEdit('firstName', setFirstName)}
+                  autoCapitalize="words"
+                  textContentType="givenName"
+                  returnKeyType="next"
+                  onSubmitEditing={() => lastRef.current?.focus()}
+                />
+              </Field>
+              <Field label="Last name" error={errors.lastName} style={styles.flex}>
+                <TextInput
+                  ref={lastRef}
+                  {...inputProps('lastName')}
+                  placeholder="Last"
+                  value={lastName}
+                  onChangeText={onEdit('lastName', setLastName)}
+                  autoCapitalize="words"
+                  textContentType="familyName"
+                  returnKeyType="next"
+                  onSubmitEditing={() => phoneRef.current?.focus()}
+                />
+              </Field>
+            </View>
+
+            <Field label="Contact number" error={errors.contactNumber} style={styles.divider}>
+              <View
+                style={[
+                  styles.phoneBox,
+                  focused === 'contactNumber' && styles.inputFocused,
+                  errors.contactNumber && styles.inputError,
+                ]}>
+                <Text style={[styles.dialCode, !countryCode && styles.dialCodeEmpty]}>{countryCode || '+ —'}</Text>
+                <TextInput
+                  ref={phoneRef}
+                  style={styles.phoneInput}
+                  placeholder={countryCode ? 'Phone number' : 'Pick a country first'}
+                  placeholderTextColor="#9AA4A8"
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  value={contactNumber}
+                  onChangeText={handlePhoneNumberChange}
+                  onFocus={() => setFocused('contactNumber')}
+                  onBlur={() => setFocused(f => (f === 'contactNumber' ? null : f))}
+                />
+              </View>
+            </Field>
+
+            <Field label="Email" error={errors.email} style={styles.divider}>
+              <TextInput
+                ref={emailRef}
+                {...inputProps('email')}
+                placeholder="name@garden.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+                value={email}
+                onChangeText={onEdit('email', setEmail)}
+                returnKeyType="done"
+              />
+            </Field>
+          </Section>
+
+          <Section title="Permissions" delay={120}>
+            <View style={styles.switchRow}>
+              <View style={styles.flex}>
+                <Text style={styles.switchLabel}>Live selling</Text>
+                <Text style={styles.switchHint}>Let this seller run live video sales. You can change this later.</Text>
+              </View>
+              <Switch
+                value={allowLiveVideo}
+                onValueChange={setAllowLiveVideo}
+                trackColor={{ false: '#D5D9D4', true: GREEN }}
+                ios_backgroundColor="#D5D9D4"
+                thumbColor="#FFFFFF"
               />
             </View>
-            {errors.contactNumber && (
-              <Text style={styles.errorText}>{errors.contactNumber}</Text>
-            )}
-          </View>
-          
-          {/* Email Field */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>
-              Email address <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.textInput,
-                errors.email && styles.errorField
-              ]}
-              placeholder="Enter email address"
-              placeholderTextColor="#647276"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-            {errors.email && (
-              <Text style={styles.errorText}>{errors.email}</Text>
-            )}
-          </View>
-          
-          {/* Live Video Option */}
-          <View style={styles.checkboxContainer}>
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => setAllowLiveVideo(!allowLiveVideo)}
-            >
-              {allowLiveVideo ? (
-                <CheckIcon width={24} height={24} />
-              ) : (
-                <View style={styles.uncheckedBox} />
-              )}
-            </TouchableOpacity>
-            <Text style={styles.checkboxLabel}>
-              Allow video live features
-            </Text>
-          </View>
-          
-          {/* Submit Button */}
+          </Section>
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <TouchableOpacity
-            style={[
-              styles.submitButton,
-              isSubmitting && styles.submitButtonDisabled
-            ]}
-            onPress={handleSubmit} 
+            style={[styles.submitButton, isSubmitting && styles.submitButtonBusy]}
+            onPress={handleSubmit}
             disabled={isSubmitting}
-          >
+            activeOpacity={0.85}>
             {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <Loading visible size={20} color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>Submit</Text>
+              <Text style={styles.submitButtonText}>Enrol seller</Text>
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
       </KeyboardAvoidingView>
-      
-      {/* Country Selection Modal */}
-      <Modal
-        visible={isCountryModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsCountryModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setIsCountryModalVisible(false)}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <FlatList
-              data={countryOptions}
-              keyExtractor={(item) => item.code}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.countryOption}
-                  onPress={() => handleCountrySelect(item)}
-                >
-                  <View style={styles.countryFlag}>
-                    {item.flag ? (
-                      <item.flag width={32} height={32} />
-                    ) : (
-                      <Text style={{fontSize: 24}}>
-                        {BUSINESS_COUNTRIES.find(c => c.code === item.code)?.flag || '🌍'}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={styles.countryName}>{item.name}</Text>
-                  {selectedCountry === item.name && (
-                    <CheckIcon width={24} height={24} />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -590,252 +404,223 @@ const EnrollSeller = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
-  headerContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
+  flex: {
     flex: 1,
   },
-  contentContainer: {
-    // Figma: padding: top 98, horizontal 24, bottom handled dynamically
-    paddingTop: 8,
-    paddingHorizontal: 24,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
-  formContainer: {
-    width: '100%',
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E9ECE8',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  formTitle: {
-    fontSize: 20,
+  iconSpacer: {
+    width: 44,
+  },
+  headerTitle: {
+    fontFamily: 'Inter',
+    fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
-    marginBottom: 16,
+    color: INK,
   },
-  fieldContainer: {
-    // Figma: padding vertical 12, matches 102 height blocks grid-wise
-    paddingVertical: 12,
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+    gap: 24,
+  },
+  intro: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: MUTED,
+  },
+  sectionLabel: {
+    marginLeft: 4,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '700',
+    color: MUTED,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  sectionHint: {
+    marginLeft: 4,
+    marginTop: 2,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: MUTED,
+  },
+  card: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: GREEN_DARK,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  field: {
+    paddingVertical: 16,
+    gap: 8,
+  },
+  divider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E7E9',
+  },
+  row: {
+    flexDirection: 'row',
     gap: 12,
-    marginBottom: 0,
   },
   label: {
-    // Figma Labels/L1/regular
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '500',
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#393D40',
-    marginBottom: 8,
   },
-  textField: {
-    minHeight: 48,
+  input: {
     height: 48,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
+    paddingHorizontal: 12,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#DDE2E3',
+    backgroundColor: '#FAFBFA',
+    fontFamily: 'Inter',
+    fontSize: 16,
+    color: INK,
+  },
+  inputFocused: {
+    borderColor: GREEN,
     backgroundColor: '#FFFFFF',
   },
-  textInput: {
-    height: 48,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#1F2937',
-  },
-  placeholderText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#647276',
-  },
-  textValue: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#1F2937',
-    marginLeft: 8,
-  },
-  errorField: {
-    borderColor: '#EF4444',
+  inputError: {
+    borderColor: '#E5484D',
+    backgroundColor: '#FFF8F8',
   },
   errorText: {
-    color: '#EF4444',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: '#C8341C',
   },
-  selectedCountryContainer: {
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  phoneInputContainer: {
-    height: 48,
-    minHeight: 48,
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    flexDirection: 'row',
+    borderColor: '#DDE2E3',
     backgroundColor: '#FFFFFF',
   },
-  countryCodeContainer: {
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
+  chipActive: {
+    borderColor: GREEN,
+    backgroundColor: '#E8F3EA',
   },
-  countryCodeText: {
+  chipError: {
+    borderColor: '#F3B8B4',
+  },
+  chipText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#393D40',
+  },
+  chipTextActive: {
+    color: GREEN_DARK,
+  },
+  phoneBox: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDE2E3',
+    backgroundColor: '#FAFBFA',
+    overflow: 'hidden',
+  },
+  dialCode: {
+    paddingHorizontal: 12,
+    fontFamily: 'Inter',
     fontSize: 16,
-    lineHeight: 16,
-    color: '#202325',
+    fontWeight: '600',
+    color: INK,
+    borderRightWidth: 1,
+    borderRightColor: '#E4E7E9',
+  },
+  dialCodeEmpty: {
+    color: '#9AA4A8',
+    fontWeight: '400',
   },
   phoneInput: {
     flex: 1,
-    paddingHorizontal: 16,
+    height: '100%',
+    paddingHorizontal: 12,
+    fontFamily: 'Inter',
     fontSize: 16,
-    lineHeight: 22,
-    color: '#1F2937',
+    color: INK,
   },
-  checkboxContainer: {
+  switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 12,
+    gap: 12,
+    paddingVertical: 16,
   },
-  checkbox: {
-    height: 24,
-    minHeight: 24,
-    width: 24,
-    minWidth: 24,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#647276',
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  uncheckedBox: {
-    height: 24,
-    width: 24,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    borderRadius: 6,
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    lineHeight: 20,
+  switchLabel: {
+    fontFamily: 'Inter',
+    fontSize: 16,
     fontWeight: '600',
-    color: '#393D40',
+    color: INK,
+  },
+  switchHint: {
+    marginTop: 2,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: MUTED,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: PAGE_BG,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E7E9',
   },
   submitButton: {
-    backgroundColor: '#539461',
-    borderRadius: 12,
-    height: 48,
-    minHeight: 48,
-    justifyContent: 'center',
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 40,
-    paddingHorizontal: 24,
+    justifyContent: 'center',
+    backgroundColor: GREEN,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.6,
+  submitButtonBusy: {
+    opacity: 0.7,
   },
   submitButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 16,
-    fontWeight: '600',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F2F6',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#6B7280',
-  },
-  countryOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F2F6',
-  },
-  countryFlag: {
-    marginRight: 16,
-  },
-  countryName: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937',
-  },
-  skeletonText: {
-    flex: 1,
-    height: 20,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  requiredStar: {
-    color: '#EB5757',
-    fontSize: 14,
-    fontWeight: '400',
-  }
 });
 
 export default EnrollSeller;

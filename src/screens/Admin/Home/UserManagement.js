@@ -1,19 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, Animated, FlatList, StatusBar, Alert, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, FlatList, StatusBar, Alert, RefreshControl, ScrollView } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { getAllUsersApi, updateUserStatusApi } from '../../../components/Api';
+import { getAllUsersApi } from '../../../components/Api';
+import Loading from '../../../components/Loading';
 import SearchIcon from '../../../assets/iconnav/search.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import PlusIcon from '../../../assets/icons/greylight/plus-regular.svg';
-import EditIcon from '../../../assets/admin-icons/edit.svg';
-import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
-import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
 import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import UserCardSkeleton from './UserCardSkeleton';
+import { GREEN, INK, MUTED, PAGE_BG, PencilGlyph, RolePill, StatusPill, UserAvatar } from './AdminUserUi';
+
+const PAGE_SIZE = 20;
+const CACHE_MS = 5 * 60 * 1000; // a cached filter is shown without reloading for 5 minutes
 
 const US_STATES = new Set([
   'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut',
@@ -44,557 +47,334 @@ const countryCodeOf = country => {
 const countryCodeForUser = user =>
   countryCodeOf(user?.country || user?.countryCode) || countryCodeOf(user?.state);
 
-const CountryFlag = ({code}) => {
-  const Icon = code === 'TH' ? ThFlag : code === 'ID' ? IdFlag : code === 'PH' ? PhFlag : code === 'US' ? UsFlag : null;
-  if (!Icon) return null;
-  return (
-    <View style={styles.flagBox}>
-      <Icon width={20} height={20} />
-    </View>
-  );
-};
+const FLAGS = { US: UsFlag, PH: PhFlag, TH: ThFlag, ID: IdFlag };
 
-const LeafTrailHeader = ({ insets, onPressAdd = () => {}, onSearchChange = () => {}, onPressRole = () => {} }) => {
+// One row of chips: the role chips pick who is listed, the status chips narrow it further.
+// Both go to the server, so paging and search stay correct.
+const ROLE_CHIPS = [
+  { key: 'all', label: 'All' },
+  { key: 'buyer', label: 'Buyers' },
+  { key: 'supplier', label: 'Sellers' },
+];
+const STATUS_CHIPS = [
+  { key: 'active', label: 'Active' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'suspended', label: 'Suspended' },
+];
+
+const PlusGlyph = () => (
+  <Svg width={22} height={22} viewBox="0 0 24 24">
+    <Path d="M12 4.5v15M4.5 12h15" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" />
+  </Svg>
+);
+
+const Chip = ({ label, active, onPress }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.8}
+    accessibilityRole="button"
+    accessibilityState={{ selected: active }}
+    style={[styles.chip, active && styles.chipActive]}>
+    <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const Header = ({ insets, search, onSearchChange, onAdd, role, status, onRole, onStatus }) => {
   const navigation = useNavigation();
-
   return (
-  <View style={[styles.headerContainer, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
       <View style={styles.topRow}>
         <TouchableOpacity
           accessibilityRole="button"
+          accessibilityLabel="Back"
           onPress={() => navigation.goBack()}
-          style={styles.backButton}
+          style={styles.iconButton}
+          activeOpacity={0.8}>
+          <BackIcon width={22} height={22} />
+        </TouchableOpacity>
+
+        <View style={styles.searchBox}>
+          <SearchIcon width={18} height={18} />
+          <TextInput
+            style={styles.searchInput}
+            value={search}
+            placeholder="Search name, @user, garden"
+            placeholderTextColor={MUTED}
+            onChangeText={onSearchChange}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Add seller"
+          style={styles.addButton}
+          onPress={onAdd}
+          activeOpacity={0.85}>
+          <PlusGlyph />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.chipRow}>
+        {ROLE_CHIPS.map(c => (
+          <Chip key={c.key} label={c.label} active={role === c.key} onPress={() => onRole(c.key)} />
+        ))}
+        <View style={styles.chipDivider} />
+        {STATUS_CHIPS.map(c => (
+          <Chip
+            key={c.key}
+            label={c.label}
+            active={status === c.key}
+            onPress={() => onStatus(status === c.key ? null : c.key)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+const UserCard = React.memo(({ user, index, onEdit, animateIn }) => {
+  const isSeller = user.role === 'supplier';
+  const garden = String(user.gardenOrCompanyName || '').trim();
+  // Sellers are known by their garden; the person's name moves to the line below.
+  const title = isSeller && garden ? garden : user.name;
+  const Flag = FLAGS[countryCodeForUser(user)];
+
+  return (
+    <Animated.View entering={animateIn ? FadeInUp.duration(260).delay(Math.min(index, 8) * 50) : undefined}>
+      <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => onEdit(user)}>
+        <UserAvatar user={user} title={title} />
+
+        <View style={styles.cardBody}>
+          <View style={styles.titleRow}>
+            {Flag ? <Flag width={18} height={18} style={styles.flag} /> : null}
+            <Text style={styles.title} numberOfLines={1}>{title}</Text>
+          </View>
+          {/* Sellers: the person behind the garden, then the handle. Buyers: just the handle. */}
+          <Text style={styles.subline} numberOfLines={1}>
+            {[isSeller && garden ? user.name : null, user.username ? `@${user.username}` : null]
+              .filter(Boolean)
+              .join('  ·  ')}
+          </Text>
+          <View style={styles.metaRow}>
+            <StatusPill status={user.status} label={user.statusLabel} />
+            <RolePill isSeller={isSeller} />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => onEdit(user)}
+          style={styles.editButton}
           activeOpacity={0.8}
-        >
-          <BackIcon width={24} height={24} />
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${title}`}>
+          <PencilGlyph />
         </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.searchContainerWrapper} 
-          activeOpacity={1}
-          onPress={() => {}}
-        >
-          <View style={styles.searchContainer}>
-            <SearchIcon width={20} height={20} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search users..."
-              placeholderTextColor="#647276"
-              onChangeText={onSearchChange}
-              editable={true}
-              pointerEvents="auto"
-            />
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.addButton} onPress={onPressAdd}>
-          <PlusIcon />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity activeOpacity={0.5} style={styles.roleChip} onPress={onPressRole}>
-        <Text style={styles.roleText}>User Roles</Text>
-        <DownIcon style={{ marginLeft: 10 }}  width={16} height={16} />
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
-};
+});
 
-const RoleModal = ({ visible, roles, onToggle, onReset, onClose, onView }) => {
-  const insets = useSafeAreaInsets();
-  
-  return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filter by role</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>×</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.roleOptions}>
-            {roles.map(role => (
-              <TouchableOpacity 
-                key={role.key} 
-                style={styles.roleOption}
-                onPress={() => onToggle(role.key)}
-              >
-                <View style={[styles.checkbox, role.selected && styles.checkedBox]}>
-                  {role.selected && <CheckedBoxIcon width={20} height={20} />}
-                </View>
-                <Text style={styles.roleOptionText}>{role.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <View style={[styles.modalActions, { paddingBottom: Math.max(20, insets.bottom + 10) }]}>
-            <TouchableOpacity style={styles.resetButton} onPress={onReset} activeOpacity={0.9}>
-              <Text style={styles.resetButtonText}>Reset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.viewButton} onPress={onView} activeOpacity={0.9}>
-              <Text style={styles.viewButtonText}>View</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-const UserCard = ({ user, onEdit, onStatusUpdate }) => {
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active': return '#539461';
-      case 'suspended': return '#FBA94C';
-      case 'pending': return '#4094F7';
-      case 'deactivated':
-      case 'inactive': return '#F75555';
-      default: return '#7F8D91';
-    }
+const toCard = u => {
+  const status = String(u.status || 'active').toLowerCase();
+  const username = u.username || u.email?.split('@')[0] || '';
+  // Collapse stray spaces in stored names; with no name at all, fall back to the email.
+  const fullName = `${u.firstName || ''} ${u.lastName || ''}`.replace(/\s+/g, ' ').trim();
+  return {
+    ...u,
+    id: u.id,
+    name: fullName || u.email || username || 'Unnamed user',
+    username,
+    status,
+    statusLabel: status.charAt(0).toUpperCase() + status.slice(1),
+    role: u.role,
   };
-
-  const getProfileColor = (index) => {
-    const colors = ['#E3F2FD', '#FFF3E0', '#E8F5E8', '#FFF9C4', '#F3E5F5', '#FFE0B2', '#E0F2F1'];
-    return colors[index % colors.length];
-  };
-
-  return (
-    <View style={styles.userCard}>
-      <View style={styles.userInfo}>
-        <View style={[styles.profilePicture, { backgroundColor: getProfileColor(user.id) }]}>
-          <Text style={styles.profileInitial}>{user.name.charAt(0)}</Text>
-        </View>
-        
-        <View style={styles.userDetails}>
-          <View style={styles.nameRow}>
-            <CountryFlag code={countryCodeForUser(user)} />
-            <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
-            <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">@{user.username}</Text>
-          </View>
-          
-          {user.isVip && (
-            <View style={styles.vipBadge}>
-              <Text style={styles.vipText}>VIP</Text>
-            </View>
-          )}
-          
-          <View style={styles.statusContainer}>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: getStatusColor(user.status) }]} />
-              <Text style={[styles.statusText, { color: getStatusColor(user.status) }]}>
-                {user.status}
-              </Text>
-              <Text style={styles.bulletPoint}> • </Text>
-              <Text style={styles.roleText}>{user.role}</Text>
-            </View>
-          </View>
-          
-          {user.stats && (
-            <View style={styles.statsRow}>
-              {user.role === 'Buyer' && (
-                <>
-                  <Text style={styles.statsText}>Orders: {user.stats.totalOrders || 0}</Text>
-                  <Text style={styles.bulletPoint}> • </Text>
-                  <Text style={styles.statsText}>Spent: ₱{user.stats.totalSpent?.toFixed(2) || '0.00'}</Text>
-                </>
-              )}
-              {user.role === 'Supplier' && (
-                <>
-                  <Text style={styles.statsText}>Listings: {user.stats.totalListings || 0}</Text>
-                  <Text style={styles.bulletPoint}> • </Text>
-                  <Text style={styles.statsText}>Active: {user.stats.activePlants || 0}</Text>
-                </>
-              )}
-            </View>
-          )}
-        </View>
-      </View>
-      
-      <TouchableOpacity onPress={() => onEdit(user)} style={styles.editButton}>
-        <EditIcon width={20} height={20} />
-      </TouchableOpacity>
-    </View>
-  );
 };
 
 const UserManagement = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [isRoleModalVisible, setRoleModalVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [role, setRole] = useState('all');
+  const [status, setStatus] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  // The filter whose last load failed, so it shows the empty state instead of skeletons forever.
+  const [failedKey, setFailedKey] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMoreData, setHasMoreData] = useState(true);
-  const [roles, setRoles] = useState([
-    { key: 'buyer', label: 'Buyer', selected: true },
-    { key: 'supplier', label: 'Supplier', selected: true },
-  ]);
+  // Drops responses from an older query (fast typing / chip taps) so they can't overwrite newer ones.
+  const requestIdRef = useRef(0);
+  // Results per filter (role | status | search). Switching back to a filter shows its list at
+  // once instead of reloading it. ponytail: in-memory for this visit only; marked stale when
+  // the screen regains focus so edits made on a user's page show up.
+  const cacheRef = useRef(new Map());
+  const cacheKey = `${role}|${status || ''}|${search.trim().toLowerCase()}`;
 
-  // Calculate proper bottom padding for admin tab bar + safe area
-  const tabBarHeight = 60; // Standard admin tab bar height
-  const safeBottomPadding = Math.max(insets.bottom, 16); // At least 16px padding
-  const totalBottomPadding = tabBarHeight + safeBottomPadding + 20; // Extra 20px for spacing
-  
-  // Handle add user button press
-  const handleAddUser = () => {
-    navigation.navigate('EnrollSeller');
-  };
+  const bottomPadding = 60 + Math.max(insets.bottom, 16) + 20; // admin tab bar + safe area
 
-  // Fetch users from API
-  const fetchUsers = async (showLoading = true, page = 1, append = false) => {
-    try {
-      // Don't set loading state for append operations
-      if (showLoading && !append) {
-        setLoading(true);
-      } else if (append) {
-        setLoadingMore(true);
-      }
+  const fetchUsers = useCallback(
+    async (nextPage = 1) => {
+      const requestId = ++requestIdRef.current;
+      const append = nextPage > 1;
+      if (append) setLoadingMore(true);
+      try {
+        const filters = { page: nextPage, limit: PAGE_SIZE, search: search.trim() };
+        if (role !== 'all') filters.role = role;
+        if (status) filters.status = status;
+        const response = await getAllUsersApi(filters);
+        if (requestId !== requestIdRef.current) return;
+        if (!response?.success) throw new Error(response?.message || 'Failed to load users');
 
-      // Get selected roles for filtering
-      const selectedRoles = roles.filter(role => role.selected).map(role => role.key);
-      
-      // Prepare filters
-      const filters = {
-        page: page,
-        limit: 20, // Limit to 20 users per page for pagination
-        search: searchQuery.trim(),
-      };
-
-      // If only one role is selected, pass it to the API for server-side filtering
-      if (selectedRoles.length === 1) {
-        filters.role = selectedRoles[0];
-      }
-      // If no roles are selected, fetch nothing
-      else if (selectedRoles.length === 0) {
-        // No roles selected - return empty results
+        const rows = (response.data?.users || []).map(toCard);
+        const totalPages = response.data?.pagination?.totalPages;
+        const more = totalPages ? nextPage < totalPages : rows.length === PAGE_SIZE;
+        const next = append ? [...(cacheRef.current.get(cacheKey)?.users || []), ...rows] : rows;
+        cacheRef.current.set(cacheKey, { users: next, page: nextPage, hasMore: more, at: Date.now() });
+        setHasMore(more);
+        setPage(nextPage);
+        setUsers(next);
+      } catch (error) {
+        if (requestId !== requestIdRef.current) return;
+        console.error('Error fetching users:', error);
+        Alert.alert('Error', 'Failed to load users. Please try again.');
         if (!append) {
           setUsers([]);
+          setFailedKey(cacheKey);
         }
-        setHasMoreData(false);
-        
-        // Make sure to clear loading states
-        if (showLoading && !append) {
-          setLoading(false);
-        }
-        if (append) {
+        setHasMore(false);
+      } finally {
+        if (requestId === requestIdRef.current) {
           setLoadingMore(false);
-        }
-        if (refreshing) {
           setRefreshing(false);
         }
-        return;
       }
-      // If all roles are selected, don't pass role filter (fetch all)
-      // If multiple but not all roles selected, we'll filter locally after fetching all
-      
-      // Add a small delay to simulate network latency for initial loading only
-      if (showLoading && !append) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-
-      const response = await getAllUsersApi(filters);
-      
-      if (response && response.success && response.data && response.data.users) {
-        let fetchedUsers = response.data.users;
-        
-        // Apply role filtering locally if needed (when multiple roles selected but not all)
-        if (selectedRoles.length > 1 && selectedRoles.length < roles.length) {
-          // Filter using the original backend role values (lowercase)
-          fetchedUsers = fetchedUsers.filter(user => selectedRoles.includes(user.role?.toLowerCase()));
-        }
-        
-        // Transform user data to match expected format
-        const transformedUsers = fetchedUsers.map(user => ({
-          id: user.id,
-          name: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'N/A',
-          username: user.username || user.email?.split('@')[0] || 'N/A',
-          email: user.email,
-          status: user.status === 'active' ? 'Active' : 
-                  user.status === 'suspended' ? 'Suspended' : 
-                  user.status === 'pending' ? 'Pending' : 'Inactive',
-          role: user.role === 'buyer' ? 'Buyer' : 
-                user.role === 'supplier' ? 'Supplier' : 
-                user.role || 'User',
-          rawStatus: user.status, // Keep original status for API calls
-          rawRole: user.role, // Keep original role for filtering
-          stats: user.stats,
-          ...user // Include all other user data
-        }));
-        
-        // Sort users alphabetically by name
-        transformedUsers.sort((a, b) => {
-          const nameA = (a.name || '').toLowerCase();
-          const nameB = (b.name || '').toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-        
-        // Check if we have more data to load
-        // If we applied local filtering, we might have fewer results than the limit
-        const hasMoreResults = selectedRoles.length > 1 && selectedRoles.length < roles.length
-          ? fetchedUsers.length === filters.limit // Original fetched count
-          : transformedUsers.length === filters.limit; // Transformed count
-        
-        setHasMoreData(hasMoreResults);
-        
-        // Update the users state - either append or replace
-        if (append) {
-          setUsers(prev => [...prev, ...transformedUsers]);
-          // Update current page only on successful append
-          setCurrentPage(page);
-        } else {
-          setUsers(transformedUsers);
-        }
-      } else {
-        if (!append) {
-          setUsers([]);
-        }
-        setHasMoreData(false);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      Alert.alert('Error', 'Failed to load users. Please try again.');
-      if (!append) {
-        setUsers([]);
-      }
-      setHasMoreData(false);
-    } finally {
-      // Make sure to clear the appropriate loading state
-      if (showLoading && !append) {
-        setLoading(false);
-      }
-      
-      if (append) {
-        setLoadingMore(false);
-      }
-      
-      if (refreshing) {
-        setRefreshing(false);
-      }
-    }
-  };
-
-  // Handle search input change
-  const handleSearchChange = (text) => {
-    setSearchQuery(text);
-  };
-
-  // Debounced search effect
-  useEffect(() => {
-    const delayedSearch = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        // Reset to first page when search changes
-        setCurrentPage(1);
-        setHasMoreData(true);
-        fetchUsers(true, 1, false);
-      }
-    }, 500);
-
-    return () => clearTimeout(delayedSearch);
-  }, [searchQuery]);
-
-  // Fetch users when screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      setCurrentPage(1);
-      setHasMoreData(true);
-      fetchUsers(true, 1, false);
-    }, [])
+    },
+    [search, role, status, cacheKey],
   );
 
-  // Handle refresh
-  const onRefresh = async () => {
-    setRefreshing(true);
-    setCurrentPage(1);
-    setHasMoreData(true);
-    await fetchUsers(true, 1, false); // Use true to show skeleton loaders during refresh
-    setRefreshing(false);
-  };
+  // On a filter change: a fresh cached list is used as is (no request); otherwise load it.
+  useEffect(() => {
+    const hit = cacheRef.current.get(cacheKey);
+    if (hit && Date.now() - hit.at < CACHE_MS) {
+      requestIdRef.current += 1; // a slower request for the previous filter must not land
+      setLoadingMore(false);
+      return;
+    }
+    const t = setTimeout(() => fetchUsers(1), search ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [cacheKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleEditUser = (user) => {
-    // Ensure user status is properly formatted for the UserInformation screen
-    const formattedUser = {
-      ...user,
-      // Keep the original status case for display but ensure it's correctly recognized
-      status: user.status
-    };
-    navigation.navigate('UserInformation', { user: formattedUser });
-  };
-
-  // Handle user status update
-  const handleUpdateUserStatus = async (user, newStatus) => {
-    try {
-      // Convert the display status to the API format
-      const statusMap = {
-        'Active': 'active',
-        'Suspended': 'suspended', 
-        'Pending': 'pending',
-        'Inactive': 'inactive'
-      };
-      
-      const apiStatus = statusMap[newStatus] || newStatus.toLowerCase();
-
-      const updateData = {
-        userId: user.id,
-        status: apiStatus,
-        notes: `Status updated to ${newStatus} by admin`
-      };
-
-      const response = await updateUserStatusApi(updateData);
-
-      if (response && response.success) {
-        Alert.alert('Success', `User status updated to ${newStatus}`);
-        // Refresh user list
-        await fetchUsers(true, 1, false);
-      } else {
-        throw new Error(response?.message || 'Failed to update user status');
+  // Coming back from a user's page (or Enrol seller): mark every cached list stale and quietly
+  // refresh the current one, so changes made there show without skeletons. Other filters
+  // refresh the same way the next time they are opened.
+  // Read through a ref so a filter change (new fetchUsers) doesn't re-run this as a "focus".
+  const focusedOnceRef = useRef(false);
+  const fetchUsersRef = useRef(fetchUsers);
+  fetchUsersRef.current = fetchUsers;
+  useFocusEffect(
+    useCallback(() => {
+      if (!focusedOnceRef.current) {
+        focusedOnceRef.current = true;
+        return;
       }
-    } catch (error) {
-      console.error('Error updating user status:', error);
-      Alert.alert('Error', 'Failed to update user status. Please try again.');
-    }
+      cacheRef.current.forEach(entry => { entry.at = 0; });
+      fetchUsersRef.current(1);
+    }, []),
+  );
+
+  // Read the cache during render, not in an effect, so the chip and its list change in the same
+  // frame (an effect would paint one frame of the previous filter's list).
+  const hit = cacheRef.current.get(cacheKey);
+  // A stale entry is still shown while it refreshes. With nothing cached, a chip change shows
+  // skeletons; typing keeps the current list until results arrive.
+  const shown = hit || { users, page, hasMore };
+  const showSkeleton = !hit && !search.trim() && failedKey !== cacheKey;
+  // Cards fade in the first time a list appears; switching back to it is instant, not a replay.
+  const seenKeysRef = useRef(new Set());
+  const animateIn = !seenKeysRef.current.has(cacheKey);
+  useEffect(() => {
+    if (!showSkeleton) seenKeysRef.current.add(cacheKey);
+  }, [cacheKey, showSkeleton]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchUsers(1);
   };
 
-  // Legacy function that delegates to the new one for compatibility
-  const handleStatusUpdate = async (user, newStatus) => {
-    return handleUpdateUserStatus(user, newStatus);
+  const onEndReached = () => {
+    if (!showSkeleton && !loadingMore && !refreshing && shown.hasMore) fetchUsers(shown.page + 1);
   };
 
-  const toggleRole = roleKey => {
-    setRoles(prev => prev.map(r => (r.key === roleKey ? { ...r, selected: !r.selected } : r)));
-  };
+  const handleEdit = useCallback(
+    user => navigation.navigate('UserInformation', { user: { ...user, status: user.statusLabel, role: user.role === 'supplier' ? 'Supplier' : 'Buyer', rawStatus: user.status, rawRole: user.role } }),
+    [navigation],
+  );
 
-  const resetRoles = () => {
-    setRoles(prev => prev.map(r => ({ ...r, selected: false })));
-  };
-
-  const applyView = () => {
-    setRoleModalVisible(false);
-    setCurrentPage(1);
-    setHasMoreData(true);
-    // Explicitly fetch users with the new role filters
-    fetchUsers(true, 1, false);
-  };
-
-  // Function to handle loading more data when reaching end of list
-  const handleLoadMore = () => {
-    if (!loadingMore && hasMoreData && !refreshing && !loading) {
-      // Pass false for showLoading to avoid displaying skeleton loaders again
-      fetchUsers(false, currentPage + 1, true);
-    }
-  };
-
-  // Function to reset search and filters
-  const handleResetSearch = () => {
-    setSearchQuery('');
-    setCurrentPage(1);
-    setHasMoreData(true);
-    fetchUsers(true, 1, false);
-  };
-
-  // Filter users based on current search (additional client-side filtering)
-  const filteredUsers = users.filter(user => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      String(user.name || '').toLowerCase().includes(query) ||
-      String(user.username || '').toLowerCase().includes(query) ||
-      String(user.email || '').toLowerCase().includes(query) ||
-      String(user.role || '').toLowerCase().includes(query)
-    );
-  });
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['left', 'right']}>
-        <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
-        <LeafTrailHeader 
-          insets={insets} 
-          onPressAdd={handleAddUser}
-          onPressRole={() => setRoleModalVisible(true)}
-          onSearchChange={handleSearchChange}
-        />
-        <FlatList 
-          style={styles.usersList}
-          data={Array(8).fill()}
-          renderItem={({index}) => <UserCardSkeleton key={index} />}
-          keyExtractor={(_, index) => index.toString()}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.usersListContent,
-            { paddingBottom: totalBottomPadding }
-          ]}
-        />
-      </SafeAreaView>
-    );
-  }
+  const header = (
+    <Header
+      insets={insets}
+      search={search}
+      onSearchChange={setSearch}
+      onAdd={() => navigation.navigate('EnrollSeller')}
+      role={role}
+      status={status}
+      onRole={setRole}
+      onStatus={setStatus}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
-      <LeafTrailHeader 
-        insets={insets} 
-        onPressAdd={handleAddUser}
-        onPressRole={() => setRoleModalVisible(true)}
-        onSearchChange={handleSearchChange}
-      />
-
-      <FlatList 
-        style={styles.usersList}
-        data={filteredUsers}
-        renderItem={({ item }) => (
-          <UserCard 
-            key={item.id} 
-            user={item} 
-            onEdit={handleEditUser}
-            onStatusUpdate={handleUpdateUserStatus}
-          />
-        )}
-        keyExtractor={item => item.id.toString()}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={[
-          styles.usersListContent,
-          { paddingBottom: totalBottomPadding }
-        ]}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'No users found matching your search.' : 'No users available.'}
-            </Text>
-          </View>
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.loadingMoreContainer}>
-              <ActivityIndicator size="small" color="#539461" />
-              <Text style={styles.loadingMoreText}>Loading more users...</Text>
+      <StatusBar backgroundColor="#F5F6F4" barStyle="dark-content" />
+      {header}
+      {showSkeleton ? (
+        <View style={[styles.listContent, { paddingBottom: bottomPadding }]}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <UserCardSkeleton key={i} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={shown.users}
+          keyExtractor={item => String(item.id)}
+          renderItem={({ item, index }) => (
+            <UserCard user={item} index={index} onEdit={handleEdit} animateIn={animateIn} />
+          )}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
+          contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>{search ? 'No matches' : 'No users here yet'}</Text>
+              <Text style={styles.emptyText}>
+                {search
+                  ? 'Try a first or last name, @username, email, phone or garden name.'
+                  : 'Try another filter.'}
+              </Text>
             </View>
-          ) : null
-        }
-      />
-
-      <RoleModal
-        visible={isRoleModalVisible}
-        roles={roles}
-        onToggle={toggleRole}
-        onReset={resetRoles}
-        onView={applyView}
-        onClose={() => setRoleModalVisible(false)}
-      />
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footer}>
+                <Loading visible size={24} color={GREEN} />
+              </View>
+            ) : null
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -604,364 +384,170 @@ export default UserManagement;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
   },
-  headerContainer: {
-    backgroundColor: '#FFFFFF',
+  header: {
+    backgroundColor: PAGE_BG,
     paddingHorizontal: 16,
     paddingBottom: 8,
-    minHeight: 106,
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingBottom: 12,
-    gap: 10,
-    height: 58,
+    gap: 8,
+    paddingVertical: 8,
   },
-  backButton: {
-    width: 24,
-    height: 24,
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E9ECE8',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  searchContainerWrapper: {
+  searchBox: {
     flex: 1,
-  },
-  searchContainer: {
-    flex: 1,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
     gap: 8,
-    height: 40,
-    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    zIndex: 1,
+    borderColor: '#E4E7E9',
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    fontFamily: 'Inter',
     fontSize: 16,
-    lineHeight: 22,
-    color: '#647276',
-    padding: 0,
-    height: '100%',
+    color: INK,
+    paddingVertical: 0,
   },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: GREEN,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  roleChip: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  chipRow: {
     alignItems: 'center',
-    padding: 5,
-    width: 120,
-    height: 34,
-    minHeight: 34,
+    gap: 8,
+    paddingVertical: 4,
+  },
+  chip: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
+    borderColor: '#E4E7E9',
+    justifyContent: 'center',
   },
-  roleText: {
-    fontSize: 16,
-    lineHeight: 16,
-    color: '#393D40',
-    marginRight: 10,
+  chipActive: {
+    backgroundColor: GREEN,
+    borderColor: GREEN,
   },
-  usersList: {
-    flex: 1,
-    backgroundColor: '#F5F6F6',
-  },
-  usersListContent: {
-    padding: 16,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
+  chipText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
     fontWeight: '600',
-    lineHeight: 24,
-    color: '#202325',
+    color: '#393D40',
   },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonText: {
-    fontSize: 24,
-    color: '#647276',
-  },
-  roleOptions: {
-    marginBottom: 20,
-  },
-  roleOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 4,
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkedBox: {
-    borderColor: '#539461',
-    backgroundColor: '#539461',
-  },
-  roleOptionText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#202325',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  resetButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    height: 44,
-  },
-  resetButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 22,
-    color: '#647276',
-  },
-  viewButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#539461',
-    borderRadius: 12,
-    height: 44,
-  },
-  viewButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 22,
+  chipTextActive: {
     color: '#FFFFFF',
   },
-  // User card styles
-  userCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    height: 72,
-    width: '100%',
+  chipDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#D5D9D4',
+    marginHorizontal: 4,
   },
-  userInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
     gap: 12,
   },
-  profilePicture: {
-    width: 40,
-    height: 40,
-    minWidth: 40,
-    minHeight: 40,
-    borderRadius: 1000,
+  card: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#539461',
+    gap: 12,
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#2E6B3E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  profileInitial: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#202325',
-  },
-  userDetails: {
+  cardBody: {
     flex: 1,
+    minWidth: 0,
     gap: 4,
-    paddingRight: 8, // Add padding to avoid overlap with edit button
   },
-  nameRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    minHeight: 24,
-    gap: 6,
   },
-  flagBox: {
-    width: 20,
-    height: 20,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+  flag: {
+    marginRight: 6,
   },
-  userName: {
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 24,
-    color: '#202325',
+  title: {
     flexShrink: 1,
-  },
-  username: {
+    fontFamily: 'Inter',
     fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 22,
-    color: '#7F8D91',
-    flexShrink: 1,
-    maxWidth: '60%',
-  },
-  vipBadge: {
-    backgroundColor: '#FFB323',
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    height: 20,
-    minHeight: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vipText: {
-    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 20,
-    color: '#A05E03',
+    color: INK,
   },
-  statusContainer: {
-    marginTop: 4,
-  },
-  statusRow: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 20,
-    minHeight: 20,
     gap: 6,
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  bulletPoint: {
-    fontSize: 14,
-    color: '#7F8D91',
-    width: 4,
-    height: 4,
-    maxWidth: 4,
-    maxHeight: 4,
-    borderRadius: 100,
-    backgroundColor: '#7F8D91',
-  },
-  roleText: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-    color: '#647276',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginTop: 4,
   },
-  statsText: {
-    fontSize: 13,
-    color: '#647276',
+  subline: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: MUTED,
   },
   editButton: {
-    width: 24,
-    height: 24,
-    alignSelf: 'flex-start',
-    justifyContent: 'flex-end',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E3F1E5',
+    borderWidth: 1,
+    borderColor: '#C7E2CC',
     alignItems: 'center',
-  },
-  // Loading styles
-  loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F6F6',
   },
-  loadingText: {
-    marginTop: 16,
+  empty: {
+    alignItems: 'center',
+    paddingTop: 64,
+    paddingHorizontal: 32,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: 'Inter',
     fontSize: 16,
-    color: '#539461',
-    lineHeight: 22,
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingMoreContainer: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 8,
-  },
-  loadingMoreText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-    color: '#539461',
+    fontWeight: '700',
+    color: INK,
   },
   emptyText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#7F8D91',
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: MUTED,
     textAlign: 'center',
+  },
+  footer: {
+    paddingVertical: 16,
+    alignItems: 'center',
   },
 });

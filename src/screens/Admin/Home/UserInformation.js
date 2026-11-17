@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInput, Modal, Switch } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
-import TrashIcon from '../../../assets/admin-icons/trash-can.svg';
-import CheckedBoxIcon from '../../../assets/admin-icons/checked-box.svg';
 import PhFlag from '../../../assets/buyer-icons/philippines-flag.svg';
 import ThFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import IdFlag from '../../../assets/buyer-icons/indonesia-flag.svg';
 import UsFlag from '../../../assets/buyer-icons/usa-flag.svg';
+import Loading from '../../../components/Loading';
 import { getStoredAuthToken } from '../../../utils/getStoredAuthToken';
 import { API_CONFIG } from '../../../config/apiConfig';
 import { deleteUserApi } from '../../../components/Api/deleteUserApi';
 import { getB2BAccountApi, setB2BBusinessApi } from '../../../components/Api/b2bAccountApi';
-import { UserInformationHeader } from './UserInformationHeader';
+import { GREEN, GREEN_DARK, INK, MUTED, PAGE_BG, PencilGlyph, RolePill, StatusPill, TrashGlyph, UserAvatar } from './AdminUserUi';
 
 const UserInformation = () => {
   const navigation = useNavigation();
@@ -68,17 +68,6 @@ const UserInformation = () => {
     );
   }
 
-  // Get status color based on current toggle state
-  const getStatusColor = (status) => {
-    return status === 'Active' ? '#23C16B' : '#E7522F';
-  };
-
-  // Get profile color based on user ID
-  const getProfileColor = (id) => {
-    const colors = ['#E3F2FD', '#FFF3E0', '#E8F5E8', '#FFF9C4', '#F3E5F5', '#FFE0B2', '#E0F2F1'];
-    return colors[(id - 1) % colors.length];
-  };
-  
   // Convert country name to country code
   const getCountryCodeFromName = (countryName) => {
     if (!countryName) return '';
@@ -143,28 +132,23 @@ const UserInformation = () => {
   const isSupplier =
     user?.role === 'Supplier' || user?.rawRole?.toLowerCase() === 'supplier';
 
-  // Set editable fields initial values from user data
+  // The saved values, used to fill the form and to throw away edits on Cancel.
+  const initialFields = () => {
+    const countryCode = user.country && user.country.length <= 2 ? user.country : '';
+    const countryName = getFullCountryName(user.country) || '';
+    return {
+      country: countryName || 'United States',
+      countryCode: countryCode || 'US',
+      gardenOrCompanyName: user.gardenOrCompanyName || '',
+      firstName: (firstName || '').trim(),
+      lastName: (lastName || '').trim(),
+      contactNumber: user.contactNumber || user.phone || '',
+      buyerType: user.buddy_type || user.buyerType || '', // Read from buddy_type field in Firestore
+    };
+  };
+
   useEffect(() => {
-    if (user) {
-      // Handle country code and name conversion
-      const countryCode = user.country && user.country.length <= 2 ? user.country : '';
-      const countryName = getFullCountryName(user.country) || '';
-
-      console.log('Setting initial fields:', { 
-        country: countryName || 'United States', 
-        countryCode: countryCode || 'US' 
-      });
-
-      setEditableFields({
-        country: countryName || 'United States',
-        countryCode: countryCode || 'US',
-        gardenOrCompanyName: user.gardenOrCompanyName || '',
-        firstName: firstName || '',
-        lastName: lastName || '',
-        contactNumber: user.contactNumber || user.phone || '',
-        buyerType: user.buddy_type || user.buyerType || '' // Read from buddy_type field in Firestore
-      });
-    }
+    if (user) setEditableFields(initialFields());
   }, [user]);
 
   useEffect(() => {
@@ -391,8 +375,6 @@ const UserInformation = () => {
     }
   };
 
-  // Get current status text based on toggle state
-  const currentStatus = isAccountActive ? 'Active' : 'Inactive';
 
   const handleLiveSellingToggle = async () => {
     if (!isSupplier || isUpdatingLiveFlag) return;
@@ -535,831 +517,653 @@ const UserInformation = () => {
     );
   }, [confirmDeleteUser]);
 
+  const isSellerView = !isBuyer;
+  const garden = String(editableFields.gardenOrCompanyName || user.gardenOrCompanyName || '').trim();
+  const personName = `${editableFields.firstName || ''} ${editableFields.lastName || ''}`.replace(/\s+/g, ' ').trim() || user.name;
+  // Sellers are known by their garden; the person's name moves to the line below.
+  const heroTitle = isSellerView && garden ? garden : personName;
+  const email = user.email || '';
+  const countryCode = getCountryCodeFromName(editableFields.country);
+  const buyerTypeLabel = editableFields.buyerType
+    ? editableFields.buyerType.charAt(0).toUpperCase() + editableFields.buyerType.slice(1)
+    : '';
+
+  const setField = (key) => (text) => setEditableFields(prev => ({ ...prev, [key]: text }));
+
+  const cancelEdit = () => {
+    setEditableFields(initialFields());
+    setIsEditing(false);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['left','right']}>
-      <UserInformationHeader user={user} onDeleteUser={handleDeleteUser} isDeleting={isDeletingUser} />
-      
-      <ScrollView 
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => navigation.goBack()}
+          style={styles.iconButton}
+          activeOpacity={0.8}>
+          <BackIcon width={22} height={22} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{isSellerView ? 'Seller' : 'Buyer'} details</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Delete user"
+          onPress={handleDeleteUser}
+          disabled={isDeletingUser}
+          style={[styles.iconButton, styles.deleteButton]}
+          activeOpacity={0.8}>
+          {isDeletingUser ? <Loading visible size={20} color="#C8341C" /> : <TrashGlyph />}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
         style={styles.content}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: Math.max(34, (insets?.bottom || 0) + 60 + 20) }
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <View style={[styles.avatar, { backgroundColor: getProfileColor(user.id) }]}>
-              <Text style={styles.avatarText}>{firstName ? firstName.charAt(0) : (user.username ? user.username.charAt(0) : '?')}</Text>
-            </View>
-            <Text style={styles.emailText}>{user.email || (user.username ? `${user.username}@gmail.com` : '')}</Text>
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        {/* Who this is, at a glance */}
+        <Animated.View entering={FadeInUp.duration(280)} style={styles.heroCard}>
+          <UserAvatar user={user} title={heroTitle} size={80} />
+          <Text style={styles.heroTitle} numberOfLines={2}>{heroTitle}</Text>
+          {isSellerView && garden ? (
+            <Text style={styles.heroSub} numberOfLines={1}>{personName}</Text>
+          ) : null}
+          <Text style={styles.heroSub} numberOfLines={1}>
+            {[user.username ? `@${user.username}` : null, email].filter(Boolean).join('  ·  ')}
+          </Text>
+          <View style={styles.heroPills}>
+            <StatusPill
+              status={isAccountActive ? 'active' : 'inactive'}
+              label={isAccountActive ? 'Active' : 'Inactive'}
+            />
+            <RolePill isSeller={isSellerView} />
+            {user.isVip ? (
+              <View style={styles.vipPill}>
+                <Text style={styles.vipText}>VIP</Text>
+              </View>
+            ) : null}
           </View>
-          
-          {/* Account Status Alert - Only show if account is deactivated */}
-          {!isAccountActive && (
-            <View style={styles.alertBox}>
-              <View style={styles.alertIconContainer}>
-                <Text style={styles.alertIcon}>?</Text>
-              </View>
-              <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>Inactive account</Text>
-                <Text style={styles.alertMessage}>
-                  This account is currently inactive. Toggle the account status to activate it.
-                </Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Account Status Toggle */}
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Account Status</Text>
-            <View style={styles.statusContainer}>
-              <Text style={[styles.statusText, { color: getStatusColor(currentStatus) }]}>
-                {currentStatus}
-              </Text>
-              {isUpdatingStatus ? (
-                <ActivityIndicator size="small" color="#0ea5e9" style={{ marginLeft: 10 }} />
-              ) : (
-                <TouchableOpacity 
-                  style={[styles.toggleSwitch, { backgroundColor: isAccountActive ? '#23C16B' : '#D1D5DB' }]}
-                  onPress={handleAccountStatusToggle}
-                  activeOpacity={0.8}
-                  disabled={isUpdatingStatus}
-                >
-                  <View style={[styles.toggleHandle, { 
-                    transform: [{ translateX: isAccountActive ? 20 : 0 }] 
-                  }]} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
+        </Animated.View>
 
-          {isSupplier && (isLoadingBusiness || businessEligible) && (
-            <View style={[styles.statusRow, styles.liveSellingToggleRow]}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.statusLabel}>Business</Text>
-                <Text style={styles.liveSellingHint}>
-                  When on, this garden can switch between Garden Partner and mainstream. When off, they cannot switch.
-                </Text>
-              </View>
-              <View style={styles.statusContainer}>
-                <Text
-                  style={[
-                    styles.statusText,
-                    { color: businessEnabled ? '#23C16B' : '#6B7280' },
-                  ]}>
-                  {businessEnabled ? 'On' : 'Off'}
-                </Text>
-                {isLoadingBusiness || isUpdatingBusiness ? (
-                  <ActivityIndicator size="small" color="#0ea5e9" style={{ marginLeft: 10 }} />
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.toggleSwitch,
-                      { backgroundColor: businessEnabled ? '#23C16B' : '#D1D5DB' },
-                    ]}
-                    onPress={handleBusinessToggle}
-                    activeOpacity={0.8}
-                    disabled={!businessEligible}
-                  >
-                    <View
-                      style={[
-                        styles.toggleHandle,
-                        { transform: [{ translateX: businessEnabled ? 20 : 0 }] },
-                      ]}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
+        {!isAccountActive && (
+          <Animated.View entering={FadeInUp.duration(280).delay(40)} style={styles.alertBox}>
+            <Text style={styles.alertTitle}>This account is inactive</Text>
+            <Text style={styles.alertMessage}>They can't sign in or buy until you switch Account active back on.</Text>
+          </Animated.View>
+        )}
 
-          {/* Live selling (supplier liveFlag) — enables Live tab / live flows in seller app */}
-          {isSupplier && (
-            <View style={[styles.statusRow, styles.liveSellingToggleRow]}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.statusLabel}>Live selling</Text>
-                <Text style={styles.liveSellingHint}>
-                  When on, this supplier can use live selling (Live listings, sell screen).
-                </Text>
-              </View>
-              <View style={styles.statusContainer}>
-                <Text
-                  style={[
-                    styles.statusText,
-                    { color: liveSellingEnabled ? '#23C16B' : '#6B7280' },
-                  ]}>
-                  {liveSellingEnabled ? 'On' : 'Off'}
-                </Text>
-                {isUpdatingLiveFlag ? (
-                  <ActivityIndicator size="small" color="#0ea5e9" style={{ marginLeft: 10 }} />
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.toggleSwitch,
-                      { backgroundColor: liveSellingEnabled ? '#23C16B' : '#D1D5DB' },
-                    ]}
-                    onPress={handleLiveSellingToggle}
-                    activeOpacity={0.8}
-                    disabled={isUpdatingLiveFlag}
-                  >
-                    <View
-                      style={[
-                        styles.toggleHandle,
-                        { transform: [{ translateX: liveSellingEnabled ? 20 : 0 }] },
-                      ]}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Form Section */}
-        <View style={styles.formSection}>
-          
-          {/* Country */}
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Country <Text style={styles.requiredStar}>*</Text></Text>
-            {isEditing ? (
-              <TouchableOpacity 
-                style={styles.textField}
-                onPress={() => setIsCountryModalVisible(true)}
-              >
-                <View style={styles.countryFlagContainer}>
-                  {getCountryCodeFromName(editableFields.country) === 'US' && <UsFlag width={20} height={20} />}
-                  {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
-                  {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
-                  {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
-                  <Text style={{ color: editableFields.country ? '#1F2937' : '#647276', marginLeft: 8 }}>
-                    {editableFields.country || 'Select Country'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.dropdownContainer}>
-                <View style={styles.countryFlagContainer}>
-                  {getCountryCodeFromName(editableFields.country) === 'US' && <UsFlag width={20} height={20} />}
-                  {getCountryCodeFromName(editableFields.country) === 'PH' && <PhFlag width={20} height={20} />}
-                  {getCountryCodeFromName(editableFields.country) === 'TH' && <ThFlag width={20} height={20} />}
-                  {getCountryCodeFromName(editableFields.country) === 'ID' && <IdFlag width={20} height={20} />}
-                  <Text style={styles.dropdownText}>{editableFields.country || 'Select Country'}</Text>
-                </View>
-                
-              </View>
+        {/* Account switches */}
+        <Animated.View entering={FadeInUp.duration(280).delay(80)}>
+          <Text style={styles.sectionLabel}>Account</Text>
+          <View style={styles.card}>
+            <ToggleRow
+              label="Account active"
+              hint={isAccountActive ? 'Can sign in and use the app' : 'Blocked from signing in'}
+              value={isAccountActive}
+              busy={isUpdatingStatus}
+              onChange={handleAccountStatusToggle}
+            />
+            {isSupplier && (
+              <ToggleRow
+                divider
+                label="Live selling"
+                hint="Can run lives and add live listings"
+                value={liveSellingEnabled}
+                busy={isUpdatingLiveFlag}
+                onChange={handleLiveSellingToggle}
+              />
+            )}
+            {isSupplier && (isLoadingBusiness || businessEligible) && (
+              <ToggleRow
+                divider
+                label="Business"
+                hint="Can switch between Garden Partner and mainstream"
+                value={businessEnabled}
+                busy={isLoadingBusiness || isUpdatingBusiness}
+                disabled={!businessEligible}
+                onChange={handleBusinessToggle}
+              />
             )}
           </View>
-          
-          {/* Garden/Company Name - Only show for non-Buyer roles */}
-          {!isBuyer && (
-            <View style={styles.formRow}>
-              <Text style={styles.formLabel}>Garden / company name <Text style={styles.requiredStar}>*</Text></Text>
+        </Animated.View>
+
+        {/* Profile details: read-only until Edit details is pressed */}
+        <Animated.View entering={FadeInUp.duration(280).delay(120)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>Details</Text>
+            {isEditing ? <Text style={styles.editingTag}>Editing</Text> : null}
+          </View>
+          <View style={styles.card}>
+            <FieldRow label="Country">
+              {isEditing ? (
+                <TouchableOpacity style={styles.input} onPress={() => setIsCountryModalVisible(true)} activeOpacity={0.8}>
+                  <View style={styles.inline}>
+                    <CountryFlag code={countryCode} />
+                    <Text style={[styles.inputText, !editableFields.country && styles.placeholder]}>
+                      {editableFields.country || 'Select country'}
+                    </Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.inline}>
+                  <CountryFlag code={countryCode} />
+                  <Text style={styles.value}>{editableFields.country || 'Not set'}</Text>
+                </View>
+              )}
+            </FieldRow>
+
+            {isSellerView && (
+              <FieldRow divider label="Garden / company">
+                {isEditing ? (
+                  <TextInput
+                    style={[styles.input, styles.inputText]}
+                    value={editableFields.gardenOrCompanyName}
+                    onChangeText={setField('gardenOrCompanyName')}
+                    placeholder="Garden or company name"
+                    placeholderTextColor={MUTED}
+                  />
+                ) : (
+                  <Text style={[styles.value, !editableFields.gardenOrCompanyName && styles.placeholder]}>
+                    {editableFields.gardenOrCompanyName || 'Not provided'}
+                  </Text>
+                )}
+              </FieldRow>
+            )}
+
+            <FieldRow divider label="First name">
               {isEditing ? (
                 <TextInput
-                  style={styles.textInput}
-                  value={editableFields.gardenOrCompanyName}
-                  onChangeText={(text) => setEditableFields(prev => ({...prev, gardenOrCompanyName: text}))}
-                  placeholder="Enter garden or company name"
-                  placeholderTextColor="#647276"
+                  style={[styles.input, styles.inputText]}
+                  value={editableFields.firstName}
+                  onChangeText={setField('firstName')}
+                  placeholder="First name"
+                  placeholderTextColor={MUTED}
                 />
               ) : (
-                <Text style={styles.formValue}>{editableFields.gardenOrCompanyName || (user.role === 'Supplier' ? 'Not provided' : 'N/A')}</Text>
-              )}
-            </View>
-          )}
-          
-          {/* First Name */}
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>First name <Text style={styles.requiredStar}>*</Text></Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.textInput}
-                value={editableFields.firstName}
-                onChangeText={(text) => setEditableFields(prev => ({...prev, firstName: text}))}
-                placeholder="Enter first name"
-                placeholderTextColor="#647276"
-              />
-            ) : (
-              <Text style={styles.formValue}>{editableFields.firstName || 'Not provided'}</Text>
-            )}
-          </View>
-          
-          {/* Last Name */}
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Last name <Text style={styles.requiredStar}>*</Text></Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.textInput}
-                value={editableFields.lastName}
-                onChangeText={(text) => setEditableFields(prev => ({...prev, lastName: text}))}
-                placeholder="Enter last name"
-                placeholderTextColor="#647276"
-              />
-            ) : (
-              <Text style={styles.formValue}>{editableFields.lastName || 'Not provided'}</Text>
-            )}
-          </View>
-          
-          {/* Contact Number */}
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Contact number <Text style={styles.requiredStar}>*</Text></Text>
-            {isEditing ? (
-              <TextInput
-                style={styles.textInput}
-                value={editableFields.contactNumber}
-                onChangeText={(text) => setEditableFields(prev => ({...prev, contactNumber: text}))}
-                placeholder="Enter contact number"
-                keyboardType="phone-pad"
-                placeholderTextColor="#647276"
-              />
-            ) : (
-              <Text style={styles.formValue}>{editableFields.contactNumber || 'Not provided'}</Text>
-            )}
-          </View>
-          
-          {/* Buyer Type - Only show for buyers */}
-          {isBuyer && (
-            <View style={styles.formRow}>
-              <Text style={styles.formLabel}>Buyer Type</Text>
-              {isEditing ? (
-                <TouchableOpacity 
-                  style={styles.textField}
-                  onPress={() => setIsBuyerTypeModalVisible(true)}
-                >
-                  <Text style={{ color: editableFields.buyerType ? '#1F2937' : '#647276' }}>
-                    {editableFields.buyerType ? editableFields.buyerType.charAt(0).toUpperCase() + editableFields.buyerType.slice(1) : 'Select buyer type (optional)'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.formValue}>
-                  {editableFields.buyerType ? editableFields.buyerType.charAt(0).toUpperCase() + editableFields.buyerType.slice(1) : 'Not set'}
+                <Text style={[styles.value, !editableFields.firstName && styles.placeholder]}>
+                  {editableFields.firstName || 'Not provided'}
                 </Text>
               )}
-            </View>
-          )}
-          
-          {/* Email Address */}
-          <View style={styles.formRow}>
-            <Text style={styles.formLabel}>Email address <Text style={styles.requiredStar}>*</Text></Text>
-            <Text style={styles.formValue}>{user.email || (user.username ? `${user.username}@gmail.com` : 'Not provided')}</Text>
+            </FieldRow>
+
+            <FieldRow divider label="Last name">
+              {isEditing ? (
+                <TextInput
+                  style={[styles.input, styles.inputText]}
+                  value={editableFields.lastName}
+                  onChangeText={setField('lastName')}
+                  placeholder="Last name"
+                  placeholderTextColor={MUTED}
+                />
+              ) : (
+                <Text style={[styles.value, !editableFields.lastName && styles.placeholder]}>
+                  {editableFields.lastName || 'Not provided'}
+                </Text>
+              )}
+            </FieldRow>
+
+            <FieldRow divider label="Contact number">
+              {isEditing ? (
+                <TextInput
+                  style={[styles.input, styles.inputText]}
+                  value={editableFields.contactNumber}
+                  onChangeText={setField('contactNumber')}
+                  placeholder="Contact number"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={MUTED}
+                />
+              ) : (
+                <Text style={[styles.value, !editableFields.contactNumber && styles.placeholder]}>
+                  {editableFields.contactNumber || 'Not provided'}
+                </Text>
+              )}
+            </FieldRow>
+
+            {isBuyer && (
+              <FieldRow divider label="Buyer type">
+                {isEditing ? (
+                  <TouchableOpacity style={styles.input} onPress={() => setIsBuyerTypeModalVisible(true)} activeOpacity={0.8}>
+                    <Text style={[styles.inputText, !buyerTypeLabel && styles.placeholder]}>
+                      {buyerTypeLabel || 'Select buyer type (optional)'}
+                    </Text>
+                    <Text style={styles.chevron}>›</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={[styles.value, !buyerTypeLabel && styles.placeholder]}>{buyerTypeLabel || 'Not set'}</Text>
+                )}
+              </FieldRow>
+            )}
+
+            <FieldRow divider label="Email">
+              <Text style={[styles.value, !email && styles.placeholder]} selectable>{email || 'Not provided'}</Text>
+            </FieldRow>
           </View>
-
-          {/* VIP Status - Only show if user is VIP */}
-          {user.isVip && (
-            <View style={styles.formRow}>
-              <Text style={styles.formLabel}>VIP Status</Text>
-              <View style={styles.vipContainer}>
-                <Text style={styles.vipText}>VIP Member</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Update Account Button */}
-        <TouchableOpacity 
-          style={[styles.updateButton, isUpdatingProfile && styles.disabledButton]} 
-          activeOpacity={0.8}
-          onPress={toggleEditMode}
-          disabled={isUpdatingProfile}
-        >
-          {isUpdatingProfile ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.updateButtonText}>
-              {isEditing ? 'Save Changes' : 'Edit Account'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
-      
-      {/* Country Selection Modal */}
-      <Modal
+
+      {/* Primary action in the thumb zone */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {isEditing ? (
+          <>
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={cancelEdit}
+              disabled={isUpdatingProfile}
+              activeOpacity={0.85}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.primaryButton, isUpdatingProfile && styles.disabledButton]}
+              onPress={toggleEditMode}
+              disabled={isUpdatingProfile}
+              activeOpacity={0.85}>
+              {isUpdatingProfile ? (
+                <Loading visible size={20} color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Save changes</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={toggleEditMode} activeOpacity={0.85}>
+            <PencilGlyph color="#FFFFFF" />
+            <Text style={styles.primaryButtonText}>Edit details</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <OptionSheet
         visible={isCountryModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsCountryModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setIsCountryModalVisible(false)}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView>
-              {countries.map((country) => (
-                <TouchableOpacity
-                  key={country.code}
-                  style={styles.countryOption}
-                  onPress={() => handleCountrySelect(country)}
-                >
-                  <View style={styles.countryFlagContainer}>
-                    {country.code === 'US' && <UsFlag width={24} height={24} />}
-                    {country.code === 'PH' && <PhFlag width={24} height={24} />}
-                    {country.code === 'TH' && <ThFlag width={24} height={24} />}
-                    {country.code === 'ID' && <IdFlag width={24} height={24} />}
-                    {country.code === 'SG' && <Text style={{fontSize: 20}}>🇸🇬</Text>}
-                    {country.code === 'VN' && <Text style={{fontSize: 20}}>🇻🇳</Text>}
-                    {country.code === 'TW' && <Text style={{fontSize: 20}}>🇹🇼</Text>}
-                    <Text style={styles.countryName}>{country.name}</Text>
-                  </View>
-                  {editableFields.country === country.name && (
-                    <CheckedBoxIcon width={24} height={24} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-      
-      {/* Buyer Type Selection Modal */}
-      <Modal
+        title="Select country"
+        onClose={() => setIsCountryModalVisible(false)}
+        options={countries.map(c => ({ key: c.code, label: c.name, flag: c.code, selected: editableFields.country === c.name, onPress: () => handleCountrySelect(c) }))}
+      />
+      <OptionSheet
         visible={isBuyerTypeModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsBuyerTypeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Buyer Type</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setIsBuyerTypeModalVisible(false)}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView>
-              {/* Option to clear buyer type */}
-              <TouchableOpacity
-                style={styles.countryOption}
-                onPress={() => handleBuyerTypeSelect('')}
-              >
-                <Text style={styles.countryName}>None (Clear)</Text>
-                {!editableFields.buyerType && (
-                  <CheckedBoxIcon width={24} height={24} />
-                )}
-              </TouchableOpacity>
-              
-              {/* Receiver option */}
-              <TouchableOpacity
-                style={styles.countryOption}
-                onPress={() => handleBuyerTypeSelect('receiver')}
-              >
-                <Text style={styles.countryName}>Receiver</Text>
-                {editableFields.buyerType === 'receiver' && (
-                  <CheckedBoxIcon width={24} height={24} />
-                )}
-              </TouchableOpacity>
-              
-              {/* Joiner option */}
-              <TouchableOpacity
-                style={styles.countryOption}
-                onPress={() => handleBuyerTypeSelect('joiner')}
-              >
-                <Text style={styles.countryName}>Joiner</Text>
-                {editableFields.buyerType === 'joiner' && (
-                  <CheckedBoxIcon width={24} height={24} />
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        title="Buyer type"
+        onClose={() => setIsBuyerTypeModalVisible(false)}
+        options={[
+          { key: 'none', label: 'None', selected: !editableFields.buyerType, onPress: () => handleBuyerTypeSelect('') },
+          { key: 'receiver', label: 'Receiver', selected: editableFields.buyerType === 'receiver', onPress: () => handleBuyerTypeSelect('receiver') },
+          { key: 'joiner', label: 'Joiner', selected: editableFields.buyerType === 'joiner', onPress: () => handleBuyerTypeSelect('joiner') },
+        ]}
+      />
     </SafeAreaView>
+  );
+};
+
+const FLAG_ICONS = { US: UsFlag, PH: PhFlag, TH: ThFlag, ID: IdFlag };
+const FLAG_EMOJI = { SG: '🇸🇬', VN: '🇻🇳', TW: '🇹🇼' };
+
+const CountryFlag = ({ code, size = 20 }) => {
+  const Icon = FLAG_ICONS[code];
+  if (Icon) return <Icon width={size} height={size} />;
+  if (FLAG_EMOJI[code]) return <Text style={{ fontSize: size - 2 }}>{FLAG_EMOJI[code]}</Text>;
+  return null;
+};
+
+const ToggleRow = ({ label, hint, value, busy, disabled, onChange, divider }) => (
+  <View style={[styles.row, divider && styles.rowDivider]}>
+    <View style={styles.rowText}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      {hint ? <Text style={styles.rowHint}>{hint}</Text> : null}
+    </View>
+    {busy ? (
+      <View style={styles.switchSlot}>
+        <Loading visible size={22} color={GREEN} />
+      </View>
+    ) : (
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        trackColor={{ false: '#D5D9D4', true: GREEN }}
+        ios_backgroundColor="#D5D9D4"
+        thumbColor="#FFFFFF"
+      />
+    )}
+  </View>
+);
+
+const FieldRow = ({ label, children, divider }) => (
+  <View style={[styles.field, divider && styles.rowDivider]}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    {children}
+  </View>
+);
+
+const OptionSheet = ({ visible, title, options, onClose }) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <ScrollView>
+            {options.map(o => (
+              <TouchableOpacity key={o.key} style={styles.option} onPress={o.onPress} activeOpacity={0.8}>
+                <View style={styles.inline}>
+                  {o.flag ? <CountryFlag code={o.flag} size={24} /> : null}
+                  <Text style={[styles.optionText, o.selected && styles.optionTextSelected]}>{o.label}</Text>
+                </View>
+                {o.selected ? <Text style={styles.check}>✓</Text> : null}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: PAGE_BG,
+  },
+  errorText: {
+    padding: 24,
+    color: MUTED,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: PAGE_BG,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E9ECE8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButton: {
+    backgroundColor: '#FDECEA',
+  },
+  headerTitle: {
+    fontFamily: 'Inter',
+    fontSize: 18,
+    fontWeight: '700',
+    color: INK,
   },
   content: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   contentContainer: {
-    paddingTop: 8,
-    paddingHorizontal: 24,
+    padding: 16,
+    paddingBottom: 32,
+    gap: 16,
   },
-  headerContainer: {
+  heroCard: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    paddingTop: 30,
-    paddingBottom: 1,
-    paddingHorizontal: 20,
+    shadowColor: GREEN_DARK,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    padding: 8,
-  },
-  titleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
+  heroTitle: {
+    marginTop: 12,
+    fontFamily: 'Inter',
+    fontSize: 20,
     fontWeight: '700',
-    color: '#202325',
+    color: INK,
     textAlign: 'center',
   },
-  deleteButton: {
-    padding: 8,
+  heroSub: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: MUTED,
+    textAlign: 'center',
   },
-  deleteButtonContainer: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteIcon: {
-    fontSize: 18,
-  },
-  profileSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 0,
-    marginBottom: 8,
-  },
-  formSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  avatarText: {
-    fontSize: 36,
-    color: '#1F2937',
-    fontWeight: '600',
-  },
-  emailText: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '500',
-    color: '#393D40',
-  },
-  alertBox: {
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
+  heroPills: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 12,
   },
-  alertIconContainer: {
-    width: 24,
+  vipPill: {
     height: 24,
+    paddingHorizontal: 8,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-  },
-  alertIcon: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#EF4444',
-  },
-  alertContent: {
-    flex: 1,
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  alertMessage: {
-    fontSize: 14,
-    color: '#1F2937',
-    lineHeight: 20,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  statusLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 12,
-  },
-  liveSellingHint: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  liveSellingToggleRow: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    alignItems: 'flex-start',
-  },
-  toggleSwitch: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    padding: 2,
-  },
-  toggleHandle: {
-    width: 20,
-    height: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-  },
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  formRow: {
-    marginBottom: 16,
-  },
-  formLabel: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '500',
-    color: '#393D40',
-    marginBottom: 8,
-  },
-  formValue: {
-    fontSize: 16,
-    color: '#1F2937',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-  },
-  dropdownContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#1F2937',
-  },
-  dropdownIcon: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  countryCode: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
-  },
-  flagIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  codeText: {
-    fontSize: 16,
-    color: '#1F2937',
-    marginRight: 8,
-  },
-  codeIcon: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  phonePlaceholder: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    height: 24,
-    minHeight: 24,
-    width: 24,
-    minWidth: 24,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#647276',
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  checkboxLabel: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-    color: '#393D40',
-  },
-  vipContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
+    backgroundColor: '#FFF3D6',
   },
   vipText: {
-    fontSize: 16,
-    color: '#92400E',
-    fontWeight: '600',
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8A6100',
   },
-  updateButton: {
-    backgroundColor: '#539461',
-    borderRadius: 12,
-    height: 48,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
+  alertBox: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FDECEA',
+    gap: 4,
   },
-  updateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 16,
-    fontWeight: '600',
+  alertTitle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#B3261E',
   },
-  disabledButton: {
-    backgroundColor: '#93C5FD',
-    opacity: 0.7,
+  alertMessage: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#7A2E28',
   },
-  textInput: {
-    height: 48,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#1F2937',
-  },
-  textField: {
-    minHeight: 48,
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#CDD3D4',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
   },
-  requiredStar: {
-    color: '#000000',
-    fontSize: 14,
+  sectionLabel: {
+    marginBottom: 8,
+    marginLeft: 4,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '700',
+    color: MUTED,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  editingTag: {
+    marginBottom: 8,
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '700',
+    color: GREEN_DARK,
+  },
+  card: {
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: GREEN_DARK,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 16,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E7E9',
+  },
+  rowText: {
+    flex: 1,
+    gap: 2,
+  },
+  rowLabel: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '600',
+    color: INK,
+  },
+  rowHint: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: MUTED,
+  },
+  switchSlot: {
+    width: 51,
+    alignItems: 'center',
+  },
+  field: {
+    paddingVertical: 12,
+    gap: 4,
+  },
+  fieldLabel: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: MUTED,
+  },
+  value: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '600',
+    color: INK,
+  },
+  placeholder: {
+    color: '#9AA4A8',
     fontWeight: '400',
   },
-  errorText: {
-    fontSize: 16,
-    color: '#EF4444',
-    textAlign: 'center',
-    marginTop: 100,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F2F6',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: '#6B7280',
-  },
-  countryOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F2F6',
-  },
-  countryFlagContainer: {
+  inline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  countryName: {
+  input: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#C7E2CC',
+    backgroundColor: '#F7FBF7',
+  },
+  inputText: {
+    fontFamily: 'Inter',
     fontSize: 16,
-    color: '#1F2937',
-    marginLeft: 8,
+    color: INK,
+  },
+  chevron: {
+    fontSize: 22,
+    color: MUTED,
+  },
+  footer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: PAGE_BG,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E7E9',
+  },
+  button: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  primaryButton: {
+    backgroundColor: GREEN,
+    shadowColor: GREEN,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D5D9D4',
+  },
+  secondaryButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
+    color: INK,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  sheet: {
+    maxHeight: '70%',
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF',
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 8,
+    backgroundColor: '#D5D9D4',
+  },
+  sheetTitle: {
+    paddingVertical: 16,
+    fontFamily: 'Inter',
+    fontSize: 18,
+    fontWeight: '700',
+    color: INK,
+  },
+  option: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E7E9',
+  },
+  optionText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    color: INK,
+  },
+  optionTextSelected: {
+    fontWeight: '700',
+    color: GREEN_DARK,
+  },
+  check: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: GREEN,
   },
 });
 
