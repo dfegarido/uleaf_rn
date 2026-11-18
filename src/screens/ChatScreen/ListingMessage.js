@@ -19,7 +19,56 @@ const formatPrice = (value) => {
   return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 
-/** Client mock format: "Listed 8/14/2026" */
+/** Soft light chips — one stable pair per garden (hash of seller id). */
+const GARDEN_BADGE_THEMES = [
+  {backgroundColor: '#F3E8DE', color: '#7A4E2D'},
+  {backgroundColor: '#E4F0F6', color: '#2F5F7A'},
+  {backgroundColor: '#EEE6F6', color: '#5A3F7A'},
+  {backgroundColor: '#F6E6EB', color: '#7A3F52'},
+  {backgroundColor: '#E6F2EA', color: '#2F6B48'},
+  {backgroundColor: '#F5EEDC', color: '#6B5630'},
+  {backgroundColor: '#E6EAF6', color: '#3A4F7A'},
+  {backgroundColor: '#F3E6E6', color: '#7A3F3F'},
+];
+
+function gardenBadgeTheme(listing) {
+  const key = String(listing?.sellerCode || listing?.sellerName || '');
+  if (!key) return GARDEN_BADGE_THEMES[0];
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return GARDEN_BADGE_THEMES[hash % GARDEN_BADGE_THEMES.length];
+}
+
+function IgIndexBadge({label, theme, fullScreen}) {
+  return (
+    <View
+      style={[
+        styles.igBadge,
+        fullScreen ? styles.igBadgeFull : styles.igBadgeCard,
+        {backgroundColor: theme.backgroundColor},
+      ]}
+      pointerEvents="none">
+      <Text
+        style={[
+          styles.igBadgeText,
+          fullScreen && styles.igBadgeTextFull,
+          {color: theme.color},
+        ]}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function igLabel(listing) {
+  const raw = listing?.liveIgIndex ?? listing?.liveigindex;
+  if (raw == null || String(raw).trim() === '') return '';
+  const text = String(raw).trim();
+  return /^ig/i.test(text) ? text.toUpperCase() : `IG${text}`;
+}
+
 const formatListedDateLabel = (listing) => {
   const ymd = resolvePublishYmd(listing);
   if (!ymd) return null;
@@ -28,7 +77,7 @@ const formatListedDateLabel = (listing) => {
   return `Listed ${month}/${day}/${year}`;
 };
 
-const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress, onMissingListing }) => {
+const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress, onMissingListing, showIgIndex = false }) => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
@@ -158,6 +207,8 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
   let isSoldOut = listing?.availableQty <= 0;
   const isExpired = isSellerListingExpired(listing);
   const listedDateLabel = listing ? formatListedDateLabel(listing) : null;
+  const indexLabel = showIgIndex && listing ? igLabel(listing) : '';
+  const indexTheme = indexLabel ? gardenBadgeTheme(listing) : null;
 
   useEffect(() => {
     if (loading) return;
@@ -194,6 +245,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
               <Text style={styles.listedDateText}>{listedDateLabel}</Text>
             </View>
           ) : null}
+          {indexLabel ? <IgIndexBadge label={indexLabel} theme={indexTheme} /> : null}
           {isSoldOut && (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>
@@ -247,6 +299,9 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
           >
             <CloseIcon width={24} height={24} color="#fff" />
           </TouchableOpacity>
+          {indexLabel ? (
+            <IgIndexBadge label={indexLabel} theme={indexTheme} fullScreen />
+          ) : null}
           <ImageZoom
             cropWidth={Dimensions.get('window').width}
             cropHeight={Dimensions.get('window').height}
@@ -349,6 +404,39 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontWeight: '600',
+  },
+  igBadge: {
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  igBadgeCard: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  igBadgeFull: {
+    position: 'absolute',
+    top: 58,
+    left: 20,
+    zIndex: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  igBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  igBadgeTextFull: {
+    fontSize: 13,
   },
   soldBadge: {
     position: 'absolute',

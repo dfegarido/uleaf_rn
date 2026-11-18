@@ -272,6 +272,7 @@ const ChatScreen = ({navigation, route}) => {
   const avatarUrl = routeParams.avatarUrl || '';
   const chatType = routeParams.type || 'private'; // Get chat type: 'group' or 'private'
   const name = routeParams.name || routeParams.title || '';
+  const showBackstageIgIndex = /after\s+live\s+backstage/i.test(String(name || ''));
   const id = routeParams.id || routeParams.chatId || null;
   const participantIds = Array.isArray(routeParams.participantIds) ? routeParams.participantIds : (Array.isArray(routeParams.participants) ? routeParams.participants.map(p => p.uid).filter(Boolean) : []);
   const initialParticipants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
@@ -2767,6 +2768,7 @@ const ChatScreen = ({navigation, route}) => {
                 messages={messages}
                 messageId={item.id}
                 reactions={item.reactions || null}
+                showBackstageIgIndex={showBackstageIgIndex}
               />
             );
           }}
