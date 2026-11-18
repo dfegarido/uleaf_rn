@@ -162,43 +162,17 @@ const ListingTable = ({
               ) : (
                 <StatusBadge
                   statusCode={(function getStatus() {
+                    // Sold/out-of-stock first: expire sync can leave status=Expired on sold plants.
                     const effectiveStatus = getSellerListingDisplayStatus(listing);
-                    if (effectiveStatus === 'Expired') {
-                      return 'Expired';
-                    }
+                    if (effectiveStatus === 'Sold') return 'Sold';
+                    if (effectiveStatus === 'Out of Stock') return 'Out of Stock';
+                    if (effectiveStatus === 'Expired') return 'Expired';
 
-                    const derivedStatus = (listing._displayStatus || listing.status || '').trim().toLowerCase();
-                    if (derivedStatus === 'sold') {
-                      return 'Sold';
-                    }
-                    if (derivedStatus === 'out of stock') {
-                      return 'Out of Stock';
-                    }
-
-                    const normalizedType = (listing.listingType || '').trim().toLowerCase();
-                    const qty = parseInt(listing.availableQty, 10) || 0;
-                    const variations = Array.isArray(listing.variations) ? listing.variations : [];
-                    const isAllVariationsZero =
-                      variations.length > 0 &&
-                      variations.every(variation => (parseInt(variation.availableQty, 10) || 0) === 0);
-                    const isOutOfStock = qty === 0 && (variations.length === 0 || isAllVariationsZero);
-
-                    if (isOutOfStock && normalizedType.includes('single')) {
-                      return 'Sold';
-                    }
-
-                    if (
-                      isOutOfStock &&
-                      (normalizedType.includes('grower') ||
-                        normalizedType.includes('choice') ||
-                        normalizedType.includes('wholesale'))
-                    ) {
-                      return 'Out of Stock';
-                    }
-
-                    if (isOutOfStock) {
-                      return 'Out of Stock';
-                    }
+                    const derivedStatus = (listing._displayStatus || listing.status || '')
+                      .trim()
+                      .toLowerCase();
+                    if (derivedStatus === 'sold') return 'Sold';
+                    if (derivedStatus === 'out of stock') return 'Out of Stock';
 
                     return listing.status || 'Active';
                   })()}

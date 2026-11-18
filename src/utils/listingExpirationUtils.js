@@ -157,8 +157,28 @@ export function isSellerListingExpired(listing) {
   return isListingPastExpiration(listing);
 }
 
-/** Status label for seller list/detail (Expired overrides stale Active). */
+/** Sold / out-of-stock label from qty. Sold plants must not show as Expired. */
+export function getSellerListingStockDisplayStatus(listing) {
+  if (!listing) return null;
+  const normalizedType = normalizeListingType(listing.listingType);
+  const qty = parseInt(listing.availableQty, 10) || 0;
+  const variations = Array.isArray(listing.variations) ? listing.variations : [];
+  const isAllVariationsZero =
+    variations.length > 0 &&
+    variations.every(variation => (parseInt(variation.availableQty, 10) || 0) === 0);
+  const isZero = qty === 0 && (variations.length === 0 || isAllVariationsZero);
+  if (!isZero) return null;
+  if (normalizedType.includes('single')) return 'Sold';
+  return 'Out of Stock';
+}
+
+/**
+ * Status label for seller list/detail.
+ * Sold-out qty wins over Expired — expire jobs can mark sold Active plants Expired.
+ */
 export function getSellerListingDisplayStatus(listing) {
+  const stockStatus = getSellerListingStockDisplayStatus(listing);
+  if (stockStatus) return stockStatus;
   if (isSellerListingExpired(listing)) {
     return 'Expired';
   }

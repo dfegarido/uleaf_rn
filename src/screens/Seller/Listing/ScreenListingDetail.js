@@ -156,8 +156,12 @@ const ScreenListingDetail = ({navigation, route}) => {
     listingData?.active == 'Active' ? true : false,
   );
 
-  const listingExpired = listingData ? isSellerListingExpired(listingData) : false;
   const displayStatus = listingData ? getSellerListingDisplayStatus(listingData) : '';
+  // Sold-out plants can still have status Expired from the expire job; don't treat as renew.
+  const listingExpired =
+    !!listingData &&
+    displayStatus === 'Expired' &&
+    isSellerListingExpired(listingData);
 
   const toggleSwitch = () => {
     if (!switchActive && listingExpired) {
