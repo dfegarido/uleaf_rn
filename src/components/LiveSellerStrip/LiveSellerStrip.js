@@ -1,34 +1,61 @@
 import moment from 'moment';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { formatElapsedTime } from '../../utils/formatElapsedTime';
 import LiveIcon from '../../assets/iconnav/live.svg';
 import { getLiveStreamsApi, normalizeLiveRow, isVisibleLiveStream } from '../Api/liveApi';
 import { subscribeToLiveStreams } from '../../utils/realtimeLive';
 
+const scheduledDate = (scheduledAt) => {
+  if (!scheduledAt) return null;
+  return scheduledAt.seconds ? new Date(scheduledAt.seconds * 1000) : new Date(scheduledAt);
+};
+
 const formatScheduledTime = (scheduledAt) => {
-  if (!scheduledAt) return 'Date TBD';
-  const date = scheduledAt.seconds ? new Date(scheduledAt.seconds * 1000) : new Date(scheduledAt);
+  const date = scheduledDate(scheduledAt);
+  if (!date || Number.isNaN(date.getTime())) return 'Date TBD';
   const now = moment().startOf('day');
   const target = moment(date).startOf('day');
   if (target.isSame(now, 'day')) {
-    return `Today, ${moment(date).format('h:mmA')}`;
+    return `Today, ${moment(date).format('h:mm A')}`;
   }
   if (target.isSame(now.clone().add(1, 'day'), 'day')) {
-    return `Tomorrow, ${moment(date).format('h:mmA')}`;
+    return `Tomorrow, ${moment(date).format('h:mm A')}`;
   }
-  return moment(date).format('MMM DD, h:mmA');
+  return moment(date).format('MMM DD, h:mm A');
 };
 
-const getUpcomingBadgeText = (scheduledAt) => {
-  if (!scheduledAt) return 'Date TBD';
-  const targetMs = scheduledAt.seconds ? scheduledAt.seconds * 1000 : new Date(scheduledAt).getTime();
-  const diff = targetMs - Date.now();
-  if (diff <= 0) return 'Live now';
-  if (diff > 60 * 60 * 1000) return formatScheduledTime(scheduledAt);
-  const minutes = Math.floor(diff / 60000);
-  const seconds = Math.floor((diff % 60000) / 1000);
-  return `Live in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+/** Bottom-card countdown, e.g. "Starts in 12m 20s". */
+const getStartsInText = (scheduledAt) => {
+  const date = scheduledDate(scheduledAt);
+  if (!date || Number.isNaN(date.getTime())) return 'Starts soon';
+  const diff = date.getTime() - Date.now();
+  if (diff <= 0) return 'Starting now';
+  const totalSeconds = Math.floor(diff / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `Starts in ${hours}h ${minutes}m`;
+  }
+  return `Starts in ${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+};
+
+const liveDetailCopy = (stream) => {
+  if (stream?.status === 'waiting' || stream?.status === 'draft') {
+    return 'This live sale is scheduled and not on air yet. Come back at the start time to join, or tap Notify Me for a reminder when it begins.';
+  }
+  return 'Live sale details.';
 };
 
 const CARD_WIDTH = 150;
@@ -37,15 +64,13 @@ const CARD_HEIGHT = 220;
 const LiveSellerCard = ({ stream, displayName, onPress }) => {
   const blinkAnim = useRef(new Animated.Value(1)).current;
   const [elapsed, setElapsed] = useState(() => formatElapsedTime(stream.createdAt));
-  const isWaiting = stream.status === 'waiting';
-  const isUpcoming = stream.status === 'draft';
-  const [upcomingText, setUpcomingText] = useState(() => getUpcomingBadgeText(stream.scheduledAt));
-
-  const scheduledMs = stream.scheduledAt?.seconds ? stream.scheduledAt.seconds * 1000 : 0;
-  const isCountdown = isUpcoming && scheduledMs > 0 && scheduledMs - Date.now() <= 60 * 60 * 1000;
+  // Buyer live-list maps approved `waiting` → `draft` (upcoming).
+  const isUpcoming = stream.status === 'draft' || stream.status === 'waiting';
+  const scheduledLabel = formatScheduledTime(stream.scheduledAt);
+  const [startsInText, setStartsInText] = useState(() => getStartsInText(stream.scheduledAt));
 
   useEffect(() => {
-    if (isWaiting || isUpcoming) return;
+    if (isUpcoming) return;
     const blink = Animated.loop(
       Animated.sequence([
         Animated.timing(blinkAnim, { toValue: 0.3, duration: 600, useNativeDriver: true }),
@@ -54,23 +79,41 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
     );
     blink.start();
     return () => blink.stop();
-  }, [blinkAnim, isWaiting, isUpcoming]);
+  }, [blinkAnim, isUpcoming]);
 
   useEffect(() => {
+    if (isUpcoming) return;
     const timer = setInterval(() => {
       setElapsed(formatElapsedTime(stream.createdAt));
     }, 1000);
     return () => clearInterval(timer);
-  }, [stream.createdAt]);
+  }, [stream.createdAt, isUpcoming]);
 
-  // Countdown tick for upcoming streams within 1 hour
   useEffect(() => {
     if (!isUpcoming || !stream.scheduledAt) return;
-    const interval = setInterval(() => {
-      setUpcomingText(getUpcomingBadgeText(stream.scheduledAt));
-    }, 1000);
+    const tick = () => setStartsInText(getStartsInText(stream.scheduledAt));
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [isUpcoming, stream.scheduledAt]);
+
+  const statusOverlay = isUpcoming ? (
+    <>
+      <View style={styles.scheduleBadge}>
+        <Text style={styles.scheduleBadgeText}>{scheduledLabel}</Text>
+      </View>
+      <View style={styles.upcomingBottomBar}>
+        <Text style={styles.startsInText} numberOfLines={1}>
+          {startsInText}
+        </Text>
+      </View>
+    </>
+  ) : (
+    <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
+      <LiveIcon width={14} height={14} color="#FFFFFF" />
+      <Text style={styles.liveBadgeText}>Live</Text>
+    </Animated.View>
+  );
 
   return (
     <TouchableOpacity
@@ -92,37 +135,11 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
             ]}
             resizeMode="cover"
           />
-          {isUpcoming ? (
-            <View style={[styles.upcomingBadge, isCountdown && styles.countdownBadge]}>
-              <Text style={[styles.upcomingBadgeText, isCountdown && styles.countdownBadgeText]}>{upcomingText}</Text>
-            </View>
-          ) : isWaiting ? (
-            <View style={styles.waitingBadge}>
-              <Text style={styles.waitingBadgeText}>Waiting</Text>
-            </View>
-          ) : (
-            <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
-              <LiveIcon width={14} height={14} color="#FFFFFF" />
-              <Text style={styles.liveBadgeText}>Live</Text>
-            </Animated.View>
-          )}
+          {statusOverlay}
         </View>
       ) : (
         <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-          {isUpcoming ? (
-            <View style={[styles.upcomingBadge, isCountdown && styles.countdownBadge]}>
-              <Text style={[styles.upcomingBadgeText, isCountdown && styles.countdownBadgeText]}>{upcomingText}</Text>
-            </View>
-          ) : isWaiting ? (
-            <View style={styles.waitingBadge}>
-              <Text style={styles.waitingBadgeText}>Waiting</Text>
-            </View>
-          ) : (
-            <Animated.View style={[styles.liveBadge, { opacity: blinkAnim }]}>
-              <LiveIcon width={14} height={14} color="#FFFFFF" />
-              <Text style={styles.liveBadgeText}>Live</Text>
-            </Animated.View>
-          )}
+          {statusOverlay}
           <Text style={styles.noImageText}>No Image</Text>
         </View>
       )}
@@ -130,7 +147,9 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
         <Text style={styles.sellerName} numberOfLines={1}>
           {displayName}
         </Text>
-        <Text style={styles.elapsedTime}>{isUpcoming ? upcomingText : elapsed}</Text>
+        <Text style={styles.elapsedTime}>
+          {isUpcoming ? scheduledLabel : elapsed}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -139,8 +158,21 @@ const LiveSellerCard = ({ stream, displayName, onPress }) => {
 const LiveSellerStrip = ({ navigation }) => {
   const [liveStreams, setLiveStreams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStream, setSelectedStream] = useState(null);
+  const [detailCountdown, setDetailCountdown] = useState('');
   const slideAnim = useRef(new Animated.Value(60)).current;
   const phase = loading || liveStreams.length === 0 ? 'fallback' : 'live';
+
+  useEffect(() => {
+    if (!selectedStream?.scheduledAt) {
+      setDetailCountdown('');
+      return undefined;
+    }
+    const tick = () => setDetailCountdown(getStartsInText(selectedStream.scheduledAt));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [selectedStream]);
 
   useEffect(() => {
     slideAnim.setValue(60);
@@ -282,12 +314,8 @@ const LiveSellerStrip = ({ navigation }) => {
               stream={stream}
               displayName={stream.title || 'Live Stream'}
               onPress={() => {
-                if (stream.status === 'waiting') {
-                  Alert.alert('Waiting for the Broadcaster...');
-                  return;
-                }
-                if (stream.status === 'draft') {
-                  Alert.alert('Live Starting Soon', "The broadcaster hasn't started the live yet. Please check back shortly!");
+                if (stream.status === 'waiting' || stream.status === 'draft') {
+                  setSelectedStream(stream);
                   return;
                 }
                 navigation.navigate(
@@ -304,6 +332,90 @@ const LiveSellerStrip = ({ navigation }) => {
           ))}
         </ScrollView>
       </Animated.View>
+
+      <Modal
+        visible={!!selectedStream}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedStream(null)}>
+        <View style={styles.detailOverlay}>
+          <TouchableOpacity
+            style={styles.detailBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedStream(null)}
+          />
+          <View style={styles.detailSheet}>
+            <View style={styles.detailHandle} />
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailSection}>Upcoming Live</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedStream(null)}
+                hitSlop={{top: 12, bottom: 12, left: 12, right: 12}}>
+                <Text style={styles.detailClose}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.detailScroll}>
+              <View style={styles.detailImageWrap}>
+                {selectedStream?.coverPhotoUrl ? (
+                  <Image
+                    source={{uri: selectedStream.coverPhotoUrl}}
+                    style={styles.detailImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={[styles.detailImage, styles.detailImagePlaceholder]}>
+                    <Text style={styles.noImageText}>No Image</Text>
+                  </View>
+                )}
+                <View style={styles.detailImageSchedule}>
+                  <Text style={styles.detailImageScheduleText}>
+                    {formatScheduledTime(selectedStream?.scheduledAt)}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.detailTitle}>
+                {selectedStream?.title || 'Live Stream'}
+              </Text>
+
+              <View style={styles.detailInfoBlock}>
+                <View style={styles.detailInfoRow}>
+                  <Text style={styles.detailInfoLabel}>Scheduled</Text>
+                  <Text style={styles.detailInfoValue}>
+                    {formatScheduledTime(selectedStream?.scheduledAt)}
+                  </Text>
+                </View>
+                {detailCountdown ? (
+                  <View style={styles.detailInfoRow}>
+                    <Text style={styles.detailInfoLabel}>Starts</Text>
+                    <Text style={styles.detailInfoValue}>{detailCountdown}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <Text style={styles.detailDescription}>
+                {selectedStream ? liveDetailCopy(selectedStream) : ''}
+              </Text>
+            </ScrollView>
+
+            <View style={styles.detailFooter}>
+              <TouchableOpacity
+                style={styles.notifyButton}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Alert.alert(
+                    'Notify Me',
+                    "We'll remind you when this live starts.",
+                  );
+                }}>
+                <Text style={styles.notifyButtonText}>Notify Me</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -381,26 +493,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
   },
-  waitingBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    gap: 4,
-    backgroundColor: '#D4A017',
-    borderRadius: 8,
-    zIndex: 1,
-  },
-  waitingBadgeText: {
-    fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: 12,
-    color: '#FFFFFF',
-  },
-  upcomingBadge: {
+  scheduleBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
@@ -412,17 +505,33 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.64)',
     borderRadius: 8,
     zIndex: 1,
+    maxWidth: CARD_WIDTH - 16,
   },
-  upcomingBadgeText: {
+  scheduleBadgeText: {
     fontFamily: 'Inter',
     fontWeight: '600',
     fontSize: 12,
     color: '#FFFFFF',
   },
-  countdownBadge: {
-    backgroundColor: '#E7522F',
+  upcomingBottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(17, 17, 17, 0.78)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255, 255, 255, 0.16)',
+    zIndex: 2,
   },
-  countdownBadgeText: {
+  startsInText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 11,
     color: '#FFFFFF',
   },
   cardInfo: {
@@ -446,6 +555,138 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 12,
+  },
+  detailOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  detailBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  detailSheet: {
+    maxHeight: '85%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  detailHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D0D5D8',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  detailSection: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#539461',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  detailClose: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B777B',
+  },
+  detailScroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  detailImageWrap: {
+    width: '100%',
+    height: 210,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  detailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  detailImagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailImageSchedule: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.64)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  detailImageScheduleText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  detailTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#202325',
+    marginBottom: 14,
+  },
+  detailInfoBlock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E6EAEB',
+    paddingVertical: 4,
+    marginBottom: 14,
+  },
+  detailInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  detailInfoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7F8D91',
+  },
+  detailInfoValue: {
+    flex: 1,
+    marginLeft: 16,
+    textAlign: 'right',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#202325',
+  },
+  detailDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#556065',
+  },
+  detailFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E6EAEB',
+  },
+  notifyButton: {
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  notifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 
