@@ -70,6 +70,22 @@ const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
 
 const SELLER_LISTINGS_PAGE_SIZE = 20;
+/** Parallel deletes per wave — large Select All batches used to fire every request at once. */
+const LISTING_DELETE_CHUNK = 15;
+
+async function deleteListingsInChunks(selectedItems) {
+  const results = [];
+  for (let i = 0; i < selectedItems.length; i += LISTING_DELETE_CHUNK) {
+    const chunk = selectedItems.slice(i, i + LISTING_DELETE_CHUNK);
+    const chunkResults = await Promise.all(
+      chunk.map(item =>
+        postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
+      ),
+    );
+    results.push(...chunkResults);
+  }
+  return results;
+}
 
 const FilterTabs = [
   {
@@ -321,6 +337,46 @@ const ScreenListing = ({navigation}) => {
     setAllSelectedIds([]);
   };
 
+  // Select All / batch actions must use the full filtered tab list, not just the
+  // rows already scrolled into dataTable (Group Chat / After Live Backstage
+  // loads 10 at a time — Select All used to delete only that page).
+  const getTabSelectableListings = useCallback(() => {
+    if (activeTab === 'Live') {
+      return liveAllListingsRef.current.length
+        ? liveAllListingsRef.current
+        : dataTable;
+    }
+    return allDisplayListingsRef.current.length
+      ? allDisplayListingsRef.current
+      : dataTable;
+  }, [activeTab, dataTable]);
+
+  const listingsBySelectedIds = useCallback(
+    selectedIds => {
+      const idSet = new Set(selectedIds);
+      return getTabSelectableListings().filter(item => idSet.has(item.id));
+    },
+    [getTabSelectableListings],
+  );
+
+  const listingBySelectedId = useCallback(
+    id => getTabSelectableListings().find(item => item.id === id),
+    [getTabSelectableListings],
+  );
+
+  const toggleSelectAllIds = useCallback((setSelectedIds, getList) => {
+    const ids = getList()
+      .map(l => l.id)
+      .filter(Boolean);
+    setSelectedIds(prev =>
+      ids.length > 0 &&
+      prev.length === ids.length &&
+      ids.every(id => prev.includes(id))
+        ? []
+        : ids,
+    );
+  }, []);
+
   const toggleLiveSelect = useCallback((id) => {
     setLiveSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -328,10 +384,12 @@ const ScreenListing = ({navigation}) => {
   }, []);
 
   const toggleLiveSelectAll = useCallback(() => {
-    setLiveSelectedIds(prev =>
-      prev.length === dataTable.length ? [] : dataTable.map(l => l.id)
+    toggleSelectAllIds(setLiveSelectedIds, () =>
+      liveAllListingsRef.current.length
+        ? liveAllListingsRef.current
+        : dataTable,
     );
-  }, [dataTable]);
+  }, [dataTable, toggleSelectAllIds]);
 
   const exitLiveSelectMode = useCallback(() => {
     setIsLiveSelectMode(false);
@@ -350,10 +408,12 @@ const ScreenListing = ({navigation}) => {
   }, []);
 
   const toggleActiveSelectAll = useCallback(() => {
-    setActiveSelectedIds(prev =>
-      prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
+    toggleSelectAllIds(setActiveSelectedIds, () =>
+      allDisplayListingsRef.current.length
+        ? allDisplayListingsRef.current
+        : dataTable,
     );
-  }, [dataTable]);
+  }, [dataTable, toggleSelectAllIds]);
 
   const exitGroupChatSelectMode = useCallback(() => {
     setIsGroupChatSelectMode(false);
@@ -367,10 +427,12 @@ const ScreenListing = ({navigation}) => {
   }, []);
 
   const toggleGroupChatSelectAll = useCallback(() => {
-    setGroupChatSelectedIds(prev =>
-      prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
+    toggleSelectAllIds(setGroupChatSelectedIds, () =>
+      allDisplayListingsRef.current.length
+        ? allDisplayListingsRef.current
+        : dataTable,
     );
-  }, [dataTable]);
+  }, [dataTable, toggleSelectAllIds]);
 
   const exitInactiveSelectMode = useCallback(() => {
     setIsInactiveSelectMode(false);
@@ -384,10 +446,12 @@ const ScreenListing = ({navigation}) => {
   }, []);
 
   const toggleInactiveSelectAll = useCallback(() => {
-    setInactiveSelectedIds(prev =>
-      prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
+    toggleSelectAllIds(setInactiveSelectedIds, () =>
+      allDisplayListingsRef.current.length
+        ? allDisplayListingsRef.current
+        : dataTable,
     );
-  }, [dataTable]);
+  }, [dataTable, toggleSelectAllIds]);
 
   const exitDiscountedSelectMode = useCallback(() => {
     setIsDiscountedSelectMode(false);
@@ -406,10 +470,12 @@ const ScreenListing = ({navigation}) => {
   }, []);
 
   const toggleAllSelectAll = useCallback(() => {
-    setAllSelectedIds(prev =>
-      prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
+    toggleSelectAllIds(setAllSelectedIds, () =>
+      allDisplayListingsRef.current.length
+        ? allDisplayListingsRef.current
+        : dataTable,
     );
-  }, [dataTable]);
+  }, [dataTable, toggleSelectAllIds]);
 
   const toggleDiscountedSelect = useCallback(id => {
     setDiscountedSelectedIds(prev =>
@@ -418,10 +484,12 @@ const ScreenListing = ({navigation}) => {
   }, []);
 
   const toggleDiscountedSelectAll = useCallback(() => {
-    setDiscountedSelectedIds(prev =>
-      prev.length === dataTable.length ? [] : dataTable.map(l => l.id),
+    toggleSelectAllIds(setDiscountedSelectedIds, () =>
+      allDisplayListingsRef.current.length
+        ? allDisplayListingsRef.current
+        : dataTable,
     );
-  }, [dataTable]);
+  }, [dataTable, toggleSelectAllIds]);
 
   const openPushToCart = useCallback(rows => {
     const items = (rows || [])
@@ -438,6 +506,14 @@ const ScreenListing = ({navigation}) => {
     setShowPushSheet(true);
   }, []);
 
+  const applyLiveSelectionRemoval = useCallback(selectedIds => {
+    const idSet = new Set(selectedIds);
+    const remaining = liveAllListingsRef.current.filter(item => !idSet.has(item.id));
+    liveAllListingsRef.current = remaining;
+    setDataTable(remaining.slice(0, LIVE_DISPLAY_PAGE));
+    setLiveHasMore(remaining.length > LIVE_DISPLAY_PAGE);
+  }, []);
+
   const handleLiveBatchDelete = useCallback(() => {
     if (liveSelectedIds.length === 0) return;
     const count = liveSelectedIds.length;
@@ -450,21 +526,12 @@ const ScreenListing = ({navigation}) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => liveSelectedIds.includes(item.id));
-            const remainingItems = dataTable.filter(item => !liveSelectedIds.includes(item.id));
-
-            setDataTable(remainingItems);
-            liveAllListingsRef.current = liveAllListingsRef.current.filter(
-              item => !liveSelectedIds.includes(item.id)
-            );
+            const selectedItems = listingsBySelectedIds(liveSelectedIds);
+            applyLiveSelectionRemoval(liveSelectedIds);
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
 
-            Promise.all(
-              selectedItems.map(item =>
-                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
-              ),
-            ).then(results => {
+            deleteListingsInChunks(selectedItems).then(results => {
               if (results.some(r => r === null)) {
                 showToast('Some listings failed to delete.', 'error');
                 onRefresh();
@@ -474,7 +541,7 @@ const ScreenListing = ({navigation}) => {
         },
       ]
     );
-  }, [liveSelectedIds, dataTable]);
+  }, [liveSelectedIds, listingsBySelectedIds, applyLiveSelectionRemoval, exitLiveSelectMode]);
 
   const handleLiveBatchExportToMainstream = useCallback(() => {
     if (liveSelectedIds.length === 0) return;
@@ -487,12 +554,8 @@ const ScreenListing = ({navigation}) => {
         {
           text: 'Export',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => liveSelectedIds.includes(item.id));
-            const remainingItems = dataTable.filter(item => !liveSelectedIds.includes(item.id));
-            setDataTable(remainingItems);
-            liveAllListingsRef.current = liveAllListingsRef.current.filter(
-              item => !liveSelectedIds.includes(item.id)
-            );
+            const selectedItems = listingsBySelectedIds(liveSelectedIds);
+            applyLiveSelectionRemoval(liveSelectedIds);
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} moved to Active.`);
             const plantCodes = selectedItems.map(item => item.plantCode ?? item.id);
@@ -504,7 +567,7 @@ const ScreenListing = ({navigation}) => {
         },
       ]
     );
-  }, [liveSelectedIds, dataTable, exitLiveSelectMode]);
+  }, [liveSelectedIds, listingsBySelectedIds, applyLiveSelectionRemoval, exitLiveSelectMode]);
 
   const handleLiveBatchDeactivate = useCallback(() => {
     if (liveSelectedIds.length === 0) return;
@@ -518,12 +581,8 @@ const ScreenListing = ({navigation}) => {
           text: 'Deactivate',
           style: 'destructive',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => liveSelectedIds.includes(item.id));
-            const remainingItems = dataTable.filter(item => !liveSelectedIds.includes(item.id));
-            setDataTable(remainingItems);
-            liveAllListingsRef.current = liveAllListingsRef.current.filter(
-              item => !liveSelectedIds.includes(item.id)
-            );
+            const selectedItems = listingsBySelectedIds(liveSelectedIds);
+            applyLiveSelectionRemoval(liveSelectedIds);
             exitLiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deactivated.`);
             const plantCodes = selectedItems.map(item => item.plantCode ?? item.id);
@@ -535,11 +594,11 @@ const ScreenListing = ({navigation}) => {
         },
       ]
     );
-  }, [liveSelectedIds, dataTable, exitLiveSelectMode]);
+  }, [liveSelectedIds, listingsBySelectedIds, applyLiveSelectionRemoval, exitLiveSelectMode]);
 
   const handleLiveEdit = useCallback(() => {
     if (liveSelectedIds.length !== 1) return;
-    const selectedItem = dataTable.find(item => item.id === liveSelectedIds[0]);
+    const selectedItem = listingBySelectedId(liveSelectedIds[0]);
     if (!selectedItem) return;
     exitLiveSelectMode();
     navigation.navigate('ScreenListingDetail', {
@@ -547,7 +606,7 @@ const ScreenListing = ({navigation}) => {
       plantCode: selectedItem.plantCode,
       b2bLiveActions: showB2bUsdBanner,
     });
-  }, [liveSelectedIds, dataTable, exitLiveSelectMode, navigation, showB2bUsdBanner]);
+  }, [liveSelectedIds, listingBySelectedId, exitLiveSelectMode, navigation, showB2bUsdBanner]);
 
 
   const fetchListingsPage = async (targetPage = 1) => {
@@ -1722,6 +1781,17 @@ const ScreenListing = ({navigation}) => {
     setToastVisible(true);
   };
 
+  const applyDisplaySelectionRemoval = useCallback((selectedIds, displayPageSize = ALL_DISPLAY_PAGE) => {
+    const idSet = new Set(selectedIds);
+    const removeItem = arr => arr.filter(l => !idSet.has(l.id));
+    allListingsRef.current = removeItem(allListingsRef.current);
+    const remainingDisplay = removeItem(allDisplayListingsRef.current);
+    allDisplayListingsRef.current = remainingDisplay;
+    setDataTable(remainingDisplay.slice(0, Math.max(displayPageSize, dataTable.length)));
+    setTotalListings(remainingDisplay.length);
+    setAllHasMore(remainingDisplay.length > displayPageSize);
+  }, [dataTable.length]);
+
   const handleActiveBatchDeactivate = useCallback(() => {
     if (activeSelectedIds.length === 0) return;
     const count = activeSelectedIds.length;
@@ -1734,7 +1804,7 @@ const ScreenListing = ({navigation}) => {
           text: 'Deactivate',
           style: 'destructive',
           onPress: async () => {
-            const selectedItems = dataTable.filter(item => activeSelectedIds.includes(item.id));
+            const selectedItems = listingsBySelectedIds(activeSelectedIds);
             const notActive = selectedItems.filter(
               item => (item.status || '').trim().toLowerCase() !== 'active',
             );
@@ -1762,18 +1832,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [activeSelectedIds, dataTable, exitActiveSelectMode]);
+  }, [activeSelectedIds, listingsBySelectedIds, exitActiveSelectMode]);
 
   const handleActiveEdit = useCallback(() => {
     if (activeSelectedIds.length !== 1) return;
-    const selectedItem = dataTable.find(item => item.id === activeSelectedIds[0]);
+    const selectedItem = listingBySelectedId(activeSelectedIds[0]);
     if (!selectedItem) return;
     exitActiveSelectMode();
     navigation.navigate('ScreenListingDetail', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       plantCode: selectedItem.plantCode,
     });
-  }, [activeSelectedIds, dataTable, exitActiveSelectMode, navigation]);
+  }, [activeSelectedIds, listingBySelectedId, exitActiveSelectMode, navigation]);
 
   const handleActiveBatchDelete = useCallback(() => {
     if (activeSelectedIds.length === 0) return;
@@ -1787,19 +1857,11 @@ const ScreenListing = ({navigation}) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => activeSelectedIds.includes(item.id));
-            const removeItem = arr => arr.filter(l => !activeSelectedIds.includes(l.id));
-            setDataTable(removeItem(dataTable));
-            allListingsRef.current = removeItem(allListingsRef.current);
-            allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
-            setTotalListings(prev => Math.max(0, prev - count));
+            const selectedItems = listingsBySelectedIds(activeSelectedIds);
+            applyDisplaySelectionRemoval(activeSelectedIds);
             exitActiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            Promise.all(
-              selectedItems.map(item =>
-                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
-              ),
-            ).then(results => {
+            deleteListingsInChunks(selectedItems).then(results => {
               if (results.some(r => r === null)) {
                 showToast('Some listings failed to delete.', 'error');
                 onRefresh();
@@ -1809,18 +1871,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [activeSelectedIds, dataTable, exitActiveSelectMode, onRefresh]);
+  }, [activeSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitActiveSelectMode]);
 
   const handleActiveDiscountNav = useCallback(() => {
     if (activeSelectedIds.length === 0) return;
-    const selectedRows = dataTable.filter(item => activeSelectedIds.includes(item.id));
+    const selectedRows = listingsBySelectedIds(activeSelectedIds);
     exitActiveSelectMode();
     navigation.navigate('ScreenListingAction', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       dataTable: selectedRows,
       activeTab: 'Active',
     });
-  }, [activeSelectedIds, dataTable, exitActiveSelectMode, navigation]);
+  }, [activeSelectedIds, listingsBySelectedIds, exitActiveSelectMode, navigation]);
 
   const handleGroupChatBatchExportToMainstream = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
@@ -1833,7 +1895,7 @@ const ScreenListing = ({navigation}) => {
         {
           text: 'Export',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => groupChatSelectedIds.includes(item.id));
+            const selectedItems = listingsBySelectedIds(groupChatSelectedIds);
             const invalid = selectedItems.filter(
               item => (item.status || '').trim() !== 'GroupChatListing',
             );
@@ -1841,11 +1903,7 @@ const ScreenListing = ({navigation}) => {
               Alert.alert('Validation', 'Some selected listings are not group chat listings.');
               return;
             }
-            const removeItem = arr => arr.filter(l => !groupChatSelectedIds.includes(l.id));
-            setDataTable(removeItem(dataTable));
-            allListingsRef.current = removeItem(allListingsRef.current);
-            allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
-            setTotalListings(prev => Math.max(0, prev - count));
+            applyDisplaySelectionRemoval(groupChatSelectedIds);
             exitGroupChatSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} moved to Active.`);
             const plantCodes = selectedItems.map(item => item.plantCode ?? item.id);
@@ -1857,7 +1915,7 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [groupChatSelectedIds, dataTable, exitGroupChatSelectMode, onRefresh]);
+  }, [groupChatSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitGroupChatSelectMode]);
 
   const handleGroupChatBatchDeactivate = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
@@ -1871,7 +1929,7 @@ const ScreenListing = ({navigation}) => {
           text: 'Deactivate',
           style: 'destructive',
           onPress: async () => {
-            const selectedItems = dataTable.filter(item => groupChatSelectedIds.includes(item.id));
+            const selectedItems = listingsBySelectedIds(groupChatSelectedIds);
             const invalid = selectedItems.filter(
               item => (item.status || '').trim() !== 'GroupChatListing',
             );
@@ -1899,18 +1957,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [groupChatSelectedIds, dataTable, exitGroupChatSelectMode]);
+  }, [groupChatSelectedIds, listingsBySelectedIds, exitGroupChatSelectMode]);
 
   const handleGroupChatEdit = useCallback(() => {
     if (groupChatSelectedIds.length !== 1) return;
-    const selectedItem = dataTable.find(item => item.id === groupChatSelectedIds[0]);
+    const selectedItem = listingBySelectedId(groupChatSelectedIds[0]);
     if (!selectedItem) return;
     exitGroupChatSelectMode();
     navigation.navigate('ScreenListingDetail', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       plantCode: selectedItem.plantCode,
     });
-  }, [groupChatSelectedIds, dataTable, exitGroupChatSelectMode, navigation]);
+  }, [groupChatSelectedIds, listingBySelectedId, exitGroupChatSelectMode, navigation]);
 
   const handleGroupChatBatchDelete = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
@@ -1924,19 +1982,11 @@ const ScreenListing = ({navigation}) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => groupChatSelectedIds.includes(item.id));
-            const removeItem = arr => arr.filter(l => !groupChatSelectedIds.includes(l.id));
-            setDataTable(removeItem(dataTable));
-            allListingsRef.current = removeItem(allListingsRef.current);
-            allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
-            setTotalListings(prev => Math.max(0, prev - count));
+            const selectedItems = listingsBySelectedIds(groupChatSelectedIds);
+            applyDisplaySelectionRemoval(groupChatSelectedIds);
             exitGroupChatSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            Promise.all(
-              selectedItems.map(item =>
-                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
-              ),
-            ).then(results => {
+            deleteListingsInChunks(selectedItems).then(results => {
               if (results.some(r => r === null)) {
                 showToast('Some listings failed to delete.', 'error');
                 onRefresh();
@@ -1946,18 +1996,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [groupChatSelectedIds, dataTable, exitGroupChatSelectMode, onRefresh]);
+  }, [groupChatSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitGroupChatSelectMode]);
 
   const handleGroupChatDiscountNav = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
-    const selectedRows = dataTable.filter(item => groupChatSelectedIds.includes(item.id));
+    const selectedRows = listingsBySelectedIds(groupChatSelectedIds);
     exitGroupChatSelectMode();
     navigation.navigate('ScreenListingAction', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       dataTable: selectedRows,
       activeTab: 'Group Chat Listing',
     });
-  }, [groupChatSelectedIds, dataTable, exitGroupChatSelectMode, navigation]);
+  }, [groupChatSelectedIds, listingsBySelectedIds, exitGroupChatSelectMode, navigation]);
 
   const handleInactiveBatchActivate = useCallback(() => {
     if (inactiveSelectedIds.length === 0) return;
@@ -1970,7 +2020,7 @@ const ScreenListing = ({navigation}) => {
         {
           text: 'Activate',
           onPress: async () => {
-            const selectedItems = dataTable.filter(item => inactiveSelectedIds.includes(item.id));
+            const selectedItems = listingsBySelectedIds(inactiveSelectedIds);
             const notInactive = selectedItems.filter(
               item => (item.status || '').trim().toLowerCase() !== 'inactive',
             );
@@ -1998,18 +2048,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [inactiveSelectedIds, dataTable, exitInactiveSelectMode]);
+  }, [inactiveSelectedIds, listingsBySelectedIds, exitInactiveSelectMode]);
 
   const handleInactiveEdit = useCallback(() => {
     if (inactiveSelectedIds.length !== 1) return;
-    const selectedItem = dataTable.find(item => item.id === inactiveSelectedIds[0]);
+    const selectedItem = listingBySelectedId(inactiveSelectedIds[0]);
     if (!selectedItem) return;
     exitInactiveSelectMode();
     navigation.navigate('ScreenListingDetail', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       plantCode: selectedItem.plantCode,
     });
-  }, [inactiveSelectedIds, dataTable, exitInactiveSelectMode, navigation]);
+  }, [inactiveSelectedIds, listingBySelectedId, exitInactiveSelectMode, navigation]);
 
   const handleInactiveBatchDelete = useCallback(() => {
     if (inactiveSelectedIds.length === 0) return;
@@ -2023,19 +2073,11 @@ const ScreenListing = ({navigation}) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => inactiveSelectedIds.includes(item.id));
-            const removeItem = arr => arr.filter(l => !inactiveSelectedIds.includes(l.id));
-            setDataTable(removeItem(dataTable));
-            allListingsRef.current = removeItem(allListingsRef.current);
-            allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
-            setTotalListings(prev => Math.max(0, prev - count));
+            const selectedItems = listingsBySelectedIds(inactiveSelectedIds);
+            applyDisplaySelectionRemoval(inactiveSelectedIds);
             exitInactiveSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            Promise.all(
-              selectedItems.map(item =>
-                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
-              ),
-            ).then(results => {
+            deleteListingsInChunks(selectedItems).then(results => {
               if (results.some(r => r === null)) {
                 showToast('Some listings failed to delete.', 'error');
                 onRefresh();
@@ -2045,18 +2087,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [inactiveSelectedIds, dataTable, exitInactiveSelectMode, onRefresh]);
+  }, [inactiveSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitInactiveSelectMode]);
 
   const handleInactiveDiscountNav = useCallback(() => {
     if (inactiveSelectedIds.length === 0) return;
-    const selectedRows = dataTable.filter(item => inactiveSelectedIds.includes(item.id));
+    const selectedRows = listingsBySelectedIds(inactiveSelectedIds);
     exitInactiveSelectMode();
     navigation.navigate('ScreenListingAction', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       dataTable: selectedRows,
       activeTab: 'Inactive',
     });
-  }, [inactiveSelectedIds, dataTable, exitInactiveSelectMode, navigation]);
+  }, [inactiveSelectedIds, listingsBySelectedIds, exitInactiveSelectMode, navigation]);
 
   const handleDiscountedBatchDeactivate = useCallback(() => {
     if (discountedSelectedIds.length === 0) return;
@@ -2070,7 +2112,7 @@ const ScreenListing = ({navigation}) => {
           text: 'Deactivate',
           style: 'destructive',
           onPress: async () => {
-            const selectedItems = dataTable.filter(item => discountedSelectedIds.includes(item.id));
+            const selectedItems = listingsBySelectedIds(discountedSelectedIds);
             const notActive = selectedItems.filter(
               item => (item.status || '').trim().toLowerCase() !== 'active',
             );
@@ -2098,18 +2140,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [discountedSelectedIds, dataTable, exitDiscountedSelectMode]);
+  }, [discountedSelectedIds, listingsBySelectedIds, exitDiscountedSelectMode]);
 
   const handleDiscountedEdit = useCallback(() => {
     if (discountedSelectedIds.length !== 1) return;
-    const selectedItem = dataTable.find(item => item.id === discountedSelectedIds[0]);
+    const selectedItem = listingBySelectedId(discountedSelectedIds[0]);
     if (!selectedItem) return;
     exitDiscountedSelectMode();
     navigation.navigate('ScreenListingDetail', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       plantCode: selectedItem.plantCode,
     });
-  }, [discountedSelectedIds, dataTable, exitDiscountedSelectMode, navigation]);
+  }, [discountedSelectedIds, listingBySelectedId, exitDiscountedSelectMode, navigation]);
 
   const handleDiscountedBatchDelete = useCallback(() => {
     if (discountedSelectedIds.length === 0) return;
@@ -2123,19 +2165,11 @@ const ScreenListing = ({navigation}) => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const selectedItems = dataTable.filter(item => discountedSelectedIds.includes(item.id));
-            const removeItem = arr => arr.filter(l => !discountedSelectedIds.includes(l.id));
-            setDataTable(removeItem(dataTable));
-            allListingsRef.current = removeItem(allListingsRef.current);
-            allDisplayListingsRef.current = removeItem(allDisplayListingsRef.current);
-            setTotalListings(prev => Math.max(0, prev - count));
+            const selectedItems = listingsBySelectedIds(discountedSelectedIds);
+            applyDisplaySelectionRemoval(discountedSelectedIds);
             exitDiscountedSelectMode();
             showToast(`${count} listing${count > 1 ? 's' : ''} deleted.`);
-            Promise.all(
-              selectedItems.map(item =>
-                postListingDeleteApi(item.plantCode ?? item.id).catch(() => null),
-              ),
-            ).then(results => {
+            deleteListingsInChunks(selectedItems).then(results => {
               if (results.some(r => r === null)) {
                 showToast('Some listings failed to delete.', 'error');
                 onRefresh();
@@ -2145,18 +2179,18 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [discountedSelectedIds, dataTable, exitDiscountedSelectMode, onRefresh]);
+  }, [discountedSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitDiscountedSelectMode]);
 
   const handleDiscountedDiscountNav = useCallback(() => {
     if (discountedSelectedIds.length === 0) return;
-    const selectedRows = dataTable.filter(item => discountedSelectedIds.includes(item.id));
+    const selectedRows = listingsBySelectedIds(discountedSelectedIds);
     exitDiscountedSelectMode();
     navigation.navigate('ScreenListingAction', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       dataTable: selectedRows,
       activeTab: 'Discounted',
     });
-  }, [discountedSelectedIds, dataTable, exitDiscountedSelectMode, navigation]);
+  }, [discountedSelectedIds, listingsBySelectedIds, exitDiscountedSelectMode, navigation]);
 
   const onPressDeleteConfirm = () => {
     setActionShowSheet(false);
@@ -2196,6 +2230,14 @@ const ScreenListing = ({navigation}) => {
             : activeTab === 'All'
               ? allSelectedIds
               : [];
+  const listingManageSelectableTotal = getTabSelectableListings().length;
+  const listingManageAllSelected =
+    listingManageSelectableTotal > 0 &&
+    listingManageSelectedIds.length === listingManageSelectableTotal;
+  const liveSelectableTotal =
+    liveAllListingsRef.current.length || dataTable.length;
+  const liveAllSelected =
+    liveSelectableTotal > 0 && liveSelectedIds.length === liveSelectableTotal;
   const onListingManageToggleSelect =
     activeTab === 'Active'
       ? toggleActiveSelect
@@ -2462,12 +2504,18 @@ const ScreenListing = ({navigation}) => {
                   <View style={styles.liveSelectModeContainer}>
                     <View style={styles.liveToolbarRow}>
                       <TouchableOpacity onPress={toggleLiveSelectAll} style={styles.liveSelectAllBtn}>
-                        <View style={[styles.liveCheckbox, liveSelectedIds.length === dataTable.length && styles.liveCheckboxChecked]}>
-                          {liveSelectedIds.length === dataTable.length && <Text style={styles.liveCheckmark}>✓</Text>}
+                        <View style={[styles.liveCheckbox, liveAllSelected && styles.liveCheckboxChecked]}>
+                          {liveAllSelected && <Text style={styles.liveCheckmark}>✓</Text>}
                         </View>
                         <Text style={styles.liveToolbarText}>Select All</Text>
                       </TouchableOpacity>
-                      <Text style={styles.liveToolbarCount}>{liveSelectedIds.length} selected</Text>
+                      <Text style={styles.liveToolbarCount}>
+                        {liveSelectedIds.length}
+                        {liveSelectableTotal > liveSelectedIds.length
+                          ? ` of ${liveSelectableTotal}`
+                          : ''}{' '}
+                        selected
+                      </Text>
                       <TouchableOpacity onPress={exitLiveSelectMode} style={styles.liveCancelBtn}>
                         <Text style={styles.liveCancelBtnText}>Cancel</Text>
                       </TouchableOpacity>
@@ -2476,7 +2524,7 @@ const ScreenListing = ({navigation}) => {
                       {showB2bUsdBanner ? (
                         <TouchableOpacity
                           onPress={() =>
-                            openPushToCart(dataTable.filter(item => liveSelectedIds.includes(item.id)))
+                            openPushToCart(listingsBySelectedIds(liveSelectedIds))
                           }
                           disabled={liveSelectedIds.length === 0}
                           style={[styles.liveActionChip, styles.liveCartChip, liveSelectedIds.length === 0 && {opacity: 0.4}]}>
@@ -2596,15 +2644,21 @@ const ScreenListing = ({navigation}) => {
                         <View
                           style={[
                             styles.liveCheckbox,
-                            listingManageSelectedIds.length === dataTable.length && styles.liveCheckboxChecked,
+                            listingManageAllSelected && styles.liveCheckboxChecked,
                           ]}>
-                          {listingManageSelectedIds.length === dataTable.length && (
+                          {listingManageAllSelected && (
                             <Text style={styles.liveCheckmark}>✓</Text>
                           )}
                         </View>
                         <Text style={styles.liveToolbarText}>Select All</Text>
                       </TouchableOpacity>
-                      <Text style={styles.liveToolbarCount}>{listingManageSelectedIds.length} selected</Text>
+                      <Text style={styles.liveToolbarCount}>
+                        {listingManageSelectedIds.length}
+                        {listingManageSelectableTotal > listingManageSelectedIds.length
+                          ? ` of ${listingManageSelectableTotal}`
+                          : ''}{' '}
+                        selected
+                      </Text>
                       <TouchableOpacity onPress={onListingManageExit} style={styles.liveCancelBtn}>
                         <Text style={styles.liveCancelBtnText}>Cancel</Text>
                       </TouchableOpacity>
@@ -2613,9 +2667,7 @@ const ScreenListing = ({navigation}) => {
                       {showB2bUsdBanner && activeTab !== 'Inactive' ? (
                         <TouchableOpacity
                           onPress={() =>
-                            openPushToCart(
-                              dataTable.filter(item => listingManageSelectedIds.includes(item.id)),
-                            )
+                            openPushToCart(listingsBySelectedIds(listingManageSelectedIds))
                           }
                           disabled={listingManageSelectedIds.length === 0}
                           style={[
