@@ -2610,198 +2610,208 @@ const ScreenListing = ({navigation}) => {
           </View>
         </View>
       ) : (
-        <ScrollView
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          style={[styles.container]}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom,
-          }}
-          scrollEventThrottle={400}
-          onScroll={({ nativeEvent }) => {
-            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-            if (
-              layoutMeasurement.height + contentOffset.y >= contentSize.height - 200 &&
-              !allLoadingMore &&
-              allHasMore
-            ) {
-              loadMoreAllListings();
-            }
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: '#fff',
-              minHeight: dataTable.length != 0 && screenHeight * 0.9,
-            }}>
-            {showListingManageToolbar && (
-              <View style={[styles.liveToolbar, listingManageSelectMode && styles.liveToolbarSelectMode]}>
-                {listingManageSelectMode ? (
-                  <View style={styles.liveSelectModeContainer}>
-                    <View style={styles.liveToolbarRow}>
-                      <TouchableOpacity onPress={onListingManageSelectAll} style={styles.liveSelectAllBtn}>
-                        <View
-                          style={[
-                            styles.liveCheckbox,
-                            listingManageAllSelected && styles.liveCheckboxChecked,
-                          ]}>
-                          {listingManageAllSelected && (
-                            <Text style={styles.liveCheckmark}>✓</Text>
-                          )}
-                        </View>
-                        <Text style={styles.liveToolbarText}>Select All</Text>
+        <View style={[styles.container, {flex: 1}]}>
+          {/* Keep Manage / select actions pinned above the table so they stay
+              reachable after scrolling (Group Chat Listing Select All / Delete). */}
+          {showListingManageToolbar && (
+            <View
+              style={[
+                styles.liveToolbar,
+                listingManageSelectMode && styles.liveToolbarSelectMode,
+                styles.listingManageToolbarPinned,
+              ]}>
+              {listingManageSelectMode ? (
+                <View style={styles.liveSelectModeContainer}>
+                  <View style={styles.liveToolbarRow}>
+                    <TouchableOpacity onPress={onListingManageSelectAll} style={styles.liveSelectAllBtn}>
+                      <View
+                        style={[
+                          styles.liveCheckbox,
+                          listingManageAllSelected && styles.liveCheckboxChecked,
+                        ]}>
+                        {listingManageAllSelected && (
+                          <Text style={styles.liveCheckmark}>✓</Text>
+                        )}
+                      </View>
+                      <Text style={styles.liveToolbarText}>Select All</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.liveToolbarCount}>
+                      {listingManageSelectedIds.length}
+                      {listingManageSelectableTotal > listingManageSelectedIds.length
+                        ? ` of ${listingManageSelectableTotal}`
+                        : ''}{' '}
+                      selected
+                    </Text>
+                    <TouchableOpacity onPress={onListingManageExit} style={styles.liveCancelBtn}>
+                      <Text style={styles.liveCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.liveActionsRow}>
+                    {showB2bUsdBanner && activeTab !== 'Inactive' ? (
+                      <TouchableOpacity
+                        onPress={() =>
+                          openPushToCart(listingsBySelectedIds(listingManageSelectedIds))
+                        }
+                        disabled={listingManageSelectedIds.length === 0}
+                        style={[
+                          styles.liveActionChip,
+                          styles.liveCartChip,
+                          listingManageSelectedIds.length === 0 && {opacity: 0.4},
+                        ]}>
+                        <Text style={styles.liveActionChipText}>To cart</Text>
                       </TouchableOpacity>
-                      <Text style={styles.liveToolbarCount}>
-                        {listingManageSelectedIds.length}
-                        {listingManageSelectableTotal > listingManageSelectedIds.length
-                          ? ` of ${listingManageSelectableTotal}`
-                          : ''}{' '}
-                        selected
-                      </Text>
-                      <TouchableOpacity onPress={onListingManageExit} style={styles.liveCancelBtn}>
-                        <Text style={styles.liveCancelBtnText}>Cancel</Text>
+                    ) : null}
+                    {activeTab === 'Group Chat Listing' ? (
+                      <TouchableOpacity
+                        onPress={handleGroupChatBatchExportToMainstream}
+                        disabled={listingManageSelectedIds.length === 0}
+                        style={[
+                          styles.liveActionChip,
+                          styles.liveExportChip,
+                          listingManageSelectedIds.length === 0 && {opacity: 0.4},
+                        ]}>
+                        <Text style={styles.liveActionChipText}>Export</Text>
                       </TouchableOpacity>
-                    </View>
-                    <View style={styles.liveActionsRow}>
-                      {showB2bUsdBanner && activeTab !== 'Inactive' ? (
+                    ) : null}
+                    {activeTab !== 'All' ? (
+                      <>
                         <TouchableOpacity
-                          onPress={() =>
-                            openPushToCart(listingsBySelectedIds(listingManageSelectedIds))
-                          }
-                          disabled={listingManageSelectedIds.length === 0}
-                          style={[
-                            styles.liveActionChip,
-                            styles.liveCartChip,
-                            listingManageSelectedIds.length === 0 && {opacity: 0.4},
-                          ]}>
-                          <Text style={styles.liveActionChipText}>To cart</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                      {activeTab === 'Group Chat Listing' ? (
-                        <TouchableOpacity
-                          onPress={handleGroupChatBatchExportToMainstream}
+                          onPress={onListingManageDiscount}
                           disabled={listingManageSelectedIds.length === 0}
                           style={[
                             styles.liveActionChip,
                             styles.liveExportChip,
                             listingManageSelectedIds.length === 0 && {opacity: 0.4},
                           ]}>
-                          <Text style={styles.liveActionChipText}>Export</Text>
+                          <Text style={styles.liveActionChipText}>Discount</Text>
                         </TouchableOpacity>
-                      ) : null}
-                      {activeTab !== 'All' ? (
-                      <>
-                      <TouchableOpacity
-                        onPress={onListingManageDiscount}
-                        disabled={listingManageSelectedIds.length === 0}
-                        style={[
-                          styles.liveActionChip,
-                          styles.liveExportChip,
-                          listingManageSelectedIds.length === 0 && { opacity: 0.4 },
-                        ]}>
-                        <Text style={styles.liveActionChipText}>Discount</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={onListingManageEdit}
-                        disabled={listingManageSelectedIds.length !== 1}
-                        style={[
-                          styles.liveActionChip,
-                          styles.liveEditChip,
-                          listingManageSelectedIds.length !== 1 && { opacity: 0.4 },
-                        ]}>
-                        <Text style={styles.liveEditChipText}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={onListingManageBulkStatus}
-                        disabled={listingManageSelectedIds.length === 0}
-                        style={[
-                          styles.liveActionChip,
-                          styles.liveDeactivateChip,
-                          listingManageSelectedIds.length === 0 && { opacity: 0.4 },
-                        ]}>
-                        <Text style={styles.liveActionChipText}>{listingManageBulkStatusLabel}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={onListingManageDelete}
-                        disabled={listingManageSelectedIds.length === 0}
-                        style={[
-                          styles.liveActionChip,
-                          styles.liveDeleteChip,
-                          listingManageSelectedIds.length === 0 && { opacity: 0.4 },
-                        ]}>
-                        <Text style={styles.liveActionChipText}>Delete</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={onListingManageEdit}
+                          disabled={listingManageSelectedIds.length !== 1}
+                          style={[
+                            styles.liveActionChip,
+                            styles.liveEditChip,
+                            listingManageSelectedIds.length !== 1 && {opacity: 0.4},
+                          ]}>
+                          <Text style={styles.liveEditChipText}>Edit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={onListingManageBulkStatus}
+                          disabled={listingManageSelectedIds.length === 0}
+                          style={[
+                            styles.liveActionChip,
+                            styles.liveDeactivateChip,
+                            listingManageSelectedIds.length === 0 && {opacity: 0.4},
+                          ]}>
+                          <Text style={styles.liveActionChipText}>
+                            {listingManageBulkStatusLabel}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={onListingManageDelete}
+                          disabled={listingManageSelectedIds.length === 0}
+                          style={[
+                            styles.liveActionChip,
+                            styles.liveDeleteChip,
+                            listingManageSelectedIds.length === 0 && {opacity: 0.4},
+                          ]}>
+                          <Text style={styles.liveActionChipText}>Delete</Text>
+                        </TouchableOpacity>
                       </>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
-                      <RefreshIcon width={18} height={18} />
-                    </TouchableOpacity>
-                    {showB2bUsdBanner ? (
-                      <TouchableOpacity
-                        onPress={() => navigation.navigate('ScreenB2BListingEdit')}
-                        style={[styles.liveManageBtn, styles.usdEditToolbarBtn]}>
-                        <Text style={styles.usdEditBtnText}>Edit</Text>
-                      </TouchableOpacity>
                     ) : null}
-                    <TouchableOpacity onPress={onListingManageEnter} style={styles.liveManageBtn}>
-                      <Text style={styles.liveManageBtnText}>Manage</Text>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
+                    <RefreshIcon width={18} height={18} />
+                  </TouchableOpacity>
+                  {showB2bUsdBanner ? (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('ScreenB2BListingEdit')}
+                      style={[styles.liveManageBtn, styles.usdEditToolbarBtn]}>
+                      <Text style={styles.usdEditBtnText}>Edit</Text>
                     </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
-            {loading ? (
-              <View style={styles.contents}>
-                <ListingTableSkeleton rowCount={ALL_DISPLAY_PAGE} />
-              </View>
-            ) : dataTable && dataTable.length > 0 ? (
-              <View style={styles.contents}>
-                <ListingTable
-                  headers={headers}
-                  data={dataTable}
-                  onEditPressFilter={onEditPressFilter}
-                  onPressDiscount={onPressDiscount}
-                  onPressUpdateStock={onPressUpdateStockShow}
-                  module={'MAIN'}
-                  navigateToListAction={onPressCheck}
-                  style={{}}
-                  onPressTableListPin={onPressTableListPin}
-                  onPressRemoveDiscountPost={onPressRemoveDiscountPost}
-                  onNavigateToDetail={onNavigateToDetail}
-                  activeTab={activeTab}
-                  onPressSetToActive={onPressSetToActive}
-                  manageSelectMode={listingManageSelectMode}
-                  manageSelectedIds={listingManageSelectedIds}
-                  onManageToggleSelect={onListingManageToggleSelect}
-                />
-                {allLoadingMore && (
-                  <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-                    <ActivityIndicator size="small" color="#48A7F8" />
-                  </View>
-                )}
-                {!allHasMore && totalListings > 0 && !loading && (
-                  <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 12, color: '#9DA5A7' }}>
-                      {totalListings} listing{totalListings !== 1 ? 's' : ''} total
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ) : !loading ? (
-              <View style={{ alignItems: 'center', paddingTop: 80, flex: 1 }}>
-                <Image
-                  source={imageMap[normalizeKey(activeTab)]}
-                  style={{ width: 300, height: 300, resizeMode: 'contain' }}
-                />
-              </View>
-            ) : null}
-          </View>
-        </ScrollView>
+                  ) : null}
+                  <TouchableOpacity onPress={onListingManageEnter} style={styles.liveManageBtn}>
+                    <Text style={styles.liveManageBtnText}>Manage</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          )}
+          <ScrollView
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            style={[styles.container, {flex: 1}]}
+            contentContainerStyle={{
+              paddingBottom: insets.bottom,
+            }}
+            scrollEventThrottle={400}
+            onScroll={({nativeEvent}) => {
+              const {layoutMeasurement, contentOffset, contentSize} = nativeEvent;
+              if (
+                layoutMeasurement.height + contentOffset.y >= contentSize.height - 200 &&
+                !allLoadingMore &&
+                allHasMore
+              ) {
+                loadMoreAllListings();
+              }
+            }}>
+            <View
+              style={{
+                backgroundColor: '#fff',
+                minHeight: dataTable.length != 0 && screenHeight * 0.9,
+              }}>
+              {loading ? (
+                <View style={styles.contents}>
+                  <ListingTableSkeleton rowCount={ALL_DISPLAY_PAGE} />
+                </View>
+              ) : dataTable && dataTable.length > 0 ? (
+                <View style={styles.contents}>
+                  <ListingTable
+                    headers={headers}
+                    data={dataTable}
+                    onEditPressFilter={onEditPressFilter}
+                    onPressDiscount={onPressDiscount}
+                    onPressUpdateStock={onPressUpdateStockShow}
+                    module={'MAIN'}
+                    navigateToListAction={onPressCheck}
+                    style={{}}
+                    onPressTableListPin={onPressTableListPin}
+                    onPressRemoveDiscountPost={onPressRemoveDiscountPost}
+                    onNavigateToDetail={onNavigateToDetail}
+                    activeTab={activeTab}
+                    onPressSetToActive={onPressSetToActive}
+                    manageSelectMode={listingManageSelectMode}
+                    manageSelectedIds={listingManageSelectedIds}
+                    onManageToggleSelect={onListingManageToggleSelect}
+                  />
+                  {allLoadingMore && (
+                    <View style={{paddingVertical: 16, alignItems: 'center'}}>
+                      <ActivityIndicator size="small" color="#48A7F8" />
+                    </View>
+                  )}
+                  {!allHasMore && totalListings > 0 && !loading && (
+                    <View style={{paddingVertical: 12, alignItems: 'center'}}>
+                      <Text style={{fontSize: 12, color: '#9DA5A7'}}>
+                        {totalListings} listing{totalListings !== 1 ? 's' : ''} total
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : !loading ? (
+                <View style={{alignItems: 'center', paddingTop: 80, flex: 1}}>
+                  <Image
+                    source={imageMap[normalizeKey(activeTab)]}
+                    style={{width: 300, height: 300, resizeMode: 'contain'}}
+                  />
+                </View>
+              ) : null}
+            </View>
+          </ScrollView>
+        </View>
       )}
 
 
@@ -3277,6 +3287,11 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     justifyContent: 'flex-start',
     paddingBottom: 10,
+  },
+  listingManageToolbarPinned: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E9EA',
+    zIndex: 2,
   },
   liveSelectModeContainer: {
     width: '100%',
