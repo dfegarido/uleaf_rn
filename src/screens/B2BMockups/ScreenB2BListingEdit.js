@@ -16,6 +16,11 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {AuthContext} from '../../auth/AuthProvider';
 import {updateB2BListingApi} from '../../components/Api/b2bListingApi';
 import {fetchSellerListingsFromSupabase} from '../../utils/fetchSellerListingsFromSupabase';
+import {
+  accountClassFromUserInfo,
+  isAsiaBusinessAccount,
+  isGroupChatListingStatus,
+} from '../../utils/b2bShell';
 import MockupHeader from './MockupHeader';
 
 const POTS = ['2"', '4"', '6"'];
@@ -30,6 +35,13 @@ const CHANNELS = [
   {key: 'active', label: 'Active', status: 'Active'},
   {key: 'all', label: 'All', status: 'Live,GroupChatListing,Active'},
 ];
+
+const CHANNELS_WITHOUT_GROUP_CHAT = CHANNELS.filter(item => item.key !== 'group').map(
+  item =>
+    item.key === 'all'
+      ? {...item, status: 'Live,Active'}
+      : item,
+);
 
 const cycle = (options, value) => {
   const idx = options.indexOf(value);
@@ -139,6 +151,14 @@ const ScreenB2BListingEdit = ({navigation}) => {
   const nestedUser = userInfo?.user || userInfo?.data || {};
   const sellerUid =
     userInfo?.uid || userInfo?.id || nestedUser.uid || nestedUser.id;
+  // Asia Business chat listings are not editable — hide that channel here.
+  const hideGroupChatEdit = isAsiaBusinessAccount(
+    accountClassFromUserInfo(userInfo),
+  );
+  const availableChannels = hideGroupChatEdit
+    ? CHANNELS_WITHOUT_GROUP_CHAT
+    : CHANNELS;
+  const listingTypeOptions = hideGroupChatEdit ? ['Live'] : TYPES;
   const [rows, setRows] = useState([]);
   const [baseline, setBaseline] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -158,6 +178,13 @@ const ScreenB2BListingEdit = ({navigation}) => {
     totalItems: 0,
   });
 
+  useEffect(() => {
+    if (hideGroupChatEdit && channel === 'group') {
+      setChannel('live');
+      setPage(1);
+    }
+  }, [hideGroupChatEdit, channel]);
+
   const selectedCount = selected.length;
   const pendingBulkPrice =
     manageMode && bulkTouched && bulkField === 'price' && selected.length
@@ -172,7 +199,8 @@ const ScreenB2BListingEdit = ({navigation}) => {
     [rows, baseline],
   );
 
-  const channelConfig = CHANNELS.find(item => item.key === channel) || CHANNELS[0];
+  const channelConfig =
+    availableChannels.find(item => item.key === channel) || availableChannels[0];
 
   const loadListings = useCallback(async ({isRefresh = false} = {}) => {
     if (isRefresh) {
@@ -199,9 +227,14 @@ const ScreenB2BListingEdit = ({navigation}) => {
           .split(',')
           .map(item => item.trim().toLowerCase()),
       );
-      const filtered = listings.filter(item =>
+      let filtered = listings.filter(item =>
         wanted.has(String(item.status || '').trim().toLowerCase()),
       );
+      if (hideGroupChatEdit) {
+        filtered = filtered.filter(
+          item => !isGroupChatListingStatus(item.status),
+        );
+      }
       totalItems = filtered.length;
       totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
       const start = (page - 1) * PAGE_SIZE;
@@ -233,7 +266,7 @@ const ScreenB2BListingEdit = ({navigation}) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [channel, channelConfig.status, page, sellerUid]);
+  }, [channel, channelConfig.status, page, sellerUid, hideGroupChatEdit]);
 
   useEffect(() => {
     loadListings();
@@ -402,13 +435,13 @@ const ScreenB2BListingEdit = ({navigation}) => {
       return STATUSES;
     }
     if (bulkField === 'listingType') {
-      return TYPES;
+      return listingTypeOptions;
     }
     if (bulkField === 'pin') {
       return ['Pin', 'Unpin'];
     }
     return null;
-  }, [bulkField]);
+  }, [bulkField, listingTypeOptions]);
 
   const renderItem = ({item: row}) => {
     const original = baseline.find(item => item.id === row.id);
@@ -468,7 +501,11 @@ const ScreenB2BListingEdit = ({navigation}) => {
           <Chip
             label="Type"
             value={row.listingType}
-            onPress={() => updateRow(row.id, {listingType: cycle(TYPES, row.listingType)})}
+            onPress={() =>
+              updateRow(row.id, {
+                listingType: cycle(listingTypeOptions, row.listingType),
+              })
+            }
           />
           <Chip
             label="Pot"
@@ -494,7 +531,7 @@ const ScreenB2BListingEdit = ({navigation}) => {
         keyboardVerticalOffset={8}>
 
       <View style={styles.channelRow}>
-        {CHANNELS.map(item => (
+        {availableChannels.map(item => (
           <TouchableOpacity
             key={item.key}
             style={[styles.channelChip, channel === item.key && styles.channelChipOn]}

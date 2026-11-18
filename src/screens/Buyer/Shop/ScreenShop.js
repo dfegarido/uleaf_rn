@@ -55,6 +55,11 @@ import { getBuyerContentApi,
   getChatDetailApi,
   getChatShopsApi,
 } from '../../../components/Api/shopContentApi';
+import {
+  accountClassFromUserInfo,
+  filterSellerChatShopsForAccount,
+} from '../../../utils/b2bShell';
+import { getB2BAccountApi } from '../../../components/Api/b2bAccountApi';
 import { addToCartApi,
   getBuyerListingsApi,
   getGenusApi,
@@ -972,8 +977,28 @@ const ScreenShop = ({navigation}) => {
         return aTime - bTime;
       });
 
-      console.log(`📱 Loaded ${sortedShops.length} chat shops for buyer (sorted by priority)`);
-      setChatShops(sortedShops);
+      // Asia Business sellers: only AFTER LIVE Backstage stays in the chat shop list.
+      let accountClass = accountClassFromUserInfo(user);
+      if (!accountClass) {
+        try {
+          const b2b = await getB2BAccountApi();
+          accountClass =
+            b2b?.data?.account?.accountClass ||
+            b2b?.data?.accountClass ||
+            '';
+        } catch (_) {}
+      }
+      const visibleShops = filterSellerChatShopsForAccount(
+        sortedShops,
+        accountClass,
+      );
+      console.log(
+        `📱 Loaded ${sortedShops.length} chat shops for buyer` +
+          (visibleShops.length !== sortedShops.length
+            ? ` (showing ${visibleShops.length} after Asia Business filter)`
+            : ''),
+      );
+      setChatShops(visibleShops);
     } catch (error) {
       console.error('Error loading chat shops:', error);
       // Silent fail - chat shops are not critical

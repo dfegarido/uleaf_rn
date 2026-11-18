@@ -17,7 +17,14 @@ import {   Alert,
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { isUsBusinessUser, accountClassFromUserInfo, canEditListingsInUsd, pricingModelLabel, mergeB2BAccountIntoUserInfo } from '../../../utils/b2bShell';
+import {
+  isUsBusinessUser,
+  accountClassFromUserInfo,
+  canEditListingsInUsd,
+  pricingModelLabel,
+  mergeB2BAccountIntoUserInfo,
+  filterSellerChatShopsForAccount,
+} from '../../../utils/b2bShell';
 import { getB2BAccountApi, switchListingModeApi } from '../../../components/Api/b2bAccountApi';
 import { CustomSalesChart } from '../../../components/Charts';
 import AppUpdateCard from '../../../components/AppUpdateCard';
@@ -96,7 +103,16 @@ const ScreenHome = ({navigation}) => {
           result?.data?.account?.accountClass ||
           result?.data?.accountClass ||
           accountClassFromUserInfo(userInfo);
-        if (serverClass) setAccountClass(serverClass);
+        if (serverClass) {
+          setAccountClass(prev => {
+            if (prev !== serverClass) {
+              // Re-filter chat shops once class is known (mount often loads shops
+              // before b2b-account returns Asia Business).
+              loadChatShops(serverClass).catch(() => {});
+            }
+            return serverClass;
+          });
+        }
         setCanSelfSwitch(result?.data?.account?.canSelfSwitch === true);
       })();
       return () => {
@@ -128,6 +144,9 @@ const ScreenHome = ({navigation}) => {
     loadSalesData().catch(err => console.log('Sales reload after switch:', err.message));
     loadSalesPerformanceData(dropdownDuration).catch(err =>
       console.log('Performance reload after switch:', err.message),
+    );
+    loadChatShops(nextClass).catch(err =>
+      console.log('Chat shops reload after switch:', err.message),
     );
     const merged = mergeB2BAccountIntoUserInfo(userInfo, {accountClass: nextClass});
     if (merged) {
@@ -255,8 +274,9 @@ const ScreenHome = ({navigation}) => {
   };
   // Events
 
-  // Load chat shops from Supabase (supplier shops the seller is a member of)
-  const loadChatShops = async () => {
+  // Load chat shops from Supabase (supplier shops the seller is a member of).
+  // optionalAccountClass: pass the class after a mode switch (state may still be stale).
+  const loadChatShops = async (optionalAccountClass) => {
     try {
       setLoadingChatShops(true);
       
@@ -276,8 +296,31 @@ const ScreenHome = ({navigation}) => {
       }
       
       const sortedAllShops = res.shops || [];
-      console.log(`📦 Found ${sortedAllShops.length} accessible supplier chat shops`);
-      setChatShops(sortedAllShops);
+      // Asia Business: live-only for chat shops — keep AFTER LIVE Backstage only.
+      let classForFilter =
+        optionalAccountClass ||
+        accountClass ||
+        accountClassFromUserInfo(userInfo);
+      if (!classForFilter) {
+        try {
+          const b2b = await getB2BAccountApi();
+          classForFilter =
+            b2b?.data?.account?.accountClass ||
+            b2b?.data?.accountClass ||
+            '';
+        } catch (_) {}
+      }
+      const visibleShops = filterSellerChatShopsForAccount(
+        sortedAllShops,
+        classForFilter,
+      );
+      console.log(
+        `📦 Found ${sortedAllShops.length} accessible supplier chat shops` +
+          (visibleShops.length !== sortedAllShops.length
+            ? ` (showing ${visibleShops.length} after Asia Business filter)`
+            : ''),
+      );
+      setChatShops(visibleShops);
     } catch (error) {
       console.error('❌ Error loading chat shops:', error);
       // Silent fail - chat shops are not critical

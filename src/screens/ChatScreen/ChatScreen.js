@@ -35,6 +35,10 @@ import {
   PRESENCE_ACTIVE_WINDOW_MS,
   formatPresenceLabel as formatPeerPresenceLabel,
 } from '../../utils/chatPresence';
+import {
+  accountClassFromUserInfo,
+  isAsiaBusinessChatListingEditDisabled,
+} from '../../utils/b2bShell';
 
 // Helper function to format date/time for separators
 const formatMessageDateTime = (timestamp) => {
@@ -708,6 +712,19 @@ const ChatScreen = ({navigation, route}) => {
         Alert.alert('Cannot edit', "You can only edit a listing you own.");
         return;
       }
+      if (
+        isAsiaBusinessChatListingEditDisabled(
+          accountClassFromUserInfo(userInfo),
+          target.listingStatus ||
+            (showBackstageIgIndex ? 'GroupChatListing' : ''),
+        )
+      ) {
+        Alert.alert(
+          'Cannot edit',
+          'Asia Business chat listings cannot be edited.',
+        );
+        return;
+      }
       // `ScreenSingleSell` only exists in the seller/admin stack. Navigating to
       // it from the buyer shell throws (route not found), which is the "error"
       // seen when tapping Edit on a shared card as a buyer.
@@ -1359,6 +1376,15 @@ const ChatScreen = ({navigation, route}) => {
   const canEditTooltipMessage = (msg) => {
     if (!msg) return false;
     if (msg.isListing) {
+      if (
+        isAsiaBusinessChatListingEditDisabled(
+          accountClassFromUserInfo(userInfo),
+          msg.listingStatus ||
+            (showBackstageIgIndex ? 'GroupChatListing' : ''),
+        )
+      ) {
+        return false;
+      }
       return Boolean(msg.isMyListing) && canEditListing;
     }
     return msg.senderId === currentUserUid;

@@ -18,6 +18,10 @@ import DiscountBadge from '../../../components/DiscountBadge/DiscountBadge';
 import {getListingDetails} from '../../../components/Api';
 import NetInfo from '@react-native-community/netinfo';
 import {AuthContext} from '../../../auth/AuthProvider';
+import {
+  accountClassFromUserInfo,
+  isAsiaBusinessChatListingEditDisabled,
+} from '../../../utils/b2bShell';
 import {retryAsync} from '../../../utils/utils';
 import {CustomSwitch} from '../../../components/Switch';
 import ConfirmRenew from './components/ConfirmRenew';
@@ -433,7 +437,13 @@ const ScreenListingDetail = ({navigation, route}) => {
   };
   // Pin Item
 
+  const chatListingEditDisabled = isAsiaBusinessChatListingEditDisabled(
+    accountClassFromUserInfo(userInfo),
+    listingData?.status,
+  );
+
   const openEditor = () => {
+    if (chatListingEditDisabled) return;
     const params = {
       plantCode: listingData?.plantCode,
       onGoBack: handleEditCallback,
@@ -527,12 +537,14 @@ const ScreenListingDetail = ({navigation, route}) => {
                   style={styles.headerIcon}>
                   <Text style={styles.cartHeaderText}>Cart</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                  onPress={openEditor}
-                  style={styles.headerIcon}>
-                  <EditIcon width={22} height={22} />
-                </TouchableOpacity>
+                {!chatListingEditDisabled ? (
+                  <TouchableOpacity
+                    hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+                    onPress={openEditor}
+                    style={styles.headerIcon}>
+                    <EditIcon width={22} height={22} />
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
                   onPress={onPressDeleteConfirm}
@@ -582,29 +594,11 @@ const ScreenListingDetail = ({navigation, route}) => {
                   {listingData?.genus} {listingData?.species}
                 </Text>
 
-                <TouchableOpacity
-                  onPress={() => {
-                    if (listingData?.listingType == 'Single Plant') {
-                      navigation.navigate('ScreenSingleSell', {
-                        plantCode: listingData?.plantCode,
-                        onGoBack: handleEditCallback,
-                      });
-                    }
-                    if (listingData?.listingType == 'Wholesale') {
-                      navigation.navigate('ScreenWholesaleSell', {
-                        plantCode: listingData?.plantCode,
-                        onGoBack: handleEditCallback,
-                      });
-                    }
-                    if (listingData?.listingType == "Grower's Choice") {
-                      navigation.navigate('ScreenGrowersSell', {
-                        plantCode: listingData?.plantCode,
-                        onGoBack: handleEditCallback,
-                      });
-                    }
-                  }}>
-                  <EditIcon width={20} height={20} />
-                </TouchableOpacity>
+                {!chatListingEditDisabled ? (
+                  <TouchableOpacity onPress={openEditor}>
+                    <EditIcon width={20} height={20} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
               <View
@@ -1157,6 +1151,7 @@ const ScreenListingDetail = ({navigation, route}) => {
         code={listingData?.listingType}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
+        hideEditListing={chatListingEditDisabled}
         onPressUpdateStockShow={() => {
           setActionShowSheet(false);
           setShowSheetUpdateStocks(true);

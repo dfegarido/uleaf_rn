@@ -22,6 +22,7 @@ const ListingActionSheet = ({
   onPressUpdateStockShow,
   onPressEdit,
   onPressDelete,
+  hideEditListing = false,
 }) => {
   const renderSheetContent = () => {
     switch (code) {
@@ -30,30 +31,32 @@ const ListingActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'15%'}>
+            heightPercent={hideEditListing ? '10%' : '15%'}>
             <View
               style={{
                 marginHorizontal: 20,
                 marginVertical: 20,
                 flexDirection: 'column',
               }}>
-              <TouchableOpacity
-                onPress={onPressEdit}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}>
-                <View style={{flexDirection: 'row'}}>
-                  <IconNote />
-                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                    Edit Listing
-                  </Text>
-                </View>
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </TouchableOpacity>
+              {!hideEditListing ? (
+                <TouchableOpacity
+                  onPress={onPressEdit}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingBottom: 20,
+                  }}>
+                  <View style={{flexDirection: 'row'}}>
+                    <IconNote />
+                    <Text style={{paddingLeft: 10, color: '#393D40'}}>
+                      Edit Listing
+                    </Text>
+                  </View>
+                  <View>
+                    <IconRight width={20} height={20} />
+                  </View>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity
                 onPress={() => onPressDelete()}
                 style={{
@@ -79,30 +82,32 @@ const ListingActionSheet = ({
           <ActionSheet
             visible={visible}
             onClose={onClose}
-            heightPercent={'20%'}>
+            heightPercent={hideEditListing ? '15%' : '20%'}>
             <View
               style={{
                 marginHorizontal: 20,
                 marginVertical: 20,
                 flexDirection: 'column',
               }}>
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingBottom: 20,
-                }}
-                onPress={onPressEdit}>
-                <View style={{flexDirection: 'row'}}>
-                  <IconNote width={20} height={20} />
-                  <Text style={{paddingLeft: 10, color: '#393D40'}}>
-                    Edit Listing
-                  </Text>
-                </View>
-                <View>
-                  <IconRight width={20} height={20} />
-                </View>
-              </TouchableOpacity>
+              {!hideEditListing ? (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingBottom: 20,
+                  }}
+                  onPress={onPressEdit}>
+                  <View style={{flexDirection: 'row'}}>
+                    <IconNote width={20} height={20} />
+                    <Text style={{paddingLeft: 10, color: '#393D40'}}>
+                      Edit Listing
+                    </Text>
+                  </View>
+                  <View>
+                    <IconRight width={20} height={20} />
+                  </View>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity
                 onPress={onPressUpdateStockShow}
                 style={{

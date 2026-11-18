@@ -197,6 +197,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
       isListing: true,
       listingId,
       plantCode: listing.plantCode,
+      listingStatus: listing.status || null,
       isMine: isMe,
       isMyListing,
       senderId: isMe ? currentUserUid : null,

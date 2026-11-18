@@ -16,7 +16,12 @@ import { ActivityIndicator,
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import { globalStyles } from '../../../assets/styles/styles';
 import { AuthContext } from '../../../auth/AuthProvider';
-import { canEditListingsInUsd, accountClassFromUserInfo } from '../../../utils/b2bShell';
+import {
+  canEditListingsInUsd,
+  accountClassFromUserInfo,
+  isAsiaBusinessAccount,
+  isAsiaBusinessChatListingEditDisabled,
+} from '../../../utils/b2bShell';
 import { getB2BAccountApi } from '../../../components/Api/b2bAccountApi';
 import ActionSheet from '../../../components/ActionSheet/ActionSheet';
 import { getAllPlantGenusApi,
@@ -1963,12 +1968,20 @@ const ScreenListing = ({navigation}) => {
     if (groupChatSelectedIds.length !== 1) return;
     const selectedItem = listingBySelectedId(groupChatSelectedIds[0]);
     if (!selectedItem) return;
+    if (
+      isAsiaBusinessChatListingEditDisabled(
+        accountClassFromUserInfo(userInfo),
+        selectedItem.status,
+      )
+    ) {
+      return;
+    }
     exitGroupChatSelectMode();
     navigation.navigate('ScreenListingDetail', {
       onGoBack: () => setIsInitialFetchRefresh(prev => !prev),
       plantCode: selectedItem.plantCode,
     });
-  }, [groupChatSelectedIds, listingBySelectedId, exitGroupChatSelectMode, navigation]);
+  }, [groupChatSelectedIds, listingBySelectedId, exitGroupChatSelectMode, navigation, userInfo]);
 
   const handleGroupChatBatchDelete = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
@@ -2327,6 +2340,15 @@ const ScreenListing = ({navigation}) => {
             : activeTab === 'All'
               ? () => setIsAllSelectMode(true)
               : () => {};
+  // Asia Business chat listings (Group Chat / After Live Backstage) cannot be edited.
+  const hideAsiaBusinessChatEdit =
+    isAsiaBusinessAccount(accountClassFromUserInfo(userInfo)) &&
+    activeTab === 'Group Chat Listing';
+  const hideRowSheetEditListing = isAsiaBusinessChatListingEditDisabled(
+    accountClassFromUserInfo(userInfo),
+    selectedItemStockUpdate?.status ||
+      (activeTab === 'Group Chat Listing' ? 'GroupChatListing' : ''),
+  );
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
@@ -2685,16 +2707,18 @@ const ScreenListing = ({navigation}) => {
                           ]}>
                           <Text style={styles.liveActionChipText}>Discount</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={onListingManageEdit}
-                          disabled={listingManageSelectedIds.length !== 1}
-                          style={[
-                            styles.liveActionChip,
-                            styles.liveEditChip,
-                            listingManageSelectedIds.length !== 1 && {opacity: 0.4},
-                          ]}>
-                          <Text style={styles.liveEditChipText}>Edit</Text>
-                        </TouchableOpacity>
+                        {!hideAsiaBusinessChatEdit ? (
+                          <TouchableOpacity
+                            onPress={onListingManageEdit}
+                            disabled={listingManageSelectedIds.length !== 1}
+                            style={[
+                              styles.liveActionChip,
+                              styles.liveEditChip,
+                              listingManageSelectedIds.length !== 1 && {opacity: 0.4},
+                            ]}>
+                            <Text style={styles.liveEditChipText}>Edit</Text>
+                          </TouchableOpacity>
+                        ) : null}
                         <TouchableOpacity
                           onPress={onListingManageBulkStatus}
                           disabled={listingManageSelectedIds.length === 0}
@@ -2726,7 +2750,7 @@ const ScreenListing = ({navigation}) => {
                   <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
                     <RefreshIcon width={18} height={18} />
                   </TouchableOpacity>
-                  {showB2bUsdBanner ? (
+                  {showB2bUsdBanner && !hideAsiaBusinessChatEdit ? (
                     <TouchableOpacity
                       onPress={() => navigation.navigate('ScreenB2BListingEdit')}
                       style={[styles.liveManageBtn, styles.usdEditToolbarBtn]}>
@@ -2858,16 +2882,18 @@ const ScreenListing = ({navigation}) => {
         code={actionSheetCode}
         visible={showActionSheet}
         onClose={() => setActionShowSheet(false)}
+        hideEditListing={hideRowSheetEditListing}
         onPressUpdateStockShow={() => {
           setActionShowSheet(false);
           setShowSheetUpdateStocks(true);
         }}
-        onPressEdit={() =>
+        onPressEdit={() => {
+          if (hideRowSheetEditListing) return;
           navigation.navigate('ScreenListingDetail', {
             onGoBack: setIsInitialFetchRefresh(prev => !prev),
             plantCode: selectedItemStockUpdate.plantCode,
-          })
-        }
+          });
+        }}
         onPressDelete={onPressDeleteConfirm}
       />
 

@@ -25,6 +25,11 @@ import { getChatsApi, getChatParticipantsBatchApi, chatCreateApi, markChatReadAp
 import { getChatShopsApi, getChatDetailApi } from '../../components/Api/shopContentApi';
 import { CACHE_CONFIGS, getCachedImageUri, setCachedImageUri } from '../../utils/imageCache';
 import { resolveSellerDisplayName } from '../../utils/resolveSellerAlias';
+import {
+  accountClassFromUserInfo,
+  filterSellerChatShopsForAccount,
+} from '../../utils/b2bShell';
+import { getB2BAccountApi } from '../../components/Api/b2bAccountApi';
 
 // Pre-load and cache the default avatar image to prevent RCTImageView errors
 const DefaultAvatar = require('../../assets/images/AvatarBig.png');
@@ -434,7 +439,21 @@ const MessagesScreen = ({navigation}) => {
         const result = await getChatShopsApi();
         // getChatShopsApi returns { success, data: [shops], error } — data is already
         // sorted by priority asc, then createdAt asc by the Edge Function.
-        setChatShops(result.data || []);
+        // Asia Business: hide chat shops except AFTER LIVE Backstage.
+        // Account class is often missing from seller userInfo — resolve via b2b-account.
+        let accountClass = accountClassFromUserInfo(userInfo);
+        if (!accountClass) {
+          try {
+            const b2b = await getB2BAccountApi();
+            accountClass =
+              b2b?.data?.account?.accountClass ||
+              b2b?.data?.accountClass ||
+              '';
+          } catch (_) {}
+        }
+        setChatShops(
+          filterSellerChatShopsForAccount(result.data || [], accountClass),
+        );
       } catch (error) {
         console.error('Error loading chat shops:', error);
         setChatShops([]);
