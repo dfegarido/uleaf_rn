@@ -9,6 +9,7 @@ import { getListingByIdApi } from '../../components/Api/getListingDetails';
 import { liveOrderLookupApi } from '../../components/Api/liveApi';
 import CloseIcon from '../../assets/icons/white/x-regular.svg';
 import {
+  formatListingDateYmd,
   isSellerListingExpired,
   resolvePublishYmd,
 } from '../../utils/listingExpirationUtils';
@@ -41,13 +42,14 @@ function gardenBadgeTheme(listing) {
   return GARDEN_BADGE_THEMES[hash % GARDEN_BADGE_THEMES.length];
 }
 
-function IgIndexBadge({label, theme, fullScreen}) {
+function IgIndexBadge({label, theme, fullScreen, style}) {
   return (
     <View
       style={[
         styles.igBadge,
         fullScreen ? styles.igBadgeFull : styles.igBadgeCard,
         {backgroundColor: theme.backgroundColor},
+        style,
       ]}
       pointerEvents="none">
       <Text
@@ -76,6 +78,29 @@ const formatListedDateLabel = (listing) => {
   if (!year || !month || !day) return null;
   return `Listed ${month}/${day}/${year}`;
 };
+
+const REMOVAL_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Seller-local date, written out so it reads as a date and not a code. */
+const formatRemovalDateLabel = (listing) => {
+  const raw = listing?.backstageExpiresAt ?? listing?.backstage_expires_at;
+  const ymd = formatListingDateYmd(raw, listing);
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map(Number);
+  const monthName = REMOVAL_MONTHS[month - 1];
+  if (!year || !monthName || !day) return null;
+  return `${monthName} ${day}, ${year}`;
+};
+
+function RemovalLine({label, fullScreen}) {
+  return (
+    <Text
+      style={[styles.removalLine, fullScreen && styles.removalLineFull]}
+      numberOfLines={1}>
+      Auto-removal · {label}
+    </Text>
+  );
+}
 
 const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, isMe=false, senderName, listingId, navigation, onMessageLongPress, onMissingListing, showIgIndex = false }) => {
   const [listing, setListing] = useState(null);
@@ -208,6 +233,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
   let isSoldOut = listing?.availableQty <= 0;
   const isExpired = isSellerListingExpired(listing);
   const listedDateLabel = listing ? formatListedDateLabel(listing) : null;
+  const removalDateLabel = listing ? formatRemovalDateLabel(listing) : null;
   const indexLabel = showIgIndex && listing ? igLabel(listing) : '';
   const indexTheme = indexLabel ? gardenBadgeTheme(listing) : null;
 
@@ -247,12 +273,23 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
             </View>
           ) : null}
           {indexLabel ? <IgIndexBadge label={indexLabel} theme={indexTheme} /> : null}
-          {isSoldOut && (
+          {isSoldOut && showIgIndex ? (
+            <View style={styles.soldPillWrap} pointerEvents="none">
+              <View style={styles.soldPill}>
+                <Text style={styles.soldPillText}>SOLD</Text>
+              </View>
+            </View>
+          ) : null}
+          {isSoldOut && !showIgIndex ? (
             <View style={styles.soldBadge}>
               <Text style={styles.soldBadgeText}>SOLD</Text>
-              <Text style={styles.soldToText}>{soldTo ? `@${soldTo} claimed in a heartbeat! It is boarding your next Plant Flight.` : ''}</Text>
+              <Text style={styles.soldToText}>
+                {soldTo
+                  ? `@${soldTo} claimed in a heartbeat! It is boarding your next Plant Flight.`
+                  : ''}
+              </Text>
             </View>
-          )}
+          ) : null}
         </TouchableOpacity>
         <View style={styles.detailsOverlay} pointerEvents="box-none">
           <View style={styles.gradientFade}>
@@ -272,6 +309,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
                 <Text style={styles.variegation}>{listing.variegation}</Text>
               ) : null}
               <Text style={styles.price}>{formatPrice(listing.usdPrice)}</Text>
+              {removalDateLabel ? <RemovalLine label={removalDateLabel} /> : null}
               {(!isSoldOut && isBuyer) && (
                 <TouchableOpacity
                   style={styles.primaryButton}
@@ -338,6 +376,7 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
                 </Text>
               ) : null}
               <Text style={styles.fullScreenPrice}>{formatPrice(listing.usdPrice)}</Text>
+              {removalDateLabel ? <RemovalLine label={removalDateLabel} fullScreen /> : null}
               {(!isSoldOut && isBuyer) && (
                 <TouchableOpacity
                   style={styles.fullScreenBuyButton}
@@ -406,6 +445,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  removalLine: {
+    marginTop: 2,
+    color: 'rgba(255, 255, 255, 0.78)',
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.15,
+  },
+  removalLineFull: {
+    marginTop: 6,
+    fontSize: 14,
+  },
   igBadge: {
     borderRadius: 6,
     borderWidth: StyleSheet.hairlineWidth,
@@ -448,6 +498,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  soldPillWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  soldPill: {
+    backgroundColor: '#FFE7E2',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  soldPillText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   soldBadgeText: {
     color: '#fff',
