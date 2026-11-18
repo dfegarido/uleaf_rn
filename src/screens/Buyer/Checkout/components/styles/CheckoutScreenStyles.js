@@ -10,8 +10,8 @@ const styles = StyleSheet.create({
   },
   scrollContentContainer: {
     flexGrow: 1,
-    // Clears the fixed CheckoutBar so the last section stays tappable.
-    paddingBottom: 96,
+    // Terms image padding clears most of the bar; keep a little extra.
+    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',

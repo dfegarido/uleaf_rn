@@ -36,7 +36,7 @@ const useTermsOfPurchase = () => {
 /** Admin-uploaded Terms of Purchase picture, shown at the bottom of checkout. */
 export const TermsOfPurchaseImage = () => {
   const { imageUrl } = useTermsOfPurchase();
-  const [aspectRatio, setAspectRatio] = useState(1);
+  const [aspectRatio, setAspectRatio] = useState(null);
 
   if (!imageUrl) return null;
 
@@ -45,7 +45,9 @@ export const TermsOfPurchaseImage = () => {
       <AppImage
         source={{ uri: imageUrl }}
         resizeWidth={1200}
-        style={[styles.image, { aspectRatio }]}
+        // Tall infographic — avoid AppImage's default square transform box.
+        resizeHeight={2400}
+        style={[styles.image, aspectRatio ? { aspectRatio } : styles.imageFallback]}
         resizeMode="contain"
         onLoad={(e) => {
           const { width, height } = e.nativeEvent?.source || {};
@@ -105,11 +107,17 @@ const styles = StyleSheet.create({
   imageWrap: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    // Clears the agreement row the fixed checkout bar adds above Place Order.
-    paddingBottom: 56,
+    // Clears the fixed CheckoutBar (agreement + total + Place Order + safe area)
+    // so the full graphic is not covered when scrolled to the end.
+    paddingBottom: 200,
   },
   image: {
     width: '100%',
+  },
+  imageFallback: {
+    // Before onLoad, keep a tall slot so a portrait graphic is not clipped
+    // inside a square box.
+    minHeight: 420,
   },
   agreementRow: {
     flexDirection: 'row',

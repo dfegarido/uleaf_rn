@@ -548,6 +548,8 @@ const styles = StyleSheet.create(
   },
   scrollContentContainer: {
     flexGrow: 1,
+    // Terms image adds its own clearance; keep a little extra for the bar.
+    paddingBottom: 24,
   },
   controls: {
     flexDirection: 'row',
