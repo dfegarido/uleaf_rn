@@ -266,7 +266,11 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
           delayLongPress={300}
           activeOpacity={0.8}
           style={styles.imageContainer}>
-          <AppImage source={{ uri: listing.imagePrimary }} style={styles.image} resizeMode="cover" />
+          <AppImage
+            source={{ uri: listing.imagePrimary }}
+            style={[styles.image, showIgIndex && styles.backstageMirrorImage]}
+            resizeMode="cover"
+          />
           {listedDateLabel ? (
             <View style={styles.listedDateBadge} pointerEvents="none">
               <Text style={styles.listedDateText}>{listedDateLabel}</Text>
@@ -353,7 +357,13 @@ const ListingMessage = ({ messageId, currentUserUid, isSeller=false, isBuyer, is
             onClick={() => setImageModalVisible(false)}>
             <AppImage
               source={{ uri: listing.imagePrimary }}
-              style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height }}
+              style={[
+                {
+                  width: Dimensions.get('window').width,
+                  height: Dimensions.get('window').height,
+                },
+                showIgIndex && styles.backstageMirrorImage,
+              ]}
               resizeMode="contain"
             />
           </ImageZoom>
@@ -430,6 +440,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  // Front-camera live stills often mirror handwriting on plant tags.
+  // Flip only the photo in After Live Backstage so buyers can read them.
+  backstageMirrorImage: {
+    transform: [{scaleX: -1}],
   },
   listedDateBadge: {
     position: 'absolute',
