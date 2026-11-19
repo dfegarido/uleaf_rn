@@ -94,6 +94,7 @@ const FreeShipping = () => {
   const [selectedBuyers, setSelectedBuyers] = useState([]);
   const [buyerLoading, setBuyerLoading] = useState(false);
   const buyerSearchDebounceRef = React.useRef(null);
+  const initialBuyersRef = React.useRef([]);
   const [buyerKeyboardOffset, setBuyerKeyboardOffset] = useState(0);
   const [timeKeyboardOffset, setTimeKeyboardOffset] = useState(0);
 
@@ -380,76 +381,76 @@ const FreeShipping = () => {
   );
 
   useEffect(() => {
-    const loadBuyers = async () => {
-      if (!showBuyerSheet) return;
+    if (!showBuyerSheet) {
+      setBuyerSearch('');
+      setBuyerOptions([]);
+      setBuyerLoading(false);
+      initialBuyersRef.current = [];
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setBuyerLoading(true);
+      setBuyerSearch('');
       try {
-        setBuyerLoading(true);
-        // initial fetch of buyers
-        // Try fetching buyers directly; fallback to all users and filter locally
-        const res = await getAllUsersApi({ role: 'buyer', limit: 50 });
+        const res = await getAllUsersApi({
+          role: 'buyer',
+          limit: 20,
+          page: 1,
+          includeStats: false,
+        });
+        if (cancelled) return;
         const list =
           (Array.isArray(res?.data?.users) && res.data.users) ||
           (Array.isArray(res?.data) && res.data) ||
           (Array.isArray(res?.results) && res.results) ||
           (Array.isArray(res?.users) && res.users) ||
           [];
-        let normalized = list.map(b => ({
-          id: b.id || b.userId || b.uid,
-          name: [b.firstName, b.lastName].filter(Boolean).join(' ') || b.username || b.email || 'Unknown',
-          avatar: b.profileImage || b.avatarUrl || null,
-          rawRole: (b.role || b.rawRole || '').toString().toLowerCase(),
-        })).filter(x => x.id);
-        // If API didn't filter by role server-side, enforce buy-only here
-        if (!normalized.length) {
-          const resAll = await getAllUsersApi({ limit: 50 });
-          const listAll =
-            (Array.isArray(resAll?.data?.users) && resAll.data.users) ||
-            (Array.isArray(resAll?.data) && resAll.data) ||
-            (Array.isArray(resAll?.results) && resAll.results) ||
-            (Array.isArray(resAll?.users) && resAll.users) ||
-            [];
-          normalized = listAll.map(b => ({
+        const buyers = list
+          .map(b => ({
             id: b.id || b.userId || b.uid,
             name: [b.firstName, b.lastName].filter(Boolean).join(' ') || b.username || b.email || 'Unknown',
+            firstName: b.firstName || '',
+            lastName: b.lastName || '',
+            username: b.username || '',
+            email: b.email || '',
             avatar: b.profileImage || b.avatarUrl || null,
-            rawRole: (b.role || b.rawRole || '').toString().toLowerCase(),
-          })).filter(x => x.id && (x.rawRole === 'buyer' || x.rawRole === 'buyers'));
-        }
-        // Sort buyers alphabetically by name
-        const sortedBuyers = normalized.sort((a, b) => {
-          const nameA = (a.name || a.username || '').toLowerCase();
-          const nameB = (b.name || b.username || '').toLowerCase();
-          return nameA.localeCompare(nameB);
-        });
-        setBuyerOptions(sortedBuyers);
+          }))
+          .filter(x => x.id)
+          .slice(0, 20);
+        initialBuyersRef.current = buyers;
+        setBuyerOptions(buyers);
       } catch (e) {
-        setBuyerOptions([]);
+        if (!cancelled) {
+          initialBuyersRef.current = [];
+          setBuyerOptions([]);
+        }
       } finally {
-        setBuyerLoading(false);
+        if (!cancelled) setBuyerLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    loadBuyers();
   }, [showBuyerSheet]);
 
-  // Subtle upward shift of buyer sheet when keyboard is visible
+  // iOS only — Android window resize + height shrink collapsed the sheet
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
+    if (!showBuyerSheet || Platform.OS !== 'ios') {
+      setBuyerKeyboardOffset(0);
+      return;
+    }
     const onShow = (e) => {
-      const kbHeight = e?.endCoordinates?.height || 0;
-      const capped = Math.min(kbHeight, 220); // move a little, not full height
-      setBuyerKeyboardOffset(capped);
+      setBuyerKeyboardOffset(Math.min(e?.endCoordinates?.height || 0, 160));
     };
     const onHide = () => setBuyerKeyboardOffset(0);
-
-    const subShow = Keyboard.addListener(showEvent, onShow);
-    const subHide = Keyboard.addListener(hideEvent, onHide);
+    const subShow = Keyboard.addListener('keyboardWillShow', onShow);
+    const subHide = Keyboard.addListener('keyboardWillHide', onHide);
     return () => {
       subShow?.remove?.();
       subHide?.remove?.();
     };
-  }, []);
+  }, [showBuyerSheet]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -486,52 +487,43 @@ const FreeShipping = () => {
   }, [showEndTimeSheet]);
 
   useEffect(() => {
-    if (!showBuyerSheet) return;
+    if (!showBuyerSheet) return undefined;
     const q = buyerSearch.trim();
     if (buyerSearchDebounceRef.current) {
       clearTimeout(buyerSearchDebounceRef.current);
     }
+    if (q.length < 2) {
+      setBuyerOptions(initialBuyersRef.current);
+      setBuyerLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
     buyerSearchDebounceRef.current = setTimeout(async () => {
+      setBuyerLoading(true);
       try {
-        if (q.length >= 2) {
-          setBuyerLoading(true);
-          const net = await NetInfo.fetch();
-          if (!net.isConnected || !net.isInternetReachable) {
-            throw new Error('No internet connection.');
-          }
-          const res = await searchBuyersApi({ query: q, limit: 4, offset: 0 });
-          if (!res?.success) {
-            throw new Error(res?.error || 'Failed to search buyers.');
-          }
-          const buyers = res.data?.buyers || [];
-          const normalized = buyers.map(b => ({
+        const res = await searchBuyersApi({ query: q, limit: 30, offset: 0 });
+        if (cancelled) return;
+        const buyers = (res?.data?.buyers || [])
+          .filter(b => !b.userType || b.userType === 'buyer')
+          .map(b => ({
             id: b.id || b.userId || b.uid,
             name: [b.firstName, b.lastName].filter(Boolean).join(' ') || b.username || b.email || 'Unknown',
+            firstName: b.firstName || '',
+            lastName: b.lastName || '',
+            username: b.username || '',
+            email: b.email || '',
             avatar: b.profileImage || b.avatarUrl || null,
-          }));
-          // Sort buyers alphabetically by name
-          const sortedBuyers = normalized.sort((a, b) => {
-            const nameA = (a.name || a.username || '').toLowerCase();
-            const nameB = (b.name || b.username || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-          });
-          setBuyerOptions(sortedBuyers);
-        } else if (q.length === 0) {
-          setBuyerOptions([]);
-          setBuyerLoading(false);
-        }
-      } catch (error) {
-        setBuyerOptions([]);
-        Alert.alert(
-          'Search Error',
-          'Could not search for buyers. Please check your connection and try again.',
-          [{ text: 'OK' }]
-        );
+          }))
+          .filter(x => x.id);
+        setBuyerOptions(buyers);
+      } catch (e) {
+        if (!cancelled) setBuyerOptions([]);
       } finally {
-        setBuyerLoading(false);
+        if (!cancelled) setBuyerLoading(false);
       }
-    }, 300);
+    }, 250);
     return () => {
+      cancelled = true;
       if (buyerSearchDebounceRef.current) {
         clearTimeout(buyerSearchDebounceRef.current);
       }
@@ -1705,121 +1697,124 @@ const FreeShipping = () => {
         presentationStyle="overFullScreen"
         statusBarTranslucent
       >
-        <TouchableWithoutFeedback onPress={() => setShowBuyerSheet(false)}>
-          <View style={styles.buyerOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={{width: '100%'}}>
-                <View style={[
-                  styles.buyerSheetContainer,
-                  buyerKeyboardOffset ? { transform: [{ translateY: -buyerKeyboardOffset }] } : null,
-                ]}>
-                <View style={styles.genusHeader}>
-                  <Text style={styles.genusTitle}>Buyer</Text>
-                  <TouchableOpacity onPress={() => setShowBuyerSheet(false)}>
-                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path fillRule="evenodd" clipRule="evenodd" d="M4.71967 4.71967C5.01256 4.42678 5.48744 4.42678 5.78033 4.71967L12 10.9393L18.2197 4.71967C18.5126 4.42678 18.9874 4.42678 19.2803 4.71967C19.5732 5.01256 19.5732 5.48744 19.2803 5.78033L13.0607 12L19.2803 18.2197C19.5732 18.5126 19.5732 18.9874 19.2803 19.2803C18.9874 19.5732 18.5126 19.5732 18.2197 19.2803L12 13.0607L5.78033 19.2803C5.48744 19.5732 5.01256 19.5732 4.71967 19.2803C4.42678 18.9874 4.42678 18.5126 4.71967 18.2197L10.9393 12L4.71967 5.78033C4.42678 5.48744 4.42678 5.01256 4.71967 4.71967Z" fill="#7F8D91"/>
-                    </Svg>
-                  </TouchableOpacity>
-                </View>
-                <View style={{paddingHorizontal: 24, paddingBottom: 8}}>
-                  <View style={[styles.inputRow]}> 
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Search buyer"
-                      placeholderTextColor="#647276"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      value={buyerSearch}
-                      onChangeText={setBuyerSearch}
-                    />
-                  </View>
-                </View>
-                <ScrollView
-                  style={{flex: 1}}
-                  contentContainerStyle={{paddingHorizontal: 24, paddingBottom: 16}}
-                  showsVerticalScrollIndicator={true}
-                  keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode="on-drag"
-                  nestedScrollEnabled={true}
-                  scrollEventThrottle={16}
-                  bounces={true}
-                  alwaysBounceVertical={true}
-                  directionalLockEnabled={true}
-                >
-                  {buyerLoading && (
-                    <>
-                      {[...Array(6)].map((_, idx) => (
-                        <View key={`buyer-skel-${idx}`}>
-                          <View style={styles.skeletonRow}> 
-                            <View style={styles.skeletonAvatar} />
-                            <View style={styles.skeletonNameBar} />
-                          </View>
-                          {idx < 5 && <View style={styles.listDivider} />}
-                        </View>
-                      ))}
-                    </>
-                  )}
-                  {!buyerLoading && buyerOptions.map((buyer, idx) => {
-                    const isSelected = selectedBuyers.some(b => b.id === buyer.id);
-                    return (
-                    <View key={`${buyer.id}-${idx}`}>
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          delayPressIn={200}
-                          onPress={() => {
-                            setSelectedBuyers(prev => isSelected ? prev.filter(b => b.id !== buyer.id) : [...prev, buyer]);
-                          }}
-                          style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 39}}
-                        >
-                          <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                            {buyer.avatar ? (
-                              <AppImage source={{uri: buyer.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
-                            ) : (
-                              <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
-                                <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
-                                  {(buyer.firstName || buyer.name || 'U').charAt(0).toUpperCase()}
-                                </Text>
-                      </View>
-                            )}
-                            <View style={{flex: 1}}>
-                              {(buyer.firstName || buyer.lastName) ? (
-                                <Text style={[styles.typeRowText, {fontWeight: '700', color: '#202325'}]} numberOfLines={1}>
-                                  {[buyer.firstName, buyer.lastName].filter(Boolean).join(' ')}
-                                </Text>
-                              ) : (
-                                <Text style={[styles.typeRowText, {fontWeight: '700', color: '#202325'}]} numberOfLines={1}>{buyer.name}</Text>
-                              )}
-                              {buyer.username && (
-                                <Text style={[styles.typeRowText, {fontSize: 12, color: '#647276', marginTop: 2}]} numberOfLines={1}>@{buyer.username}</Text>
-                              )}
-                            </View>
-                          </View>
-                          <View style={[styles.checkboxSquare, isSelected ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
-                            {isSelected && (
-                            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                              <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </Svg>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                      {idx < buyerOptions.length - 1 && <View style={styles.listDivider} />}
-                    </View>
-                    );
-                  })}
-                </ScrollView>
-                <View style={styles.genusActions}>
-                  <TouchableOpacity style={styles.genusClearBtn} onPress={() => setSelectedBuyers([])}>
-                    <Text style={styles.genusClearText}>Clear</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.genusApplyBtn} onPress={() => setShowBuyerSheet(false)}>
-                    <Text style={styles.genusApplyText}>Add</Text>
-                  </TouchableOpacity>
-                </View>
-                </View>
+        <View style={styles.buyerOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowBuyerSheet(false)}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <View
+            style={[
+              styles.buyerSheetContainer,
+              buyerKeyboardOffset > 0
+                ? { transform: [{ translateY: -buyerKeyboardOffset }] }
+                : null,
+            ]}>
+            <View style={styles.genusHeader}>
+              <Text style={styles.genusTitle}>Buyer</Text>
+              <TouchableOpacity onPress={() => setShowBuyerSheet(false)}>
+                <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                  <Path fillRule="evenodd" clipRule="evenodd" d="M4.71967 4.71967C5.01256 4.42678 5.48744 4.42678 5.78033 4.71967L12 10.9393L18.2197 4.71967C18.5126 4.42678 18.9874 4.42678 19.2803 4.71967C19.5732 5.01256 19.5732 5.48744 19.2803 5.78033L13.0607 12L19.2803 18.2197C19.5732 18.5126 19.5732 18.9874 19.2803 19.2803C18.9874 19.5732 18.5126 19.5732 18.2197 19.2803L12 13.0607L5.78033 19.2803C5.48744 19.5732 5.01256 19.5732 4.71967 19.2803C4.42678 18.9874 4.42678 18.5126 4.71967 18.2197L10.9393 12L4.71967 5.78033C4.42678 5.48744 4.42678 5.01256 4.71967 4.71967Z" fill="#7F8D91"/>
+                </Svg>
+              </TouchableOpacity>
+            </View>
+            <View style={{paddingHorizontal: 24, paddingBottom: 8}}>
+              <View style={[styles.inputRow]}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Search buyer"
+                  placeholderTextColor="#647276"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={buyerSearch}
+                  onChangeText={setBuyerSearch}
+                />
               </View>
-            </TouchableWithoutFeedback>
+            </View>
+            <ScrollView
+              style={{flex: 1}}
+              contentContainerStyle={{paddingHorizontal: 24, paddingBottom: 16}}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              nestedScrollEnabled={true}
+            >
+              {!buyerLoading && buyerSearch.trim().length > 0 && buyerSearch.trim().length < 2 && (
+                <Text style={[styles.typeRowText, {color: '#647276', paddingVertical: 12}]}>
+                  Type at least 2 letters to search
+                </Text>
+              )}
+              {buyerLoading && (
+                <>
+                  {[...Array(6)].map((_, idx) => (
+                    <View key={`buyer-skel-${idx}`}>
+                      <View style={styles.skeletonRow}>
+                        <View style={styles.skeletonAvatar} />
+                        <View style={styles.skeletonNameBar} />
+                      </View>
+                      {idx < 5 && <View style={styles.listDivider} />}
+                    </View>
+                  ))}
+                </>
+              )}
+              {!buyerLoading && buyerOptions.map((buyer, idx) => {
+                const isSelected = selectedBuyers.some(b => b.id === buyer.id);
+                return (
+                  <View key={`${buyer.id}-${idx}`}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      delayPressIn={200}
+                      onPress={() => {
+                        setSelectedBuyers(prev =>
+                          isSelected ? prev.filter(b => b.id !== buyer.id) : [...prev, buyer],
+                        );
+                      }}
+                      style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 39}}
+                    >
+                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                        {buyer.avatar ? (
+                          <AppImage source={{uri: buyer.avatar}} style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#539461', marginRight: 8}} />
+                        ) : (
+                          <View style={{width: 40, height: 40, borderRadius: 20, backgroundColor: '#48A7F8', borderWidth: 1, borderColor: '#539461', alignItems: 'center', justifyContent: 'center', marginRight: 8}}>
+                            <Text style={{fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF'}}>
+                              {(buyer.firstName || buyer.name || 'U').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={{flex: 1}}>
+                          {(buyer.firstName || buyer.lastName) ? (
+                            <Text style={[styles.typeRowText, {fontWeight: '700', color: '#202325'}]} numberOfLines={1}>
+                              {[buyer.firstName, buyer.lastName].filter(Boolean).join(' ')}
+                            </Text>
+                          ) : (
+                            <Text style={[styles.typeRowText, {fontWeight: '700', color: '#202325'}]} numberOfLines={1}>{buyer.name}</Text>
+                          )}
+                          {buyer.username ? (
+                            <Text style={[styles.typeRowText, {fontSize: 12, color: '#647276', marginTop: 2}]} numberOfLines={1}>@{buyer.username}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View style={[styles.checkboxSquare, isSelected ? styles.checkboxSquareSelected : styles.checkboxSquareDefault]}>
+                        {isSelected ? (
+                          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                            <Path d="M5 13L9 17L19 7" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </Svg>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                    {idx < buyerOptions.length - 1 ? <View style={styles.listDivider} /> : null}
+                  </View>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.genusActions}>
+              <TouchableOpacity style={styles.genusClearBtn} onPress={() => setSelectedBuyers([])}>
+                <Text style={styles.genusClearText}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.genusApplyBtn} onPress={() => setShowBuyerSheet(false)}>
+                <Text style={styles.genusApplyText}>Add</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </TouchableWithoutFeedback>
+        </View>
       </Modal>
       {/* Genus modal (bottom sheet) */}
       <Modal transparent visible={showGenusSheet} onRequestClose={() => setShowGenusSheet(false)} animationType="fade">
@@ -2594,7 +2589,13 @@ const styles = StyleSheet.create({
   genusClearText: { fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#539461' },
   genusApplyBtn: { flex: 1, height: 48, borderRadius: 12, backgroundColor: '#539461', alignItems: 'center', justifyContent: 'center' },
   genusApplyText: { fontFamily: 'Inter', fontWeight: '600', fontSize: 16, color: '#FFFFFF' },
-  buyerSheetContainer: { width: '100%', height: 569, backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'absolute', bottom: 0 },
+  buyerSheetContainer: {
+    width: '100%',
+    height: '78%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
   listDivider: { height: 1, backgroundColor: '#E4E7E9', marginVertical: 8, width: '100%' },
   // Buyer modal skeletons
   skeletonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 39 },

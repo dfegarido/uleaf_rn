@@ -136,7 +136,8 @@ const AmountOffPlants = () => {
                 if (dropdownRef.current && dropdownRef.current.measureInWindow) {
                   dropdownRef.current.measureInWindow((x, y, w, h) => {
                     const desiredTop = y + h + 6;
-                    const maxTop = SCREEN.height - 121 - 16; // panel height + bottom margin
+                    // 3 options (48) + 2 dividers (1) — keep sheet on-screen
+                    const maxTop = SCREEN.height - 146 - 16;
                     setTypeSheetTop(Math.min(desiredTop, maxTop));
                     setShowTypeSheet(true);
                   });
@@ -856,7 +857,7 @@ const styles = StyleSheet.create({
   sheetOption: { height: 48, borderRadius: 12, borderWidth: 1, borderColor: '#CDD3D4', justifyContent: 'center', paddingHorizontal: 16, backgroundColor: '#FFFFFF' },
   sheetOptionText: { fontFamily: 'Inter', fontWeight: '500', fontSize: 16, color: '#202325' },
   // Type sheet styled per spec (340x121)
-  typeSheetContainer: { width: 340, height: 121, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
+  typeSheetContainer: { width: 340, backgroundColor: '#FFFFFF', borderRadius: 24, overflow: 'hidden' },
   typeRowWrapper: { height: 48, width: 340, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
   typeRowLeft: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, height: 48, width: 324 },
   typeRowIcon: { width: 24, height: 24, backgroundColor: 'transparent' },

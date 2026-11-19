@@ -23,9 +23,41 @@ import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { launchImageLibrary } from 'react-native-image-picker';
 
+import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../../../firebase';
 import { uploadBuyerContentPhotoApi } from '../../../components/Api';
 import { getAdminBuyerContentApi, createBuyerContentApi, updateBuyerContentApi, deleteBuyerContentApi } from '../../../components/Api/adminBuyerContentApi';
 import BackSolidIcon from '../../../assets/iconnav/caret-left-bold.svg';
+
+/** Keep Firestore buyerContent in sync — buyer Shop reads Supabase, but
+ *  legacy/seller news paths and recovery backfills still use Firestore. */
+async function syncBuyerContentToFirestore(id, itemData, { isNew = false } = {}) {
+  if (!id || !db) return;
+  try {
+    const payload = {
+      title: itemData.title || '',
+      description: itemData.description || '',
+      notes: itemData.notes || '',
+      section: itemData.section || 'news',
+      priority: itemData.priority ?? 1,
+      imageUrl: itemData.imageUrl || null,
+      updatedAt: serverTimestamp(),
+    };
+    if (isNew) payload.createdAt = serverTimestamp();
+    await setDoc(doc(db, 'buyerContent', id), payload, { merge: true });
+  } catch (e) {
+    console.warn('Firestore buyerContent sync skipped:', e?.message);
+  }
+}
+
+async function deleteBuyerContentFromFirestore(id) {
+  if (!id || !db) return;
+  try {
+    await deleteDoc(doc(db, 'buyerContent', id));
+  } catch (e) {
+    console.warn('Firestore buyerContent delete skipped:', e?.message);
+  }
+}
 
 const SECTIONS = [
   { key: 'deals', label: 'Deals' },
@@ -245,9 +277,14 @@ export default function BuyerContentManagement({ navigation, route }) {
       if (editingItem) {
         const res = await updateBuyerContentApi(editingItem.id, itemData);
         if (!res.success) throw new Error(res.error);
+        await syncBuyerContentToFirestore(editingItem.id, itemData);
       } else {
         const res = await createBuyerContentApi({ ...itemData, createdAt: new Date() });
         if (!res.success) throw new Error(res.error);
+        const newId = res.data?.id;
+        if (newId) {
+          await syncBuyerContentToFirestore(newId, itemData, { isNew: true });
+        }
       }
 
       closeModal();
@@ -270,6 +307,7 @@ export default function BuyerContentManagement({ navigation, route }) {
           try {
             const res = await deleteBuyerContentApi(itemId);
             if (!res.success) throw new Error(res.error);
+            await deleteBuyerContentFromFirestore(itemId);
             fetchContent();
           } catch (error) {
             console.error('Error deleting buyer content:', error);

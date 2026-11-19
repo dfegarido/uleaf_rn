@@ -35,6 +35,11 @@ export const getAllUsersApi = async (filters = {}) => {
       queryParams.append('sortDir', filters.sortDir);
     }
 
+    // Pickers pass includeStats: false to skip per-user order/listing queries.
+    if (filters.includeStats === false) {
+      queryParams.append('includeStats', '0');
+    }
+
     const url = `${API_ENDPOINTS.GET_ALL_USERS}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
     const response = await fetch(url, {

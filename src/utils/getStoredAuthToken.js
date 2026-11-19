@@ -36,9 +36,27 @@ export const getStoredAuthToken = async () => {
 
     // No force refresh: the SDK refreshes an expired token itself, and the many
     // calls made at startup then share one refresh instead of each forcing one.
-    const freshToken = await user.getIdToken();
-    await AsyncStorage.setItem('authToken', freshToken);
-    return freshToken;
+    try {
+      const freshToken = await user.getIdToken();
+      await AsyncStorage.setItem('authToken', freshToken);
+      return freshToken;
+    } catch (error) {
+      const code = error?.code || '';
+      const msg = String(error?.message || '');
+      if (code === 'auth/network-request-failed' || msg.includes('auth/network-request-failed')) {
+        throw new Error(
+          'Network error. Please check your internet connection and try again.',
+        );
+      }
+      if (
+        code === 'auth/user-token-expired' ||
+        code === 'auth/requires-recent-login' ||
+        msg.includes('auth/user-token-expired')
+      ) {
+        throw new Error('Your session expired. Please log in again.');
+      }
+      throw error;
+    }
   }
 
   return token;
