@@ -83,6 +83,7 @@ import LiveCartSheet from './LiveCartSheet';
 import CohostVideoBox from '../../Live/CohostVideoBox';
 import { classifyRemoteUid } from '../../../utils/liveCohost';
 import Toast from '../../../components/Toast/Toast';
+import { isReservedForOther, reservedForName } from '../../../components/ReservedForBadge';
 
 // The live whose "co-host joined" toast was already shown (once per live, survives remounts).
 let cohostToastShownFor = null;
@@ -975,7 +976,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     if (cartCodes.has(code)) removeFromCart(code);
     // No photo yet: the seller is still setting this plant up, so it cannot be bought.
     else if (!getShopListingImageUri(item)) return;
-    else handleAddToCart(item);
+    else if (isReservedForOther(item, buyerUid)) {
+      Alert.alert('Reserved', `This plant is reserved for ${reservedForName(item)}.`);
+    } else handleAddToCart(item);
   };
 
   const handleAddToCart = async (item) => {
@@ -1048,6 +1051,11 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
   // ShopModal rather than the shared `plantData`/`activeListing` state, which is what
   // used to make the tap wait on (and depend on) unrelated in-flight requests.
   const buyNow = async (item) => {
+    if (isReservedForOther(item, buyerUid)) {
+      Alert.alert('Reserved', `This plant is reserved for ${reservedForName(item)}.`);
+      return;
+    }
+
     const optimistic = optimisticPlantDataFromListing(item);
 
     if (!optimistic || !getShopListingImageUri(item)) {
@@ -1558,10 +1566,10 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                   ) : (
                     <LiveStreamAddToCartButton
                       onPress={() => handleToggleCart(activeListing)}
-                      disabled={!getShopListingImageUri(activeListing)}
+                      disabled={!getShopListingImageUri(activeListing) || isReservedForOther(activeListing, buyerUid)}
                       variant="gradientLight"
                       radius={14}
-                      style={[styles.addToCartButton, !getShopListingImageUri(activeListing) && styles.noPhotoDisabled]}
+                      style={[styles.addToCartButton, (!getShopListingImageUri(activeListing) || isReservedForOther(activeListing, buyerUid)) && styles.noPhotoDisabled]}
                       textStyle={styles.addToCartText}
                     />
                   )}
@@ -1569,8 +1577,8 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
                     onPress={() => {
                       buyNow(activeListing);
                     }}
-                    disabled={!getShopListingImageUri(activeListing)}
-                    style={[styles.buyNowButton, !getShopListingImageUri(activeListing) && styles.noPhotoDisabled]}
+                    disabled={!getShopListingImageUri(activeListing) || isReservedForOther(activeListing, buyerUid)}
+                    style={[styles.buyNowButton, (!getShopListingImageUri(activeListing) || isReservedForOther(activeListing, buyerUid)) && styles.noPhotoDisabled]}
                     activeOpacity={0.85}>
                     {/* The gradient is a painting layer only: the Svg is an absolute fill, so it
                         sits behind the label and contributes no layout height of its own. */}
@@ -1684,6 +1692,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
         onBuyNow={handleBuyFromShop}
         onToggleCart={handleToggleCart}
         isInCart={(item) => cartCodes.has(item?.plantCode)}
+        buyerUid={buyerUid}
       />
 
       {/* Offset so the toast lands below the back button / viewer pill instead of over them. */}

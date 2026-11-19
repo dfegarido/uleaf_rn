@@ -1005,20 +1005,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 12,
   },
+  // Below the 24px checkbox so MM/DD/YYYY is not clipped by it on a 96px thumb.
   packedDateBadge: {
     position: 'absolute',
-    top: 4,
+    top: 28,
+    left: 4,
     right: 4,
     backgroundColor: '#F06BC4',
     borderRadius: 4,
     paddingHorizontal: 4,
-    paddingVertical: 1,
+    paddingVertical: 2,
+    alignItems: 'center',
   },
   packedDateText: {
     color: '#FFFFFF',
     fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: 11,
+    fontSize: 10,
   },
   joinerUserRow: {
     flexDirection: 'row',
