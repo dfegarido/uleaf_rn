@@ -40,16 +40,17 @@ export function computePackingTrayMetrics(plants = []) {
     (p) => normalizeLeafTrailStatus(p.leafTrailStatus) === 'packed',
   ).length;
 
-  const boxAssignedCount = shippable.filter((p) => hasBoxNumber(p)).length;
-
-  const needsBoxCount = shippable.filter(
+  // Only packed plants need a box. Sorted can still sit on the tray/cards.
+  const boxAssignedCount = shippable.filter(
     (p) =>
-      normalizeLeafTrailStatus(p.leafTrailStatus) === 'packed' && !hasBoxNumber(p),
+      normalizeLeafTrailStatus(p.leafTrailStatus) === 'packed' && hasBoxNumber(p),
   ).length;
 
+  const needsBoxCount = Math.max(0, packedCount - boxAssignedCount);
+
   const isScanComplete = sortedCount === 0;
-  const isReadyForShipping =
-    totalCount > 0 && sortedCount === 0 && boxAssignedCount >= totalCount;
+  // Packed+boxed can go In-transit even if sorted plants remain on the tray.
+  const isReadyForShipping = packedCount > 0 && needsBoxCount === 0;
 
   return {
     totalCount,

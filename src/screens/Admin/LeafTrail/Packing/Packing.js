@@ -167,7 +167,7 @@ const PackingScreen = ({ navigation }) => {
     if (!(tray.isReadyForShipping || tray.isComplete)) {
       Alert.alert(
         'Not ready',
-        'Finish packing and assign box numbers before sending to In Transit.',
+        'Assign box numbers to packed plants before sending to In Transit. Sorted plants can stay on the tray.',
       );
       return;
     }

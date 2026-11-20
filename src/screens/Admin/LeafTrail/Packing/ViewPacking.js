@@ -55,8 +55,8 @@ const isPackedPlant = (plant) =>
 const isPackedAwaitingBox = (plant) =>
   isPackedPlant(plant) && !String(plant?.packingData?.boxNumber || '').trim();
 
-/** Any plant the admin can tick, including ones that already have a box number. */
-const canTickPlant = (plant) => !isPackingNeedsToStay(plant);
+/** Packing select → In-transit: Packed only. Sorted stay visible but not selectable. */
+const canTickPlant = (plant) => isPackedPlant(plant);
 
 const leafTrailStatusLabel = (plant) => {
   const key = normalizeLeafTrailStatus(plant?.leafTrailStatus);
@@ -476,7 +476,7 @@ const ViewPackingScreen = ({ navigation, route }) => {
     if (!trayMetrics.isReadyForShipping) {
       Alert.alert(
         'Not ready',
-        'Finish packing and assign box numbers before sending to In Transit.',
+        'Select packed plants and assign box numbers before sending to In Transit. Sorted plants can stay on the tray.',
       );
       return;
     }
