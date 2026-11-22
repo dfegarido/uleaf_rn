@@ -38,6 +38,8 @@ import {
 import {
   accountClassFromUserInfo,
   isAsiaBusinessChatListingEditDisabled,
+  isUsBusinessUser,
+  isUsPlantListingCreatorUser,
 } from '../../utils/b2bShell';
 
 // Helper function to format date/time for separators
@@ -281,7 +283,7 @@ const ChatScreen = ({navigation, route}) => {
   const participantIds = Array.isArray(routeParams.participantIds) ? routeParams.participantIds : (Array.isArray(routeParams.participants) ? routeParams.participants.map(p => p.uid).filter(Boolean) : []);
   const initialParticipants = Array.isArray(routeParams.participants) ? routeParams.participants : [];
   const [participants, setParticipants] = useState(initialParticipants);
-  const {userInfo} = useContext(AuthContext);
+  const {userInfo, appShell} = useContext(AuthContext);
   const flatListRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -358,7 +360,7 @@ const ChatScreen = ({navigation, route}) => {
     userInfo?.userType === 'sub_admin';
   /** Buyer group chat: avoid showing raw participant/email until Firestore + resolveSellerDisplayName */
   const maskGroupSenderUntilResolved = isBuyer && !isAdminViewer && chatType === 'group';
-  const canChatListing = userInfo?.canChatListing || false;
+  const canChatListing = userInfo?.canChatListing === true || userInfo?.user?.canChatListing === true;
 
   /**
    * `ScreenSingleSell` (the listing editor) is registered in the seller stack and
@@ -418,6 +420,8 @@ const ChatScreen = ({navigation, route}) => {
   const [isPublicGroup, setIsPublicGroup] = useState(false);
   const [isMember, setIsMember] = useState(true);
   const [isChatShopGroup, setIsChatShopGroup] = useState(false);
+  // Any chat_shops row for this group (buyer or supplier). US Business creators use this.
+  const [isLinkedChatShop, setIsLinkedChatShop] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [hasRejectedRequest, setHasRejectedRequest] = useState(false);
   const [requestingJoin, setRequestingJoin] = useState(false);
@@ -427,6 +431,7 @@ const ChatScreen = ({navigation, route}) => {
     const checkChatShop = async () => {
       if (chatType !== 'group' || !id) {
         setIsChatShopGroup(false);
+        setIsLinkedChatShop(false);
         return;
       }
       try {
@@ -447,8 +452,12 @@ const ChatScreen = ({navigation, route}) => {
         const shopType = shops.length === 0 ? '' : String(shops[0]?.userType || '').toLowerCase();
         // Same semantics as before: a supplier shop, or a shop with no userType.
         setIsChatShopGroup(shops.length > 0 && (shopType === 'supplier' || shopType === ''));
+        setIsLinkedChatShop(shops.length > 0);
       } catch (error) {
-        if (!cancelled) setIsChatShopGroup(false);
+        if (!cancelled) {
+          setIsChatShopGroup(false);
+          setIsLinkedChatShop(false);
+        }
       }
     };
     checkChatShop();
@@ -457,7 +466,16 @@ const ChatScreen = ({navigation, route}) => {
     };
   }, [chatType, id]);
 
-  const showAddListing = isSeller && chatType === 'group' && isMember && (canChatListing || isChatShopGroup);
+  // US Business signs in as buyer; after Live selling / seller shell, allowlisted
+  // US plant creators get Add Listing on linked chat shops with no toggle.
+  const isUsPlantCreator =
+    isUsBusinessUser(userInfo) && isUsPlantListingCreatorUser(userInfo);
+  const usSellerShell = isUsPlantCreator && appShell === 'seller';
+  const showAddListing =
+    chatType === 'group' &&
+    isMember &&
+    ((isSeller && (canChatListing || isChatShopGroup)) ||
+      (usSellerShell && isLinkedChatShop));
   
   // Active members tracking
   const [activeMembers, setActiveMembers] = useState(0);

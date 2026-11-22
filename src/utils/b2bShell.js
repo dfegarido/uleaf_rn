@@ -13,6 +13,27 @@ export function isUsBusinessUser(userInfo) {
   return accountClassFromUserInfo(userInfo) === 'US Business';
 }
 
+/** Temporary: only these US Business accounts may create US plant listings. */
+const US_PLANT_LISTING_CREATOR_EMAILS = new Set([
+  'sunflowerfields1221@gmail.com',
+  'rorounifix@gmail.com',
+]);
+
+export function signedInEmailFromUserInfo(userInfo) {
+  return String(
+    userInfo?.email ||
+      userInfo?.user?.email ||
+      userInfo?.data?.email ||
+      '',
+  )
+    .trim()
+    .toLowerCase();
+}
+
+export function isUsPlantListingCreatorUser(userInfo) {
+  return US_PLANT_LISTING_CREATOR_EMAILS.has(signedInEmailFromUserInfo(userInfo));
+}
+
 /** Accounts that use exact-USD listing editor + B2B commission model. */
 export function isB2BBusinessUser(userInfo) {
   return canEditListingsInUsd(accountClassFromUserInfo(userInfo));
@@ -72,13 +93,16 @@ export function mergeB2BAccountIntoUserInfo(userInfo, account) {
   }
   return {
     ...userInfo,
+    canChatListing: account.canChatListing === true || userInfo.canChatListing === true,
     user: {
       ...(userInfo.user || {}),
       accountClass: account.accountClass,
       canLiveSell: account.canLiveSell,
       canMainstreamSell: account.canMainstreamSell,
       canPurchase: account.canPurchase,
+      canChatListing: account.canChatListing === true || userInfo.user?.canChatListing === true,
       liveFlag: account.liveFlag || userInfo.user?.liveFlag,
+      email: account.email || userInfo.user?.email,
     },
   };
 }
