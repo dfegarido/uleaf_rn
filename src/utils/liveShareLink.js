@@ -1,5 +1,6 @@
 import { Alert, Platform } from 'react-native';
 import Share from 'react-native-share';
+import {shortenShareUrl} from './shortenShareUrl';
 
 const DEFAULT_SHARE_BASE = 'https://ileafu.com';
 
@@ -54,10 +55,12 @@ export function shareLiveStream(sessionId, sellerId) {
     return;
   }
 
-  const url = getLiveShareUrl(sessionId, sellerId);
+  const longUrl = getLiveShareUrl(sessionId, sellerId);
 
   runShareAfterInteractions(async () => {
     try {
+      // ileafu.com/l/CODE; the long link if the shortener is slow or unavailable.
+      const url = await shortenShareUrl(longUrl);
       // Pass the link ONCE. react-native-share adds `url` as an extra activity
       // item on top of `message` (iOS), and Android builds `message + " " + url`,
       // so sending both copies the same link twice into the share target.

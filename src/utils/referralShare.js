@@ -2,6 +2,7 @@ import { Alert, Platform } from 'react-native';
 import Share from 'react-native-share';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import {shortenShareUrl} from './shortenShareUrl';
 
 export function getInviteCode(uid) {
   if (!uid) return '------';
@@ -64,10 +65,11 @@ export function shareB2BBuyerInvite(uid, {onMissingUidAlert = true} = {}) {
     return;
   }
   publishReferralCodeMapping(uid, inviteCode, {source: 'usBusiness'});
-  const inviteUrl = buildInviteUrl(inviteCode);
-  const message = buildB2BBuyerInviteMessage(inviteCode, inviteUrl);
   runShareAfterInteractions(async () => {
     try {
+      // ileafu.com/l/CODE; the long link if the shortener is slow or unavailable.
+      const inviteUrl = await shortenShareUrl(buildInviteUrl(inviteCode));
+      const message = buildB2BBuyerInviteMessage(inviteCode, inviteUrl);
       await Share.open({
         message,
         url: inviteUrl,
@@ -109,10 +111,11 @@ export function shareReferralInvite(uid, { onMissingUidAlert = true } = {}) {
     return;
   }
   publishReferralCodeMapping(uid, inviteCode);
-  const inviteUrl = buildInviteUrl(inviteCode);
-  const message = buildInviteShareMessage(inviteCode, inviteUrl);
   runShareAfterInteractions(async () => {
     try {
+      // ileafu.com/l/CODE; the long link if the shortener is slow or unavailable.
+      const inviteUrl = await shortenShareUrl(buildInviteUrl(inviteCode));
+      const message = buildInviteShareMessage(inviteCode, inviteUrl);
       await Share.open({
         message,
         url: inviteUrl,

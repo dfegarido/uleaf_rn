@@ -506,6 +506,8 @@ SUBMIT_RECEIVER_REQUEST: `${getSupabaseBaseUrl()}/submit-receiver-request`,
   LIVE_COHOST_PENDING: `${getSupabaseBaseUrl()}/live-cohost-pending`,
   UPDATE_LIVE_REQUEST_STATUS: `${getSupabaseBaseUrl()}/update-live-request-status`,
   GET_LIVE_REQUESTS_ADMIN: `${getSupabaseBaseUrl()}/get-live-requests`,
+  // Short share links (ileafu.com/l/CODE): POST {url} -> {shortUrl}
+  SHORT_LINK: `${getSupabaseBaseUrl()}/short-link`,
   UPDATE_LIVE_REQUEST: `${getSupabaseBaseUrl()}/update-live-request`,
   FLIGHT_DATE_ORDERS: `${getSupabaseBaseUrl()}/flight-date-orders`,
   LEAF_POINTS: `${getSupabaseBaseUrl()}/leaf-points`,

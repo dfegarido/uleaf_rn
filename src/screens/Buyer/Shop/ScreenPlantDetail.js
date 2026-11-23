@@ -53,6 +53,7 @@ import {
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
 import {getPlantListingShareUrl} from '../../../utils/plantShareLink';
+import {shortenShareUrl} from '../../../utils/shortenShareUrl';
 import { retryAsync } from '../../../utils/utils';
 import {
   AIR_CARGO_DOCUMENTATION_FEE_LABEL,
@@ -161,6 +162,10 @@ const ScreenPlantDetail = ({navigation, route}) => {
   const [modalAction, setModalAction] = useState('add-to-cart'); // 'add-to-cart' or 'buy-now'
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  // ileafu.com/l/CODE for this listing once the share sheet has asked for it; '' until then.
+  const [shortShareUrl, setShortShareUrl] = useState('');
+  // A short link belongs to one listing: drop it if this screen is reused for another.
+  useEffect(() => setShortShareUrl(''), [plantCode]);
   const [shareToastVisible, setShareToastVisible] = useState(false);
   const [shareToastMessage, setShareToastMessage] = useState('');
   const insets = useSafeAreaInsets();
@@ -760,7 +765,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
   };
 
   const buildShareMessage = useCallback(() => {
-    const url = getPlantListingShareUrl(plantCode);
+    const url = shortShareUrl || getPlantListingShareUrl(plantCode);
     if (!url) {
       return {url: '', message: ''};
     }
@@ -769,7 +774,7 @@ const ScreenPlantDetail = ({navigation, route}) => {
       : 'Check out this plant on ileafU';
     const message = `${titleLine}\n${url}`;
     return {url, message};
-  }, [plantCode, plantData]);
+  }, [plantCode, plantData, shortShareUrl]);
 
   const handleShare = () => {
     if (!plantCode || !String(plantCode).trim()) {
@@ -781,10 +786,14 @@ const ScreenPlantDetail = ({navigation, route}) => {
       return;
     }
     setShowShareSheet(true);
+    // Fetched when the sheet opens, not on every listing view. Until it arrives (or if it
+    // fails) the sheet's actions use the long link.
+    const longUrl = getPlantListingShareUrl(plantCode);
+    shortenShareUrl(longUrl).then(url => setShortShareUrl(url === longUrl ? '' : url));
   };
 
   const handleCopyShareLink = async () => {
-    const url = getPlantListingShareUrl(plantCode);
+    const url = shortShareUrl || getPlantListingShareUrl(plantCode);
     if (!url) {
       return;
     }
