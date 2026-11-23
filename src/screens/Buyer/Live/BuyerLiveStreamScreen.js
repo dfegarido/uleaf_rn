@@ -67,6 +67,8 @@ import { addToCartApi, removeFromCartApi } from '../../../components/Api/cartApi
 import { optimisticCartCodes, optimisticCartCount } from './liveCart';
 import LiveStreamAddToCartButton from '../../../components/LiveStreamAddToCartButton';
 import ChatAvatar from '../../../components/ChatAvatar';
+import LiveCommentSendButton from '../../../components/LiveCommentSendButton';
+import LiveCommentCloseButton from '../../../components/LiveCommentCloseButton';
 import { CHAT_MAX_HEIGHT, ChatFadeCell, ChatFadeContext } from '../../../components/ChatFadeCell';
 import GlassView from '../../../components/Glass/GlassView';
 import { getPlantDetailApi } from '../../../components/Api/getPlantDetailApi';
@@ -498,6 +500,14 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
     // ponytail: waits out the sheet's slide-down so focus lands after the Modal is gone; use
     // Modal onDismiss (iOS only) or an InteractionManager hook if this ever races.
     setTimeout(() => commentInputRef.current?.focus(), 350);
+  };
+
+  // Resets the focus state itself too: blur() fires no onBlur when the input has already lost
+  // native focus (or keyboard events don't fire, as on Android), and that state drives the layout.
+  const closeComments = () => {
+    commentInputRef.current?.blur();
+    Keyboard.dismiss();
+    setIsCommentFocused(false);
   };
 
   const handleSendComment = async () => {
@@ -1285,6 +1295,12 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
       {/* Only show UI components when stream is active */}
       {joined && remoteUid && (
         <>
+          {/* While typing, the header gives way to one top-right caret that closes the comment box. */}
+          {isCommentFocused ? (
+          <View style={[styles.topBar, styles.topBarCommenting]}>
+            <LiveCommentCloseButton onPress={closeComments} />
+          </View>
+          ) : (
           <View style={styles.topBar}>
             {/* Back button and viewer count group on the LEFT, both on the same 16pt content
                 line: the pill reads as a label for the stream rather than a floating control
@@ -1316,6 +1332,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               </TouchableOpacity> */}
             </View>
           </View>
+          )}
 
           {showStickyNote && (
             <View style={styles.stickyNoteContainer}>
@@ -1443,8 +1460,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           {/* Auto-grows to a 4-line ceiling, then scrolls inside. Sizing is left to the
               NATIVE side (minHeight/maxHeight + multiline, no explicit `height` — an
               explicit height pins the native view and stops it re-measuring). Return
-              still SENDS: `submitBehavior` replaces `blurOnSubmit` on a multiline input,
-              whose default would be 'newline'. */}
+              inserts a new line (Messenger-style); the send button beside the pill sends. */}
           {/* The touchable owns the pill's padding rather than sitting inside it. Padding on the
               pill itself is OUTSIDE this child, so taps on it fell straight through: measured
               card-visible after a tap at x=28 (pill padding) and x=200,y=575 (top padding), while
@@ -1459,11 +1475,9 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
               placeholderTextColor="rgba(255, 255, 255, 0.62)"
               value={newComment}
               onChangeText={setNewComment}
-              onSubmitEditing={handleSendComment}
               onFocus={() => setIsCommentFocused(true)}
               onBlur={() => setIsCommentFocused(false)}
-              returnKeyType="send"
-              submitBehavior="blurAndSubmit"
+              submitBehavior="newline"
               multiline
               // The visible 4-line cap. Also the shrink trigger: Fabric skips the
               // re-measure when the value is cleared, so crossing empty/non-empty must
@@ -1474,6 +1488,7 @@ const BuyerLiveStreamScreen = ({navigation, route}) => {
           />
           </View>
           </TouchableWithoutFeedback>
+          <LiveCommentSendButton onPress={handleSendComment} disabled={newComment.trim() === ''} />
         </GlassView>
         {/* The plant card slides down and fades while typing, freeing its ~208pt for the chat.
             It is animated rather than unmounted: an instant conditional removal read as a jump,
@@ -1814,6 +1829,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#444',
   },
+  topBarCommenting: {
+    justifyContent: 'flex-end',
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2074,7 +2092,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: 9,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    // The send button sits to the right inside the pill and brings its own spacing.
+    paddingRight: 8,
   },
   // NOT multiline: a multiline TextInput aligns its text to the TOP of the box, which left the
   // placeholder jammed against the top edge with ~34pt of empty pill below it. Single-line

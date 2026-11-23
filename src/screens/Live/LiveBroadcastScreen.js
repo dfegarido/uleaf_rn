@@ -1,5 +1,7 @@
 import PlantListingImage from '../../components/PlantListingImage/PlantListingImage';
 import ChatAvatar from '../../components/ChatAvatar';
+import LiveCommentSendButton from '../../components/LiveCommentSendButton';
+import LiveCommentCloseButton from '../../components/LiveCommentCloseButton';
 import { CHAT_MAX_HEIGHT, ChatFadeCell, ChatFadeContext } from '../../components/ChatFadeCell';
 import GlassView from '../../components/Glass/GlassView';
 
@@ -911,6 +913,14 @@ const LiveBroadcastScreen = ({navigation, route}) => {
     setTimeout(() => commentInputRef.current?.focus(), 350);
   };
 
+  // Resets the focus state itself too: blur() fires no onBlur when the input has already lost
+  // native focus (or keyboard events don't fire, as on Android), and that state drives the layout.
+  const closeComments = () => {
+    commentInputRef.current?.blur();
+    Keyboard.dismiss();
+    setIsCommentFocused(false);
+  };
+
   const handleSendComment = async () => {
     const commentToSend = newComment;
     if (commentToSend.trim() === '' || !sessionId || !currentUserInfo) return;
@@ -1527,6 +1537,12 @@ const LiveBroadcastScreen = ({navigation, route}) => {
               paddingBottom: Math.max(insets.bottom, 12),
             },
           ]}>
+            {/* While typing, the controls give way to one top-right caret that closes the comment box. */}
+            {isCommentFocused ? (
+            <View style={[styles.topBar, styles.topBarCommenting]}>
+              <LiveCommentCloseButton onPress={closeComments} />
+            </View>
+            ) : (
             <View style={styles.topBar}>
               <TouchableOpacity
                 onPress={() => (isCohost ? handleCohostLeave() : updateLiveSessionStatus('ended'))}
@@ -1558,6 +1574,7 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 </TouchableOpacity>
               </View>
             </View>
+            )}
         {joined && (
         <KeyboardAvoidingView style={styles.keyboardAvoider} behavior="padding" keyboardVerticalOffset={0}>
         <View style={styles.actionBar}>
@@ -1619,17 +1636,16 @@ const LiveBroadcastScreen = ({navigation, route}) => {
                 placeholderTextColor="rgba(255, 255, 255, 0.62)"
                 value={newComment}
                 onChangeText={setNewComment}
-                onSubmitEditing={handleSendComment}
                 onFocus={() => setIsCommentFocused(true)}
                 onBlur={() => setIsCommentFocused(false)}
-                returnKeyType="send"
-                submitBehavior="blurAndSubmit"
+                submitBehavior="newline"
                 multiline
                 numberOfLines={newComment === '' ? 1 : 4}
                 textAlignVertical="top"
               />
             </View>
           </TouchableWithoutFeedback>
+          <LiveCommentSendButton onPress={handleSendComment} disabled={newComment.trim() === ''} />
         </GlassView>
           {/* Slides down and fades while typing, freeing its height for the chat. Animated, not
               unmounted, so the column does not reflow in one frame. */}
@@ -1703,14 +1719,15 @@ const LiveBroadcastScreen = ({navigation, route}) => {
             </View>
             </Animated.View>
           )}
-          {!activeListing && (<View style={styles.shop}>
+          {/* Hidden while typing, like the listing card above, so the composer has the room. */}
+          {!activeListing && !isCommentFocused && (<View style={styles.shop}>
               <Text style={{...baseFont, fontSize: 16, color: '#FFF'}}>No active listing</Text>
               {liveActionButtons}
             </View>)}
           </View>
             {/* Column 2: the tool rail, bottom-aligned beside column 1. It cannot be drawn behind
                 the keyboard, so it slides off the right edge while the composer is focused. */}
-            <Animated.View style={[styles.railWrap, railSlideStyle]}>
+            <Animated.View style={[styles.railWrap, isCommentFocused && styles.railWrapFloating, railSlideStyle]}>
             <GlassView variant="rail" style={styles.sideActions}>
                 {!isCohost && isLive && cohostEnabled && (
                   <TouchableOpacity
@@ -1981,6 +1998,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#444',
   },
+  topBarCommenting: {
+    justifyContent: 'flex-end',
+  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2150,7 +2170,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: 9,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    // The send button sits to the right inside the pill and brings its own spacing.
+    paddingRight: 8,
   },
   commentInput: {
     flex: 1,
@@ -2243,6 +2265,13 @@ const styles = StyleSheet.create({
   // Hugs the rail so the translate is measured from its own edge.
   railWrap: {
     alignSelf: 'flex-end',
+  },
+  // While typing the rail slides off-screen; taking it out of the row lets column 1 (and the
+  // composer) span the full width instead of leaving the rail's empty slot.
+  railWrapFloating: {
+    position: 'absolute',
+    right: 15,
+    bottom: 0,
   },
   // One chat row is ~36pt with its gap: the floor keeps a line of context while the card is gone.
   commentListFloor: {
