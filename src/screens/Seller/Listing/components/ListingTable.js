@@ -10,6 +10,7 @@ import { Image,
 } from 'react-native';
 import { globalStyles } from '../../../../assets/styles/styles';
 import { BadgeWithTransparentNotch } from '../../../../components/DiscountBadge';
+import ReservedForBadge from '../../../../components/ReservedForBadge';
 import { InputCheckBox } from '../../../../components/Input';
 import StatusBadge from './ListingStatusBadge';
 
@@ -97,15 +98,18 @@ const ListingTable = ({
                 borderColor: '#ccc',
                 borderBottomWidth: 1,
               }}>
-              <AppImage
-                style={styles.image}
-                source={{
-                  uri:
-                    listing.imagePrimary ||
-                    listing.image ||
-                    'https://via.placeholder.com/80x80.png?text=No+Image',
-                }}
-              />
+              <View style={styles.imageWrap}>
+                <AppImage
+                  style={styles.image}
+                  source={{
+                    uri:
+                      listing.imagePrimary ||
+                      listing.image ||
+                      'https://via.placeholder.com/80x80.png?text=No+Image',
+                  }}
+                />
+                <ReservedForBadge listing={listing} />
+              </View>
               <View style={{position: 'absolute', top: 15, left: 15}}>
                 {module === 'MAIN' ? (
                   activeTab === 'Active' ||
@@ -588,6 +592,12 @@ const styles = StyleSheet.create({
     padding: 10,
     borderColor: '#ccc',
     borderBottomWidth: 1,
+  },
+  imageWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   image: {
     width: 80,

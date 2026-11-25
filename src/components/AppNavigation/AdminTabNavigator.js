@@ -61,6 +61,7 @@ import FreeShipping from '../../screens/Admin/Discounts/FreeShipping';
 import SelectListingScreen from '../../screens/Admin/Discounts/SelectListingScreen';
 import ListingsViewer from '../../screens/Admin/ListingsViewer/ListingsViewer';
 import ListingsViewerDetail from '../../screens/Admin/ListingsViewer/ListingsViewerDetail';
+import ListingsViewerEdit from '../../screens/Admin/ListingsViewer/ListingsViewerEdit';
 import ListingsReadyToFly from '../../screens/Admin/ListingsViewer/ListingsReadyToFly';
 import AddNewPlantTaxonomyScreen from '../../screens/Admin/Taxonomy/AddNewPlantTaxonomyScreen';
 import AddTaxonomy from '../../screens/Admin/Taxonomy/AddTaxonomy';
@@ -260,6 +261,7 @@ function AdminTabs() {
       {/* Listings Viewer */}
       <Stack.Screen name="ListingsViewer" options={{headerShown: false}} component={ListingsViewer} />
       <Stack.Screen name="ListingsViewerDetail" options={{headerShown: false}} component={ListingsViewerDetail} />
+      <Stack.Screen name="ListingsViewerEdit" options={{headerShown: false}} component={ListingsViewerEdit} />
       <Stack.Screen name="AdminListingsReadyToFly" options={{headerShown: false}} component={ListingsReadyToFly} />
       {/* Discounts */}
       <Stack.Screen name="AdminDiscounts" options={{headerShown: false}} component={Discounts} />

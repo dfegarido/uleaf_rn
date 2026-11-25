@@ -554,7 +554,21 @@ const MigrateOrders = () => {
         </Text>
         <Text style={styles.variegation} numberOfLines={1}>{item.variegation}</Text>
         <Text style={styles.details}>Qty: {item.orderQty}</Text>
-        <Text style={styles.details}>Trx: {item.transactionNumber}</Text>
+        {item.transactionNumber ? (
+          <TouchableOpacity
+            activeOpacity={0.6}
+            onPress={() => navigation.navigate('InvoiceViewScreen', { transactionNumber: item.transactionNumber })}
+            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            accessibilityRole="link"
+            accessibilityLabel={`Open invoice ${item.transactionNumber}`}
+          >
+            <Text style={styles.details} numberOfLines={1}>
+              Trx: <Text style={styles.trxLink}>{item.transactionNumber}</Text>
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.details}>Trx: —</Text>
+        )}
         <Text style={styles.details} numberOfLines={1}>
           Buyer: {orderBuyerLabel(item)}
         </Text>
@@ -1082,6 +1096,7 @@ const styles = StyleSheet.create({
   plantName: { fontSize: 14, fontWeight: '600', color: '#202325', marginBottom: 2 },
   variegation: { fontSize: 12, color: '#647276', marginBottom: 8 },
   details: { fontSize: 12, color: '#647276', marginBottom: 2 },
+  trxLink: { color: '#539461', fontWeight: '600', textDecorationLine: 'underline' },
   price: { fontSize: 16, fontWeight: '700', color: '#202325', marginTop: 8 },
   clearButton: {
     backgroundColor: '#FFF1EE',

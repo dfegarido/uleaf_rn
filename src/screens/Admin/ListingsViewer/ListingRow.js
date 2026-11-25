@@ -1,13 +1,33 @@
 import AppImage from '../../../components/AppImage/AppImage';
 
 import React, { useEffect, useState, useRef, memo } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Modal, Pressable } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
 import CountryFlagIcon from '../../../components/CountryFlagIcon';
+import ReservedForBadge, { reservedForName } from '../../../components/ReservedForBadge';
 import EyeClosedIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
 import EyeIcon from '../../../assets/icons/greydark/eye-regular.svg';
 import TrashIcon from '../../../assets/icons/red/trash.svg';
+import DotsVerticalIcon from '../../../assets/icons/greydark/dots-three-vertical-regular.svg';
+import EditIcon from '../../../assets/admin-icons/edit.svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const MenuAction = ({ icon, tint, title, titleStyle, subtitle, onPress }) => (
+  <TouchableOpacity
+    style={styles.menuItem}
+    activeOpacity={0.6}
+    onPress={onPress}
+    accessibilityRole="button"
+    accessibilityLabel={title}
+  >
+    <View style={[styles.menuIconTile, { backgroundColor: tint }]}>{icon}</View>
+    <View style={styles.menuItemBody}>
+      <Text style={[styles.menuItemText, titleStyle]}>{title}</Text>
+      <Text style={styles.menuItemSub} numberOfLines={1}>{subtitle}</Text>
+    </View>
+  </TouchableOpacity>
+);
 
 export const getStatusColor = (status) => {
   switch ((status || '').toLowerCase()) {
@@ -220,6 +240,11 @@ const renderCell = (key, listing, activeStatusFilter = null) => {
         <View>
           <Text style={styles.plantName}>{listing.plantName}</Text>
           {listing.variegation ? <Text style={styles.plantVariegation}>{listing.variegation}</Text> : null}
+          {reservedForName(listing) ? (
+            <Text style={styles.reservedText} numberOfLines={1}>
+              Reserved for {reservedForName(listing)}
+            </Text>
+          ) : null}
         </View>
       );
     case 'listingType':
@@ -291,6 +316,7 @@ const ListingRow = ({
   listing,
   onPress = () => {},
   onImagePress = null,
+  onEdit = null,
   columns = [],
   onToggleStatus = () => {},
   onDelete = () => {},
@@ -302,7 +328,18 @@ const ListingRow = ({
 }) => {
   const [selectedUri, setSelectedUri] = useState(null);
   const [loadingImage, setLoadingImage] = useState(true);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const insets = useSafeAreaInsets();
   const mountedRef = useRef(true);
+  const canActivate = canActivateListing(listing);
+  const menuPlantName =
+    listing?.plantName || [listing?.genus, listing?.species].filter(Boolean).join(' ') || 'Listing';
+
+  // iOS drops an Alert opened while a Modal is still closing, and Delete/Deactivate confirm with one.
+  const runMenuAction = (action) => {
+    setMenuVisible(false);
+    if (action) setTimeout(() => action(listing), 350);
+  };
 
   useEffect(() => {
     mountedRef.current = true;
@@ -383,6 +420,7 @@ const ListingRow = ({
         ) : (
           <View style={styles.imagePlaceholder}><Text style={styles.imagePlaceholderText}>No Img</Text></View>
         )}
+        <ReservedForBadge listing={listing} />
       </TouchableOpacity>
 
       {/* Render each configured column in order */}
@@ -391,64 +429,21 @@ const ListingRow = ({
           columns.map((col) => (
             <View key={col.key} style={[styles.columnCell, { width: col.width || 120 }]}>
               {col.key === 'action' ? (
-                  <View style={styles.actionStack}>
-                    <TouchableOpacity
-                      style={[
-                        styles.actionButton,
-                        canActivateListing(listing) ? styles.activateButton : styles.deactivateButton,
-                        (isProcessing || isDeleting) && styles.actionButtonDisabled,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => !isProcessing && !isDeleting && onToggleStatus && onToggleStatus(listing)}
-                      disabled={!!isProcessing || !!isDeleting}
-                      accessibilityRole="button"
-                      accessibilityLabel={canActivateListing(listing) ? 'Activate listing' : 'Deactivate listing'}
-                    >
-                      {isProcessing ? (
-                        <ActivityIndicator size="small" color={canActivateListing(listing) ? '#23794A' : '#393D40'} />
-                      ) : (
-                        <>
-                          {canActivateListing(listing) ? (
-                            <EyeIcon width={15} height={15} />
-                          ) : (
-                            <EyeClosedIcon width={15} height={15} />
-                          )}
-                          <Text
-                            numberOfLines={1}
-                            style={[
-                              styles.actionButtonText,
-                              canActivateListing(listing) ? styles.activateButtonText : styles.deactivateButtonText,
-                            ]}
-                          >
-                            {canActivateListing(listing) ? 'Activate' : 'Deactivate'}
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.actionButton,
-                        styles.deleteButton,
-                        (isProcessing || isDeleting) && styles.actionButtonDisabled,
-                      ]}
-                      activeOpacity={0.7}
-                      onPress={() => !isDeleting && !isProcessing && onDelete && onDelete(listing)}
-                      disabled={!!isDeleting || !!isProcessing}
-                      accessibilityRole="button"
-                      accessibilityLabel="Delete listing"
-                    >
-                      {isDeleting ? (
-                        <ActivityIndicator size="small" color="#C8342A" />
-                      ) : (
-                        <>
-                          <TrashIcon width={15} height={15} />
-                          <Text numberOfLines={1} style={[styles.actionButtonText, styles.deleteButtonText]}>
-                            Delete
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={[styles.menuButton, (isProcessing || isDeleting) && styles.actionButtonDisabled]}
+                    activeOpacity={0.7}
+                    onPress={() => !isProcessing && !isDeleting && setMenuVisible(true)}
+                    disabled={!!isProcessing || !!isDeleting}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Listing actions"
+                  >
+                    {isProcessing || isDeleting ? (
+                      <ActivityIndicator size="small" color={isDeleting ? '#C8342A' : '#393D40'} />
+                    ) : (
+                      <DotsVerticalIcon width={20} height={20} />
+                    )}
+                  </TouchableOpacity>
                 ) : (
                   renderCell(col.key, listing, activeStatusFilter)
                 )}
@@ -463,6 +458,80 @@ const ListingRow = ({
           </>
         )}
       </View>
+
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuVisible(false)}>
+          <Pressable style={[styles.menuSheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+            <View style={styles.menuHandle} />
+
+            <View style={styles.menuHeader}>
+              <View style={styles.menuThumb}>
+                {selectedUri ? (
+                  <AppImage source={{ uri: selectedUri }} style={styles.menuThumbImage} resizeMode="cover" />
+                ) : (
+                  <Text style={styles.menuThumbEmpty}>🌿</Text>
+                )}
+              </View>
+              <View style={styles.menuHeaderText}>
+                <Text style={styles.menuTitle} numberOfLines={1}>{menuPlantName}</Text>
+                <View style={styles.menuMetaRow}>
+                  <Text style={styles.menuCode} numberOfLines={1}>{listing?.plantCode || '—'}</Text>
+                  {listing?.status ? (
+                    <View style={styles.menuStatus}>
+                      <View style={[styles.menuStatusDot, { backgroundColor: getStatusColor(listing.status) }]} />
+                      <Text style={styles.menuStatusText}>{listing.status}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.menuGroup}>
+              <MenuAction
+                icon={canActivate ? <EyeIcon width={20} height={20} /> : <EyeClosedIcon width={20} height={20} />}
+                tint={canActivate ? '#E6F4EB' : '#F2F3F3'}
+                title={canActivate ? 'Activate listing' : 'Deactivate listing'}
+                subtitle={canActivate ? 'Show this plant to buyers again' : 'Hide this plant from buyers'}
+                onPress={() => runMenuAction(onToggleStatus)}
+              />
+              <View style={styles.menuDivider} />
+              <MenuAction
+                icon={<EditIcon width={20} height={20} />}
+                tint="#E8F2FC"
+                title="Edit listing"
+                subtitle="Picture, price, genus and more"
+                onPress={() => runMenuAction(onEdit)}
+              />
+            </View>
+
+            <View style={styles.menuGroup}>
+              <MenuAction
+                icon={<TrashIcon width={20} height={20} />}
+                tint="#FDECEA"
+                title="Delete listing"
+                titleStyle={styles.menuDangerText}
+                subtitle="Permanently remove this plant"
+                onPress={() => runMenuAction(onDelete)}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuCancel}
+              activeOpacity={0.7}
+              onPress={() => setMenuVisible(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </TouchableOpacity>
   );
 };
@@ -481,6 +550,7 @@ const styles = StyleSheet.create({
   statusText: { color: '#FFF', fontWeight: '600', textTransform: 'capitalize' },
   dateListedText: { color: '#647276', fontSize: 12, marginTop: 6 },
   plantName: { color: '#202325', fontWeight: '600' },
+  reservedText: { fontWeight: '600', fontSize: 12, color: '#8A6A3D', marginTop: 2 },
   plantVariegation: { color: '#647276' },
   listingTypeText: { fontWeight: '600', color: '#FFFFFF', backgroundColor: '#202325', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
   infoText: { color: '#647276',  },
@@ -491,24 +561,91 @@ const styles = StyleSheet.create({
   sellerNameText: { color: '#647276', fontSize: 12, marginTop: 4 },
   countryText: { color: '#556065', fontWeight: '600' },
   countryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  actionStack: { width: '100%', gap: 8 },
-  actionButton: {
-    flexDirection: 'row',
+  menuButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 34,
-    paddingHorizontal: 10,
-    borderRadius: 8,
   },
   actionButtonDisabled: { opacity: 0.5 },
-  actionButtonText: { fontSize: 13, fontWeight: '600' },
-  activateButton: { backgroundColor: '#E6F4EB' },
-  activateButtonText: { color: '#23794A' },
-  deactivateButton: { backgroundColor: '#F2F3F3' },
-  deactivateButtonText: { color: '#393D40' },
-  deleteButton: { backgroundColor: '#FDECEA' },
-  deleteButtonText: { color: '#C8342A' },
+  menuBackdrop: { flex: 1, backgroundColor: 'rgba(16,20,22,0.45)', justifyContent: 'flex-end' },
+  menuSheet: {
+    backgroundColor: '#F5F6F6',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  menuHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#CDD3D4',
+    marginBottom: 4,
+  },
+  menuHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4, paddingVertical: 4 },
+  menuThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#E8EEEA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuThumbImage: { width: '100%', height: '100%' },
+  menuThumbEmpty: { fontSize: 22 },
+  menuHeaderText: { flex: 1, gap: 4 },
+  menuTitle: { fontSize: 17, fontWeight: '700', color: '#202325' },
+  menuMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  menuCode: { fontSize: 13, fontWeight: '600', color: '#539461' },
+  menuStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+  },
+  menuStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  menuStatusText: { fontSize: 12, fontWeight: '600', color: '#393D40', textTransform: 'capitalize' },
+  menuGroup: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    overflow: 'hidden',
+  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 14, paddingVertical: 12 },
+  menuIconTile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  menuItemBody: { flex: 1, gap: 2 },
+  menuItemText: { fontSize: 16, fontWeight: '600', color: '#202325' },
+  menuItemSub: { fontSize: 13, color: '#647276' },
+  menuDangerText: { color: '#C8342A' },
+  menuDivider: { height: 1, backgroundColor: '#F0F2F2', marginLeft: 68 },
+  menuCancel: {
+    paddingVertical: 15,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    alignItems: 'center',
+  },
+  menuCancelText: { fontSize: 16, fontWeight: '700', color: '#202325' },
   selectBox: {
     width: 22,
     height: 22,

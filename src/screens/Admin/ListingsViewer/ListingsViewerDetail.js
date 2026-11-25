@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../../components/Admin/header';
 import ZoomableImageModal from '../../../components/ZoomableImageModal/ZoomableImageModal';
 import CountryFlagIcon from '../../../components/CountryFlagIcon/CountryFlagIcon';
+import ReservedForBadge from '../../../components/ReservedForBadge';
 import { formatDateListed, getStatusColor, resolveCountryCode } from './ListingRow';
 
 const firstImage = (listing) => {
@@ -114,6 +115,7 @@ const ListingsViewerDetail = ({ navigation, route }) => {
             </View>
             <Text style={styles.plantName}>{plantName}</Text>
             {listing.variegation ? <Text style={styles.variegation}>{listing.variegation}</Text> : null}
+            <ReservedForBadge listing={listing} inline style={styles.reservedBadge} />
           </View>
         </View>
 
@@ -124,6 +126,16 @@ const ListingsViewerDetail = ({ navigation, route }) => {
             color={isSold ? '#E7522F' : '#539461'}
           />
         </View>
+
+        <TouchableOpacity
+          style={styles.editButton}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('ListingsViewerEdit', { listing })}
+          accessibilityRole="button"
+          accessibilityLabel="Edit listing"
+        >
+          <Text style={styles.editButtonText}>Edit listing</Text>
+        </TouchableOpacity>
 
         <SectionCard title="Pricing">
           <InfoRow label="Local price" value={formatMoney(currencySymbol, listing.localPrice ?? v0.localPrice)} />
@@ -215,9 +227,17 @@ const styles = StyleSheet.create({
   listingBadge: { backgroundColor: '#202325', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   listingBadgeText: { fontFamily: 'Inter', fontWeight: '600', fontSize: 11, color: '#FFFFFF' },
   plantName: { fontFamily: 'Inter', fontWeight: '700', fontSize: 22, color: '#202325', marginTop: 4 },
+  reservedBadge: { marginTop: 8, alignSelf: 'flex-start' },
   variegation: { fontFamily: 'Inter', fontSize: 15, color: '#647276', fontStyle: 'italic' },
   placeholderText: { fontFamily: 'Inter', color: '#647276', fontSize: 14 },
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  editButton: {
+    backgroundColor: '#539461',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  editButtonText: { fontFamily: 'Inter', fontWeight: '700', fontSize: 16, color: '#FFFFFF' },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',

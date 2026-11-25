@@ -1,311 +1,301 @@
-import React, {useEffect, useState} from 'react';
-import {useIsFocused} from '@react-navigation/native';
-import { View,
-  Text,
-  StyleSheet,
-  StatusBar,
-  TouchableOpacity,
-  ScrollView,
-  FlatList,
-  Modal,
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
+import {
   ActivityIndicator,
+  FlatList,
+  Platform,
   RefreshControl,
-  Platform} from 'react-native';
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useFocusEffect} from '@react-navigation/native';
-import {globalStyles} from '../../../assets/styles/styles';
-import PayoutCard from './components/PayoutCard';
 import NetInfo from '@react-native-community/netinfo';
+import PayoutCard, {formatPayoutAmount} from './components/PayoutCard';
+import PayoutSkeleton from './components/PayoutSkeleton';
 import {retryAsync} from '../../../utils/utils';
-
 import {getHomePayoutListingApi} from '../../../components/Api';
-import {getStoredAuthToken} from '../../../utils/getStoredAuthToken';
 
 import LeftIcon from '../../../assets/icons/greylight/caret-left-regular.svg';
-import ArrowDownIcon from '../../../assets/icons/accent/caret-down-regular.svg';
 
-const ScreenPayout = ({navigation, route}) => {
-  const [loading, setLoading] = useState(false);
+// list-payout returns at most this many rows per page.
+const PAGE_SIZE = 20;
 
-  useFocusEffect(() => {
-    if (Platform.OS === 'android') {
-      StatusBar.setBarStyle('dark-content');
-    }
-  });
+const fetchPayoutPage = async token => {
+  const netState = await NetInfo.fetch();
+  if (!netState.isConnected || !netState.isInternetReachable) {
+    throw new Error('No internet connection.');
+  }
+  const res = await retryAsync(() => getHomePayoutListingApi(token), 3, 1000);
+  if (!res?.success) {
+    throw new Error(res?.message || 'Failed to load payout data');
+  }
+  return res;
+};
 
+const ScreenPayout = ({navigation}) => {
   const isFocused = useIsFocused();
-
   const [data, setData] = useState([]);
-  const [totalReceivables, setTotalReceivables] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [isInitialFetchRefresh, setIsInitialFetchRefresh] = useState(false);
-  const [dataCount, setDataCount] = useState(0);
+  const [totalReceivables, setTotalReceivables] = useState(0);
   const [nextToken, setNextToken] = useState('');
-  const [nextTokenParam, setNextTokenParam] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
+  const loadedOnce = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'android') StatusBar.setBarStyle('dark-content');
+    }, []),
+  );
+
+  const loadFirstPage = useCallback(async () => {
+    try {
+      setError('');
+      const res = await fetchPayoutPage('');
+      const rows = res?.data || [];
+      setData(rows);
+      setTotalReceivables(res?.totalReceivable || 0);
+      setNextToken(res?.nextPageToken || '');
+      setHasMore(rows.length >= PAGE_SIZE && !!res?.nextPageToken);
+      loadedOnce.current = true;
+    } catch (e) {
+      setError(e?.message || 'Failed to load payout data');
+    } finally {
+      setInitialLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    console.log('💰 Payouts useEffect Triggered:', {
-      isFocused,
-      isInitialFetchRefresh,
-      currentDataLength: data.length
-    });
-    
-    setLoading(true);
-    const fetchData = async () => {
-      try {
-        await loadListingData();
-      } catch (error) {
-        console.log('💰 Payouts Fetch Error:', {
-          error: error.message,
-          stack: error.stack
-        });
-      } finally {
-        setRefreshing(false);
-        setLoading(false);
-      }
-    };
+    if (!isFocused) return;
+    if (!loadedOnce.current) setInitialLoading(true);
+    loadFirstPage();
+  }, [isFocused, loadFirstPage]);
 
-    fetchData();
-  }, [isFocused, isInitialFetchRefresh]);
-
-  const loadListingData = async () => {
-    let netState = await NetInfo.fetch();
-    if (!netState.isConnected || !netState.isInternetReachable) {
-      throw new Error('No internet connection.');
-    }
-
-    // 💰 PAYOUTS API CALL LOGGING
-    const authToken = await getStoredAuthToken();
-    console.log('💰 Payouts API Call:', {
-      endpoint: 'LIST_PAYOUT (Supabase)',
-      nextPageToken: nextTokenParam,
-      networkConnected: netState.isConnected,
-      networkReachable: netState.isInternetReachable,
-      hasAuthToken: !!authToken,
-      authTokenLength: authToken?.length || 0
-    });
-
-    const res = await retryAsync(
-      () => getHomePayoutListingApi(nextTokenParam),
-      3,
-      1000,
-    );
-
-    // 💰 PAYOUTS API RESPONSE LOGGING
-    console.log('💰 Payouts API Full Response:', JSON.stringify(res, null, 2));
-    console.log('💰 Payouts API Response Analysis:', {
-      success: res?.success,
-      hasData: !!res?.data,
-      dataArray: res?.data,
-      dataLength: res?.data?.length || 0,
-      totalReceivable: res?.totalReceivable,
-      nextPageToken: res?.nextPageToken,
-      message: res?.message,
-      responseKeys: Object.keys(res || {})
-    });
-
-    if (!res?.success) {
-      console.log('💰 Payouts API Error:', res?.message || 'Failed to load payout data');
-      throw new Error(res?.message || 'Failed to load payout data');
-    }
-
-    setNextToken(res?.nextPageToken);
-    setTotalReceivables(res?.totalReceivable);
-    setDataCount(res?.data?.length || 0);
-    
-    const newData = res?.data || [];
-    console.log('💰 Payouts Data Setting:', {
-      newDataLength: newData.length,
-      isAppending: !!nextTokenParam,
-      currentDataLength: data.length,
-      dataCount: res?.data?.length || 0
-    });
-    
-    setData(
-      prev =>
-        nextTokenParam
-          ? [...prev, ...newData] // append
-          : newData, // replace
-    );
-  };
-
-  // ✅ Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
-    setNextToken('');
-    setNextTokenParam('');
-    setIsInitialFetchRefresh(!isInitialFetchRefresh);
+    loadFirstPage();
   };
 
-
-  // ✅ Pull-to-refresh
-
-  // Load more
-  useEffect(() => {
-    if (nextTokenParam) {
-      setLoading(true);
-      loadListingData();
-      setTimeout(() => {
-        setLoading(false); // or setLoading(false)
-      }, 500);
-    }
-  }, [nextTokenParam]);
-
-  const onPressLoadMore = () => {
-    if (nextToken != nextTokenParam) {
-      setNextTokenParam(nextToken);
+  const onLoadMore = async () => {
+    if (loadingMore || !hasMore || !nextToken) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetchPayoutPage(nextToken);
+      const rows = res?.data || [];
+      setData(prev => [...prev, ...rows]);
+      setNextToken(res?.nextPageToken || '');
+      setHasMore(rows.length >= PAGE_SIZE && !!res?.nextPageToken);
+    } catch (e) {
+      setError(e?.message || 'Failed to load more payouts');
+    } finally {
+      setLoadingMore(false);
     }
   };
-  // Load more
+
+  const currencySymbol = data[0]?.totalReceivableAmountCurrencySymbol || '$';
+  const showSkeleton = initialLoading && data.length === 0;
+
+  const header = (
+    <View>
+      <View style={styles.summary}>
+        <Text style={styles.summaryLabel}>Total receivables</Text>
+        <Text style={styles.summaryAmount} numberOfLines={1} adjustsFontSizeToFit>
+          {currencySymbol}
+          {formatPayoutAmount(totalReceivables)}
+        </Text>
+        <Text style={styles.summaryCaption}>Amount from sales that has not been paid out yet</Text>
+      </View>
+
+      {error ? (
+        <TouchableOpacity style={styles.errorBanner} onPress={onRefresh} activeOpacity={0.8}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorRetry}>Tap to retry</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {data.length > 0 ? (
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Payout history</Text>
+          <Text style={styles.sectionCount}>
+            {data.length}
+            {hasMore ? '+' : ''} {data.length === 1 ? 'payout' : 'payouts'}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const empty = (
+    <View style={styles.empty}>
+      <View style={styles.emptyIcon}>
+        <Text style={styles.emptyIconText}>{currencySymbol}</Text>
+      </View>
+      <Text style={styles.emptyTitle}>No payouts yet</Text>
+      <Text style={styles.emptyText}>
+        Your payout history will appear here once you make sales.
+      </Text>
+    </View>
+  );
+
+  const footer = hasMore ? (
+    <TouchableOpacity
+      style={styles.loadMore}
+      onPress={onLoadMore}
+      disabled={loadingMore}
+      activeOpacity={0.7}
+      accessibilityRole="button">
+      {loadingMore ? (
+        <ActivityIndicator color="#539461" />
+      ) : (
+        <Text style={styles.loadMoreText}>Load more payouts</Text>
+      )}
+    </TouchableOpacity>
+  ) : null;
 
   return (
-    <SafeAreaView
-      style={{flex: 1, backgroundColor: '#fff'}}>
-      {loading && (
-        <Modal transparent animationType="fade">
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#699E73" />
-          </View>
-        </Modal>
-      )}
-      {/* Search and Icons */}
-      <View style={styles.stickyHeader}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{
-              // padding: 5,
-              // backgroundColor: '#fff',
-              flexDirection: 'row',
-              justifyContent: 'flex-start',
-              alignItems: 'flex-start',
-            }}>
-            <LeftIcon width={30} hegiht={30} />
-          </TouchableOpacity>
-          <View style={{flex: 1}}>
-            <Text
-              style={[
-                globalStyles.textLGGreyDark,
-                {textAlign: 'center', paddingRight: 20},
-              ]}>
-              Payouts
-            </Text>
-          </View>
-        </View>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back">
+          <LeftIcon width={24} height={24} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Payouts</Text>
+        <View style={styles.backButton} />
       </View>
-      {/* Search and Icons */}
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        // style={[styles.container, {paddingTop: insets.top}]}
-        style={[styles.container]}
-        // stickyHeaderIndices={[0]}
-      >
-        {/* Main Content */}
-        <View style={{marginHorizontal: 20}}>
-          <View
-            style={{
-              backgroundColor: '#202325',
-              padding: 20,
-              borderRadius: 10,
-              flexDirection: 'column',
-              marginBottom: 20,
-            }}>
-            <Text style={globalStyles.textMDWhite}>Total Receivables</Text>
 
-            <Text style={[globalStyles.textXLWhite, {paddingTop: 10}]}>
-              {data.length > 0 ? data[0]?.totalReceivableAmountCurrencySymbol : '$'} {totalReceivables || '0.00'}
-            </Text>
-          </View>
-
-          {data.length === 0 && !loading ? (
-            <View style={{
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingVertical: 60,
-              backgroundColor: '#f9f9f9',
-              borderRadius: 10,
-              marginVertical: 20
-            }}>
-              <Text style={[globalStyles.textLGGreyLight, {marginBottom: 10}]}>
-                No Payouts Available
-              </Text>
-              <Text style={[globalStyles.textMDGreyLight, {textAlign: 'center', paddingHorizontal: 20}]}>
-                Your payout history will appear here once you make sales
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              scrollEnabled={false}
-              data={data}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({item, index}) => {
-                console.log(`💰 Rendering Payout Item ${index}:`, item);
-                return (
-                  <TouchableOpacity
-                    onPress={() =>
-                      navigation.navigate('ScreenPayoutDetails', item)
-                    }>
-                    <PayoutCard item={item} />
-                  </TouchableOpacity>
-                );
-              }}
-              contentContainerStyle={{paddingBottom: 20}}
-            />
-          )}
-          {data.length == 10 && (
+      {showSkeleton ? (
+        <View style={styles.content}>
+          <PayoutSkeleton />
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(item, index) => String(item?.id || item?.referenceNumber || index)}
+          renderItem={({item}) => (
             <TouchableOpacity
-              onPress={() => onPressLoadMore()}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                marginTop: 300,
-                marginBottom: 50,
-              }}>
-              <Text style={globalStyles.textLGAccent}>Load More</Text>
-              <ArrowDownIcon width={25} height={20} />
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('ScreenPayoutDetails', item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Payout ${item?.payOutDate || ''}`}>
+              <PayoutCard item={item} />
             </TouchableOpacity>
           )}
-        </View>
-        {/* Main Content */}
-      </ScrollView>
-      {/* Button always at the bottom */}
+          ListHeaderComponent={header}
+          ListEmptyComponent={error ? null : empty}
+          ListFooterComponent={footer}
+          contentContainerStyle={styles.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  mainContent: {
-    flex: 1,
-    backgroundColor: '#DFECDF',
-  },
-  mainContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
+  screen: {flex: 1, backgroundColor: '#F5F6F6'},
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E4E7E9',
+  },
+  backButton: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
+  headerTitle: {fontFamily: 'Inter', fontSize: 18, fontWeight: '700', color: '#202325'},
+  content: {padding: 16, paddingBottom: 32},
+  summary: {
+    backgroundColor: '#1F5C38',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#0E2E1C',
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  summaryLabel: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#CFE6D6',
+    letterSpacing: 0.3,
+  },
+  summaryAmount: {
+    fontFamily: 'Inter',
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  summaryCaption: {fontFamily: 'Inter', fontSize: 13, color: '#CFE6D6', marginTop: 8},
+  errorBanner: {
+    backgroundColor: '#FDECEA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {fontFamily: 'Inter', fontSize: 13, color: '#C8342A', fontWeight: '600'},
+  errorRetry: {fontFamily: 'Inter', fontSize: 12, color: '#C8342A', marginTop: 2},
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionTitle: {fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#202325'},
+  sectionCount: {fontFamily: 'Inter', fontSize: 13, color: '#647276'},
+  empty: {
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
   },
-  stickyHeader: {
-    backgroundColor: '#fff',
-    zIndex: 10,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  loadingOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#E8F5EB',
+    alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyIconText: {fontFamily: 'Inter', fontSize: 24, fontWeight: '700', color: '#23794A'},
+  emptyTitle: {fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#202325'},
+  emptyText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#647276',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  loadMore: {
+    marginTop: 4,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E4E7E9',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
   },
+  loadMoreText: {fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: '#539461'},
 });
 
 export default ScreenPayout;

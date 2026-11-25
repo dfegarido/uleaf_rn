@@ -61,6 +61,7 @@ import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
 import LiveListingGrid, {PinkPin} from './components/LiveListingGrid';
 import LiveListingGridSkeleton from './components/LiveListingGridSkeleton';
+import ReservedForFilterSheet from './components/ReservedForFilterSheet';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';
@@ -70,6 +71,15 @@ import ExIcon from '../../../assets/icons/greylight/x-regular.svg';
 import SearchIcon from '../../../assets/icons/greylight/magnifying-glass-regular.svg';
 import RefreshIcon from '../../../assets/icons/accent/arrow-clockwise-regular.svg';
 import LiveIcon from '../../../assets/images/live.svg';
+import { reservedForName, reservedForUid } from '../../../components/ReservedForBadge';
+
+/** Same buyer whether the listing carries the uid or only the username. */
+const reservedBuyerKey = listing => {
+  const uid = reservedForUid(listing);
+  if (uid) return `uid:${uid}`;
+  const name = reservedForName(listing).toLowerCase();
+  return name ? `name:${name}` : '';
+};
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -615,6 +625,16 @@ const ScreenListing = ({navigation}) => {
 
 
   const fetchListingsPage = async (targetPage = 1) => {
+    // Remembers this tab's list before the "Reserved for" filter so the buyer
+    // picker can list every buyer who has a reservation on the tab.
+    const applyReservedFor = listings => {
+      tabListingsRef.current = listings;
+      const selected = reservedForFilterRef.current;
+      if (!selected.length) return listings;
+      const keys = new Set(selected.map(buyer => buyer.key));
+      return listings.filter(listing => keys.has(reservedBuyerKey(listing)));
+    };
+
     try {
       setLoading(true);
 
@@ -679,10 +699,8 @@ const ScreenListing = ({navigation}) => {
             allListingsRef.current = rawListings;
           }
 
-          const sortedAggregated = prepareSellerChannelTabListings(
-            allListingsRef.current,
-            'Live',
-            channelFilters,
+          const sortedAggregated = applyReservedFor(
+            prepareSellerChannelTabListings(allListingsRef.current, 'Live', channelFilters),
           );
           sortedAggregated.forEach((item, i) => {
             item._originalIndex = i + 1;
@@ -742,15 +760,17 @@ const ScreenListing = ({navigation}) => {
 
       // Active tab: status Active and not expired (includes sold-out until expired).
       if (activeTab === 'Active') {
-        const sortedAggregated = prepareMyStoreActiveListings(allListingsRef.current, {
-          sortBy: reusableSort,
-          genus: reusableGenus,
-          variegation: reusableVariegation,
-          listingType: reusableListingType,
-          search,
-          pinOnly: pinSearch,
-          requireInStock: false,
-        });
+        const sortedAggregated = applyReservedFor(
+          prepareMyStoreActiveListings(allListingsRef.current, {
+            sortBy: reusableSort,
+            genus: reusableGenus,
+            variegation: reusableVariegation,
+            listingType: reusableListingType,
+            search,
+            pinOnly: pinSearch,
+            requireInStock: false,
+          }),
+        );
         allDisplayListingsRef.current = sortedAggregated;
         setDataTable(sortedAggregated.slice(0, ALL_DISPLAY_PAGE));
         setTotalListings(sortedAggregated.length);
@@ -762,7 +782,7 @@ const ScreenListing = ({navigation}) => {
 
       // Group Chat Listing tab: status GroupChatListing and not expired.
       if (activeTab === 'Group Chat Listing') {
-        const sortedAggregated = prepareSellerChannelTabListings(
+        const channelListings = prepareSellerChannelTabListings(
           allListingsRef.current,
           'GroupChatListing',
           {
@@ -774,6 +794,7 @@ const ScreenListing = ({navigation}) => {
             pinOnly: pinSearch,
           },
         );
+        const sortedAggregated = applyReservedFor(channelListings);
         allDisplayListingsRef.current = sortedAggregated;
         setDataTable(sortedAggregated.slice(0, ALL_DISPLAY_PAGE));
         setTotalListings(sortedAggregated.length);
@@ -1071,7 +1092,7 @@ const ScreenListing = ({navigation}) => {
       const aggregatedListings = deduplicateListings(
         processResponseListings(allListingsRef.current),
       );
-      const sortedAggregated = sortListingsBySelection(aggregatedListings);
+      const sortedAggregated = applyReservedFor(sortListingsBySelection(aggregatedListings));
 
       // Store the full result set for infinite scroll
       allDisplayListingsRef.current = sortedAggregated;
@@ -1167,6 +1188,45 @@ const ScreenListing = ({navigation}) => {
 
   // Pin search
   const [pinSearch, setPinSearch] = useState(false);
+
+  // "Reserved for" filter: the selected buyers as [{ key, name }]; empty shows everyone.
+  // The fetch reads the ref: it runs from a timer that can hold an older render.
+  const [reservedForFilter, setReservedForFilterState] = useState([]);
+  const reservedForFilterRef = useRef([]);
+  const tabListingsRef = useRef([]);
+  const [reservedSheetVisible, setReservedSheetVisible] = useState(false);
+  const [reservedBuyers, setReservedBuyers] = useState([]);
+
+  const setReservedForFilter = buyers => {
+    reservedForFilterRef.current = buyers;
+    setReservedForFilterState(buyers);
+  };
+
+  useEffect(() => {
+    setReservedForFilter([]);
+  }, [activeTab]);
+
+  const openReservedSheet = () => {
+    const byKey = new Map();
+    tabListingsRef.current.forEach(listing => {
+      const key = reservedBuyerKey(listing);
+      if (!key) return;
+      const entry = byKey.get(key) || {key, name: reservedForName(listing) || 'Buyer', count: 0};
+      entry.count += 1;
+      byKey.set(key, entry);
+    });
+    setReservedBuyers(
+      [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, {sensitivity: 'base'})),
+    );
+    setReservedSheetVisible(true);
+  };
+
+  const applyReservedFilter = buyers => {
+    setReservedSheetVisible(false);
+    setReservedForFilter(buyers);
+    resetPaginationState();
+    setIsInitialFetchRefresh(prev => !prev);
+  };
 
   const onPressPinSearch = paramPinSearch => {
     setPinSearch(paramPinSearch);
@@ -1890,6 +1950,7 @@ const ScreenListing = ({navigation}) => {
   }, [activeSelectedIds, listingsBySelectedIds, exitActiveSelectMode, navigation]);
 
   const handleGroupChatBatchExportToMainstream = useCallback(() => {
+    if (isAsiaBusinessAccount(accountClassFromUserInfo(userInfo))) return;
     if (groupChatSelectedIds.length === 0) return;
     const count = groupChatSelectedIds.length;
     Alert.alert(
@@ -1920,7 +1981,7 @@ const ScreenListing = ({navigation}) => {
         },
       ],
     );
-  }, [groupChatSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitGroupChatSelectMode]);
+  }, [groupChatSelectedIds, listingsBySelectedIds, applyDisplaySelectionRemoval, exitGroupChatSelectMode, userInfo]);
 
   const handleGroupChatBatchDeactivate = useCallback(() => {
     if (groupChatSelectedIds.length === 0) return;
@@ -2247,6 +2308,40 @@ const ScreenListing = ({navigation}) => {
   const listingManageAllSelected =
     listingManageSelectableTotal > 0 &&
     listingManageSelectedIds.length === listingManageSelectableTotal;
+  const reservedFilterButton = reservedForFilter.length ? (
+    <View style={[styles.reservedFilterBtn, styles.reservedFilterBtnOn]}>
+      <TouchableOpacity
+        onPress={openReservedSheet}
+        style={styles.reservedFilterLabel}
+        accessibilityRole="button"
+        accessibilityLabel="Change Reserved for filter">
+        <Text style={styles.reservedFilterTextOn} numberOfLines={1}>
+          @{reservedForFilter[0].name}
+        </Text>
+        {reservedForFilter.length > 1 ? (
+          <View style={styles.reservedFilterMore}>
+            <Text style={styles.reservedFilterMoreText}>+{reservedForFilter.length - 1}</Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => applyReservedFilter([])}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Clear Reserved for filter">
+        <Text style={styles.reservedFilterClear}>✕</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <TouchableOpacity
+      onPress={openReservedSheet}
+      style={styles.reservedFilterBtn}
+      accessibilityRole="button"
+      accessibilityLabel="Filter by Reserved for">
+      <Text style={styles.reservedFilterText}>Reserved for</Text>
+      <Text style={styles.reservedFilterPlus}>+</Text>
+    </TouchableOpacity>
+  );
   const liveSelectableTotal =
     liveAllListingsRef.current.length || dataTable.length;
   const liveAllSelected =
@@ -2520,7 +2615,7 @@ const ScreenListing = ({navigation}) => {
       {activeTab === 'Live' ? (
         <View style={[styles.container, { flex: 1, paddingBottom: insets.bottom }]}>
           <View style={{ flex: 1, backgroundColor: '#fff' }}>
-            {activeTab === 'Live' && !loading && dataTable && dataTable.length > 0 && (
+            {activeTab === 'Live' && !loading && ((dataTable && dataTable.length > 0) || reservedForFilter.length > 0) && (
               <View style={[styles.liveToolbar, isLiveSelectMode && styles.liveToolbarSelectMode]}>
                 {isLiveSelectMode ? (
                   <View style={styles.liveSelectModeContainer}>
@@ -2582,6 +2677,7 @@ const ScreenListing = ({navigation}) => {
                   </View>
                 ) : (
                   <>
+                    {reservedFilterButton}
                     <TouchableOpacity
                       onPress={() => onPressPinSearch(!pinSearch)}
                       style={[styles.liveRefreshBtn, pinSearch && styles.livePinOn]}
@@ -2635,6 +2731,14 @@ const ScreenListing = ({navigation}) => {
         <View style={[styles.container, {flex: 1}]}>
           {/* Keep Manage / select actions pinned above the table so they stay
               reachable after scrolling (Group Chat Listing Select All / Delete). */}
+          {!showListingManageToolbar && !loading && (
+            <View style={[styles.liveToolbar, styles.listingManageToolbarPinned]}>
+              {reservedFilterButton}
+              <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
+                <RefreshIcon width={18} height={18} />
+              </TouchableOpacity>
+            </View>
+          )}
           {showListingManageToolbar && (
             <View
               style={[
@@ -2683,7 +2787,7 @@ const ScreenListing = ({navigation}) => {
                         <Text style={styles.liveActionChipText}>To cart</Text>
                       </TouchableOpacity>
                     ) : null}
-                    {activeTab === 'Group Chat Listing' ? (
+                    {activeTab === 'Group Chat Listing' && !hideAsiaBusinessChatEdit ? (
                       <TouchableOpacity
                         onPress={handleGroupChatBatchExportToMainstream}
                         disabled={listingManageSelectedIds.length === 0}
@@ -2747,6 +2851,7 @@ const ScreenListing = ({navigation}) => {
                 </View>
               ) : (
                 <>
+                  {reservedFilterButton}
                   <TouchableOpacity onPress={onRefresh} style={styles.liveRefreshBtn} hitSlop={8}>
                     <RefreshIcon width={18} height={18} />
                   </TouchableOpacity>
@@ -2838,6 +2943,15 @@ const ScreenListing = ({navigation}) => {
         </View>
       )}
 
+
+      <ReservedForFilterSheet
+        visible={reservedSheetVisible}
+        buyers={reservedBuyers}
+        selected={reservedForFilter}
+        scopeLabel={activeTab === 'All' ? 'your listings' : activeTab}
+        onApply={applyReservedFilter}
+        onClose={() => setReservedSheetVisible(false)}
+      />
 
       <PushToBuyerSheet
         visible={showPushSheet}
@@ -3294,6 +3408,64 @@ const styles = StyleSheet.create({
   livePinOn: {
     backgroundColor: '#FFE7E2',
     borderColor: '#FF4D8D',
+  },
+  reservedFilterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: 170,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CDD3D4',
+    marginRight: 'auto',
+  },
+  reservedFilterBtnOn: {
+    backgroundColor: '#E8F5EB',
+    borderColor: '#539461',
+  },
+  reservedFilterText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B4344',
+  },
+  reservedFilterPlus: {
+    fontFamily: 'Inter',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#539461',
+  },
+  reservedFilterTextOn: {
+    flexShrink: 1,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#23794A',
+  },
+  reservedFilterClear: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#23794A',
+  },
+  reservedFilterLabel: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reservedFilterMore: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: '#539461',
+  },
+  reservedFilterMoreText: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   liveManageBtn: {
     paddingHorizontal: 14,

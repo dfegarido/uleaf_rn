@@ -55,7 +55,8 @@ export function isGroupChatListingStatus(status) {
 
 /**
  * Asia Business chat / After Live Backstage listings (status GroupChatListing)
- * are view-only for Edit — Delete / Export / To cart / Discount / Stocks stay.
+ * cannot be edited or exported to Mainstream. Delete / To cart / Discount stay.
+ * Garden Partner and US Business can still export chat listings.
  */
 export function isAsiaBusinessChatListingEditDisabled(accountClass, status) {
   return (

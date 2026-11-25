@@ -56,7 +56,7 @@ import { adminPushListingsToCartApi } from '../../../components/Api/adminPushLis
 const TABLE_COLUMNS = [
   { key: 'image', label: 'Image', width: IMAGE_CELL_WIDTH },
   { key: 'code', label: 'Code + Status', width: 120 },
-  { key: 'action', label: 'Action', width: 124 },
+  { key: 'action', label: 'Action', width: 64 },
   { key: 'name', label: 'Name', width: 200 },
   { key: 'listingType', label: 'Listing Type', width: 140 },
   { key: 'size', label: 'Size', width: 90 },
@@ -76,7 +76,7 @@ const FILTERED_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'image');
 const SELECT_TABLE_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'action');
 const SELECT_FILTERED_COLUMNS = FILTERED_COLUMNS.filter((c) => c.key !== 'action');
 
-const ListingsViewer = ({ navigation }) => {
+const ListingsViewer = ({ navigation, route }) => {
   // Normalize garden/seller names to reduce mismatches (curly quotes, extra spaces)
   const normalizeGardenName = (s) => {
     if (!s && s !== 0) return null;
@@ -220,6 +220,13 @@ const ListingsViewer = ({ navigation }) => {
   useEffect(() => {
     loadListings();
   }, [selectedBadgeFilter, selectedFilters, pagination.currentPage]);
+
+  useEffect(() => {
+    const stamp = route?.params?.listingRefresh;
+    if (!stamp) return;
+    loadListings({ page: pagination.currentPage });
+    navigation.setParams({ listingRefresh: undefined });
+  }, [route?.params?.listingRefresh]);
 
   // Use a columns array without 'image' for header/rows alignment.
   // Module constants keep the identity stable so memoized rows don't rerender
@@ -1330,6 +1337,10 @@ const ListingsViewer = ({ navigation }) => {
     navigation.navigate('ListingsViewerDetail', { listing, imageUrl });
   }, [navigation]);
 
+  const handleEditListing = useCallback((listing) => {
+    navigation.navigate('ListingsViewerEdit', { listing });
+  }, [navigation]);
+
   const exitSelectMode = () => {
     setSelectMode(false);
     setSelectedIds([]);
@@ -2121,6 +2132,7 @@ const ListingsViewer = ({ navigation }) => {
                         listing={item}
                         onPress={handleListingPress}
                         onImagePress={handleImagePress}
+                        onEdit={handleEditListing}
                         columns={filteredColumns}
                         onToggleStatus={handleToggleStatus}
                         onDelete={handleDelete}
