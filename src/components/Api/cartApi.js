@@ -48,6 +48,33 @@ export const addToCartApi = async (cartData) => {
 };
 
 /**
+ * How many other buyers have each plant in their cart.
+ * @param {string[]} plantCodes
+ * @returns {Promise<Object<string, number>>} plantCode → count; empty on failure
+ */
+export const getInCartCountsApi = async (plantCodes = []) => {
+  try {
+    const codes = [...new Set(plantCodes.filter(Boolean))];
+    if (!codes.length) return {};
+    const authToken = await getStoredAuthToken();
+    const query = new URLSearchParams({inCartCounts: codes.join(',')});
+    const response = await fetch(`${API_ENDPOINTS.GET_CART_ITEMS}?${query.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    return data?.counts || {};
+  } catch (error) {
+    console.warn('In-cart counts API error:', error?.message);
+    return {};
+  }
+};
+
+/**
  * Get cart items
  * @param {Object} params - Query parameters
  * @param {number} params.limit - Number of items to fetch

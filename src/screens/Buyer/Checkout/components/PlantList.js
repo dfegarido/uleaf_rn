@@ -56,6 +56,7 @@ const PlantList = ({ plantItems = [], renderCountryFlag, PlantItemComponent, onP
             discount={item.discount}
             originalPrice={item.originalPrice}
             hasAirCargo={item.hasAirCargo}
+            inCartsCount={item.inCartsCount}
             onPress={() => onPlantPress(item)}
           />
 

@@ -1,6 +1,6 @@
 import AppImage from '../../../components/AppImage/AppImage';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { setupURLPolyfill } from 'react-native-url-polyfill';
@@ -10,6 +10,7 @@ import USAFlag from '../../../assets/buyer-icons/usa-flag.svg';
 import ThailandFlag from '../../../assets/buyer-icons/thailand-flag.svg';
 import BackIcon from '../../../assets/iconnav/caret-left-bold.svg';
 import BrowseMorePlants from '../../../components/BrowseMorePlants';
+import { getInCartCountsApi } from '../../../components/Api/cartApi';
 import { formatCurrencyFull } from '../../../utils/formatCurrency';
 import AddressSection from './components/AddressSection';
 import CheckoutBar from './components/CheckoutBar';
@@ -93,9 +94,16 @@ const PlantItemComponent = ({
   country,
   shippingMethod,
   airCargoOption,
+  inCartsCount = 0,
   onPress,
 }) => {
   const isGrowerChoice = listingType === 'growers_choice';
+  const inCartsLabel =
+    inCartsCount >= 20
+      ? 'In 20+ carts'
+      : inCartsCount > 0
+      ? `In ${inCartsCount} ${inCartsCount === 1 ? 'cart' : 'carts'}`
+      : null;
   const isDiscounted = originalPrice && discount && originalPrice > price;
 
   return (
@@ -119,6 +127,9 @@ const PlantItemComponent = ({
 
       {/* Plant Details */}
       <View style={styles.plantDetails}>
+        {inCartsLabel ? (
+          <Text style={styles.inCartsText}>{inCartsLabel}</Text>
+        ) : null}
         {/* Plant Name */}
         <View style={styles.plantName}>
           <Text style={styles.plantNameText}>{name}</Text>
@@ -234,6 +245,29 @@ const CheckoutScreen = () => {
     formatFlightDateToISO,
   } = useCheckoutController();
 
+  const [inCartCounts, setInCartCounts] = useState({});
+  const plantCodesKey = (plantItems || [])
+    .map(item => item?.plantCode)
+    .filter(Boolean)
+    .join(',');
+  useEffect(() => {
+    let cancelled = false;
+    getInCartCountsApi(plantCodesKey ? plantCodesKey.split(',') : []).then(counts => {
+      if (!cancelled) setInCartCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [plantCodesKey]);
+  const plantItemsWithCartCounts = useMemo(
+    () =>
+      (plantItems || []).map(item => ({
+        ...item,
+        inCartsCount: inCartCounts[item?.plantCode] || 0,
+      })),
+    [plantItems, inCartCounts],
+  );
+
   // Debug logging in CheckoutScreen
   console.log('🛒 [CheckoutScreen] Render with plantItems:', {
     count: plantItems?.length || 0,
@@ -296,7 +330,7 @@ const CheckoutScreen = () => {
         />
         
         <PlantList
-          plantItems={plantItems}
+          plantItems={plantItemsWithCartCounts}
           renderCountryFlag={renderCountryFlag}
           PlantItemComponent={PlantItemComponent}
           onPlantPress={(item) => {

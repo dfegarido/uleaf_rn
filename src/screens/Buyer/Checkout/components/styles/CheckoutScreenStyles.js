@@ -1333,6 +1333,17 @@ const styles = StyleSheet.create({
     flex: 0,
     alignSelf: 'stretch',
   },
+  inCartsText: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: '#B3261E',
+    // plantDetails has gap 12; keep the label tight above the name.
+    marginBottom: -8,
+  },
   plantNameText: {
     width: '100%',
     height: 24,
