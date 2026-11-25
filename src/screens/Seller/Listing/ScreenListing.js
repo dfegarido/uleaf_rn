@@ -61,7 +61,7 @@ import ListingTable from './components/ListingTable';
 import ListingTableSkeleton from './components/ListingTableSkeleton';
 import LiveListingGrid, {PinkPin} from './components/LiveListingGrid';
 import LiveListingGridSkeleton from './components/LiveListingGridSkeleton';
-import ReservedForFilterSheet from './components/ReservedForFilterSheet';
+import ReservedForFilterSheet from '../../../components/ReservedForFilterSheet';
 
 import PinAccentIcon from '../../../assets/icons/accent/pin.svg';
 import DownIcon from '../../../assets/icons/greylight/caret-down-regular.svg';

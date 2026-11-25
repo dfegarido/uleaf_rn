@@ -43,7 +43,12 @@ import TrashIcon from '../../../assets/icons/red/trash.svg';
 import CartIcon from '../../../assets/icontabs/buyer-tabs/cart-solid.svg';
 import PlantIcon from '../../../assets/icons/accent/plant-regular.svg';
 // Import API
-import { getAdminListingsApi, getAdminListingGardensApi } from '../../../components/Api/getAdminListingsApi';
+import {
+  getAdminListingsApi,
+  getAdminListingGardensApi,
+  getAdminReservedBuyersApi,
+} from '../../../components/Api/getAdminListingsApi';
+import ReservedForFilterSheet from '../../../components/ReservedForFilterSheet';
 import { postListingDeactivateActionApi } from '../../../components/Api/postListingDeactivateActionApi';
 import { postListingActivateActionApi } from '../../../components/Api/postListingActivateActionApi';
 import { postListingDeleteApi } from '../../../components/Api/postListingDeleteApi';
@@ -74,6 +79,7 @@ const TABLE_COLUMNS = [
 const FILTERED_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'image');
 // Selection already has the action bar, so the per-row Action column stays hidden there.
 const SELECT_TABLE_COLUMNS = TABLE_COLUMNS.filter((c) => c.key !== 'action');
+const NO_RESERVED_BUYERS = [];
 const SELECT_FILTERED_COLUMNS = FILTERED_COLUMNS.filter((c) => c.key !== 'action');
 
 const ListingsViewer = ({ navigation, route }) => {
@@ -98,7 +104,12 @@ const ListingsViewer = ({ navigation, route }) => {
     country: null,
     shippingIndex: null,
     acclimationIndex: null,
+    // [{ key: buyer uid, name: username }]
+    reservedFor: null,
   });
+  const [reservedForModalVisible, setReservedForModalVisible] = useState(false);
+  const [reservedBuyers, setReservedBuyers] = useState([]);
+  const [reservedBuyersLoading, setReservedBuyersLoading] = useState(false);
 
   // Sort modal state
   const [sortModalVisible, setSortModalVisible] = useState(false);
@@ -194,6 +205,7 @@ const ListingsViewer = ({ navigation, route }) => {
     { label: 'Variegation', rightIcon: DownIcon },
     { label: 'Listing Type', rightIcon: DownIcon },
     { label: 'Garden', rightIcon: DownIcon },
+    { label: 'Reserved for', rightIcon: DownIcon },
     { label: 'Country', rightIcon: DownIcon },
     { label: 'Shipping Index', rightIcon: DownIcon },
     { label: 'Acclimation Index', rightIcon: DownIcon },
@@ -258,6 +270,7 @@ const ListingsViewer = ({ navigation, route }) => {
         country: selectedFilters.country || undefined,
         shippingIndex: selectedFilters.shippingIndex || undefined,
         acclimationIndex: selectedFilters.acclimationIndex || undefined,
+        reservedFor: selectedFilters.reservedFor?.map((b) => b.key),
         search: isSearching ? searchTerm : undefined,
         page: pageToUse,
         limit: limitToUse,
@@ -644,8 +657,8 @@ const ListingsViewer = ({ navigation, route }) => {
     const isCurrentlyActive = isFilterActive(filterLabel);
     
     // If filter is active and clicked again, reset it instead of opening modal.
-    // Status stays open so a selected status can be unchecked inside the sheet.
-    if (isCurrentlyActive && filterLabel !== 'Status') {
+    // Status and Reserved for stay open so selections can be adjusted inside the sheet.
+    if (isCurrentlyActive && filterLabel !== 'Status' && filterLabel !== 'Reserved for') {
       handleResetFilter(filterLabel);
       return;
     }
@@ -679,6 +692,8 @@ const ListingsViewer = ({ navigation, route }) => {
             }
         } else if (filterLabel === 'Garden') {
           setGardenModalVisible(true);
+        } else if (filterLabel === 'Reserved for') {
+          openReservedForModal();
         } else if (filterLabel === 'Country') {
           setCountryModalVisible(true);
         } else if (filterLabel === 'Shipping Index') {
@@ -954,6 +969,7 @@ const ListingsViewer = ({ navigation, route }) => {
         country: selectedFilters.country || undefined,
         shippingIndex: selectedFilters.shippingIndex || undefined,
         acclimationIndex: selectedFilters.acclimationIndex || undefined,
+        reservedFor: selectedFilters.reservedFor?.map((b) => b.key),
         search: (searchTerm && searchTerm.trim() !== '') ? searchTerm : undefined,
         page: 1,
         limit: 1000,
@@ -1593,6 +1609,27 @@ const ListingsViewer = ({ navigation, route }) => {
     );
   };
 
+  // The skeleton shows only on the first open; later opens show the last list
+  // right away and refresh it in the background so new reservations show up.
+  const openReservedForModal = async () => {
+    const hasCache = reservedBuyers.length > 0;
+    if (!hasCache) setReservedBuyersLoading(true);
+    setReservedForModalVisible(true);
+    const res = await getAdminReservedBuyersApi();
+    if (res.success || !hasCache) {
+      setReservedBuyers(
+        res.buyers.map((b) => ({ key: b.uid, name: b.username, count: b.count })),
+      );
+    }
+    setReservedBuyersLoading(false);
+  };
+
+  const applyReservedForFilter = (buyers) => {
+    setReservedForModalVisible(false);
+    setSelectedFilters((prev) => ({ ...prev, reservedFor: buyers.length ? buyers : null }));
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
+  };
+
   // Reset specific filter
   const handleResetFilter = (filterLabel) => {
     switch (filterLabel) {
@@ -1618,6 +1655,9 @@ const ListingsViewer = ({ navigation, route }) => {
         break;
       case 'Garden':
         setSelectedFilters((prev) => ({ ...prev, garden: null }));
+        break;
+      case 'Reserved for':
+        setSelectedFilters((prev) => ({ ...prev, reservedFor: null }));
         break;
       case 'Country':
         setSelectedFilters((prev) => ({ ...prev, country: null }));
@@ -1649,6 +1689,7 @@ const ListingsViewer = ({ navigation, route }) => {
       country: null,
       shippingIndex: null,
       acclimationIndex: null,
+      reservedFor: null,
     });
     
     // Reset all draft states
@@ -1695,6 +1736,8 @@ const ListingsViewer = ({ navigation, route }) => {
         return selectedFilters.listingType !== null;
       case 'Garden':
         return selectedFilters.garden !== null;
+      case 'Reserved for':
+        return Boolean(selectedFilters.reservedFor?.length);
       case 'Country':
         // Check if country filter has any selected values
         if (Array.isArray(selectedFilters.country)) return selectedFilters.country.length > 0;
@@ -1960,6 +2003,11 @@ const ListingsViewer = ({ navigation, route }) => {
               const gardenName = String(selectedFilters.garden);
               displayText = gardenName.length > 20 ? gardenName.substring(0, 17) + '...' : gardenName;
             }
+            if (filter.label === 'Reserved for' && selectedFilters.reservedFor?.length) {
+              const [first, ...rest] = selectedFilters.reservedFor;
+              const name = first.name.length > 16 ? first.name.substring(0, 14) + '...' : first.name;
+              displayText = rest.length ? `@${name} +${rest.length}` : `@${name}`;
+            }
             return (
               <FilterTab 
                 key={filter.label} 
@@ -2033,6 +2081,17 @@ const ListingsViewer = ({ navigation, route }) => {
             listingTypeLoading={listingTypeLoading}
             handleSearchSubmit={handleListingTypeView}
             clearFilters={() => handleResetFilter('Listing Type')}
+          />
+
+          <ReservedForFilterSheet
+            visible={reservedForModalVisible}
+            buyers={reservedBuyers}
+            selected={selectedFilters.reservedFor || NO_RESERVED_BUYERS}
+            scopeLabel="all listings"
+            loading={reservedBuyersLoading}
+            fullHeight
+            onApply={applyReservedForFilter}
+            onClose={() => setReservedForModalVisible(false)}
           />
 
           {/* Garden Modal (Admin specific) */}

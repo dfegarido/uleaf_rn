@@ -50,6 +50,7 @@ export const getAdminListingsApi = async (filters = {}) => {
     if (filters.plantFlight) queryParams.append('plantFlight', filters.plantFlight);
     if (filters.shippingIndex) queryParams.append('shippingIndex', filters.shippingIndex);
     if (filters.acclimationIndex) queryParams.append('acclimationIndex', filters.acclimationIndex);
+    if (filters.reservedFor?.length) queryParams.append('reservedFor', [].concat(filters.reservedFor).join(','));
     if (filters.search) queryParams.append('search', filters.search);
     if (filters.page) queryParams.append('page', filters.page.toString());
     if (filters.limit) queryParams.append('limit', filters.limit.toString());
@@ -173,6 +174,33 @@ export const getAdminListingGardensApi = async () => {
   } catch (error) {
     console.error('Get admin listing gardens API error:', error);
     return { success: false, gardens: [] };
+  }
+};
+
+/**
+ * Buyers that have a reserved listing, for the Reserved for filter.
+ * @returns {Promise<{success: boolean, buyers: Array<{uid: string, username: string, count: number}>}>}
+ */
+export const getAdminReservedBuyersApi = async () => {
+  try {
+    const authToken = await getStoredAuthToken();
+    if (!authToken) return { success: false, buyers: [] };
+
+    const response = await fetch(`${API_ENDPOINTS.GET_ADMIN_LISTINGS}?action=reservedBuyers`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return { success: true, buyers: data?.data?.buyers || [] };
+  } catch (error) {
+    console.error('Get admin reserved buyers API error:', error);
+    return { success: false, buyers: [] };
   }
 };
 

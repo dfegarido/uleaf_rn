@@ -1,5 +1,6 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
+  Animated,
   Modal,
   Platform,
   Pressable,
@@ -15,6 +16,58 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 const SEARCH_THRESHOLD = 6;
 
+const SKELETON_ROWS = [0, 1, 2, 3, 4, 5, 6];
+
+const LoadingSkeleton = ({fill}) => {
+  const pulse = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0.4,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View
+      style={[styles.skeletonWrap, fill && styles.flex, {opacity: pulse}]}
+      accessibilityLabel="Loading buyers">
+      <View style={[styles.bone, styles.skeletonSearch]} />
+      <View style={[styles.listCard, fill && styles.flex]}>
+        <View style={[styles.row, styles.allRow]}>
+          <View style={[styles.bone, styles.skeletonCheck]} />
+          <View style={[styles.bone, styles.skeletonAll]} />
+        </View>
+        {SKELETON_ROWS.map(i => (
+          <View key={i} style={styles.row}>
+            <View style={[styles.bone, styles.skeletonCheck]} />
+            <View style={[styles.bone, styles.skeletonAvatar]} />
+            <View
+              style={[
+                styles.bone,
+                styles.skeletonName,
+                {width: `${40 + ((i * 17) % 30)}%`},
+              ]}
+            />
+            <View style={[styles.bone, styles.skeletonPill]} />
+          </View>
+        ))}
+      </View>
+    </Animated.View>
+  );
+};
+
 const Checkbox = ({state}) => (
   <View style={[styles.checkbox, state !== 'off' && styles.checkboxOn]}>
     {state === 'on' ? <Text style={styles.checkMark}>✓</Text> : null}
@@ -24,20 +77,25 @@ const Checkbox = ({state}) => (
 
 /**
  * Multi-select "Reserved for" picker.
- * buyers: [{ key, name, count }] — only buyers with a reserved listing on the tab.
+ * buyers: [{ key, name, count }] — only buyers with a reserved listing in scope.
  * selected: [{ key, name }] currently applied. onApply receives the new selection.
+ * fullHeight: open at full height straight away, for callers that load buyers
+ * after opening (otherwise the sheet grows once the list arrives).
  */
 const ReservedForFilterSheet = ({
   visible,
   buyers,
   selected,
   scopeLabel,
+  loading = false,
+  fullHeight = false,
   onApply,
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
   const {height: windowHeight} = useWindowDimensions();
   const searchable = buyers.length > SEARCH_THRESHOLD;
+  const pinned = fullHeight || searchable;
   const [draft, setDraft] = useState([]);
   const [query, setQuery] = useState('');
 
@@ -108,7 +166,7 @@ const ReservedForFilterSheet = ({
           style={[
             styles.sheet,
             {paddingBottom: Math.max(insets.bottom, 16) + 8},
-            searchable && [
+            pinned && [
               styles.sheetPinned,
               {
                 top: Math.round(windowHeight * 0.15),
@@ -120,7 +178,16 @@ const ReservedForFilterSheet = ({
 
           <View style={styles.headerRow}>
             <View style={styles.headerText}>
-              <Text style={styles.title}>Reserved for</Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title}>Reserved for</Text>
+                {draft.length ? (
+                  <View style={styles.selectedBadge}>
+                    <Text style={styles.selectedBadgeText}>
+                      {draft.length} selected
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.subtitle} numberOfLines={1}>
                 Buyers with a reserved listing in {scopeLabel}
               </Text>
@@ -135,8 +202,10 @@ const ReservedForFilterSheet = ({
             ) : null}
           </View>
 
-          {buyers.length === 0 ? (
-            <View style={styles.empty}>
+          {loading ? (
+            <LoadingSkeleton fill={pinned} />
+          ) : buyers.length === 0 ? (
+            <View style={[styles.empty, pinned && styles.emptyFill]}>
               <View style={styles.emptyIcon}>
                 <Text style={styles.emptyIconText}>@</Text>
               </View>
@@ -161,7 +230,7 @@ const ReservedForFilterSheet = ({
                 />
               ) : null}
 
-              <View style={[styles.listCard, searchable && styles.flex]}>
+              <View style={[styles.listCard, pinned && styles.flex]}>
                 {visibleBuyers.length > 0 ? (
                   <TouchableOpacity
                     style={[styles.row, styles.allRow]}
@@ -182,12 +251,20 @@ const ReservedForFilterSheet = ({
                         ? 'Select all results'
                         : 'Select all buyers'}
                     </Text>
-                    <Text style={styles.allCount}>{visibleBuyers.length}</Text>
+                    <Text
+                      style={[
+                        styles.allCount,
+                        visibleSelected > 0 && styles.allCountOn,
+                      ]}>
+                      {visibleSelected > 0
+                        ? `${visibleSelected} of ${visibleBuyers.length}`
+                        : visibleBuyers.length}
+                    </Text>
                   </TouchableOpacity>
                 ) : null}
 
                 <ScrollView
-                  style={searchable ? styles.flex : styles.list}
+                  style={pinned ? styles.flex : styles.list}
                   bounces={false}
                   keyboardShouldPersistTaps="handled"
                   keyboardDismissMode="on-drag">
@@ -254,10 +331,13 @@ const ReservedForFilterSheet = ({
             <TouchableOpacity
               style={[
                 styles.applyBtn,
-                buyers.length === 0 && styles.applyDisabled,
+                (loading || (buyers.length === 0 && selected.length === 0)) &&
+                  styles.applyDisabled,
               ]}
               onPress={apply}
-              disabled={buyers.length === 0}
+              disabled={
+                loading || (buyers.length === 0 && selected.length === 0)
+              }
               accessibilityRole="button">
               <Text style={styles.applyText}>{applyLabel}</Text>
             </TouchableOpacity>
@@ -304,6 +384,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   headerText: {flex: 1},
+  titleRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  selectedBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: '#539461',
+  },
+  selectedBadgeText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  allCountOn: {color: '#23794A', fontWeight: '700'},
   title: {
     fontFamily: 'Inter',
     fontSize: 19,
@@ -438,6 +532,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4E7E9',
   },
+  emptyFill: {flex: 1, justifyContent: 'center'},
+  skeletonWrap: {overflow: 'hidden'},
+  bone: {backgroundColor: '#E4E7E9'},
+  skeletonSearch: {height: 46, borderRadius: 12, marginBottom: 12},
+  skeletonCheck: {width: 22, height: 22, borderRadius: 6},
+  skeletonAll: {height: 14, width: '45%', borderRadius: 7},
+  skeletonAvatar: {width: 34, height: 34, borderRadius: 17},
+  skeletonName: {height: 14, borderRadius: 7, marginRight: 'auto'},
+  skeletonPill: {width: 64, height: 24, borderRadius: 12},
   emptyIcon: {
     width: 48,
     height: 48,
