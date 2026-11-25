@@ -156,11 +156,6 @@ const ListingTable = ({
               <Text style={[globalStyles.textSMGreyLight, {paddingBottom: 5}]}>
                 {listing.variegation}
               </Text>
-              {!!String(listing.reservedForUsername || '').trim() && (
-                <Text style={{fontSize: 11, color: '#8A6A3D', fontWeight: '600', paddingBottom: 5}}>
-                  Reserved for {listing.reservedForUsername}
-                </Text>
-              )}
               {activeTab === 'Live' && listing?.isActiveLiveListing ? (
                 <StatusBadge statusCode={'Active'} />
               ) : (

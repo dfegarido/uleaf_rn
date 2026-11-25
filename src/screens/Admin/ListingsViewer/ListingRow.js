@@ -5,7 +5,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Modal, Pressable } fro
 import { ActivityIndicator } from 'react-native';
 import { IMAGE_CELL_WIDTH, IMAGE_CONTENT_GAP, COLUMN_INNER_PADDING } from './constants';
 import CountryFlagIcon from '../../../components/CountryFlagIcon';
-import ReservedForBadge, { reservedForName } from '../../../components/ReservedForBadge';
+import ReservedForBadge from '../../../components/ReservedForBadge';
 import EyeClosedIcon from '../../../assets/icons/greydark/eye-closed-regular.svg';
 import EyeIcon from '../../../assets/icons/greydark/eye-regular.svg';
 import TrashIcon from '../../../assets/icons/red/trash.svg';
@@ -240,11 +240,6 @@ const renderCell = (key, listing, activeStatusFilter = null) => {
         <View>
           <Text style={styles.plantName}>{listing.plantName}</Text>
           {listing.variegation ? <Text style={styles.plantVariegation}>{listing.variegation}</Text> : null}
-          {reservedForName(listing) ? (
-            <Text style={styles.reservedText} numberOfLines={1}>
-              Reserved for {reservedForName(listing)}
-            </Text>
-          ) : null}
         </View>
       );
     case 'listingType':
@@ -550,7 +545,6 @@ const styles = StyleSheet.create({
   statusText: { color: '#FFF', fontWeight: '600', textTransform: 'capitalize' },
   dateListedText: { color: '#647276', fontSize: 12, marginTop: 6 },
   plantName: { color: '#202325', fontWeight: '600' },
-  reservedText: { fontWeight: '600', fontSize: 12, color: '#8A6A3D', marginTop: 2 },
   plantVariegation: { color: '#647276' },
   listingTypeText: { fontWeight: '600', color: '#FFFFFF', backgroundColor: '#202325', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
   infoText: { color: '#647276',  },
